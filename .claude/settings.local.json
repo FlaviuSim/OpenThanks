@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__05789eb5-6c4a-48ae-b13d-a8527ab3b0a3__execute_sql",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" -L \"https://openthanks.com/flaviu-simihaian/from/isaac-jennings\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" -L \"https://openthanks.com/flaviu-simihaian\")",
+      "Bash(curl -s -L \"https://www.openthanks.com/flaviu-simihaian\")",
+      "Bash(curl -s -L \"https://www.openthanks.com/\")",
+      "Bash(curl -s \"https://www.openthanks.com/sitemap.xml\")",
+      "Bash(grep -oE '\\(shareUrl|navigator.share|openthanks.com/[^\"]*|\\\\\\\\\"/[a-z]+/\\\\\\\\\"|\"/a/|\"/g/|slug\\)[^,;]{0,50}' bundles.js)",
+      "Bash(swift make_icon.swift /Users/simihaian/Downloads/OpenThanks/OpenThanks/Assets.xcassets/AppIcon.appiconset)",
+      "Bash(xcodebuild -project OpenThanks.xcodeproj -scheme OpenThanks -destination 'generic/platform=iOS Simulator' -configuration Debug CODE_SIGNING_ALLOWED=NO build)",
+      "Bash(xcrun simctl *)",
+      "Bash(plutil -convert json -o - -- -)",
+      "Bash(python3 -c ' *)",
+      "Bash(xcodebuild -project OpenThanks.xcodeproj -scheme OpenThanks -destination 'generic/platform=iOS Simulator' -configuration Debug CODE_SIGNING_ALLOWED=NO PRODUCT_BUNDLE_IDENTIFIER=com.fj.openthanks.app build)"
+    ]
+  }
+}
