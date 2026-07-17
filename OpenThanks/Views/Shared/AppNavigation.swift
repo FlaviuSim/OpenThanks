@@ -59,7 +59,9 @@ struct GratitudeLoaderView: View {
         }
         .task {
             do { gratitude = try await GratitudeService.gratitude(id: gratitudeId) }
-            catch { failed = true }
+            catch {
+                if !error.isCancellation { failed = true }
+            }
         }
     }
 }

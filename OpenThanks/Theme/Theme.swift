@@ -1,14 +1,41 @@
 import SwiftUI
+import UIKit
+
+enum AppAppearance: String {
+    case dark, light
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .dark: .dark
+        case .light: .light
+        }
+    }
+}
 
 enum Theme {
-    // MARK: Palette (sampled from the design)
-    static let background = Color(hex: 0x0A0A0B)
-    static let surface = Color(hex: 0x161618)
-    static let surfaceRaised = Color(hex: 0x1E1E21)
-    static let hairline = Color.white.opacity(0.08)
-    static let textPrimary = Color(hex: 0xF5F3F0)
-    static let textSecondary = Color(hex: 0x9B9B9F)
-    static let textTertiary = Color(hex: 0x6C6C70)
+    private static let appearanceKey = "appAppearance"
+
+    private static var resolvedColorScheme: ColorScheme {
+        let raw = UserDefaults.standard.string(forKey: appearanceKey) ?? AppAppearance.dark.rawValue
+        return AppAppearance(rawValue: raw)?.colorScheme ?? .dark
+    }
+
+    private static func adaptive(light: UInt32, dark: UInt32) -> Color {
+        Color(hex: resolvedColorScheme == .dark ? dark : light)
+    }
+
+    private static func adaptive(light: UInt32, dark: UInt32, opacity: Double) -> Color {
+        adaptive(light: light, dark: dark).opacity(opacity)
+    }
+
+    // MARK: Palette — adaptive light/dark (dark is the default design)
+    static var background: Color { adaptive(light: 0xF7F5F2, dark: 0x0A0A0B) }
+    static var surface: Color { adaptive(light: 0xFFFFFF, dark: 0x161618) }
+    static var surfaceRaised: Color { adaptive(light: 0xF0EDE8, dark: 0x1E1E21) }
+    static var hairline: Color { adaptive(light: 0x000000, dark: 0xFFFFFF, opacity: 0.08) }
+    static var textPrimary: Color { adaptive(light: 0x1A1A1B, dark: 0xF5F3F0) }
+    static var textSecondary: Color { adaptive(light: 0x5C5C62, dark: 0x9B9B9F) }
+    static var textTertiary: Color { adaptive(light: 0x8E8E93, dark: 0x6C6C70) }
     static let coral = Color(hex: 0xE07A5F)          // brand terracotta
     static let coralLight = Color(hex: 0xF4977F)
     static let coralPale = Color(hex: 0xF9C3A9)
@@ -47,6 +74,30 @@ extension Color {
                   red: Double((hex >> 16) & 0xFF) / 255,
                   green: Double((hex >> 8) & 0xFF) / 255,
                   blue: Double(hex & 0xFF) / 255)
+    }
+
+}
+
+// MARK: Appearance propagation
+
+private struct SyncAppAppearanceModifier: ViewModifier {
+    @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+
+    private var colorScheme: ColorScheme {
+        AppAppearance(rawValue: appearance)?.colorScheme ?? .dark
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .preferredColorScheme(colorScheme)
+            .animation(.easeInOut(duration: 0.2), value: appearance)
+    }
+}
+
+extension View {
+    /// Applies the user's light/dark preference and re-renders when it changes.
+    func syncAppAppearance() -> some View {
+        modifier(SyncAppAppearanceModifier())
     }
 }
 

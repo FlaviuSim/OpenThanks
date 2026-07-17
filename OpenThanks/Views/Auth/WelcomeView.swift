@@ -1,5 +1,4 @@
 import SwiftUI
-import AuthenticationServices
 
 struct WelcomeView: View {
     @Environment(AuthService.self) private var auth
@@ -29,19 +28,6 @@ struct WelcomeView: View {
                 .padding(.bottom, 36)
 
             VStack(spacing: 12) {
-                // Apple first: required by App Review when other social logins exist.
-                SignInWithAppleButton(.continue) { request in
-                    request.requestedScopes = [.fullName, .email]
-                } onCompletion: { result in
-                    Task { await auth.signInWithApple(result) }
-                }
-                .signInWithAppleButtonStyle(.white)
-                .frame(height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-                authButton(icon: "g.circle.fill", label: "Continue with Google") {
-                    Task { await auth.signInWithGoogle() }
-                }
                 authButton(icon: "envelope.fill", label: "Continue with Email") {
                     showEmailSheet = true
                 }
@@ -97,6 +83,7 @@ struct WelcomeView: View {
 /// Two-step one-time-code sheet used for both email and phone sign-in.
 struct OTPSheet: View {
     enum Mode { case email, phone }
+    enum Field { case destination, code }
     let mode: Mode
 
     @Environment(AuthService.self) private var auth
@@ -105,6 +92,7 @@ struct OTPSheet: View {
     @State private var code = ""
     @State private var codeSent = false
     @State private var busy = false
+    @FocusState private var focused: Field?
 
     var body: some View {
         NavigationStack {
@@ -118,16 +106,20 @@ struct OTPSheet: View {
                     TextField(mode == .email ? "you@example.com" : "+1 555 123 4567",
                               text: $destination)
                         .keyboardType(mode == .email ? .emailAddress : .phonePad)
+                        .textContentType(mode == .email ? .emailAddress : .telephoneNumber)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .focused($focused, equals: .destination)
                         .padding(16)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
                         .foregroundStyle(Theme.textPrimary)
                 } else {
                     TextField("123456", text: $code)
                         .keyboardType(.numberPad)
+                        .textContentType(.oneTimeCode)
                         .font(Theme.display(28, weight: .semibold))
                         .multilineTextAlignment(.center)
+                        .focused($focused, equals: .code)
                         .padding(16)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
                         .foregroundStyle(Theme.textPrimary)
@@ -138,23 +130,7 @@ struct OTPSheet: View {
                 }
 
                 Button(codeSent ? "Verify" : "Send code") {
-                    Task {
-                        busy = true
-                        defer { busy = false }
-                        if codeSent {
-                            if mode == .email {
-                                await auth.verifyEmailCode(email: destination, code: code)
-                            } else {
-                                await auth.verifyPhoneCode(phone: normalizedPhone, code: code)
-                            }
-                            if case .signedIn = auth.state { dismiss() }
-                        } else {
-                            let ok = mode == .email
-                                ? await auth.sendEmailCode(to: destination)
-                                : await auth.sendPhoneCode(to: normalizedPhone)
-                            if ok { codeSent = true }
-                        }
-                    }
+                    Task { await submit() }
                 }
                 .buttonStyle(CTAButtonStyle())
                 .disabled(busy || (codeSent ? code.count < 6 : destination.isEmpty))
@@ -168,8 +144,40 @@ struct OTPSheet: View {
                     Button("Cancel") { dismiss() }.foregroundStyle(Theme.textSecondary)
                 }
             }
+            .onAppear { focused = .destination }
+            .onChange(of: codeSent) { _, sent in
+                if sent { focused = .code }
+            }
+            .onChange(of: code) { _, newValue in
+                let digits = String(newValue.filter(\.isNumber).prefix(6))
+                if digits != newValue { code = digits }
+                guard codeSent, digits.count == 6, !busy else { return }
+                Task { await submit() }
+            }
         }
         .presentationDetents([.medium])
+    }
+
+    private func submit() async {
+        guard !busy else { return }
+        busy = true
+        defer { busy = false }
+        if codeSent {
+            if mode == .email {
+                await auth.verifyEmailCode(email: destination, code: code)
+            } else {
+                await auth.verifyPhoneCode(phone: normalizedPhone, code: code)
+            }
+            if case .signedIn = auth.state { dismiss() }
+        } else {
+            let ok = mode == .email
+                ? await auth.sendEmailCode(to: destination)
+                : await auth.sendPhoneCode(to: normalizedPhone)
+            if ok {
+                codeSent = true
+                focused = .code
+            }
+        }
     }
 
     private var normalizedPhone: String {

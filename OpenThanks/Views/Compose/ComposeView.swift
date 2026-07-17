@@ -13,13 +13,18 @@ struct ComposeView: View {
     @State private var sending = false
     @State private var error: String?
     @State private var sent = false
+    @State private var created: Gratitude?
 
     private let maxLength = 1500
 
     var body: some View {
         NavigationStack {
-            if sent {
-                SuccessView(onShareAnother: reset, onDone: { dismiss() })
+            if sent, let created {
+                SuccessView(
+                    shareURL: created.claimURL ?? created.webURL,
+                    onShareAnother: reset,
+                    onDone: { dismiss() }
+                )
             } else {
                 form
             }
@@ -203,7 +208,7 @@ struct ComposeView: View {
                 mediaType: mediaType,
                 source: "ios"
             )
-            _ = try await GratitudeService.create(new)
+            created = try await GratitudeService.create(new)
             sent = true
         } catch {
             self.error = error.localizedDescription
@@ -226,14 +231,16 @@ struct ComposeView: View {
 
     private func reset() {
         recipient = ""; message = ""; photoData = nil; photoItem = nil
-        visibility = .public; sent = false
+        visibility = .public; sent = false; created = nil
     }
 }
 
 struct SuccessView: View {
+    let shareURL: URL
     var onShareAnother: () -> Void
     var onDone: () -> Void
     @State private var burst = false
+    @State private var copied = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -253,12 +260,24 @@ struct SuccessView: View {
                     .padding(.horizontal, 32)
             }
             Spacer()
-            Button("View in Feed", action: onDone)
-                .buttonStyle(CTAButtonStyle())
-                .padding(.horizontal, 24)
+            Button {
+                UIPasteboard.general.url = shareURL
+                withAnimation { copied = true }
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    withAnimation { copied = false }
+                }
+            } label: {
+                Text(copied ? "Link Copied!" : "Copy Link to Share")
+            }
+            .buttonStyle(CTAButtonStyle())
+            .padding(.horizontal, 24)
             Button("Share Another", action: onShareAnother)
                 .font(Theme.body(16, weight: .semibold))
                 .foregroundStyle(Theme.coral)
+            Button("Done", action: onDone)
+                .font(Theme.body(15, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.bottom, 24)
         }
         .frame(maxWidth: .infinity)

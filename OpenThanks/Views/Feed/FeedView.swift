@@ -23,7 +23,11 @@ struct FeedView: View {
             .refreshable { await load() }
             .toolbar(.hidden, for: .navigationBar)
             .appDestinations()
-            .fullScreenCover(isPresented: $showCompose) { ComposeView() }
+            .fullScreenCover(isPresented: $showCompose) {
+                ComposeView()
+                    .syncAppAppearance()
+            }
+            .syncAppAppearance()
         }
     }
 
@@ -113,11 +117,14 @@ struct FeedView: View {
             let result = scope == .personal
                 ? try await GratitudeService.personalFeed(userId: userId)
                 : try await GratitudeService.worldFeed()
+            let hearts = try await GratitudeService.myHearts(userId: userId,
+                                                            among: result.map(\.id))
             items = result
-            heartedIds = try await GratitudeService.myHearts(userId: userId,
-                                                             among: result.map(\.id))
+            heartedIds = hearts
         } catch {
-            self.error = error.localizedDescription
+            if !error.isCancellation {
+                self.error = error.localizedDescription
+            }
         }
         loading = false
     }

@@ -10,9 +10,8 @@ enum AppConfig {
     /// on every public table, verified at generation time).
     static let supabaseKey = "sb_publishable_6E3JYy1bWx45o9o9NmDjbg_77tAjxN1"
 
-    /// Storage bucket for photo/video attachments.
-    /// ⚠️ UNVERIFIED: confirm the bucket name your web app writes to
-    /// (Supabase Studio → Storage). Change this constant if it differs.
+    /// Storage buckets for profile photos and post attachments.
+    static let avatarBucket = "avatars"
     static let mediaBucket = "gratitude-media"
 
     /// Web app origin used for route-relative media URLs created by openthanks.com.
@@ -30,16 +29,16 @@ enum AppConfig {
     /// or leave nil to hide the buttons.
     static let polishEndpoint: URL? = nil
 
-    static func publicStorageURL(for storedPath: String) -> URL? {
+    static func publicStorageURL(for storedPath: String, bucket: String = mediaBucket) -> URL? {
         let trimmed = storedPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        let path = trimmed.hasPrefix("\(mediaBucket)/")
-            ? String(trimmed.dropFirst(mediaBucket.count + 1))
+        let path = trimmed.hasPrefix("\(bucket)/")
+            ? String(trimmed.dropFirst(bucket.count + 1))
             : trimmed
 
         var components = URLComponents(url: supabaseURL, resolvingAgainstBaseURL: false)
-        components?.path = "/storage/v1/object/public/\(mediaBucket)/\(path)"
+        components?.path = "/storage/v1/object/public/\(bucket)/\(path)"
         return components?.url
     }
 
@@ -52,14 +51,17 @@ enum AppConfig {
             return url
         }
 
-        if let url = URL(string: trimmed, relativeTo: webAppURL),
-           url.scheme == "http" || url.scheme == "https",
-           trimmed.hasPrefix("/") {
-            return url.absoluteURL
+        // Web app stores private Vercel Blob paths as /api/file?pathname=...
+        if trimmed.hasPrefix("/") {
+            return URL(string: trimmed, relativeTo: webAppURL)?.absoluteURL
+        }
+
+        if trimmed.hasPrefix("\(avatarBucket)/") {
+            return publicStorageURL(for: trimmed, bucket: avatarBucket)
         }
 
         if trimmed.hasPrefix("\(mediaBucket)/") {
-            return publicStorageURL(for: trimmed)
+            return publicStorageURL(for: trimmed, bucket: mediaBucket)
         }
 
         return nil

@@ -22,7 +22,11 @@ struct MainTabView: View {
             tabBar
         }
         .background(Theme.background)
-        .fullScreenCover(isPresented: $showCompose) { ComposeView() }
+        .syncAppAppearance()
+        .fullScreenCover(isPresented: $showCompose) {
+            ComposeView()
+                .syncAppAppearance()
+        }
         .task { await refreshUnread() }
     }
 

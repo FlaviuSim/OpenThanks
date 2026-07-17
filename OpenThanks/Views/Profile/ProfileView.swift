@@ -25,8 +25,12 @@ struct ProfileView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+                    .syncAppAppearance()
+            }
             .appDestinations()
+            .syncAppAppearance()
         }
     }
 }
@@ -203,10 +207,12 @@ struct UserProfileView: View {
     }
 
     private func count(for s: Section) -> Int {
+        // Prefer the filtered lists so the number matches what's shown
+        // (accepted + visibility). Fall back to stats while loading.
         switch s {
-        case .sent: return stats.sent
-        case .received: return stats.received
-        case .inspired: return stats.inspired
+        case .sent: return loaded ? sent.count : stats.sent
+        case .received: return loaded ? received.count : stats.received
+        case .inspired: return loaded ? inspirations.count : stats.inspired
         }
     }
 
@@ -348,16 +354,22 @@ struct UserProfileView: View {
 
     private func load() async {
         let viewerId = auth.userId
-        async let p = try? GratitudeService.profile(id: profile.id)
-        async let s = try? GratitudeService.stats(userId: profile.id)
-        async let sentList = try? GratitudeService.sentBy(userId: profile.id, viewerId: viewerId)
-        async let receivedList = try? GratitudeService.receivedBy(userId: profile.id, viewerId: viewerId)
-        async let inspiredList = try? GratitudeService.inspirations(userId: profile.id, viewerId: viewerId)
-        freshProfile = await p
-        stats = await s ?? ProfileStats()
-        sent = await sentList ?? []
-        received = await receivedList ?? []
-        inspirations = await inspiredList ?? []
+        do {
+            async let p = GratitudeService.profile(id: profile.id)
+            async let s = GratitudeService.stats(userId: profile.id)
+            async let sentList = GratitudeService.sentBy(userId: profile.id, viewerId: viewerId)
+            async let receivedList = GratitudeService.receivedBy(userId: profile.id, viewerId: viewerId)
+            async let inspiredList = GratitudeService.inspirations(userId: profile.id, viewerId: viewerId)
+            let (profileResult, statsResult, sentResult, receivedResult, inspiredResult) =
+                try await (p, s, sentList, receivedList, inspiredList)
+            freshProfile = profileResult
+            stats = statsResult
+            sent = sentResult
+            received = receivedResult
+            inspirations = inspiredResult
+        } catch {
+            if error.isCancellation { /* keep existing content */ }
+        }
         loaded = true
     }
 }

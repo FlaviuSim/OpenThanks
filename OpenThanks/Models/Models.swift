@@ -32,6 +32,11 @@ struct Profile: Codable, Identifiable, Hashable {
     var displayName: String { fullName ?? "@\(username)" }
     var avatarURL: URL? { AppConfig.mediaURL(from: avatarUrl) }
     var webProfileURL: URL { AppConfig.webAppURL.appending(path: username) }
+    var isCompleteForApp: Bool {
+        let name = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let handle = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !name.isEmpty && !handle.isEmpty && avatarURL != nil
+    }
 }
 
 enum GratitudeStatus: String, Codable { case pending, accepted, rejected }
@@ -165,7 +170,7 @@ struct AppNotification: Codable, Identifiable, Hashable {
 struct ProfileStats {
     var sent = 0
     var received = 0
-    var inspired = 0   // distinct people who hearted posts you sent or received (excl. self)
+    var inspired = 0   // distinct people who hearted accepted posts you sent or received (excl. self)
 }
 
 /// A heart someone left on a post you sent or received — powers the
@@ -203,5 +208,12 @@ struct NonprofitOrg: Decodable, Identifiable, Hashable {
     var location: String? {
         let parts = [city, state].compactMap { $0 }.filter { !$0.isEmpty }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+}
+
+extension Error {
+    /// SwiftUI `.refreshable` / `.task` cancellation — not a real failure.
+    var isCancellation: Bool {
+        self is CancellationError || (self as? URLError)?.code == .cancelled
     }
 }

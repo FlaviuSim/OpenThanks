@@ -5,13 +5,12 @@ import UIKit
 struct OpenThanksApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var auth = AuthService()
-
     var body: some Scene {
         WindowGroup {
             RootView()
                 .onAppear { appDelegate.auth = auth }
                 .environment(auth)
-                .preferredColorScheme(.dark)
+                .syncAppAppearance()
                 .tint(Theme.coral)
                 .onOpenURL { auth.handleDeepLink($0) }
         }
@@ -54,7 +53,11 @@ struct RootView: View {
                     OnboardingView { hasSeenOnboarding = true }
                 }
             case .signedIn:
-                MainTabView()
+                if auth.currentProfile?.isCompleteForApp == true {
+                    MainTabView()
+                } else {
+                    EditProfileSheet(required: true)
+                }
             }
         }
         .animation(.easeInOut(duration: 0.25), value: isSignedIn)

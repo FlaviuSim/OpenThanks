@@ -101,6 +101,7 @@ enum GratitudeService {
             """)
             .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)",
                 referencedTable: "gratitudes")
+            .eq("gratitude.status", value: "accepted")
             .neq("user_id", value: userId)
             .order("created_at", ascending: false)
             .limit(limit)
@@ -129,14 +130,28 @@ enum GratitudeService {
             .execute().value
     }
 
-    /// Uploads a photo to Storage and returns its public URL.
+    /// Uploads a profile photo and returns its public URL.
+    static func uploadAvatar(data: Data, contentType: String, userId: UUID) async throws -> URL {
+        try await uploadToBucket(AppConfig.avatarBucket, data: data, contentType: contentType, userId: userId)
+    }
+
+    /// Uploads a post photo/video and returns its public URL.
     static func uploadMedia(data: Data, contentType: String, userId: UUID) async throws -> URL {
+        try await uploadToBucket(AppConfig.mediaBucket, data: data, contentType: contentType, userId: userId)
+    }
+
+    private static func uploadToBucket(
+        _ bucket: String,
+        data: Data,
+        contentType: String,
+        userId: UUID
+    ) async throws -> URL {
         let ext = contentType.contains("png") ? "png" : "jpg"
-        let path = "\(userId.uuidString)/\(UUID().uuidString).\(ext)"
+        let path = "\(userId.uuidString.lowercased())/\(UUID().uuidString.lowercased()).\(ext)"
         try await supabase.storage
-            .from(AppConfig.mediaBucket)
-            .upload(path, data: data, options: .init(contentType: contentType))
-        return try supabase.storage.from(AppConfig.mediaBucket).getPublicURL(path: path)
+            .from(bucket)
+            .upload(path, data: data, options: .init(contentType: contentType, upsert: true))
+        return try supabase.storage.from(bucket).getPublicURL(path: path)
     }
 
     // MARK: Hearts
@@ -193,18 +208,21 @@ enum GratitudeService {
         async let sent = supabase.from("gratitudes")
             .select("id", head: true, count: .exact)
             .eq("author_id", value: userId)
+            .eq("status", value: "accepted")
             .execute().count
         async let received = supabase.from("gratitudes")
             .select("id", head: true, count: .exact)
             .eq("recipient_id", value: userId)
+            .eq("status", value: "accepted")
             .execute().count
-        // Distinct people who hearted a post this user sent or received,
+        // Distinct people who hearted an accepted post this user sent or received,
         // excluding the user hearting their own posts.
         struct HeartRow: Decodable { let user_id: UUID }
         async let inspiredRows: [HeartRow] = supabase.from("hearts")
-            .select("user_id, gratitudes!inner(author_id, recipient_id)")
+            .select("user_id, gratitudes!inner(author_id, recipient_id, status)")
             .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)",
                 referencedTable: "gratitudes")
+            .eq("gratitudes.status", value: "accepted")
             .neq("user_id", value: userId)
             .execute().value
 
@@ -224,20 +242,24 @@ enum GratitudeService {
             .execute().value
     }
 
-    /// Full profile update. All keys are always sent (nil → SQL NULL) so a
-    /// cleared field or removed nonprofit actually clears in the database.
+    /// Profile update. Pass `clearOptionalFields: true` from Edit Profile so
+    /// clearing headline/nonprofit writes SQL NULL. Required onboarding only
+    /// patches name, username, and avatar.
     struct ProfileUpdate: Encodable {
         var fullName: String?
         var username: String
+        var avatarUrl: String?
         var headline: String?
         var favoriteNonprofitEin: String?
         var favoriteNonprofitName: String?
         var favoriteNonprofitWebsite: String?
         var favoriteNonprofitHeadline: String?
+        var clearOptionalFields = false
 
         enum CodingKeys: String, CodingKey {
             case fullName = "full_name"
             case username
+            case avatarUrl = "avatar_url"
             case headline
             case favoriteNonprofitEin = "favorite_nonprofit_ein"
             case favoriteNonprofitName = "favorite_nonprofit_name"
@@ -249,11 +271,20 @@ enum GratitudeService {
             var c = encoder.container(keyedBy: CodingKeys.self)
             try c.encode(fullName, forKey: .fullName)
             try c.encode(username, forKey: .username)
-            try c.encode(headline, forKey: .headline)
-            try c.encode(favoriteNonprofitEin, forKey: .favoriteNonprofitEin)
-            try c.encode(favoriteNonprofitName, forKey: .favoriteNonprofitName)
-            try c.encode(favoriteNonprofitWebsite, forKey: .favoriteNonprofitWebsite)
-            try c.encode(favoriteNonprofitHeadline, forKey: .favoriteNonprofitHeadline)
+            try c.encodeIfPresent(avatarUrl, forKey: .avatarUrl)
+            if clearOptionalFields {
+                try c.encode(headline, forKey: .headline)
+                try c.encode(favoriteNonprofitEin, forKey: .favoriteNonprofitEin)
+                try c.encode(favoriteNonprofitName, forKey: .favoriteNonprofitName)
+                try c.encode(favoriteNonprofitWebsite, forKey: .favoriteNonprofitWebsite)
+                try c.encode(favoriteNonprofitHeadline, forKey: .favoriteNonprofitHeadline)
+            } else {
+                try c.encodeIfPresent(headline, forKey: .headline)
+                try c.encodeIfPresent(favoriteNonprofitEin, forKey: .favoriteNonprofitEin)
+                try c.encodeIfPresent(favoriteNonprofitName, forKey: .favoriteNonprofitName)
+                try c.encodeIfPresent(favoriteNonprofitWebsite, forKey: .favoriteNonprofitWebsite)
+                try c.encodeIfPresent(favoriteNonprofitHeadline, forKey: .favoriteNonprofitHeadline)
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct SettingsView: View {
     @Environment(AuthService.self) private var auth
@@ -7,6 +8,14 @@ struct SettingsView: View {
     @State private var showEditProfile = false
     @State private var notificationError: String?
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = false
+    @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+
+    private var lightModeEnabled: Binding<Bool> {
+        Binding(
+            get: { appearance == AppAppearance.light.rawValue },
+            set: { appearance = $0 ? AppAppearance.light.rawValue : AppAppearance.dark.rawValue }
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -73,6 +82,16 @@ struct SettingsView: View {
                 .listRowBackground(Theme.surface)
 
                 Section("App") {
+                    Toggle(isOn: lightModeEnabled) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Light Mode")
+                            Text("Use a brighter appearance across the app.")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .tint(Theme.coral)
+
                     HStack {
                         Text("About OpenThanks")
                         Spacer()
@@ -80,7 +99,8 @@ struct SettingsView: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
                     Button(role: .destructive) {
-                        Task { await auth.signOut(); dismiss() }
+                        dismiss()
+                        Task { await auth.signOut() }
                     } label: {
                         Text("Log Out").foregroundStyle(.red)
                     }
@@ -97,7 +117,11 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }.foregroundStyle(Theme.coral)
                 }
             }
-            .sheet(isPresented: $showEditProfile) { EditProfileSheet() }
+            .sheet(isPresented: $showEditProfile) {
+                EditProfileSheet()
+                    .syncAppAppearance()
+            }
+            .syncAppAppearance()
             .onChange(of: fridayReminderEnabled) { _, enabled in
                 notificationError = nil
                 Task {
@@ -127,9 +151,12 @@ struct SettingsView: View {
 struct EditProfileSheet: View {
     @Environment(AuthService.self) private var auth
     @Environment(\.dismiss) private var dismiss
+    var required = false
     @State private var fullName = ""
     @State private var username = ""
     @State private var headline = ""
+    @State private var photoItem: PhotosPickerItem?
+    @State private var photoData: Data?
     @State private var nonprofitEin: String?
     @State private var nonprofitName: String?
     @State private var nonprofitWebsite: String?
@@ -144,10 +171,19 @@ struct EditProfileSheet: View {
         username.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
     }
 
+    private var cleanFullName: String {
+        fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasAvatar: Bool {
+        photoData != nil || auth.currentProfile?.avatarURL != nil
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
+                    profilePhotoRow
                     TextField("Full name", text: $fullName)
                     HStack(spacing: 2) {
                         Text("@").foregroundStyle(Theme.textSecondary)
@@ -155,11 +191,15 @@ struct EditProfileSheet: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                     }
-                    TextField("Headline", text: $headline)
+                    if !required {
+                        TextField("Headline", text: $headline)
+                    }
                 }
                 .listRowBackground(Theme.surface)
 
-                nonprofitSection
+                if !required {
+                    nonprofitSection
+                }
 
                 if let errorMessage {
                     Section {
@@ -169,18 +209,29 @@ struct EditProfileSheet: View {
                     }
                     .listRowBackground(Theme.surface)
                 }
+
+                if required {
+                    Section {
+                        Text("Add your name, username, and a profile photo before entering OpenThanks.")
+                            .font(Theme.body(13))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .listRowBackground(Theme.surface)
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
-            .navigationTitle("Edit Profile")
+            .navigationTitle(required ? "Complete Profile" : "Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }.foregroundStyle(Theme.textSecondary)
+                    if !required {
+                        Button("Cancel") { dismiss() }.foregroundStyle(Theme.textSecondary)
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }
-                        .disabled(saving || cleanUsername.isEmpty)
+                    Button(required ? "Continue" : "Save") { Task { await save() } }
+                        .disabled(saving || cleanUsername.isEmpty || cleanFullName.isEmpty || !hasAvatar)
                         .foregroundStyle(Theme.coral)
                 }
             }
@@ -194,6 +245,53 @@ struct EditProfileSheet: View {
                 nonprofitWebsite = p?.favoriteNonprofitWebsite
                 nonprofitWhy = p?.favoriteNonprofitHeadline ?? ""
             }
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    photoData = try? await item.loadTransferable(type: Data.self)
+                }
+            }
+        }
+    }
+
+    private var profilePhotoRow: some View {
+        VStack(spacing: 12) {
+            Group {
+                if let photoData, let image = UIImage(data: photoData) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else if let avatarURL = auth.currentProfile?.avatarURL {
+                    AsyncImage(url: avatarURL) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        avatarPlaceholder
+                    }
+                } else {
+                    avatarPlaceholder
+                }
+            }
+            .frame(width: 92, height: 92)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
+            .frame(maxWidth: .infinity)
+
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                Text(hasAvatar ? "Change Profile Photo" : "Add Profile Photo")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var avatarPlaceholder: some View {
+        ZStack {
+            Circle().fill(Theme.surfaceRaised)
+            Image(systemName: "person.fill")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(Theme.textTertiary)
         }
     }
 
@@ -280,19 +378,42 @@ struct EditProfileSheet: View {
         saving = true
         errorMessage = nil
         do {
-            let updated = try await GratitudeService.updateProfile(
-                userId: userId,
-                update: .init(
-                    fullName: fullName.isEmpty ? nil : fullName,
+            var avatarURLString = auth.currentProfile?.avatarUrl
+            if let photoData {
+                guard let image = UIImage(data: photoData),
+                      let jpegData = image.jpegData(compressionQuality: 0.85) else {
+                    throw URLError(.cannotDecodeContentData)
+                }
+                avatarURLString = try await GratitudeService.uploadAvatar(
+                    data: jpegData,
+                    contentType: "image/jpeg",
+                    userId: userId
+                ).absoluteString
+            }
+            let update: GratitudeService.ProfileUpdate
+            if required {
+                update = .init(
+                    fullName: cleanFullName,
                     username: cleanUsername,
+                    avatarUrl: avatarURLString
+                )
+            } else {
+                update = .init(
+                    fullName: cleanFullName,
+                    username: cleanUsername,
+                    avatarUrl: avatarURLString,
                     headline: headline.isEmpty ? nil : headline,
                     favoriteNonprofitEin: nonprofitEin,
                     favoriteNonprofitName: nonprofitName,
                     favoriteNonprofitWebsite: nonprofitWebsite,
                     favoriteNonprofitHeadline: nonprofitName == nil || nonprofitWhy.isEmpty
-                        ? nil : nonprofitWhy))
+                        ? nil : nonprofitWhy,
+                    clearOptionalFields: true
+                )
+            }
+            let updated = try await GratitudeService.updateProfile(userId: userId, update: update)
             auth.currentProfile = updated
-            dismiss()
+            if !required { dismiss() }
         } catch {
             errorMessage = error.localizedDescription.localizedCaseInsensitiveContains("duplicate")
                 || error.localizedDescription.localizedCaseInsensitiveContains("unique")

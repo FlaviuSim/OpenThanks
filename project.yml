@@ -27,14 +27,12 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.openthanks.app
             CFBundleURLSchemes: [openthanks]
-        UIUserInterfaceStyle: Dark
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryUsageDescription: Attach a photo to your appreciation.
     entitlements:
       path: OpenThanks/OpenThanks.entitlements
       properties:
         aps-environment: production
-        com.apple.developer.applesignin: [Default]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openthanks.app

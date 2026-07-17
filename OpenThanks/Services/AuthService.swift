@@ -1,6 +1,5 @@
 import Foundation
 import Supabase
-import AuthenticationServices
 import Observation
 
 let supabase = SupabaseClient(
@@ -69,6 +68,7 @@ final class AuthService {
             let existing: [Profile] = try await supabase
                 .from("profiles").select().eq("id", value: userId).execute().value
             if let profile = existing.first {
+                guard self.userId == userId else { return }
                 currentProfile = profile
                 return
             }
@@ -81,6 +81,7 @@ final class AuthService {
                          "phone": phone,
                          "username": username])
                 .select().single().execute().value
+            guard self.userId == userId else { return }
             currentProfile = inserted
         } catch {
             errorMessage = "Couldn't load your profile: \(error.localizedDescription)"
@@ -98,44 +99,6 @@ final class AuthService {
 
     // MARK: Sign-in methods
 
-    /// Native Sign in with Apple → Supabase ID-token exchange.
-    func signInWithApple(_ result: Result<ASAuthorization, Error>) async {
-        do {
-            guard case .success(let auth) = result,
-                  let credential = auth.credential as? ASAuthorizationAppleIDCredential,
-                  let tokenData = credential.identityToken,
-                  let token = String(data: tokenData, encoding: .utf8)
-            else { throw URLError(.userAuthenticationRequired) }
-
-            try await supabase.auth.signInWithIdToken(
-                credentials: .init(provider: .apple, idToken: token)
-            )
-            if let name = credential.fullName,
-               let userId = userId {
-                let formatted = PersonNameComponentsFormatter().string(from: name)
-                if !formatted.isEmpty {
-                    try? await supabase.from("profiles")
-                        .update(["full_name": formatted])
-                        .eq("id", value: userId).execute()
-                }
-            }
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    /// Google via Supabase-hosted OAuth (ASWebAuthenticationSession under the hood).
-    func signInWithGoogle() async {
-        do {
-            try await supabase.auth.signInWithOAuth(
-                provider: .google,
-                redirectTo: AppConfig.redirectURL
-            )
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
     func sendEmailCode(to email: String) async -> Bool {
         do {
             try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: true)
@@ -147,10 +110,16 @@ final class AuthService {
     }
 
     func verifyEmailCode(email: String, code: String) async {
+        // New users with "Confirm email" enabled get a signup OTP;
+        // returning users get a magic-link/email OTP. Try both.
         do {
             try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
         } catch {
-            errorMessage = error.localizedDescription
+            do {
+                try await supabase.auth.verifyOTP(email: email, token: code, type: .signup)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -177,6 +146,9 @@ final class AuthService {
     }
 
     func signOut() async {
-        try? await supabase.auth.signOut()
+        errorMessage = nil
+        currentProfile = nil
+        state = .signedOut
+        try? await supabase.auth.signOut(scope: .local)
     }
 }

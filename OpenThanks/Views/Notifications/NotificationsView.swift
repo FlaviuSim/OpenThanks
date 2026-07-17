@@ -99,9 +99,15 @@ struct NotificationsView: View {
     private func load() async {
         guard let userId = auth.userId else { return }
         loading = true
-        notes = (try? await GratitudeService.notifications(userId: userId)) ?? []
-        unreadCount = 0
-        try? await GratitudeService.markAllRead(userId: userId)
+        do {
+            let result = try await GratitudeService.notifications(userId: userId)
+            notes = result
+            unreadCount = 0
+            try await GratitudeService.markAllRead(userId: userId)
+        } catch {
+            // Keep existing notes on cancel or failure.
+            if error.isCancellation { /* ignore */ }
+        }
         loading = false
     }
 }
