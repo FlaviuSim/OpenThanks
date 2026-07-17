@@ -16,6 +16,9 @@ final class AuthService {
 
     var state: State = .loading
     var currentProfile: Profile?
+    /// False until the first profile fetch after sign-in finishes.
+    /// Prevents flashing the "complete profile" screen for returning users.
+    var hasResolvedProfile = false
     var errorMessage: String?
     var devicePushToken: String? {
         didSet {
@@ -33,7 +36,16 @@ final class AuthService {
                 switch event {
                 case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
                     if let session {
+                        let sameUserAlreadyLoaded =
+                            self.userId == session.user.id
+                            && self.currentProfile != nil
+                            && self.hasResolvedProfile
                         self.state = .signedIn(session.user.id)
+                        if !sameUserAlreadyLoaded {
+                            // Fresh sign-in (or cold start): hold UI until profile loads.
+                            self.currentProfile = nil
+                            self.hasResolvedProfile = false
+                        }
                         if let devicePushToken = self.devicePushToken {
                             await NotificationService.uploadDeviceToken(
                                 devicePushToken,
@@ -45,10 +57,13 @@ final class AuthService {
                                                        phone: session.user.phone)
                     } else {
                         self.state = .signedOut
+                        self.currentProfile = nil
+                        self.hasResolvedProfile = false
                     }
                 case .signedOut, .userDeleted:
                     self.state = .signedOut
                     self.currentProfile = nil
+                    self.hasResolvedProfile = false
                 default:
                     break
                 }
@@ -64,6 +79,11 @@ final class AuthService {
     // MARK: Profile bootstrap
 
     private func loadOrCreateProfile(userId: UUID, email: String?, phone: String?) async {
+        defer {
+            if self.userId == userId {
+                hasResolvedProfile = true
+            }
+        }
         do {
             let existing: [Profile] = try await supabase
                 .from("profiles").select().eq("id", value: userId).execute().value
@@ -148,6 +168,7 @@ final class AuthService {
     func signOut() async {
         errorMessage = nil
         currentProfile = nil
+        hasResolvedProfile = false
         state = .signedOut
         try? await supabase.auth.signOut(scope: .local)
     }

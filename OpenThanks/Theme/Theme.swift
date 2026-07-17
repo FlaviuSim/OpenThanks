@@ -116,15 +116,24 @@ extension View {
 }
 
 struct CTAButtonStyle: ButtonStyle {
+    var isLoading = false
+
     func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && !isLoading
         configuration.label
             .font(Theme.body(17, weight: .semibold))
             .foregroundStyle(Color(hex: 0x2B1209))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(Theme.ctaGradient, in: Capsule())
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .overlay {
+                if pressed {
+                    Capsule().fill(Color.black.opacity(0.12))
+                }
+            }
+            .opacity(isLoading ? 0.9 : 1)
+            .scaleEffect(pressed ? 0.96 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

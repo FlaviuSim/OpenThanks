@@ -83,7 +83,6 @@ struct WelcomeView: View {
 /// Two-step one-time-code sheet used for both email and phone sign-in.
 struct OTPSheet: View {
     enum Mode { case email, phone }
-    enum Field { case destination, code }
     let mode: Mode
 
     @Environment(AuthService.self) private var auth
@@ -92,7 +91,7 @@ struct OTPSheet: View {
     @State private var code = ""
     @State private var codeSent = false
     @State private var busy = false
-    @FocusState private var focused: Field?
+    @FocusState private var destinationFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -109,31 +108,41 @@ struct OTPSheet: View {
                         .textContentType(mode == .email ? .emailAddress : .telephoneNumber)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                        .focused($focused, equals: .destination)
+                        .focused($destinationFocused)
                         .padding(16)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
                         .foregroundStyle(Theme.textPrimary)
                 } else {
-                    TextField("123456", text: $code)
-                        .keyboardType(.numberPad)
-                        .textContentType(.oneTimeCode)
-                        .font(Theme.display(28, weight: .semibold))
-                        .multilineTextAlignment(.center)
-                        .focused($focused, equals: .code)
+                    OneTimeCodeField(text: $code, isFocused: true)
+                        .frame(height: 28)
                         .padding(16)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-                        .foregroundStyle(Theme.textPrimary)
+                        // Force a brand-new UITextField when the code step appears so
+                        // AutoFill binds to a live .oneTimeCode first responder.
+                        .id("otp-code-\(mode)")
                 }
 
                 if let error = auth.errorMessage {
                     Text(error).font(Theme.body(13)).foregroundStyle(.red)
                 }
 
-                Button(codeSent ? "Verify" : "Send code") {
+                Button {
                     Task { await submit() }
+                } label: {
+                    HStack(spacing: 10) {
+                        if busy {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(Color(hex: 0x2B1209))
+                        }
+                        Text(submitLabel)
+                    }
                 }
-                .buttonStyle(CTAButtonStyle())
-                .disabled(busy || (codeSent ? code.count < 6 : destination.isEmpty))
+                .buttonStyle(CTAButtonStyle(isLoading: busy))
+                .disabled(busy || !canSubmit)
+                .opacity(canSubmit || busy ? 1 : 0.45)
+                .animation(.easeInOut(duration: 0.15), value: busy)
+                .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: busy)
 
                 Spacer()
             }
@@ -144,10 +153,7 @@ struct OTPSheet: View {
                     Button("Cancel") { dismiss() }.foregroundStyle(Theme.textSecondary)
                 }
             }
-            .onAppear { focused = .destination }
-            .onChange(of: codeSent) { _, sent in
-                if sent { focused = .code }
-            }
+            .onAppear { destinationFocused = true }
             .onChange(of: code) { _, newValue in
                 let digits = String(newValue.filter(\.isNumber).prefix(6))
                 if digits != newValue { code = digits }
@@ -156,6 +162,17 @@ struct OTPSheet: View {
             }
         }
         .presentationDetents([.medium])
+    }
+
+    private var canSubmit: Bool {
+        codeSent ? code.count >= 6 : !destination.isEmpty
+    }
+
+    private var submitLabel: String {
+        if busy {
+            return codeSent ? "Verifying…" : "Sending…"
+        }
+        return codeSent ? "Verify" : "Send code"
     }
 
     private func submit() async {
@@ -170,12 +187,14 @@ struct OTPSheet: View {
             }
             if case .signedIn = auth.state { dismiss() }
         } else {
+            destinationFocused = false
             let ok = mode == .email
                 ? await auth.sendEmailCode(to: destination)
                 : await auth.sendPhoneCode(to: normalizedPhone)
             if ok {
                 codeSent = true
-                focused = .code
+            } else {
+                destinationFocused = true
             }
         }
     }

@@ -53,7 +53,9 @@ struct RootView: View {
                     OnboardingView { hasSeenOnboarding = true }
                 }
             case .signedIn:
-                if auth.currentProfile?.isCompleteForApp == true {
+                if !auth.hasResolvedProfile {
+                    HeartMark(size: 64)
+                } else if auth.currentProfile?.isCompleteForApp == true {
                     MainTabView()
                 } else {
                     EditProfileSheet(required: true)

@@ -17,6 +17,7 @@
 		56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */; };
 		7744285F382417A1C7007F97 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475B3E155C6168A97BD17C48 /* NotificationService.swift */; };
 		8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F3FD90C322331B012FD48F /* AppNavigation.swift */; };
+		945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */; };
 		985D66E76E069167F1534690 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24196DBDF1449EB46FBF5DD /* SettingsView.swift */; };
 		B0DAC52F046E4E83AEF1BEAE /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7100E64F1ACD16964F60A63 /* NotificationsView.swift */; };
 		B433078D184312A101ECA432 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1BCD3D6D4207C94DE001B284 /* Assets.xcassets */; };
@@ -33,6 +34,7 @@
 		167153BE2EE275F81D5D2A05 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		1BCD3D6D4207C94DE001B284 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1EC0A8CDE94660605C46C812 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
 		475B3E155C6168A97BD17C48 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		6386C42954F7E470B63181A1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeDetailView.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				A25AD150B863DF00ABC41E23 /* OnboardingView.swift */,
+				2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */,
 				9E451C434563DD8702080E34 /* WelcomeView.swift */,
 			);
 			path = Auth;
@@ -242,6 +245,11 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					73C4A89C152CCB91D002DA95 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = AE2B90E01B5E9AA9E3147EB1 /* Build configuration list for PBXProject "OpenThanks" */;
 			developmentRegion = en;
@@ -293,6 +301,7 @@
 				7744285F382417A1C7007F97 /* NotificationService.swift in Sources */,
 				B0DAC52F046E4E83AEF1BEAE /* NotificationsView.swift in Sources */,
 				F0DEEBB646DB5DEC2C7ABFC2 /* OnboardingView.swift in Sources */,
+				945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */,
 				56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */,
 				3941394E94699B39AF29657B /* ProfileView.swift in Sources */,
 				985D66E76E069167F1534690 /* SettingsView.swift in Sources */,
@@ -312,15 +321,14 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 53CL59ATX8;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -398,15 +406,14 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 53CL59ATX8;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
