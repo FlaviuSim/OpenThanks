@@ -428,6 +428,10 @@ struct PendingAppreciationsView: View {
     @Environment(AuthService.self) private var auth
     @State private var pending: [Gratitude] = []
     @State private var sharing: Gratitude?
+    @State private var editing: Gratitude?
+    @State private var deleting: Gratitude?
+    @State private var busyId: UUID?
+    @State private var errorMessage: String?
 
     var body: some View {
         ScrollView {
@@ -440,42 +444,17 @@ struct PendingAppreciationsView: View {
                         .padding(.top, 48)
                         .padding(.horizontal, 32)
                 }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(Theme.body(13))
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                }
+
                 ForEach(pending) { g in
-                    Button { sharing = g } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "clock")
-                                .foregroundStyle(Theme.textSecondary)
-                                .frame(width: 36, height: 36)
-                                .background(Theme.surfaceRaised, in: Circle())
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("To: \(g.recipientDisplayName)")
-                                    .font(Theme.body(14, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                                if let contact = g.recipientEmail ?? g.recipientPhone {
-                                    Text(contact)
-                                        .font(Theme.body(12))
-                                        .foregroundStyle(Theme.textTertiary)
-                                }
-                                Text(g.message)
-                                    .font(Theme.body(13))
-                                    .foregroundStyle(Theme.textSecondary)
-                                    .lineLimit(2)
-                                Text("Pending — tap to send the claim link")
-                                    .font(Theme.body(12, weight: .semibold))
-                                    .foregroundStyle(Theme.coral)
-                            }
-                            Spacer()
-                            if let date = g.createdAt {
-                                Text(date, format: .relative(presentation: .named))
-                                    .font(Theme.body(11))
-                                    .foregroundStyle(Theme.textTertiary)
-                            }
-                        }
-                        .multilineTextAlignment(.leading)
-                        .padding(14)
-                        .card()
-                    }
-                    .buttonStyle(.plain)
+                    pendingCard(g)
                 }
             }
             .padding(16)
@@ -487,9 +466,138 @@ struct PendingAppreciationsView: View {
             PendingShareSheet(gratitude: g)
                 .presentationDetents([.medium])
         }
-        .task {
-            guard let userId = auth.userId else { return }
-            pending = (try? await GratitudeService.pending(authorId: userId)) ?? []
+        .fullScreenCover(item: $editing) { g in
+            ComposeView(editing: g) { updated in
+                if let index = pending.firstIndex(where: { $0.id == updated.id }) {
+                    pending[index] = updated
+                }
+            }
+        }
+        .confirmationDialog(
+            "Delete this appreciation?",
+            isPresented: Binding(
+                get: { deleting != nil },
+                set: { if !$0 { deleting = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let deleting {
+                    Task { await delete(deleting) }
+                }
+            }
+            Button("Cancel", role: .cancel) { deleting = nil }
+        } message: {
+            Text("This pending appreciation will be removed permanently. The claim link will stop working.")
+        }
+        .task { await reload() }
+    }
+
+    private func pendingCard(_ g: Gratitude) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button { sharing = g } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "clock")
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .background(Theme.surfaceRaised, in: Circle())
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("To: \(g.recipientDisplayName)")
+                            .font(Theme.body(14, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        if let contact = g.recipientEmail ?? g.recipientPhone {
+                            Text(contact)
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                        Text(g.message)
+                            .font(Theme.body(13))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+                        Text("Pending — tap to share the claim link")
+                            .font(Theme.body(12, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                    }
+                    Spacer(minLength: 0)
+                    if let date = g.createdAt {
+                        Text(date, format: .relative(presentation: .named))
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            HStack(spacing: 8) {
+                actionButton(title: "Edit", systemImage: "pencil") {
+                    editing = g
+                }
+                actionButton(title: "Share", systemImage: "square.and.arrow.up") {
+                    sharing = g
+                }
+                actionButton(title: "Delete", systemImage: "trash", destructive: true) {
+                    deleting = g
+                }
+                if busyId == g.id {
+                    ProgressView()
+                        .tint(Theme.coral)
+                        .padding(.leading, 4)
+                }
+            }
+        }
+        .padding(14)
+        .card()
+        .contextMenu {
+            Button { sharing = g } label: {
+                Label("Share claim link", systemImage: "square.and.arrow.up")
+            }
+            Button { editing = g } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            Button(role: .destructive) { deleting = g } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func actionButton(
+        title: String,
+        systemImage: String,
+        destructive: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(Theme.body(13, weight: .semibold))
+                .foregroundStyle(destructive ? Color.red.opacity(0.9) : Theme.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Theme.surfaceRaised, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(busyId != nil)
+    }
+
+    private func reload() async {
+        guard let userId = auth.userId else { return }
+        pending = (try? await GratitudeService.pending(authorId: userId)) ?? []
+    }
+
+    private func delete(_ gratitude: Gratitude) async {
+        busyId = gratitude.id
+        errorMessage = nil
+        defer {
+            busyId = nil
+            deleting = nil
+        }
+        do {
+            try await GratitudeService.delete(id: gratitude.id)
+            withAnimation {
+                pending.removeAll { $0.id == gratitude.id }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

@@ -135,6 +135,38 @@ struct NewGratitude: Encodable {
     }
 }
 
+/// Partial update for an existing appreciation (pending edits).
+struct GratitudeUpdate: Encodable {
+    var message: String
+    var recipientEmail: String?
+    var recipientPhone: String?
+    var recipientName: String?
+    var visibility: String
+    var mediaUrl: String?
+    var mediaType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case recipientEmail = "recipient_email"
+        case recipientPhone = "recipient_phone"
+        case recipientName = "recipient_name"
+        case visibility
+        case mediaUrl = "media_url"
+        case mediaType = "media_type"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(message, forKey: .message)
+        try c.encode(recipientEmail, forKey: .recipientEmail)
+        try c.encode(recipientPhone, forKey: .recipientPhone)
+        try c.encode(recipientName, forKey: .recipientName)
+        try c.encode(visibility, forKey: .visibility)
+        try c.encode(mediaUrl, forKey: .mediaUrl)
+        try c.encode(mediaType, forKey: .mediaType)
+    }
+}
+
 struct AppNotification: Codable, Identifiable, Hashable {
     let id: UUID
     let userId: UUID

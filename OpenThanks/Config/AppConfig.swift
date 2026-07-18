@@ -22,11 +22,7 @@ enum AppConfig {
     /// as: openthanks://auth-callback
     static let redirectURL = URL(string: "openthanks://auth-callback")!
 
-    /// Optional endpoint for the "Make it Warmer" / "Polish for public"
-    /// AI rewrite feature. The web app runs this in Next.js API routes, not
-    /// Supabase Edge Functions (project has zero edge functions deployed).
-    /// Point this at your route, e.g. https://openthanks.com/api/polish,
-    /// or leave nil to hide the buttons.
+    /// Optional legacy endpoint — unused; compose uses on-device Apple Intelligence.
     static let polishEndpoint: URL? = nil
 
     static func publicStorageURL(for storedPath: String, bucket: String = mediaBucket) -> URL? {
