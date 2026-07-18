@@ -84,6 +84,80 @@ enum GratitudeService {
             .execute().value
     }
 
+    /// Public post by SEO slug (`/for/{slug}`).
+    static func gratitude(slug: String) async throws -> Gratitude {
+        try await supabase.from("gratitudes")
+            .select(feedSelect)
+            .eq("slug", value: slug)
+            .single()
+            .execute().value
+    }
+
+    /// Pending appreciation opened via Universal Link claim token.
+    static func gratitude(claimToken: UUID) async throws -> Gratitude {
+        try await supabase.from("gratitudes")
+            .select(feedSelect)
+            .eq("claim_token", value: claimToken)
+            .single()
+            .execute().value
+    }
+
+    /// Associates the signed-in user as recipient when they open a claim link.
+    static func assignClaimRecipient(
+        gratitudeId: UUID,
+        claimToken: UUID,
+        recipientId: UUID
+    ) async throws {
+        try await supabase.from("gratitudes")
+            .update(["recipient_id": recipientId.uuidString])
+            .eq("id", value: gratitudeId)
+            .eq("claim_token", value: claimToken)
+            .execute()
+    }
+
+    /// Accept or decline a pending appreciation (mirrors web PATCH /api/gratitudes).
+    static func respondToClaim(
+        gratitudeId: UUID,
+        recipientId: UUID,
+        accept: Bool
+    ) async throws -> Gratitude {
+        struct ClaimUpdate: Encodable {
+            let status: String
+            let recipientId: String
+            let acceptedAt: String?
+
+            enum CodingKeys: String, CodingKey {
+                case status
+                case recipientId = "recipient_id"
+                case acceptedAt = "accepted_at"
+            }
+        }
+
+        let update = ClaimUpdate(
+            status: accept ? "accepted" : "rejected",
+            recipientId: recipientId.uuidString,
+            acceptedAt: accept ? ISO8601DateFormatter().string(from: Date()) : nil
+        )
+
+        let updated: Gratitude = try await supabase.from("gratitudes")
+            .update(update)
+            .eq("id", value: gratitudeId)
+            .select(feedSelect)
+            .single()
+            .execute().value
+
+        if accept {
+            _ = try? await supabase.from("notifications").insert([
+                "user_id": updated.authorId.uuidString,
+                "type": "gratitude_received",
+                "gratitude_id": updated.id.uuidString,
+                "from_user_id": recipientId.uuidString,
+            ]).execute()
+        }
+
+        return updated
+    }
+
     /// Hearts on posts this user sent or received — people they inspired.
     /// Excludes the profile owner hearting their own posts. Visibility of the
     /// underlying post is enforced for the viewer.
@@ -238,6 +312,14 @@ enum GratitudeService {
         try await supabase.from("profiles")
             .select()
             .eq("id", value: id)
+            .single()
+            .execute().value
+    }
+
+    static func profile(username: String) async throws -> Profile {
+        try await supabase.from("profiles")
+            .select()
+            .eq("username", value: username.lowercased())
             .single()
             .execute().value
     }

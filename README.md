@@ -38,7 +38,7 @@ The design can use Fraunces (display) and DM Sans (body), but the font files are
 
 - Push notifications: the app can request notification permission, register APNs tokens in `device_push_tokens`, and schedule the local Friday gratitude reminder. Server-side APNs sending from the web/backend is still a separate work item.
 - Video attachments: schema supports `media_type`, UI ships photo-only.
-- Claim-appreciation flow (recipient accepting via `claim_token`): that's an email/SMS deep-link journey owned by the web app today. The iOS app reads `status` but doesn't claim.
+- Universal Links require Associated Domains enabled on App ID `com.openthanks.app` in the Apple Developer portal (entitlements already include `applinks:openthanks.com` + www). After a TestFlight/App Store install, long-press a share link in Notes — you should see “Open in OpenThanks”.
 - Realtime feed updates: pull-to-refresh only in v1.
 
 ## Structure

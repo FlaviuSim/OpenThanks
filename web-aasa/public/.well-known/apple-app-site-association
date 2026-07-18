@@ -1,0 +1,34 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["53CL59ATX8.com.openthanks.app"],
+        "components": [
+          { "/": "/claim/*" },
+          { "/": "/for/*" },
+          { "/": "/gratitude/*" },
+          { "/": "/privacy", "exclude": true },
+          { "/": "/terms", "exclude": true },
+          { "/": "/auth/*", "exclude": true },
+          { "/": "/api/*", "exclude": true },
+          { "/": "/feed", "exclude": true },
+          { "/": "/feed/*", "exclude": true },
+          { "/": "/pending", "exclude": true },
+          { "/": "/pending/*", "exclude": true },
+          { "/": "/notifications", "exclude": true },
+          { "/": "/notifications/*", "exclude": true },
+          { "/": "/donate", "exclude": true },
+          { "/": "/donate/*", "exclude": true },
+          { "/": "/profile", "exclude": true },
+          { "/": "/profile/*", "exclude": true },
+          { "/": "/claim-appreciation", "exclude": true },
+          { "/": "/unsubscribe", "exclude": true },
+          { "/": "/unsubscribe/*", "exclude": true },
+          { "/": "/", "exclude": true },
+          { "/": "/*", "comment": "Profile usernames" }
+        ]
+      }
+    ]
+  }
+}

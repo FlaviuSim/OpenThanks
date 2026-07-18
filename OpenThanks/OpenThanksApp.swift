@@ -5,14 +5,24 @@ import UIKit
 struct OpenThanksApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var auth = AuthService()
+    @State private var deepLinks = DeepLinkRouter()
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .onAppear { appDelegate.auth = auth }
                 .environment(auth)
+                .environment(deepLinks)
+                .deepLinkHost(deepLinks)
                 .syncAppAppearance()
                 .tint(Theme.coral)
-                .onOpenURL { auth.handleDeepLink($0) }
+                .onOpenURL { url in
+                    if url.scheme?.lowercased() == "openthanks" {
+                        auth.handleDeepLink(url)
+                    } else {
+                        _ = deepLinks.handle(url)
+                    }
+                }
         }
     }
 }

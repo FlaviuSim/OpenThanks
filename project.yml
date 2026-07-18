@@ -33,9 +33,13 @@ targets:
       path: OpenThanks/OpenThanks.entitlements
       properties:
         aps-environment: production
+        com.apple.developer.associated-domains:
+          - applinks:openthanks.com
+          - applinks:www.openthanks.com
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openthanks.app
+        DEVELOPMENT_TEAM: 53CL59ATX8
         TARGETED_DEVICE_FAMILY: 1
         MARKETING_VERSION: 1.0.0
         CURRENT_PROJECT_VERSION: 1
