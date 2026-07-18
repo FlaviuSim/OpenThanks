@@ -6,10 +6,13 @@ struct FeedView: View {
     @Environment(AuthService.self) private var auth
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
+    @State private var pendingToAccept: [Gratitude] = []
     @State private var heartedIds: Set<UUID> = []
     @State private var loading = true
     @State private var error: String?
     @State private var showCompose = false
+
+    private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
 
     var body: some View {
         NavigationStack {
@@ -72,9 +75,9 @@ struct FeedView: View {
 
     @ViewBuilder
     private var content: some View {
-        if loading && items.isEmpty {
+        if loading && isEmpty {
             Spacer(); ProgressView().tint(Theme.coral); Spacer()
-        } else if let error {
+        } else if let error, isEmpty {
             Spacer()
             VStack(spacing: 8) {
                 Text("Couldn't load the feed").font(Theme.body(16, weight: .semibold))
@@ -84,7 +87,7 @@ struct FeedView: View {
             }
             .padding(24)
             Spacer()
-        } else if items.isEmpty {
+        } else if isEmpty {
             Spacer()
             VStack(spacing: 12) {
                 HeartMark(size: 48)
@@ -98,6 +101,24 @@ struct FeedView: View {
         } else {
             ScrollView {
                 LazyVStack(spacing: 14) {
+                    if !pendingToAccept.isEmpty {
+                        pendingHeader
+                        ForEach(pendingToAccept) { item in
+                            AcceptPendingCard(
+                                gratitude: item,
+                                onAccepted: { accepted in
+                                    pendingToAccept.removeAll { $0.id == accepted.id }
+                                    if !items.contains(where: { $0.id == accepted.id }) {
+                                        items.insert(accepted, at: 0)
+                                    }
+                                },
+                                onDeclined: { id in
+                                    pendingToAccept.removeAll { $0.id == id }
+                                }
+                            )
+                        }
+                    }
+
                     ForEach(items) { item in
                         GratitudeCard(gratitude: item,
                                       isHearted: heartedIds.contains(item.id),
@@ -110,16 +131,40 @@ struct FeedView: View {
         }
     }
 
+    private var pendingHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(pendingToAccept.count == 1
+                 ? "1 appreciation waiting for you"
+                 : "\(pendingToAccept.count) appreciations waiting for you")
+                .font(Theme.display(18, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+            Text("Accept to add them to your profile and the feed.")
+                .font(Theme.body(13))
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+    }
+
     private func load() async {
         guard let userId = auth.userId else { return }
         loading = true; error = nil
         do {
-            let result = scope == .personal
-                ? try await GratitudeService.personalFeed(userId: userId)
-                : try await GratitudeService.worldFeed()
+            async let feedTask: [Gratitude] = scope == .personal
+                ? GratitudeService.personalFeed(userId: userId)
+                : GratitudeService.worldFeed()
+            async let pendingTask: [Gratitude] = GratitudeService.pendingToAccept(
+                userId: userId,
+                email: auth.currentProfile?.email,
+                phone: auth.currentProfile?.phone
+            )
+
+            let result = try await feedTask
+            let pending = (try? await pendingTask) ?? []
             let hearts = try await GratitudeService.myHearts(userId: userId,
                                                             among: result.map(\.id))
             items = result
+            pendingToAccept = pending
             heartedIds = hearts
         } catch {
             if !error.isCancellation {
@@ -200,14 +245,7 @@ struct GratitudeCard: View {
 
             if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
                 Button { fullScreenImageURL = url } label: {
-                    AsyncImage(url: url) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(Theme.surfaceRaised)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    FlexiblePostImage(url: url, maxHeight: 420)
                 }
                 .buttonStyle(.plain)
             }

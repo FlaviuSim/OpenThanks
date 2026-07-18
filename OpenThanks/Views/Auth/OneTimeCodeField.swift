@@ -12,7 +12,7 @@ struct OneTimeCodeField: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> UITextField {
-        let field = UITextField()
+        let field = OTPTextField()
         field.delegate = context.coordinator
         field.keyboardType = .numberPad
         field.textContentType = .oneTimeCode
@@ -28,6 +28,8 @@ struct OneTimeCodeField: UIViewRepresentable {
         field.smartQuotesType = .no
         field.smartInsertDeleteType = .no
         field.spellCheckingType = .no
+        // Helps AutoFill treat this as the sole security-code target.
+        field.clearButtonMode = .never
         field.attributedPlaceholder = NSAttributedString(
             string: "123456",
             attributes: [
@@ -44,16 +46,38 @@ struct OneTimeCodeField: UIViewRepresentable {
 
     func updateUIView(_ uiView: UITextField, context: Context) {
         context.coordinator.parent = self
-        if uiView.text != text {
-            uiView.text = text
+
+        // Never clobber a longer in-field value while focused — AutoFill can
+        // land before the SwiftUI binding catches up, and rewriting here drops it.
+        let fieldText = uiView.text ?? ""
+        if fieldText != text {
+            if uiView.isFirstResponder, fieldText.count > text.count {
+                let digits = String(fieldText.filter(\.isNumber).prefix(maxLength))
+                if text != digits {
+                    DispatchQueue.main.async {
+                        context.coordinator.parent.text = digits
+                    }
+                }
+            } else {
+                uiView.text = text
+            }
         }
+
         uiView.textColor = UIColor(Theme.textPrimary)
+        uiView.textContentType = .oneTimeCode
 
         if isFocused {
             if !uiView.isFirstResponder {
-                // Defer so the field is in the window after the sheet step swap.
                 DispatchQueue.main.async {
                     uiView.becomeFirstResponder()
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    guard self.isFocused, uiView.window != nil else { return }
+                    if !uiView.isFirstResponder {
+                        uiView.becomeFirstResponder()
+                    }
+                    // Nudge the keyboard / QuickType bar to rebind to this field.
+                    uiView.reloadInputViews()
                 }
             }
         } else if uiView.isFirstResponder {
@@ -68,29 +92,53 @@ struct OneTimeCodeField: UIViewRepresentable {
         init(_ parent: OneTimeCodeField) { self.parent = parent }
 
         @objc func editingChanged(_ field: UITextField) {
-            let digits = String((field.text ?? "").filter(\.isNumber).prefix(parent.maxLength))
-            if field.text != digits {
-                field.text = digits
-            }
-            if parent.text != digits {
-                parent.text = digits
-            }
+            applyDigits(from: field)
         }
 
         func textField(_ textField: UITextField,
                        shouldChangeCharactersIn range: NSRange,
                        replacementString string: String) -> Bool {
-            // Allow AutoFill / paste of a full code in one shot.
             let current = textField.text ?? ""
             guard let range = Range(range, in: current) else { return false }
             let proposed = current.replacingCharacters(in: range, with: string)
             let digits = String(proposed.filter(\.isNumber).prefix(parent.maxLength))
+
+            // Let AutoFill insert through the normal path when the result is
+            // already clean digits; otherwise sanitize and apply ourselves.
+            if proposed == digits {
+                return true
+            }
             textField.text = digits
+            syncBinding(digits)
+            return false
+        }
+
+        func textFieldDidChangeSelection(_ textField: UITextField) {
+            // Some AutoFill paths update selection without editingChanged.
+            applyDigits(from: textField)
+        }
+
+        private func applyDigits(from field: UITextField) {
+            let digits = String((field.text ?? "").filter(\.isNumber).prefix(parent.maxLength))
+            if field.text != digits {
+                field.text = digits
+            }
+            syncBinding(digits)
+        }
+
+        private func syncBinding(_ digits: String) {
             if parent.text != digits {
                 parent.text = digits
             }
-            return false
         }
+    }
+}
+
+/// Slightly taller intrinsic size so the QuickType bar targets this field
+/// instead of a collapsed sibling.
+private final class OTPTextField: UITextField {
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: 36)
     }
 }
 

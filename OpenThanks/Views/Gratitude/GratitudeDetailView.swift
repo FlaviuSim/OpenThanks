@@ -64,14 +64,7 @@ struct GratitudeDetailView: View {
 
             if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
                 Button { fullScreenImageURL = url } label: {
-                    AsyncImage(url: url) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(Theme.surfaceRaised)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    FlexiblePostImage(url: url, maxHeight: 520)
                 }
                 .buttonStyle(.plain)
             }

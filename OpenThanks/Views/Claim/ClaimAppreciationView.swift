@@ -126,14 +126,7 @@ struct ClaimAppreciationView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
-                        AsyncImage(url: url) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Rectangle().fill(Theme.surfaceRaised)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        FlexiblePostImage(url: url, maxHeight: 420)
                     }
                 }
                 .padding(18)
@@ -241,16 +234,5 @@ struct ClaimAppreciationView: View {
             errorMessage = error.localizedDescription
         }
         acting = nil
-    }
-}
-
-private struct SecondaryCapsuleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.body(17, weight: .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .padding(.vertical, 14)
-            .background(Theme.surfaceRaised, in: Capsule())
-            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

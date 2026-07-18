@@ -7,7 +7,7 @@ struct SettingsView: View {
     @State private var pendingCount = 0
     @State private var showEditProfile = false
     @State private var notificationError: String?
-    @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = false
+    @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
 
     private var lightModeEnabled: Binding<Bool> {
@@ -599,89 +599,5 @@ struct PendingAppreciationsView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
-    }
-}
-
-/// Actions for nudging a recipient: copy the claim link, or jump to
-/// Messages with a pre-drafted text containing it.
-struct PendingShareSheet: View {
-    let gratitude: Gratitude
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
-    @State private var copied = false
-
-    private var messageBody: String {
-        let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
-        let greeting = name.map { "Hey \($0)! " } ?? "Hey! "
-        let link = gratitude.claimURL?.absoluteString ?? AppConfig.webAppURL.absoluteString
-        return greeting + "I wrote you an appreciation on OpenThanks 💛 You can read and claim it here: " + link
-    }
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Capsule().fill(Theme.hairline).frame(width: 36, height: 4)
-                .padding(.top, 10)
-
-            VStack(spacing: 6) {
-                Text("Nudge \(gratitude.recipientDisplayName)")
-                    .font(Theme.display(20, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("They haven't claimed your appreciation yet. Send them the link directly.")
-                    .font(Theme.body(14))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 24)
-
-            if let claimURL = gratitude.claimURL {
-                Text(claimURL.absoluteString)
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.textTertiary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity)
-                    .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
-                    .padding(.horizontal, 24)
-            }
-
-            VStack(spacing: 10) {
-                Button {
-                    let recipient = gratitude.recipientPhone ?? ""
-                    let encoded = messageBody.addingPercentEncoding(
-                        withAllowedCharacters: .alphanumerics) ?? ""
-                    if let url = URL(string: "sms:\(recipient)&body=\(encoded)") {
-                        openURL(url)
-                    }
-                } label: {
-                    Label("Send via Messages", systemImage: "message.fill")
-                }
-                .buttonStyle(CTAButtonStyle())
-
-                Button {
-                    UIPasteboard.general.string = gratitude.claimURL?.absoluteString
-                        ?? messageBody
-                    withAnimation { copied = true }
-                    Task {
-                        try? await Task.sleep(for: .seconds(2))
-                        withAnimation { copied = false }
-                    }
-                } label: {
-                    Label(copied ? "Link copied" : "Copy link",
-                          systemImage: copied ? "checkmark" : "link")
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(copied ? Theme.coral : Theme.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Theme.surfaceRaised, in: Capsule())
-                }
-            }
-            .padding(.horizontal, 24)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .background(Theme.background)
     }
 }

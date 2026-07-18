@@ -41,16 +41,16 @@ extension UIImage {
     }
 }
 
-/// Pinch-zoom cropper backed by `UIScrollView` (reliable crop rect math).
+/// Pinch-zoom cropper. Scroll view is clipped to the crop window so pinching
+/// does not scale the surrounding chrome. Aspect follows the source image
+/// (tall and wide photos keep their shape).
 struct ImageCropperView: UIViewControllerRepresentable {
     let image: UIImage
-    /// Width / height. Feed photos use 4:3.
-    var aspectRatio: CGFloat = 4 / 3
     var onCancel: () -> Void
     var onCrop: (UIImage) -> Void
 
     func makeUIViewController(context: Context) -> UINavigationController {
-        let crop = ImageCropViewController(image: image, aspectRatio: aspectRatio)
+        let crop = ImageCropViewController(image: image)
         crop.onCancel = onCancel
         crop.onCrop = onCrop
         let nav = UINavigationController(rootViewController: crop)
@@ -78,10 +78,12 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
     private let dimView = UIView()
     private let cropBorder = UIView()
     private var cropFrame = CGRect.zero
+    private var didLayoutImage = false
 
-    init(image: UIImage, aspectRatio: CGFloat) {
+    init(image: UIImage) {
         self.image = image
-        self.aspectRatio = aspectRatio
+        let size = image.size
+        self.aspectRatio = size.height > 0 ? size.width / size.height : 1
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -91,7 +93,7 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        title = "Crop Photo"
+        title = "Adjust Photo"
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel, target: self, action: #selector(cancelTapped)
         )
@@ -105,14 +107,16 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
         scrollView.bouncesZoom = true
         scrollView.backgroundColor = .black
         scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.clipsToBounds = true
 
         imageView.image = image
         imageView.contentMode = .scaleAspectFit
         scrollView.addSubview(imageView)
-        view.addSubview(scrollView)
 
         dimView.isUserInteractionEnabled = false
         view.addSubview(dimView)
+        // Scroll view sits above the dim mask but is clipped to the crop window.
+        view.addSubview(scrollView)
 
         cropBorder.isUserInteractionEnabled = false
         cropBorder.layer.borderColor = UIColor.white.cgColor
@@ -134,10 +138,12 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        scrollView.frame = view.bounds
         updateCropFrame()
-        if imageView.bounds == .zero {
+        scrollView.frame = cropFrame
+        cropBorder.frame = cropFrame
+        if !didLayoutImage {
             layoutImage()
+            didLayoutImage = true
         }
         updateDimMask()
     }
@@ -164,7 +170,6 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
             width: size.width,
             height: size.height
         )
-        cropBorder.frame = cropFrame
     }
 
     private func layoutImage() {
@@ -174,13 +179,11 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
         imageView.frame = CGRect(origin: .zero, size: imageSize)
         scrollView.contentSize = imageSize
 
-        // Fill the crop rect (aspect fill).
+        // Fill the crop window (aspect fill) using the photo’s own proportions.
         let fillScale = max(cropFrame.width / imageSize.width, cropFrame.height / imageSize.height)
         scrollView.minimumZoomScale = fillScale
         scrollView.maximumZoomScale = max(fillScale * 4, 4)
         scrollView.zoomScale = fillScale
-
-        // Center image in crop frame via content inset.
         recenter()
     }
 
@@ -189,24 +192,11 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
         let contentSize = scrollView.contentSize
         let horizontal = max(0, (boundsSize.width - contentSize.width) / 2)
         let vertical = max(0, (boundsSize.height - contentSize.height) / 2)
+        scrollView.contentInset = UIEdgeInsets(top: vertical, left: horizontal, bottom: vertical, right: horizontal)
 
-        // Keep crop window filled: insets so the visible crop maps to content.
-        let top = cropFrame.minY
-        let left = cropFrame.minX
-        let bottom = boundsSize.height - cropFrame.maxY
-        let right = boundsSize.width - cropFrame.maxX
-
-        scrollView.contentInset = UIEdgeInsets(
-            top: top + vertical,
-            left: left + horizontal,
-            bottom: bottom + vertical,
-            right: right + horizontal
-        )
-
-        // Initial offset so image fills the crop centered.
-        let offsetX = -left + (contentSize.width - cropFrame.width) / 2
-        let offsetY = -top + (contentSize.height - cropFrame.height) / 2
-        scrollView.contentOffset = CGPoint(x: max(offsetX, -left), y: max(offsetY, -top))
+        let offsetX = max((contentSize.width - boundsSize.width) / 2, -horizontal)
+        let offsetY = max((contentSize.height - boundsSize.height) / 2, -vertical)
+        scrollView.contentOffset = CGPoint(x: offsetX, y: offsetY)
     }
 
     private func updateDimMask() {
@@ -231,16 +221,7 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
         let contentSize = scrollView.contentSize
         let horizontal = max(0, (boundsSize.width - contentSize.width) / 2)
         let vertical = max(0, (boundsSize.height - contentSize.height) / 2)
-        let top = cropFrame.minY
-        let left = cropFrame.minX
-        let bottom = boundsSize.height - cropFrame.maxY
-        let right = boundsSize.width - cropFrame.maxX
-        scrollView.contentInset = UIEdgeInsets(
-            top: top + vertical,
-            left: left + horizontal,
-            bottom: bottom + vertical,
-            right: right + horizontal
-        )
+        scrollView.contentInset = UIEdgeInsets(top: vertical, left: horizontal, bottom: vertical, right: horizontal)
     }
 
     @objc private func cancelTapped() { onCancel?() }
@@ -250,8 +231,7 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
     }
 
     private func croppedImage() -> UIImage {
-        // Convert the on-screen crop frame into image-view coordinates.
-        let rectInImage = view.convert(cropFrame, to: imageView)
+        let rectInImage = scrollView.convert(scrollView.bounds, to: imageView)
         let imageSize = image.size
         guard imageSize.width > 0, imageSize.height > 0,
               imageView.bounds.width > 0, imageView.bounds.height > 0,

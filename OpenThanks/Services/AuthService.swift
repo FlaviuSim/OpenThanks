@@ -120,6 +120,7 @@ final class AuthService {
     // MARK: Sign-in methods
 
     func sendEmailCode(to email: String) async -> Bool {
+        let email = Self.normalizedEmail(email)
         do {
             try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: true)
             return true
@@ -132,6 +133,7 @@ final class AuthService {
     func verifyEmailCode(email: String, code: String) async {
         // New users with "Confirm email" enabled get a signup OTP;
         // returning users get a magic-link/email OTP. Try both.
+        let email = Self.normalizedEmail(email)
         do {
             try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
         } catch {
@@ -141,6 +143,11 @@ final class AuthService {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    /// Trim leading/trailing whitespace and lowercase for auth lookups.
+    static func normalizedEmail(_ email: String) -> String {
+        email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     func sendPhoneCode(to phone: String) async -> Bool {

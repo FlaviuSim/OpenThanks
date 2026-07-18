@@ -59,7 +59,6 @@ struct ComposeView: View {
         .fullScreenCover(item: $cropItem) { item in
             ImageCropperView(
                 image: item.image,
-                aspectRatio: 4 / 3,
                 onCancel: {
                     cropItem = nil
                     photoItem = nil
@@ -221,10 +220,7 @@ struct ComposeView: View {
                 ZStack(alignment: .topTrailing) {
                     Image(uiImage: photoPreview)
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 200)
-                        .clipped()
+                        .flexiblePhotoPreview(maxHeight: 420)
 
                     HStack(spacing: 8) {
                         PhotosPicker(
@@ -626,7 +622,13 @@ struct ComposeView: View {
                 mediaType = existingMediaType ?? editingTarget?.mediaType
             }
 
+            // Mirror trimmed contact back into the field (emails with stray spaces).
             let contact = parseRecipient(recipient)
+            if let email = contact.email {
+                recipient = email
+            } else {
+                recipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
 
             if let editing = editingTarget {
                 let updated = try await GratitudeService.update(
@@ -675,7 +677,9 @@ struct ComposeView: View {
         -> (name: String?, email: String?, phone: String?) {
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return (nil, nil, nil) }
-        if value.contains("@") { return (nil, value.lowercased(), nil) }
+        if value.contains("@") {
+            return (nil, AuthService.normalizedEmail(value), nil)
+        }
         let digits = value.filter { $0.isNumber }
         if digits.count >= 7 && value.allSatisfy({ "+()- 0123456789".contains($0) }) {
             let e164 = value.hasPrefix("+") ? "+" + digits : "+1" + digits
@@ -726,9 +730,19 @@ struct SuccessView: View {
     @Environment(\.openURL) private var openURL
     @State private var burst = false
     @State private var copied = false
+    @State private var emailState: EmailReminderState = .idle
+
+    private enum EmailReminderState: Equatable {
+        case idle, sending, sent, failed(String)
+    }
 
     private var shareURL: URL {
         gratitude.claimURL ?? gratitude.webURL
+    }
+
+    private var recipientEmail: String? {
+        let value = gratitude.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (value?.isEmpty == false) ? value : nil
     }
 
     private var shareMessage: String {
@@ -738,11 +752,6 @@ struct SuccessView: View {
         return greeting
             + "I wrote you an appreciation on OpenThanks 💛 You can read and claim it here: "
             + shareURL.absoluteString
-    }
-
-    private var emailSubject: String {
-        let name = gratitude.recipientDisplayName
-        return name == "Someone" ? "I wrote you an appreciation" : "An appreciation for \(name)"
     }
 
     var body: some View {
@@ -795,12 +804,15 @@ struct SuccessView: View {
                         openSMS()
                     }
 
-                    successAction(
-                        title: "Send via Email",
-                        systemImage: "envelope.fill",
-                        subtitle: gratitude.recipientEmail.map { "To \($0)" }
-                    ) {
-                        openEmail()
+                    if let recipientEmail {
+                        successAction(
+                            title: successEmailTitle,
+                            systemImage: successEmailIcon,
+                            subtitle: successEmailSubtitle(for: recipientEmail)
+                        ) {
+                            Task { await sendEmailReminder() }
+                        }
+                        .disabled(emailState == .sending)
                     }
 
                     successAction(
@@ -877,25 +889,49 @@ struct SuccessView: View {
         .buttonStyle(ScalePressButtonStyle())
     }
 
+    private var successEmailTitle: String {
+        switch emailState {
+        case .idle: "Email Reminder"
+        case .sending: "Sending…"
+        case .sent: "Email Sent!"
+        case .failed: "Retry Email Reminder"
+        }
+    }
+
+    private var successEmailIcon: String {
+        switch emailState {
+        case .idle, .sending: "envelope.badge.fill"
+        case .sent: "checkmark.circle.fill"
+        case .failed: "arrow.clockwise"
+        }
+    }
+
+    private func successEmailSubtitle(for email: String) -> String {
+        switch emailState {
+        case .idle, .sending: "OpenThanks emails \(email)"
+        case .sent: "Reminder delivered to \(email)"
+        case .failed(let message): message
+        }
+    }
+
+    private func sendEmailReminder() async {
+        emailState = .sending
+        do {
+            try await GratitudeService.sendEmailReminder(gratitudeId: gratitude.id)
+            emailState = .sent
+            try? await Task.sleep(for: .seconds(2.5))
+            if case .sent = emailState { emailState = .idle }
+        } catch {
+            emailState = .failed(error.localizedDescription)
+        }
+    }
+
     private func openSMS() {
         let phone = gratitude.recipientPhone ?? ""
         var components = URLComponents()
         components.scheme = "sms"
         components.path = phone
         components.queryItems = [URLQueryItem(name: "body", value: shareMessage)]
-        if let url = components.url {
-            openURL(url)
-        }
-    }
-
-    private func openEmail() {
-        var components = URLComponents()
-        components.scheme = "mailto"
-        components.path = gratitude.recipientEmail ?? ""
-        components.queryItems = [
-            URLQueryItem(name: "subject", value: emailSubject),
-            URLQueryItem(name: "body", value: shareMessage)
-        ]
         if let url = components.url {
             openURL(url)
         }

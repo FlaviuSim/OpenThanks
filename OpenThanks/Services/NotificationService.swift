@@ -18,10 +18,33 @@ enum NotificationService {
         }
     }
 
+    static func authorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    /// Already granted (including provisional / ephemeral).
+    static func isAuthorized() async -> Bool {
+        switch await authorizationStatus() {
+        case .authorized, .provisional, .ephemeral: true
+        default: false
+        }
+    }
+
+    /// System has already answered — no custom prompt needed.
+    static func hasResolvedAuthorization() async -> Bool {
+        await authorizationStatus() != .notDetermined
+    }
+
     static func requestAuthorizationAndRegisterForPushes() async -> Bool {
         do {
-            let granted = try await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .badge, .sound])
+            let status = await authorizationStatus()
+            let granted: Bool
+            if status == .notDetermined {
+                granted = try await UNUserNotificationCenter.current()
+                    .requestAuthorization(options: [.alert, .badge, .sound])
+            } else {
+                granted = status == .authorized || status == .provisional || status == .ephemeral
+            }
             guard granted else { return false }
             await MainActor.run {
                 UIApplication.shared.registerForRemoteNotifications()

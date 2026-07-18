@@ -50,6 +50,34 @@ enum GratitudeService {
             .execute().value
     }
 
+    /// Pending appreciations the signed-in user still needs to accept
+    /// (matched by recipient id, email, or phone — not ones they authored).
+    static func pendingToAccept(
+        userId: UUID,
+        email: String?,
+        phone: String?
+    ) async throws -> [Gratitude] {
+        var clauses = ["recipient_id.eq.\(userId.uuidString)"]
+        if let email, !email.isEmpty {
+            clauses.append("recipient_email.eq.\(email.lowercased())")
+        }
+        if let phone, !phone.isEmpty {
+            clauses.append("recipient_phone.eq.\(phone)")
+        }
+
+        let rows: [Gratitude] = try await supabase.from("gratitudes")
+            .select(feedSelect)
+            .eq("status", value: "pending")
+            .neq("author_id", value: userId)
+            .or(clauses.joined(separator: ","))
+            .order("created_at", ascending: false)
+            .execute().value
+
+        // De-dupe if multiple clauses match the same row.
+        var seen = Set<UUID>()
+        return rows.filter { seen.insert($0.id).inserted }
+    }
+
     /// Accepted appreciations sent by a user, restricted to what `viewerId`
     /// may see: public posts, plus private ones the viewer is party to.
     static func sentBy(userId: UUID, viewerId: UUID?, limit: Int = 50) async throws -> [Gratitude] {
@@ -395,6 +423,38 @@ enum GratitudeService {
             .select()
             .single()
             .execute().value
+    }
+
+    // MARK: Email reminders
+
+    /// Sends the OpenThanks claim email to the pending recipient
+    /// (`POST /api/gratitudes/resend-email` on openthanks.com).
+    static func sendEmailReminder(gratitudeId: UUID) async throws {
+        guard let session = try? await supabase.auth.session else {
+            throw URLError(.userAuthenticationRequired)
+        }
+
+        var request = URLRequest(
+            url: AppConfig.webAppURL.appending(path: "api/gratitudes/resend-email")
+        )
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(["gratitudeId": gratitudeId.uuidString])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            struct APIError: Decodable { let error: String? }
+            let message = (try? JSONDecoder().decode(APIError.self, from: data))?.error
+            throw NSError(
+                domain: "OpenThanks",
+                code: http.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: message ?? "Couldn't send the email reminder."]
+            )
+        }
     }
 
     // MARK: Nonprofits

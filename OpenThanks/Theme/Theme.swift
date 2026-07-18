@@ -13,19 +13,30 @@ enum AppAppearance: String {
 }
 
 enum Theme {
-    private static let appearanceKey = "appAppearance"
-
-    private static var resolvedColorScheme: ColorScheme {
-        let raw = UserDefaults.standard.string(forKey: appearanceKey) ?? AppAppearance.dark.rawValue
-        return AppAppearance(rawValue: raw)?.colorScheme ?? .dark
-    }
-
+    /// Dynamic UIColors so palette tracks `preferredColorScheme` without
+    /// requiring every screen to observe `@AppStorage("appAppearance")`.
     private static func adaptive(light: UInt32, dark: UInt32) -> Color {
-        Color(hex: resolvedColorScheme == .dark ? dark : light)
+        Color(uiColor: UIColor { traits in
+            let hex = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(
+                red: CGFloat((hex >> 16) & 0xFF) / 255,
+                green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255,
+                alpha: 1
+            )
+        })
     }
 
     private static func adaptive(light: UInt32, dark: UInt32, opacity: Double) -> Color {
-        adaptive(light: light, dark: dark).opacity(opacity)
+        Color(uiColor: UIColor { traits in
+            let hex = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(
+                red: CGFloat((hex >> 16) & 0xFF) / 255,
+                green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255,
+                alpha: opacity
+            )
+        })
     }
 
     // MARK: Palette — adaptive light/dark (dark is the default design)
@@ -134,6 +145,17 @@ struct CTAButtonStyle: ButtonStyle {
             .opacity(isLoading ? 0.9 : 1)
             .scaleEffect(pressed ? 0.96 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+struct SecondaryCapsuleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.body(17, weight: .semibold))
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.vertical, 14)
+            .background(Theme.surfaceRaised, in: Capsule())
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
 

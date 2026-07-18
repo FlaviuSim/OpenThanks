@@ -101,7 +101,22 @@ struct OTPSheet: View {
                     .font(Theme.display(24, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
 
-                if !codeSent {
+                if codeSent {
+                    // Plain label — a hidden email TextField steals QuickType taps.
+                    Text(destination)
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    OneTimeCodeField(text: $code, isFocused: true)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .padding(16)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                        // Fresh UITextField when the code step appears so AutoFill
+                        // binds to this first responder (not the email field).
+                        .id("otp-code-\(mode)-\(destination)")
+                } else {
                     TextField(mode == .email ? "you@example.com" : "+1 555 123 4567",
                               text: $destination)
                         .keyboardType(mode == .email ? .emailAddress : .phonePad)
@@ -112,14 +127,6 @@ struct OTPSheet: View {
                         .padding(16)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
                         .foregroundStyle(Theme.textPrimary)
-                } else {
-                    OneTimeCodeField(text: $code, isFocused: true)
-                        .frame(height: 28)
-                        .padding(16)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-                        // Force a brand-new UITextField when the code step appears so
-                        // AutoFill binds to a live .oneTimeCode first responder.
-                        .id("otp-code-\(mode)")
                 }
 
                 if let error = auth.errorMessage {
@@ -165,7 +172,11 @@ struct OTPSheet: View {
     }
 
     private var canSubmit: Bool {
-        codeSent ? code.count >= 6 : !destination.isEmpty
+        codeSent ? code.count >= 6 : !trimmedDestination.isEmpty
+    }
+
+    private var trimmedDestination: String {
+        destination.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var submitLabel: String {
@@ -179,6 +190,11 @@ struct OTPSheet: View {
         guard !busy else { return }
         busy = true
         defer { busy = false }
+        if mode == .email {
+            destination = AuthService.normalizedEmail(destination)
+        } else {
+            destination = trimmedDestination
+        }
         if codeSent {
             if mode == .email {
                 await auth.verifyEmailCode(email: destination, code: code)
