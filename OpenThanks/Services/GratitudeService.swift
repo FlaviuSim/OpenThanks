@@ -130,6 +130,24 @@ enum GratitudeService {
             .execute().value
     }
 
+    /// Update a pending appreciation you authored.
+    static func update(id: UUID, update: GratitudeUpdate) async throws -> Gratitude {
+        try await supabase.from("gratitudes")
+            .update(update)
+            .eq("id", value: id)
+            .select(feedSelect)
+            .single()
+            .execute().value
+    }
+
+    /// Delete an appreciation you authored (typically still pending).
+    static func delete(id: UUID) async throws {
+        try await supabase.from("gratitudes")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+    }
+
     /// Uploads a profile photo and returns its public URL.
     static func uploadAvatar(data: Data, contentType: String, userId: UUID) async throws -> URL {
         try await uploadToBucket(AppConfig.avatarBucket, data: data, contentType: contentType, userId: userId)

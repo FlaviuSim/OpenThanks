@@ -11,6 +11,7 @@
 		06F2D3E145B798C680888431 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEFAF07C21753839CBCCE3B /* ComposeView.swift */; };
 		0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */; };
 		1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */; };
+		13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */; };
 		2AA3482072E822D921E27B77 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6386C42954F7E470B63181A1 /* MainTabView.swift */; };
 		3941394E94699B39AF29657B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */; };
 		4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E451C434563DD8702080E34 /* WelcomeView.swift */; };
@@ -24,6 +25,7 @@
 		B9C2C7DCFAA6309EC4401A8D /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167153BE2EE275F81D5D2A05 /* AppConfig.swift */; };
 		BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC0A8CDE94660605C46C812 /* AuthService.swift */; };
 		C8DB929803C920F0E53E0682 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0320D5FF717E6D107693552A /* Supabase */; };
+		E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */; };
 		ED6CBED0D9F83C3794342573 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7180CB985A04524939619A0F /* Models.swift */; };
 		F0DEEBB646DB5DEC2C7ABFC2 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A25AD150B863DF00ABC41E23 /* OnboardingView.swift */; };
 		F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41CEF2962FB940913427807 /* FeedView.swift */; };
@@ -49,6 +51,8 @@
 		A7100E64F1ACD16964F60A63 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksApp.swift; sourceTree = "<group>"; };
 		C7684C625234ED38D76E9335 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropper.swift; sourceTree = "<group>"; };
+		DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationAI.swift; sourceTree = "<group>"; };
 		EE58C9232B92D8AAD5346A26 /* OpenThanks.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenThanks.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F41CEF2962FB940913427807 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -77,6 +81,7 @@
 		12E0C031F8678221EDC7000E /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */,
 				1EC0A8CDE94660605C46C812 /* AuthService.swift */,
 				0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */,
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
@@ -138,6 +143,7 @@
 			isa = PBXGroup;
 			children = (
 				7BEFAF07C21753839CBCCE3B /* ComposeView.swift */,
+				D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */,
 			);
 			path = Compose;
 			sourceTree = "<group>";
@@ -291,11 +297,13 @@
 			files = (
 				B9C2C7DCFAA6309EC4401A8D /* AppConfig.swift in Sources */,
 				8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */,
+				13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */,
 				BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */,
 				06F2D3E145B798C680888431 /* ComposeView.swift in Sources */,
 				F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */,
 				1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */,
 				0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */,
+				E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */,
 				2AA3482072E822D921E27B77 /* MainTabView.swift in Sources */,
 				ED6CBED0D9F83C3794342573 /* Models.swift in Sources */,
 				7744285F382417A1C7007F97 /* NotificationService.swift in Sources */,
@@ -321,14 +329,14 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 53CL59ATX8;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -406,14 +414,14 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 53CL59ATX8;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;

@@ -40,14 +40,14 @@ struct ProfileView: View {
 /// only to the people involved in them.
 struct UserProfileView: View {
     enum Section: String, CaseIterable {
-        case sent = "Sent", received = "Received", inspired = "Inspired"
+        case received = "Received", sent = "Sent", inspired = "Inspired"
     }
 
     let profile: Profile
     @Environment(AuthService.self) private var auth
 
     @State private var freshProfile: Profile?
-    @State private var section: Section = .sent
+    @State private var section: Section = .received
     @State private var stats = ProfileStats()
     @State private var sent: [Gratitude] = []
     @State private var received: [Gratitude] = []
@@ -221,12 +221,12 @@ struct UserProfileView: View {
     @ViewBuilder
     private var sectionContent: some View {
         switch section {
+        case .received:
+            gratitudeList(received, empty: "Nothing received yet.")
         case .sent:
             gratitudeList(sent, empty: isOwnProfile
                           ? "You haven't sent an appreciation yet."
                           : "No appreciations sent yet.")
-        case .received:
-            gratitudeList(received, empty: "Nothing received yet.")
         case .inspired:
             inspiredList
         }
