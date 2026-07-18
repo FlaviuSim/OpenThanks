@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// Presents Universal Link destinations as a full-screen cover once the user
-/// is signed in (claim links require an account).
+/// Presents Universal Link destinations as a full-screen cover.
+/// Pass `auth` explicitly — `@Environment(AuthService.self)` on a modifier
+/// applied outside `.environment(auth)` crashes at launch.
 struct DeepLinkHostModifier: ViewModifier {
     @Bindable var deepLinks: DeepLinkRouter
-    @Environment(AuthService.self) private var auth
+    var auth: AuthService
 
     func body(content: Content) -> some View {
         content
@@ -58,8 +59,8 @@ struct DeepLinkHostModifier: ViewModifier {
 }
 
 extension View {
-    func deepLinkHost(_ deepLinks: DeepLinkRouter) -> some View {
-        modifier(DeepLinkHostModifier(deepLinks: deepLinks))
+    func deepLinkHost(_ deepLinks: DeepLinkRouter, auth: AuthService) -> some View {
+        modifier(DeepLinkHostModifier(deepLinks: deepLinks, auth: auth))
     }
 }
 

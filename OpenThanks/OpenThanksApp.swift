@@ -13,7 +13,6 @@ struct OpenThanksApp: App {
                 .onAppear { appDelegate.auth = auth }
                 .environment(auth)
                 .environment(deepLinks)
-                .deepLinkHost(deepLinks)
                 .syncAppAppearance()
                 .tint(Theme.coral)
                 .onOpenURL { url in
@@ -48,6 +47,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
 struct RootView: View {
     @Environment(AuthService.self) private var auth
+    @Environment(DeepLinkRouter.self) private var deepLinks
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
 
     var body: some View {
@@ -72,6 +72,8 @@ struct RootView: View {
                 }
             }
         }
+        // Attach inside RootView so AuthService is already in the environment.
+        .deepLinkHost(deepLinks, auth: auth)
         .animation(.easeInOut(duration: 0.25), value: isSignedIn)
     }
 
