@@ -87,12 +87,14 @@ struct UserProfileView: View {
             if gratitude.recipientId == profile.id,
                !received.contains(where: { $0.id == gratitude.id }) {
                 received.insert(gratitude, at: 0)
+                received.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
                 stats.received += 1
                 if isOwnProfile { section = .received }
             }
             if gratitude.authorId == profile.id,
                !sent.contains(where: { $0.id == gratitude.id }) {
                 sent.insert(gratitude, at: 0)
+                sent.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
                 stats.sent += 1
             }
         }
@@ -285,7 +287,7 @@ struct UserProfileView: View {
                                 }
                             }
                             Spacer()
-                            if let date = g.createdAt {
+                            if let date = g.displayDate {
                                 Text(date, format: .relative(presentation: .named))
                                     .font(Theme.body(11))
                                     .foregroundStyle(Theme.textTertiary)

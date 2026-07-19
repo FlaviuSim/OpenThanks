@@ -44,7 +44,7 @@ struct GratitudeDetailView: View {
                      + Text(gratitude.recipientDisplayName)
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary))
-                    if let date = gratitude.createdAt {
+                    if let date = gratitude.displayDate {
                         Text(date, format: .dateTime.month(.wide).day().year())
                             .font(Theme.body(12))
                             .foregroundStyle(Theme.textTertiary)

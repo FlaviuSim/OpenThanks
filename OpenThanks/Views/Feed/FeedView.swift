@@ -125,6 +125,7 @@ struct FeedView: View {
                                     pendingToAccept.removeAll { $0.id == accepted.id }
                                     if !items.contains(where: { $0.id == accepted.id }) {
                                         items.insert(accepted, at: 0)
+                                        items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
                                     }
                                 },
                                 onDeclined: { id in
@@ -257,7 +258,7 @@ struct GratitudeCard: View {
                                 .foregroundStyle(Theme.textPrimary))
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
-                            if let date = gratitude.createdAt {
+                            if let date = gratitude.displayDate {
                                 Text(date, format: .relative(presentation: .named))
                                     .font(Theme.body(12))
                                     .foregroundStyle(Theme.textTertiary)

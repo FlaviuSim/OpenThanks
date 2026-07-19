@@ -15,17 +15,17 @@ enum GratitudeService {
 
     // MARK: Feeds
 
-    /// World feed: public, accepted appreciations, newest first.
+    /// World feed: public, accepted appreciations, newest accepted first.
     static func worldFeed(limit: Int = 30, before: Date? = nil) async throws -> [Gratitude] {
         var query = supabase.from("gratitudes")
             .select(feedSelect)
             .eq("visibility", value: "public")
             .eq("status", value: "accepted")
         if let before {
-            query = query.lt("created_at", value: before.ISO8601Format())
+            query = query.lt("accepted_at", value: before.ISO8601Format())
         }
         return try await query
-            .order("created_at", ascending: false)
+            .order("accepted_at", ascending: false)
             .limit(limit)
             .execute().value
     }
@@ -36,7 +36,7 @@ enum GratitudeService {
             .select(feedSelect)
             .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
             .eq("status", value: "accepted")
-            .order("created_at", ascending: false)
+            .order("accepted_at", ascending: false)
             .limit(limit)
             .execute().value
     }
@@ -94,7 +94,7 @@ enum GratitudeService {
             .select(feedSelect)
             .eq("author_id", value: userId)
             .eq("status", value: "accepted")
-            .order("created_at", ascending: false)
+            .order("accepted_at", ascending: false)
             .limit(limit)
             .execute().value
         return all.filter { $0.isVisible(to: viewerId) }
@@ -106,7 +106,7 @@ enum GratitudeService {
             .select(feedSelect)
             .eq("recipient_id", value: userId)
             .eq("status", value: "accepted")
-            .order("created_at", ascending: false)
+            .order("accepted_at", ascending: false)
             .limit(limit)
             .execute().value
         return all.filter { $0.isVisible(to: viewerId) }

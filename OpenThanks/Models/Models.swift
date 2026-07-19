@@ -55,6 +55,7 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var mediaUrl: String?
     var mediaType: String?
     let createdAt: Date?
+    let acceptedAt: Date?
     var status: GratitudeStatus?
     var visibility: GratitudeVisibility?
     var recipientEmail: String?
@@ -76,6 +77,7 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case mediaUrl = "media_url"
         case mediaType = "media_type"
         case createdAt = "created_at"
+        case acceptedAt = "accepted_at"
         case status, visibility, slug
         case recipientEmail = "recipient_email"
         case recipientPhone = "recipient_phone"
@@ -83,6 +85,12 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case claimToken = "claim_token"
         case author, recipient, hearts
     }
+
+    /// Prefer acceptance date for listing/display; fall back to sent date.
+    var displayDate: Date? { acceptedAt ?? createdAt }
+
+    /// Sort key for accepted lists (newest acceptance first).
+    var acceptanceSortDate: Date { acceptedAt ?? createdAt ?? .distantPast }
 
     var heartCount: Int { hearts?.first?.count ?? 0 }
     var recipientDisplayName: String {

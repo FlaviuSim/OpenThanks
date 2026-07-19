@@ -111,7 +111,7 @@ struct ClaimAppreciationView: View {
                             Text(gratitude.author?.displayName ?? "Someone")
                                 .font(Theme.body(16, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
-                            if let date = gratitude.createdAt {
+                            if let date = gratitude.displayDate {
                                 Text(date, format: .relative(presentation: .named))
                                     .font(Theme.body(12))
                                     .foregroundStyle(Theme.textTertiary)
