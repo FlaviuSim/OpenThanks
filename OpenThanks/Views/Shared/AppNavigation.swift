@@ -3,6 +3,9 @@ import SwiftUI
 /// Route for posts we only know by id (e.g. notification taps).
 struct GratitudeIdRoute: Hashable { let id: UUID }
 
+/// Pending list pushed from Home / Notifications banners.
+struct PendingAppreciationsRoute: Hashable {}
+
 extension View {
     /// Registers the app-wide push destinations. Apply once at the root of
     /// every NavigationStack so profiles and posts can be pushed from anywhere.
@@ -11,6 +14,9 @@ extension View {
             .navigationDestination(for: Profile.self) { UserProfileView(profile: $0) }
             .navigationDestination(for: Gratitude.self) { GratitudeDetailView(gratitude: $0) }
             .navigationDestination(for: GratitudeIdRoute.self) { GratitudeLoaderView(gratitudeId: $0.id) }
+            .navigationDestination(for: PendingAppreciationsRoute.self) { _ in
+                PendingAppreciationsView()
+            }
     }
 }
 

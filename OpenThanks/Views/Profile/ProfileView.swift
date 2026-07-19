@@ -2,11 +2,12 @@ import SwiftUI
 
 /// Own-profile tab: your profile plus the settings entry point.
 struct ProfileView: View {
+    @Binding var path: NavigationPath
+    @Binding var showSettings: Bool
     @Environment(AuthService.self) private var auth
-    @State private var showSettings = false
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if let profile = auth.currentProfile {
                     UserProfileView(profile: profile)

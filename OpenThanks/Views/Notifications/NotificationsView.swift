@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct NotificationsView: View {
+    @Binding var path: NavigationPath
     @Binding var unreadCount: Int
     @Environment(AuthService.self) private var auth
     @State private var notes: [AppNotification] = []
@@ -13,7 +14,7 @@ struct NotificationsView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if loading && notes.isEmpty && pendingCount == 0 {
                     ProgressView().tint(Theme.coral)

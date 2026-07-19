@@ -3,6 +3,7 @@ import SwiftUI
 struct FeedView: View {
     enum Scope: String, CaseIterable { case personal = "Personal", world = "World" }
 
+    @Binding var path: NavigationPath
     @Environment(AuthService.self) private var auth
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
@@ -18,7 +19,7 @@ struct FeedView: View {
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 header
                 picker

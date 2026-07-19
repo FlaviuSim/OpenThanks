@@ -243,9 +243,7 @@ struct PendingAppreciationsBanner: View {
     let count: Int
 
     var body: some View {
-        NavigationLink {
-            PendingAppreciationsView()
-        } label: {
+        NavigationLink(value: PendingAppreciationsRoute()) {
             HStack(spacing: 14) {
                 ActionGlyph(systemImage: "clock.arrow.circlepath", size: 44)
 
