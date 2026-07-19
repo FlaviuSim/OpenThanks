@@ -186,7 +186,7 @@ struct GratitudeDetailView: View {
                 if wasHearted {
                     try await GratitudeService.unheart(gratitudeId: gratitude.id, userId: userId)
                 } else {
-                    try await GratitudeService.heart(gratitudeId: gratitude.id, userId: userId)
+                    try await GratitudeService.heart(gratitudeId: gratitude.id, userId: userId, authorId: gratitude.authorId)
                 }
             } catch {
                 isHearted = wasHearted

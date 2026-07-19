@@ -13,14 +13,7 @@ struct NotificationPermissionView: View {
             Spacer()
 
             VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.coralPale.opacity(0.45))
-                        .frame(width: 96, height: 96)
-                    Image(systemName: "bell.badge.fill")
-                        .font(.system(size: 40, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                }
+                ActionGlyph(systemImage: "bell.fill", size: 88)
 
                 VStack(spacing: 10) {
                     Text("Stay in the gratitude loop")

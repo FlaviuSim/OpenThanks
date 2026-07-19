@@ -190,11 +190,18 @@ struct AppNotification: Codable, Identifiable, Hashable {
 
     var verb: String {
         switch type {
-        case "heart", "reaction": return "reacted to your appreciation"
-        case "reply": return "replied to your appreciation"
-        case "gratitude_received", "thanked": return "thanked you"
-        case "accepted": return "accepted your appreciation"
-        default: return type.replacingOccurrences(of: "_", with: " ")
+        case "gratitude_pending":
+            return "shared appreciation for you"
+        case "gratitude_received":
+            return "accepted your appreciation"
+        case "heart_received", "heart", "reaction":
+            return "hearted your appreciation"
+        case "gratitude_friday":
+            return "It's Friday — share some gratitude"
+        case "reply":
+            return "replied to your appreciation"
+        default:
+            return type.replacingOccurrences(of: "_", with: " ")
         }
     }
 }

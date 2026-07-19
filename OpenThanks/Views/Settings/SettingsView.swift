@@ -530,10 +530,10 @@ struct PendingAppreciationsView: View {
             .buttonStyle(.plain)
 
             HStack(spacing: 8) {
-                actionButton(title: "Edit", systemImage: "pencil") {
+                actionButton(title: "Edit", systemImage: "square.and.pencil") {
                     editing = g
                 }
-                actionButton(title: "Share", systemImage: "square.and.arrow.up") {
+                actionButton(title: "Share", systemImage: "link") {
                     sharing = g
                 }
                 actionButton(title: "Delete", systemImage: "trash", destructive: true) {
@@ -568,12 +568,17 @@ struct PendingAppreciationsView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(Theme.body(13, weight: .semibold))
-                .foregroundStyle(destructive ? Color.red.opacity(0.9) : Theme.textPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Theme.surfaceRaised, in: Capsule())
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                Text(title)
+                    .font(Theme.body(13, weight: .semibold))
+            }
+            .foregroundStyle(destructive ? Color.red.opacity(0.9) : Theme.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Theme.surfaceRaised, in: Capsule())
         }
         .buttonStyle(.plain)
         .disabled(busyId != nil)

@@ -98,7 +98,8 @@ struct AcceptPendingCard: View {
                 try? await GratitudeService.assignClaimRecipient(
                     gratitudeId: gratitude.id,
                     claimToken: token,
-                    recipientId: userId
+                    recipientId: userId,
+                    authorId: gratitude.authorId
                 )
             }
             let updated = try await GratitudeService.respondToClaim(

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Actions for nudging a recipient after creating or from Pending Appreciations.
-/// Shows Copy Link / Text / OpenThanks Email Reminder — not the raw URL string.
+/// Shows Copy Link / Text / Email / OpenThanks Email Reminder — not the raw URL string.
 struct PendingShareSheet: View {
     let gratitude: Gratitude
     @Environment(\.dismiss) private var dismiss
@@ -65,8 +65,24 @@ struct PendingShareSheet: View {
                 .buttonStyle(CTAButtonStyle())
                 .sensoryFeedback(.success, trigger: copied)
 
+                ShareActionRow(
+                    title: "Send via Text",
+                    systemImage: "bubble.left.and.bubble.right.fill",
+                    subtitle: gratitude.recipientPhone.map { "To \($0)" }
+                ) {
+                    openSMS()
+                }
+
+                ShareActionRow(
+                    title: "Send via Email",
+                    systemImage: "envelope.fill",
+                    subtitle: recipientEmail.map { "To \($0)" }
+                ) {
+                    openMail()
+                }
+
                 if let recipientEmail {
-                    shareAction(
+                    ShareActionRow(
                         title: emailActionTitle,
                         systemImage: emailActionIcon,
                         subtitle: emailSubtitle(for: recipientEmail),
@@ -75,14 +91,6 @@ struct PendingShareSheet: View {
                     ) {
                         Task { await sendEmailReminder() }
                     }
-                }
-
-                shareAction(
-                    title: "Send via Text",
-                    systemImage: "message.fill",
-                    subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                ) {
-                    openSMS()
                 }
             }
             .padding(.horizontal, 24)
@@ -109,8 +117,8 @@ struct PendingShareSheet: View {
 
     private var emailActionIcon: String {
         switch emailState {
-        case .idle, .sending: "envelope.badge.fill"
-        case .sent: "checkmark.circle.fill"
+        case .idle, .sending: "envelope.fill"
+        case .sent: "checkmark"
         case .failed: "arrow.clockwise"
         }
     }
@@ -121,60 +129,6 @@ struct PendingShareSheet: View {
         case .sent: "Reminder delivered to \(email)"
         case .failed(let message): message
         }
-    }
-
-    private func shareAction(
-        title: String,
-        systemImage: String,
-        subtitle: String?,
-        showSpinner: Bool = false,
-        disabled: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.coralPale.opacity(0.55))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: systemImage)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(Theme.body(16, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    if let subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(Theme.body(12))
-                            .foregroundStyle(Theme.textSecondary)
-                            .lineLimit(2)
-                    }
-                }
-
-                Spacer(minLength: 0)
-
-                if showSpinner {
-                    ProgressView().tint(Theme.coral)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Theme.hairline)
-            )
-            .opacity(disabled ? 0.7 : 1)
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
     }
 
     private func sendEmailReminder() async {
@@ -195,6 +149,19 @@ struct PendingShareSheet: View {
         components.scheme = "sms"
         components.path = phone
         components.queryItems = [URLQueryItem(name: "body", value: messageBody)]
+        if let url = components.url {
+            openURL(url)
+        }
+    }
+
+    private func openMail() {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = recipientEmail ?? ""
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "I wrote you an appreciation on OpenThanks"),
+            URLQueryItem(name: "body", value: messageBody),
+        ]
         if let url = components.url {
             openURL(url)
         }

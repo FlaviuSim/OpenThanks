@@ -7,6 +7,7 @@ struct FeedView: View {
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
     @State private var pendingToAccept: [Gratitude] = []
+    @State private var pendingSentCount = 0
     @State private var heartedIds: Set<UUID> = []
     @State private var loading = true
     @State private var error: String?
@@ -19,11 +20,17 @@ struct FeedView: View {
             VStack(spacing: 0) {
                 header
                 picker
+                if pendingSentCount > 0 {
+                    PendingAppreciationsBanner(count: pendingSentCount)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                }
                 content
             }
             .background(Theme.background)
             .task(id: scope) { await load() }
             .refreshable { await load() }
+            .onAppear { Task { await refreshPendingSentCount() } }
             .toolbar(.hidden, for: .navigationBar)
             .appDestinations()
             .fullScreenCover(isPresented: $showCompose) {
@@ -44,14 +51,19 @@ struct FeedView: View {
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
             Button { showCompose = true } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .frame(width: 36, height: 36)
-                    .background(Theme.surfaceRaised, in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.hairline))
+                HStack(spacing: 6) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Thank someone")
+                        .font(Theme.body(13, weight: .semibold))
+                }
+                .foregroundStyle(Color(hex: 0x2B1209))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(Theme.ctaGradient, in: Capsule())
+                .shadow(color: Theme.coral.opacity(0.35), radius: 8, y: 2)
             }
-            .accessibilityLabel("Share an appreciation")
+            .accessibilityLabel("Thank someone — share an appreciation")
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
@@ -80,7 +92,7 @@ struct FeedView: View {
         } else if let error, isEmpty {
             Spacer()
             VStack(spacing: 8) {
-                Text("Couldn't load the feed").font(Theme.body(16, weight: .semibold))
+                Text("Couldn't load Home").font(Theme.body(16, weight: .semibold))
                 Text(error).font(Theme.body(13)).foregroundStyle(Theme.textSecondary)
                 Button("Try again") { Task { await load() } }
                     .foregroundStyle(Theme.coral)
@@ -146,6 +158,11 @@ struct FeedView: View {
         .padding(.top, 4)
     }
 
+    private func refreshPendingSentCount() async {
+        guard let userId = auth.userId else { return }
+        pendingSentCount = (try? await GratitudeService.pending(authorId: userId))?.count ?? pendingSentCount
+    }
+
     private func load() async {
         guard let userId = auth.userId else { return }
         loading = true; error = nil
@@ -158,13 +175,16 @@ struct FeedView: View {
                 email: auth.currentProfile?.email,
                 phone: auth.currentProfile?.phone
             )
+            async let pendingSentTask: [Gratitude] = GratitudeService.pending(authorId: userId)
 
             let result = try await feedTask
             let pending = (try? await pendingTask) ?? []
+            let pendingSent = (try? await pendingSentTask) ?? []
             let hearts = try await GratitudeService.myHearts(userId: userId,
                                                             among: result.map(\.id))
             items = result
             pendingToAccept = pending
+            pendingSentCount = pendingSent.count
             heartedIds = hearts
         } catch {
             if !error.isCancellation {
@@ -188,7 +208,7 @@ struct FeedView: View {
                 if wasHearted {
                     try await GratitudeService.unheart(gratitudeId: item.id, userId: userId)
                 } else {
-                    try await GratitudeService.heart(gratitudeId: item.id, userId: userId)
+                    try await GratitudeService.heart(gratitudeId: item.id, userId: userId, authorId: item.authorId)
                 }
             } catch {
                 // Revert on failure

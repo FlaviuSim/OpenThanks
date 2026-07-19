@@ -32,7 +32,7 @@ struct MainTabView: View {
 
     private var tabBar: some View {
         HStack {
-            tabItem(icon: "house.fill", label: "Feed", value: .feed)
+            tabItem(icon: "house.fill", label: "Home", value: .feed)
             Spacer()
             Button { showCompose = true } label: {
                 Image(systemName: "heart.fill")
@@ -58,7 +58,9 @@ struct MainTabView: View {
     private func tabItem(icon: String, label: String, value: Tab, badge: Int = 0) -> some View {
         Button {
             tab = value
-            if value == .notifications { unreadCount = 0 }
+            if value != .notifications {
+                Task { await refreshUnread() }
+            }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)

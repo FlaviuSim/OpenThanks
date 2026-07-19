@@ -131,16 +131,25 @@ enum GratitudeService {
     }
 
     /// Associates the signed-in user as recipient when they open a claim link.
+    /// Also notifies the claimer (`gratitude_pending`) from the author.
     static func assignClaimRecipient(
         gratitudeId: UUID,
         claimToken: UUID,
-        recipientId: UUID
+        recipientId: UUID,
+        authorId: UUID
     ) async throws {
         try await supabase.from("gratitudes")
             .update(["recipient_id": recipientId.uuidString])
             .eq("id", value: gratitudeId)
             .eq("claim_token", value: claimToken)
             .execute()
+
+        await insertNotification(
+            userId: recipientId,
+            type: "gratitude_pending",
+            gratitudeId: gratitudeId,
+            fromUserId: authorId
+        )
     }
 
     /// Accept or decline a pending appreciation (mirrors web PATCH /api/gratitudes).
@@ -175,12 +184,12 @@ enum GratitudeService {
             .execute().value
 
         if accept {
-            _ = try? await supabase.from("notifications").insert([
-                "user_id": updated.authorId.uuidString,
-                "type": "gratitude_received",
-                "gratitude_id": updated.id.uuidString,
-                "from_user_id": recipientId.uuidString,
-            ]).execute()
+            await insertNotification(
+                userId: updated.authorId,
+                type: "gratitude_received",
+                gratitudeId: updated.id,
+                fromUserId: recipientId
+            )
         }
 
         return updated
@@ -288,11 +297,21 @@ enum GratitudeService {
         return Set(rows.map(\.gratitude_id))
     }
 
-    static func heart(gratitudeId: UUID, userId: UUID) async throws {
+    static func heart(gratitudeId: UUID, userId: UUID, authorId: UUID) async throws {
         try await supabase.from("hearts")
             .insert(["gratitude_id": gratitudeId.uuidString,
                      "user_id": userId.uuidString])
             .execute()
+
+        // Notify the author (skip self-hearts).
+        if authorId != userId {
+            await insertNotification(
+                userId: authorId,
+                type: "heart_received",
+                gratitudeId: gratitudeId,
+                fromUserId: userId
+            )
+        }
     }
 
     static func unheart(gratitudeId: UUID, userId: UUID) async throws {
@@ -305,6 +324,21 @@ enum GratitudeService {
 
     // MARK: Notifications
 
+    /// Best-effort insert — never fails the calling action.
+    private static func insertNotification(
+        userId: UUID,
+        type: String,
+        gratitudeId: UUID,
+        fromUserId: UUID
+    ) async {
+        _ = try? await supabase.from("notifications").insert([
+            "user_id": userId.uuidString,
+            "type": type,
+            "gratitude_id": gratitudeId.uuidString,
+            "from_user_id": fromUserId.uuidString,
+        ]).execute()
+    }
+
     static func notifications(userId: UUID, limit: Int = 50) async throws -> [AppNotification] {
         try await supabase.from("notifications")
             .select("*, from_user:profiles!notifications_from_user_id_fkey(*)")
@@ -312,6 +346,13 @@ enum GratitudeService {
             .order("created_at", ascending: false)
             .limit(limit)
             .execute().value
+    }
+
+    static func markRead(id: UUID) async throws {
+        try await supabase.from("notifications")
+            .update(["read": true])
+            .eq("id", value: id)
+            .execute()
     }
 
     static func markAllRead(userId: UUID) async throws {

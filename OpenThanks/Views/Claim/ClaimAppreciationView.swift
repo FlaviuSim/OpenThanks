@@ -207,7 +207,8 @@ struct ClaimAppreciationView: View {
             if let userId = auth.userId, loaded.recipientId != userId {
                 try? await GratitudeService.assignClaimRecipient(gratitudeId: loaded.id,
                                                                 claimToken: token,
-                                                                recipientId: userId)
+                                                                recipientId: userId,
+                                                                authorId: loaded.authorId)
             }
 
             phase = .ready

@@ -260,15 +260,13 @@ struct ComposeView: View {
                 ) {
                     HStack(spacing: 14) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Theme.coralPale.opacity(0.45))
-                                .frame(width: 52, height: 52)
                             if loadingPhoto {
-                                ProgressView().tint(Theme.coral)
+                                Circle()
+                                    .fill(Theme.coral)
+                                    .frame(width: 46, height: 46)
+                                ProgressView().tint(.white)
                             } else {
-                                Image(systemName: "photo.badge.plus")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundStyle(Theme.coral)
+                                ActionGlyph(systemImage: "photo")
                             }
                         }
 
@@ -796,28 +794,37 @@ struct SuccessView: View {
                     .buttonStyle(CTAButtonStyle())
                     .sensoryFeedback(.success, trigger: copied)
 
-                    successAction(
+                    ShareActionRow(
                         title: "Send via Text",
-                        systemImage: "message.fill",
+                        systemImage: "bubble.left.and.bubble.right.fill",
                         subtitle: gratitude.recipientPhone.map { "To \($0)" }
                     ) {
                         openSMS()
                     }
 
+                    ShareActionRow(
+                        title: "Send via Email",
+                        systemImage: "envelope.fill",
+                        subtitle: recipientEmail.map { "To \($0)" }
+                    ) {
+                        openMail()
+                    }
+
                     if let recipientEmail {
-                        successAction(
+                        ShareActionRow(
                             title: successEmailTitle,
                             systemImage: successEmailIcon,
-                            subtitle: successEmailSubtitle(for: recipientEmail)
+                            subtitle: successEmailSubtitle(for: recipientEmail),
+                            showSpinner: emailState == .sending,
+                            disabled: emailState == .sending
                         ) {
                             Task { await sendEmailReminder() }
                         }
-                        .disabled(emailState == .sending)
                     }
 
-                    successAction(
+                    ShareActionRow(
                         title: "Edit Appreciation",
-                        systemImage: "pencil",
+                        systemImage: "square.and.pencil",
                         subtitle: "Update the message or details"
                     ) {
                         onEdit()
@@ -843,52 +850,6 @@ struct SuccessView: View {
         .onAppear { burst = true }
     }
 
-    private func successAction(
-        title: String,
-        systemImage: String,
-        subtitle: String?,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.coralPale.opacity(0.55))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: systemImage)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(Theme.body(16, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    if let subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(Theme.body(12))
-                            .foregroundStyle(Theme.textSecondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer(minLength: 0)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.textTertiary)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Theme.hairline)
-            )
-        }
-        .buttonStyle(ScalePressButtonStyle())
-    }
-
     private var successEmailTitle: String {
         switch emailState {
         case .idle: "Email Reminder"
@@ -900,8 +861,8 @@ struct SuccessView: View {
 
     private var successEmailIcon: String {
         switch emailState {
-        case .idle, .sending: "envelope.badge.fill"
-        case .sent: "checkmark.circle.fill"
+        case .idle, .sending: "envelope.fill"
+        case .sent: "checkmark"
         case .failed: "arrow.clockwise"
         }
     }
@@ -932,6 +893,19 @@ struct SuccessView: View {
         components.scheme = "sms"
         components.path = phone
         components.queryItems = [URLQueryItem(name: "body", value: shareMessage)]
+        if let url = components.url {
+            openURL(url)
+        }
+    }
+
+    private func openMail() {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = recipientEmail ?? ""
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "I wrote you an appreciation on OpenThanks"),
+            URLQueryItem(name: "body", value: shareMessage),
+        ]
         if let url = components.url {
             openURL(url)
         }

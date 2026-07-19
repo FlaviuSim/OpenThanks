@@ -168,3 +168,116 @@ struct HeartMark: View {
             .shadow(color: Theme.coral.opacity(0.45), radius: size / 4)
     }
 }
+
+/// Solid brand badge for action rows — white glyph on coral for contrast.
+struct ActionGlyph: View {
+    let systemImage: String
+    var size: CGFloat = 46
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Theme.coral)
+                .frame(width: size, height: size)
+            Image(systemName: systemImage)
+                .font(.system(size: size * 0.38, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .symbolRenderingMode(.monochrome)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Tappable row used on share / nudge surfaces (text, email, edit, etc.).
+struct ShareActionRow: View {
+    let title: String
+    let systemImage: String
+    var subtitle: String? = nil
+    var showSpinner = false
+    var disabled = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ActionGlyph(systemImage: systemImage)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(Theme.body(16, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(2)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                if showSpinner {
+                    ProgressView().tint(Theme.coral)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Theme.hairline)
+            )
+            .opacity(disabled ? 0.7 : 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+    }
+}
+
+/// Banner linking to Pending Appreciations — Home + Notifications.
+struct PendingAppreciationsBanner: View {
+    let count: Int
+
+    var body: some View {
+        NavigationLink {
+            PendingAppreciationsView()
+        } label: {
+            HStack(spacing: 14) {
+                ActionGlyph(systemImage: "clock.arrow.circlepath", size: 44)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(count == 1
+                         ? "1 appreciation still pending"
+                         : "\(count) appreciations still pending")
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("They haven't claimed yet — nudge them to open the link.")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Theme.coral.opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Theme.coral.opacity(0.35), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
