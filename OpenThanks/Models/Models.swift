@@ -130,6 +130,7 @@ struct NewGratitude: Encodable {
     let recipientEmail: String?
     let recipientPhone: String?
     let recipientName: String?
+    var recipientId: UUID? = nil
     let visibility: String
     let mediaUrl: String?
     let mediaType: String?
@@ -141,6 +142,7 @@ struct NewGratitude: Encodable {
         case recipientEmail = "recipient_email"
         case recipientPhone = "recipient_phone"
         case recipientName = "recipient_name"
+        case recipientId = "recipient_id"
         case visibility
         case mediaUrl = "media_url"
         case mediaType = "media_type"

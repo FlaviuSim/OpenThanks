@@ -245,12 +245,50 @@ enum GratitudeService {
 
     // MARK: Compose
 
+    /// Creates a pending appreciation (direct Supabase insert, like mobile).
+    /// Matches the web create path for delivery: link an existing recipient,
+    /// insert an in-app pending notification, and email the claim link when
+    /// a recipient email is present (`POST /api/gratitudes/resend-email`).
     static func create(_ new: NewGratitude) async throws -> Gratitude {
-        try await supabase.from("gratitudes")
-            .insert(new)
+        var payload = new
+
+        // Link an existing OpenThanks account by email when possible.
+        if payload.recipientId == nil,
+           let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+           !email.isEmpty {
+            struct IdRow: Decodable { let id: UUID }
+            if let row: IdRow = try? await supabase.from("profiles")
+                .select("id")
+                .eq("email", value: email)
+                .single()
+                .execute().value {
+                payload.recipientId = row.id
+            }
+        }
+
+        let gratitude: Gratitude = try await supabase.from("gratitudes")
+            .insert(payload)
             .select(feedSelect)
             .single()
             .execute().value
+
+        if let recipientId = payload.recipientId, recipientId != payload.authorId {
+            await insertNotification(
+                userId: recipientId,
+                type: "gratitude_pending",
+                gratitudeId: gratitude.id,
+                fromUserId: payload.authorId
+            )
+        }
+
+        // Web create sends this automatically; iOS used to skip it and only
+        // offered a manual "Email Reminder" from the share sheet.
+        if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !email.isEmpty {
+            try? await sendEmailReminder(gratitudeId: gratitude.id)
+        }
+
+        return gratitude
     }
 
     /// Update a pending appreciation you authored.
