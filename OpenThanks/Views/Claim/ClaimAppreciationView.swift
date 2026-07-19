@@ -132,6 +132,8 @@ struct ClaimAppreciationView: View {
                 .padding(18)
                 .card()
 
+                AppreciationVisibilityNote(visibility: gratitude.visibility)
+
                 if let errorMessage {
                     Text(errorMessage)
                         .font(Theme.body(13))

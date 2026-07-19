@@ -737,11 +737,6 @@ struct SuccessView: View {
     @Environment(\.openURL) private var openURL
     @State private var burst = false
     @State private var copied = false
-    @State private var emailState: EmailReminderState = .idle
-
-    private enum EmailReminderState: Equatable {
-        case idle, sending, sent, failed(String)
-    }
 
     private var shareURL: URL {
         gratitude.claimURL ?? gratitude.webURL
@@ -761,6 +756,13 @@ struct SuccessView: View {
             + shareURL.absoluteString
     }
 
+    private var subtitle: String {
+        if recipientEmail != nil {
+            return "We emailed them the claim link. You can also share it yourself, or edit anything before they claim."
+        }
+        return "Send the claim link so they can open it — or edit anything before they do."
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -775,7 +777,7 @@ struct SuccessView: View {
                             .font(Theme.display(28, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
-                        Text("Send the claim link so they can open it — or edit anything before they do.")
+                        Text(subtitle)
                             .font(Theme.body(15))
                             .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
@@ -819,18 +821,6 @@ struct SuccessView: View {
                         openMail()
                     }
 
-                    if let recipientEmail {
-                        ShareActionRow(
-                            title: successEmailTitle,
-                            systemImage: successEmailIcon,
-                            subtitle: successEmailSubtitle(for: recipientEmail),
-                            showSpinner: emailState == .sending,
-                            disabled: emailState == .sending
-                        ) {
-                            Task { await sendEmailReminder() }
-                        }
-                    }
-
                     ShareActionRow(
                         title: "Edit Appreciation",
                         systemImage: "square.and.pencil",
@@ -857,43 +847,6 @@ struct SuccessView: View {
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear { burst = true }
-    }
-
-    private var successEmailTitle: String {
-        switch emailState {
-        case .idle: "Email Reminder"
-        case .sending: "Sending…"
-        case .sent: "Email Sent!"
-        case .failed: "Retry Email Reminder"
-        }
-    }
-
-    private var successEmailIcon: String {
-        switch emailState {
-        case .idle, .sending: "envelope.fill"
-        case .sent: "checkmark"
-        case .failed: "arrow.clockwise"
-        }
-    }
-
-    private func successEmailSubtitle(for email: String) -> String {
-        switch emailState {
-        case .idle, .sending: "OpenThanks emails \(email)"
-        case .sent: "Reminder delivered to \(email)"
-        case .failed(let message): message
-        }
-    }
-
-    private func sendEmailReminder() async {
-        emailState = .sending
-        do {
-            try await GratitudeService.sendEmailReminder(gratitudeId: gratitude.id)
-            emailState = .sent
-            try? await Task.sleep(for: .seconds(2.5))
-            if case .sent = emailState { emailState = .idle }
-        } catch {
-            emailState = .failed(error.localizedDescription)
-        }
     }
 
     private func openSMS() {

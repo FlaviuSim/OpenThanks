@@ -238,6 +238,48 @@ struct ShareActionRow: View {
     }
 }
 
+/// Shown when reviewing a pending appreciation so the recipient knows
+/// whether accepting will publish it or keep it between them and the sender.
+struct AppreciationVisibilityNote: View {
+    let visibility: GratitudeVisibility?
+
+    private var isPrivate: Bool { visibility == .private }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: isPrivate ? "lock.fill" : "globe")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+                .frame(width: 28, height: 28)
+                .background(Theme.coral.opacity(0.12), in: Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isPrivate ? "Private" : "Public")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(isPrivate
+                     ? "Only you and the sender will see this if you accept."
+                     : "Anyone on OpenThanks can see this if you accept.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Theme.surfaceRaised)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Theme.hairline)
+        )
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// Banner linking to Pending Appreciations — Home + Notifications.
 struct PendingAppreciationsBanner: View {
     let count: Int

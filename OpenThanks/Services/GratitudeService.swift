@@ -139,8 +139,9 @@ enum GratitudeService {
             .execute().value
     }
 
-    /// Associates the signed-in user as recipient when they open a claim link.
-    /// Also notifies the claimer (`gratitude_pending`) from the author.
+    /// Associates the signed-in user as recipient when they open a claim link
+    /// (or first see a pending appreciation matched by email/phone).
+    /// Notifies them with `gratitude_pending` from the author (deduped).
     static func assignClaimRecipient(
         gratitudeId: UUID,
         claimToken: UUID,
@@ -159,6 +160,34 @@ enum GratitudeService {
             gratitudeId: gratitudeId,
             fromUserId: authorId
         )
+    }
+
+    /// When a pending appreciation shows up for the signed-in user (email/phone
+    /// match or already linked), attach `recipient_id` if needed and ensure the
+    /// in-app `gratitude_pending` notification exists — so Notifications is not
+    /// empty until they accept or decline.
+    static func ensurePendingRecipientLinked(_ gratitude: Gratitude, userId: UUID) async {
+        guard gratitude.status == .pending || gratitude.status == nil else { return }
+        guard gratitude.authorId != userId else { return }
+
+        if gratitude.recipientId != userId, let token = gratitude.claimToken {
+            try? await assignClaimRecipient(
+                gratitudeId: gratitude.id,
+                claimToken: token,
+                recipientId: userId,
+                authorId: gratitude.authorId
+            )
+            return
+        }
+
+        if gratitude.recipientId == userId || gratitude.recipientId == nil {
+            await insertNotification(
+                userId: userId,
+                type: "gratitude_pending",
+                gratitudeId: gratitude.id,
+                fromUserId: gratitude.authorId
+            )
+        }
     }
 
     /// Accept or decline a pending appreciation (mirrors web PATCH /api/gratitudes).
@@ -252,14 +281,22 @@ enum GratitudeService {
     static func create(_ new: NewGratitude) async throws -> Gratitude {
         var payload = new
 
-        // Link an existing OpenThanks account by email when possible.
-        if payload.recipientId == nil,
-           let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-           !email.isEmpty {
+        // Link an existing OpenThanks account by email or phone when possible.
+        if payload.recipientId == nil {
             struct IdRow: Decodable { let id: UUID }
-            if let row: IdRow = try? await supabase.from("profiles")
+            if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+               !email.isEmpty,
+               let row: IdRow = try? await supabase.from("profiles")
                 .select("id")
                 .eq("email", value: email)
+                .single()
+                .execute().value {
+                payload.recipientId = row.id
+            } else if let phone = payload.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !phone.isEmpty,
+                      let row: IdRow = try? await supabase.from("profiles")
+                .select("id")
+                .eq("phone", value: phone)
                 .single()
                 .execute().value {
                 payload.recipientId = row.id
@@ -375,12 +412,26 @@ enum GratitudeService {
     // MARK: Notifications
 
     /// Best-effort insert — never fails the calling action.
+    /// Dedupes `gratitude_pending` so linking a recipient more than once
+    /// (feed load, claim link, accept) doesn't spam the inbox.
     private static func insertNotification(
         userId: UUID,
         type: String,
         gratitudeId: UUID,
         fromUserId: UUID
     ) async {
+        if type == "gratitude_pending" {
+            struct IdRow: Decodable { let id: UUID }
+            let existing: [IdRow] = (try? await supabase.from("notifications")
+                .select("id")
+                .eq("user_id", value: userId)
+                .eq("gratitude_id", value: gratitudeId)
+                .eq("type", value: type)
+                .limit(1)
+                .execute().value) ?? []
+            if !existing.isEmpty { return }
+        }
+
         _ = try? await supabase.from("notifications").insert([
             "user_id": userId.uuidString,
             "type": type,

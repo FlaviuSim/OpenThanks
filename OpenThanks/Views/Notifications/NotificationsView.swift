@@ -3,6 +3,7 @@ import SwiftUI
 struct NotificationsView: View {
     @Binding var path: NavigationPath
     @Binding var unreadCount: Int
+    var isSelected = true
     @Environment(AuthService.self) private var auth
     @State private var notes: [AppNotification] = []
     @State private var pendingCount = 0
@@ -66,6 +67,9 @@ struct NotificationsView: View {
                 }
             }
             .task { await load() }
+            .onChange(of: isSelected) { _, selected in
+                if selected { Task { await load() } }
+            }
             .refreshable { await load() }
             .appDestinations()
         }

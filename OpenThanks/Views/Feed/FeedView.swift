@@ -185,6 +185,12 @@ struct FeedView: View {
             let pending = (try? await pendingTask) ?? []
             let pendingSent = (try? await pendingSentTask) ?? pendingSentCount
 
+            // Attach recipient + pending notification as soon as we see them —
+            // don't wait until accept/decline (which used to create the notice).
+            for item in pending {
+                await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
+            }
+
             // Empty personal feed → show World so Home isn't a blank screen.
             if scope == .personal, result.isEmpty, !didAutoSwitchToWorld {
                 didAutoSwitchToWorld = true

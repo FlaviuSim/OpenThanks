@@ -20,7 +20,11 @@ struct MainTabView: View {
                 .allowsHitTesting(tab == .feed)
                 .zIndex(tab == .feed ? 1 : 0)
 
-            NotificationsView(path: $notificationsPath, unreadCount: $unreadCount)
+            NotificationsView(
+                path: $notificationsPath,
+                unreadCount: $unreadCount,
+                isSelected: tab == .notifications
+            )
                 .opacity(tab == .notifications ? 1 : 0)
                 .allowsHitTesting(tab == .notifications)
                 .zIndex(tab == .notifications ? 1 : 0)

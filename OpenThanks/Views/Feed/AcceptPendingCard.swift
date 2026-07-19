@@ -48,6 +48,8 @@ struct AcceptPendingCard: View {
                 .buttonStyle(.plain)
             }
 
+            AppreciationVisibilityNote(visibility: gratitude.visibility)
+
             if let errorMessage {
                 Text(errorMessage)
                     .font(Theme.body(12))
