@@ -87,7 +87,20 @@ final class AuthService {
         do {
             let existing: [Profile] = try await supabase
                 .from("profiles").select().eq("id", value: userId).execute().value
-            if let profile = existing.first {
+            if var profile = existing.first {
+                if let session = try? await supabase.auth.session,
+                   session.user.id == userId,
+                   let authPhone = Self.confirmedPhone(
+                    from: session.user.phone,
+                    confirmedAt: session.user.phoneConfirmedAt
+                   ),
+                   profile.phone != authPhone {
+                    _ = try? await supabase.from("profiles")
+                        .update(["phone": authPhone])
+                        .eq("id", value: userId)
+                        .execute()
+                    profile.phone = authPhone
+                }
                 guard self.userId == userId else { return }
                 currentProfile = profile
                 return
@@ -150,6 +163,40 @@ final class AuthService {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    /// Normalize to E.164. Accepts `+…` international or 10-digit US/Canada (+1).
+    static func normalizedPhone(_ input: String) -> String? {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let startsWithPlus = trimmed.hasPrefix("+")
+        let digits = trimmed.filter(\.isNumber)
+        if startsWithPlus {
+            return (8...15).contains(digits.count) ? "+\(digits)" : nil
+        }
+        if digits.count == 10 { return "+1\(digits)" }
+        if digits.count == 11, digits.hasPrefix("1") { return "+\(digits)" }
+        return nil
+    }
+
+    /// Confirmed auth phone only — Supabase may set `user.phone` before OTP verify.
+    static func confirmedPhone(from phone: String?, confirmedAt: Date?) -> String? {
+        guard let phone, !phone.isEmpty, confirmedAt != nil else { return nil }
+        let digits = phone.filter(\.isNumber)
+        guard !digits.isEmpty else { return nil }
+        return phone.hasPrefix("+") ? phone : "+\(digits)"
+    }
+
+    /// Live confirmed phone on the signed-in auth user, if any.
+    func currentConfirmedPhone() async -> String? {
+        guard let session = try? await supabase.auth.session else { return nil }
+        return Self.confirmedPhone(from: session.user.phone, confirmedAt: session.user.phoneConfirmedAt)
+    }
+
+    func currentAccountEmail() async -> String? {
+        guard let session = try? await supabase.auth.session,
+              let email = session.user.email,
+              !email.isEmpty else { return nil }
+        return email
+    }
+
     func sendPhoneCode(to phone: String) async -> Bool {
         do {
             try await supabase.auth.signInWithOTP(phone: phone)
@@ -165,6 +212,96 @@ final class AuthService {
             try await supabase.auth.verifyOTP(phone: phone, token: code, type: .sms)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: Phone on existing account (mirrors web edit profile)
+
+    /// Starts phone add/change — sends SMS OTP. Not saved until `verifyPhoneChange`.
+    func sendPhoneChangeCode(to phone: String) async -> Bool {
+        errorMessage = nil
+        do {
+            _ = try await supabase.auth.update(user: UserAttributes(phone: phone))
+            return true
+        } catch {
+            let message = error.localizedDescription
+            errorMessage = message.range(of: #"already|registered|exists"#, options: .regularExpression) != nil
+                ? "That phone number is already linked to another account."
+                : message
+            return false
+        }
+    }
+
+    /// Confirms the SMS OTP from `sendPhoneChangeCode` and syncs `profiles.phone`.
+    func verifyPhoneChange(phone: String, code: String) async -> Bool {
+        errorMessage = nil
+        do {
+            try await supabase.auth.verifyOTP(phone: phone, token: code, type: .phoneChange)
+            if let userId {
+                _ = try? await supabase.from("profiles")
+                    .update(["phone": phone])
+                    .eq("id", value: userId)
+                    .execute()
+                if var profile = currentProfile {
+                    profile.phone = phone
+                    currentProfile = profile
+                }
+            }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Removes verified phone via web API (service-role clear). Requires an email on the account.
+    func removePhone() async -> Bool {
+        errorMessage = nil
+        do {
+            guard let session = try? await supabase.auth.session else {
+                errorMessage = "Not signed in."
+                return false
+            }
+            if session.user.email == nil || session.user.email?.isEmpty == true {
+                errorMessage = "Phone is your only sign-in method and cannot be removed. Add an email first."
+                return false
+            }
+
+            var request = URLRequest(
+                url: AppConfig.webAppURL.appending(path: "api/profile/phone")
+            )
+            request.httpMethod = "DELETE"
+            request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                errorMessage = "Couldn't remove phone number."
+                return false
+            }
+            if !(200..<300).contains(http.statusCode) {
+                struct APIError: Decodable { let error: String? }
+                errorMessage = (try? JSONDecoder().decode(APIError.self, from: data))?.error
+                    ?? "Couldn't remove phone number."
+                return false
+            }
+
+            _ = try? await supabase.auth.refreshSession()
+            if let userId {
+                if var profile = currentProfile {
+                    profile.phone = nil
+                    currentProfile = profile
+                }
+                // Reload profile row in case the API cleared it.
+                let rows: [Profile] = (try? await supabase
+                    .from("profiles").select().eq("id", value: userId).execute().value) ?? []
+                if let refreshed = rows.first {
+                    currentProfile = refreshed
+                }
+            }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 

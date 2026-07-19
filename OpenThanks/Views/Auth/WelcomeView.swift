@@ -216,7 +216,6 @@ struct OTPSheet: View {
     }
 
     private var normalizedPhone: String {
-        let digits = destination.filter { $0.isNumber || $0 == "+" }
-        return digits.hasPrefix("+") ? digits : "+1\(digits)"
+        AuthService.normalizedPhone(destination) ?? destination
     }
 }
