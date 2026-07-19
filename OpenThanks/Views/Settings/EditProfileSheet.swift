@@ -131,7 +131,7 @@ struct EditProfileSheet: View {
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                 } else if let avatarURL = auth.currentProfile?.avatarURL {
-                    AsyncImage(url: avatarURL) { image in
+                    CachedAsyncImage(url: avatarURL) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         avatarPlaceholder
@@ -451,7 +451,7 @@ struct EditProfileSheet: View {
             var avatarURLString = auth.currentProfile?.avatarUrl
             if let photoData {
                 guard let image = UIImage(data: photoData),
-                      let jpegData = image.jpegData(compressionQuality: 0.85) else {
+                      let jpegData = ImageProcessing.jpegForAvatar(image) else {
                     throw URLError(.cannotDecodeContentData)
                 }
                 avatarURLString = try await GratitudeService.uploadAvatar(

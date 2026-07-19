@@ -64,25 +64,34 @@ struct RootView: View {
             switch auth.state {
             case .loading:
                 HeartMark(size: 64)
+                    .transition(.opacity)
             case .signedOut:
-                if hasSeenOnboarding {
-                    WelcomeView()
-                } else {
-                    OnboardingView { hasSeenOnboarding = true }
+                Group {
+                    if hasSeenOnboarding {
+                        WelcomeView()
+                    } else {
+                        OnboardingView { hasSeenOnboarding = true }
+                    }
                 }
+                .transition(.opacity)
             case .signedIn:
-                if !auth.hasResolvedProfile {
+                if !auth.hasResolvedProfile && auth.currentProfile?.isCompleteForApp != true {
                     HeartMark(size: 64)
+                        .transition(.opacity)
                 } else if auth.currentProfile?.isCompleteForApp != true {
                     EditProfileSheet(required: true)
+                        .transition(.opacity)
                 } else {
                     signedInHome
+                        .transition(.opacity)
                 }
             }
         }
         // Attach inside RootView so AuthService is already in the environment.
         .deepLinkHost(deepLinks, auth: auth)
-        .animation(.easeInOut(duration: 0.25), value: isSignedIn)
+        .animation(.easeInOut(duration: 0.28), value: isSignedIn)
+        .animation(.easeInOut(duration: 0.28), value: auth.hasResolvedProfile)
+        .animation(.easeInOut(duration: 0.22), value: notificationGate)
         .task(id: notificationTaskID) {
             await resolveNotificationGate()
         }
@@ -90,7 +99,9 @@ struct RootView: View {
 
     @ViewBuilder
     private var signedInHome: some View {
-        switch notificationGate {
+        // Avoid a HeartMark flash when the prompt was already completed.
+        let gate = effectiveNotificationGate
+        switch gate {
         case .checking:
             HeartMark(size: 64)
         case .needsPrompt:
@@ -101,6 +112,11 @@ struct RootView: View {
         case .ready:
             MainTabView()
         }
+    }
+
+    private var effectiveNotificationGate: NotificationGate {
+        if hasCompletedNotificationPrompt { return .ready }
+        return notificationGate
     }
 
     /// Re-check when the user finishes profile (or signs in) before entering the app.

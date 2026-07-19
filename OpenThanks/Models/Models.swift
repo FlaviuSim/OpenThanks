@@ -2,6 +2,11 @@ import Foundation
 
 // Models mirror the verified `public` schema of project dsftvyuzmhlqadhbubgw.
 
+extension Notification.Name {
+    /// Posted with a `Gratitude` object after the recipient accepts.
+    static let gratitudeAccepted = Notification.Name("openthanks.gratitudeAccepted")
+}
+
 struct Profile: Codable, Identifiable, Hashable {
     let id: UUID
     var fullName: String?

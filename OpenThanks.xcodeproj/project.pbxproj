@@ -18,6 +18,7 @@
 		56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */; };
 		5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */; };
 		7744285F382417A1C7007F97 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475B3E155C6168A97BD17C48 /* NotificationService.swift */; };
+		7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */; };
 		7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8D2450B91723A8252B49E /* ClaimAppreciationView.swift */; };
 		8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F3FD90C322331B012FD48F /* AppNavigation.swift */; };
 		945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */; };
@@ -44,6 +45,7 @@
 		00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
 		0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeService.swift; sourceTree = "<group>"; };
 		167153BE2EE275F81D5D2A05 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
 		1BCD3D6D4207C94DE001B284 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1EC0A8CDE94660605C46C812 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
@@ -179,6 +181,7 @@
 			isa = PBXGroup;
 			children = (
 				96F3FD90C322331B012FD48F /* AppNavigation.swift */,
+				1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */,
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
 			);
@@ -333,6 +336,7 @@
 				8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */,
 				13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */,
 				BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */,
+				7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */,
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
 				06F2D3E145B798C680888431 /* ComposeView.swift in Sources */,
 				DF5DD2D1A0CF2C9B30E53033 /* DeepLinkHost.swift in Sources */,

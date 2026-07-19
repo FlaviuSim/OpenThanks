@@ -14,8 +14,12 @@ let supabase = SupabaseClient(
 final class AuthService {
     enum State { case loading, signedOut, signedIn(UUID) }
 
+    private static let profileCacheKey = "cachedProfile.v1"
+
     var state: State = .loading
-    var currentProfile: Profile?
+    var currentProfile: Profile? {
+        didSet { Self.persistProfile(currentProfile) }
+    }
     /// False until the first profile fetch after sign-in finishes.
     /// Prevents flashing the "complete profile" screen for returning users.
     var hasResolvedProfile = false
@@ -30,27 +34,33 @@ final class AuthService {
     private var authTask: Task<Void, Never>?
 
     init() {
+        // Warm start: show last profile immediately while the session resolves.
+        if let cached = Self.loadCachedProfile() {
+            currentProfile = cached
+        }
+
         authTask = Task { [weak self] in
             for await (event, session) in supabase.auth.authStateChanges {
                 guard let self else { return }
                 switch event {
                 case .initialSession, .signedIn, .tokenRefreshed, .userUpdated:
                     if let session {
-                        let sameUserAlreadyLoaded =
-                            self.userId == session.user.id
-                            && self.currentProfile != nil
-                            && self.hasResolvedProfile
+                        let cachedMatches = self.currentProfile?.id == session.user.id
                         self.state = .signedIn(session.user.id)
-                        if !sameUserAlreadyLoaded {
-                            // Fresh sign-in (or cold start): hold UI until profile loads.
+                        if cachedMatches {
+                            // Returning user — enter the app on cached profile, refresh in place.
+                            self.hasResolvedProfile = true
+                        } else if self.currentProfile?.id != session.user.id {
                             self.currentProfile = nil
                             self.hasResolvedProfile = false
                         }
                         if let devicePushToken = self.devicePushToken {
-                            await NotificationService.uploadDeviceToken(
-                                devicePushToken,
-                                userId: session.user.id
-                            )
+                            Task {
+                                await NotificationService.uploadDeviceToken(
+                                    devicePushToken,
+                                    userId: session.user.id
+                                )
+                            }
                         }
                         await self.loadOrCreateProfile(userId: session.user.id,
                                                        email: session.user.email,
@@ -59,16 +69,35 @@ final class AuthService {
                         self.state = .signedOut
                         self.currentProfile = nil
                         self.hasResolvedProfile = false
+                        Self.clearCachedProfile()
                     }
                 case .signedOut, .userDeleted:
                     self.state = .signedOut
                     self.currentProfile = nil
                     self.hasResolvedProfile = false
+                    Self.clearCachedProfile()
                 default:
                     break
                 }
             }
         }
+    }
+
+    private static func persistProfile(_ profile: Profile?) {
+        guard let profile,
+              let data = try? JSONEncoder().encode(profile) else {
+            return
+        }
+        UserDefaults.standard.set(data, forKey: profileCacheKey)
+    }
+
+    private static func loadCachedProfile() -> Profile? {
+        guard let data = UserDefaults.standard.data(forKey: profileCacheKey) else { return nil }
+        return try? JSONDecoder().decode(Profile.self, from: data)
+    }
+
+    private static func clearCachedProfile() {
+        UserDefaults.standard.removeObject(forKey: profileCacheKey)
     }
 
     var userId: UUID? {
@@ -87,22 +116,11 @@ final class AuthService {
         do {
             let existing: [Profile] = try await supabase
                 .from("profiles").select().eq("id", value: userId).execute().value
-            if var profile = existing.first {
-                if let session = try? await supabase.auth.session,
-                   session.user.id == userId,
-                   let authPhone = Self.confirmedPhone(
-                    from: session.user.phone,
-                    confirmedAt: session.user.phoneConfirmedAt
-                   ),
-                   profile.phone != authPhone {
-                    _ = try? await supabase.from("profiles")
-                        .update(["phone": authPhone])
-                        .eq("id", value: userId)
-                        .execute()
-                    profile.phone = authPhone
-                }
+            if let profile = existing.first {
                 guard self.userId == userId else { return }
                 currentProfile = profile
+                // Phone sync is non-blocking — don't hold the splash on it.
+                Task { await self.syncConfirmedPhone(userId: userId) }
                 return
             }
             // First sign-in on this backend from mobile: create a minimal row.
@@ -118,6 +136,24 @@ final class AuthService {
             currentProfile = inserted
         } catch {
             errorMessage = "Couldn't load your profile: \(error.localizedDescription)"
+        }
+    }
+
+    private func syncConfirmedPhone(userId: UUID) async {
+        guard let session = try? await supabase.auth.session,
+              session.user.id == userId,
+              let authPhone = Self.confirmedPhone(
+                from: session.user.phone,
+                confirmedAt: session.user.phoneConfirmedAt
+              ),
+              currentProfile?.phone != authPhone else { return }
+        _ = try? await supabase.from("profiles")
+            .update(["phone": authPhone])
+            .eq("id", value: userId)
+            .execute()
+        if var profile = currentProfile, profile.id == userId {
+            profile.phone = authPhone
+            currentProfile = profile
         }
     }
 
@@ -314,6 +350,7 @@ final class AuthService {
         currentProfile = nil
         hasResolvedProfile = false
         state = .signedOut
+        Self.clearCachedProfile()
         try? await supabase.auth.signOut(scope: .local)
     }
 }

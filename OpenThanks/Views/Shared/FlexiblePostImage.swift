@@ -7,33 +7,19 @@ struct FlexiblePostImage: View {
     var cornerRadius: CGFloat = 14
 
     var body: some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .frame(maxHeight: maxHeight)
-            case .failure:
-                placeholder
-            case .empty:
-                ProgressView().tint(Theme.coral)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 180)
-                    .background(Theme.surfaceRaised)
-            @unknown default:
-                placeholder
-            }
+        CachedAsyncImage(url: url) { image in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: maxHeight)
+        } placeholder: {
+            ProgressView().tint(Theme.coral)
+                .frame(maxWidth: .infinity)
+                .frame(height: 180)
+                .background(Theme.surfaceRaised)
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-
-    private var placeholder: some View {
-        Rectangle()
-            .fill(Theme.surfaceRaised)
-            .frame(maxWidth: .infinity)
-            .frame(height: 180)
     }
 }
 

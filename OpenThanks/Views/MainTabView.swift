@@ -10,17 +10,26 @@ struct MainTabView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                switch tab {
-                case .feed: FeedView()
-                case .notifications: NotificationsView(unreadCount: $unreadCount)
-                case .profile: ProfileView()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Keep all tabs mounted so switching is instant and images stay cached.
+            FeedView()
+                .opacity(tab == .feed ? 1 : 0)
+                .allowsHitTesting(tab == .feed)
+                .zIndex(tab == .feed ? 1 : 0)
+
+            NotificationsView(unreadCount: $unreadCount)
+                .opacity(tab == .notifications ? 1 : 0)
+                .allowsHitTesting(tab == .notifications)
+                .zIndex(tab == .notifications ? 1 : 0)
+
+            ProfileView()
+                .opacity(tab == .profile ? 1 : 0)
+                .allowsHitTesting(tab == .profile)
+                .zIndex(tab == .profile ? 1 : 0)
 
             tabBar
+                .zIndex(10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .syncAppAppearance()
         .fullScreenCover(isPresented: $showCompose) {
@@ -28,6 +37,7 @@ struct MainTabView: View {
                 .syncAppAppearance()
         }
         .task { await refreshUnread() }
+        .animation(.easeInOut(duration: 0.18), value: tab)
     }
 
     private var tabBar: some View {
@@ -57,10 +67,7 @@ struct MainTabView: View {
 
     private func tabItem(icon: String, label: String, value: Tab, badge: Int = 0) -> some View {
         Button {
-            tab = value
-            if value != .notifications {
-                Task { await refreshUnread() }
-            }
+            withAnimation(.easeInOut(duration: 0.18)) { tab = value }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
@@ -80,7 +87,6 @@ struct MainTabView: View {
 
     private func refreshUnread() async {
         guard let userId = auth.userId else { return }
-        let notes = (try? await GratitudeService.notifications(userId: userId, limit: 50)) ?? []
-        unreadCount = notes.filter { $0.read != true }.count
+        unreadCount = (try? await GratitudeService.unreadNotificationCount(userId: userId)) ?? unreadCount
     }
 }

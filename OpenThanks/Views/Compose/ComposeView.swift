@@ -524,10 +524,11 @@ struct ComposeView: View {
     private func applyCroppedPhoto(_ image: UIImage) {
         if let jpeg = ImageProcessing.jpegForUpload(image) {
             photoData = jpeg
-            photoPreview = UIImage(data: jpeg) ?? image.downsampled(maxDimension: 800)
-        } else {
-            photoData = image.jpegData(compressionQuality: 0.82)
-            photoPreview = image.downsampled(maxDimension: 800)
+            photoPreview = UIImage(data: jpeg) ?? image.downsampled(maxDimension: 720)
+        } else if let jpeg = image.downsampled(maxDimension: ImageProcessing.postMaxDimension)
+            .jpegData(compressionQuality: ImageProcessing.postJPEGQuality) {
+            photoData = jpeg
+            photoPreview = image.downsampled(maxDimension: 720)
         }
         removedPhoto = false
         photoError = nil
@@ -611,8 +612,16 @@ struct ComposeView: View {
             var mediaUrl: String?
             var mediaType: String?
             if let photoData {
+                // Re-encode so uploads stay small even if photoData came from an older path.
+                let uploadData: Data
+                if let image = UIImage(data: photoData),
+                   let compressed = ImageProcessing.jpegForUpload(image) {
+                    uploadData = compressed
+                } else {
+                    uploadData = photoData
+                }
                 let url = try await GratitudeService.uploadMedia(
-                    data: photoData, contentType: "image/jpeg", userId: userId)
+                    data: uploadData, contentType: "image/jpeg", userId: userId)
                 mediaUrl = url.absoluteString
                 mediaType = "image"
             } else if !removedPhoto {

@@ -154,19 +154,22 @@ struct NotificationsView: View {
 
     private func load() async {
         guard let userId = auth.userId else { return }
-        loading = true
+        // Only show the full-screen spinner on first load.
+        if notes.isEmpty { loading = true }
         async let notesTask = GratitudeService.notifications(userId: userId)
-        async let pendingTask = GratitudeService.pending(authorId: userId)
+        async let pendingTask = GratitudeService.pendingCount(authorId: userId)
 
         do {
             let result = try await notesTask
-            notes = result
+            withAnimation(.easeInOut(duration: 0.2)) {
+                notes = result
+            }
             syncUnread()
         } catch {
             if !error.isCancellation { /* keep existing */ }
         }
 
-        pendingCount = (try? await pendingTask)?.count ?? pendingCount
+        pendingCount = (try? await pendingTask) ?? pendingCount
         loading = false
     }
 

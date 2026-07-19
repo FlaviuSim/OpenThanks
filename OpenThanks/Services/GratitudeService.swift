@@ -50,6 +50,15 @@ enum GratitudeService {
             .execute().value
     }
 
+    /// Lightweight count for pending banners — no embeds.
+    static func pendingCount(authorId: UUID) async throws -> Int {
+        try await supabase.from("gratitudes")
+            .select("id", head: true, count: .exact)
+            .eq("author_id", value: authorId)
+            .eq("status", value: "pending")
+            .execute().count ?? 0
+    }
+
     /// Pending appreciations the signed-in user still needs to accept
     /// (matched by recipient id, email, or phone — not ones they authored).
     static func pendingToAccept(
@@ -190,6 +199,9 @@ enum GratitudeService {
                 gratitudeId: updated.id,
                 fromUserId: recipientId
             )
+            await MainActor.run {
+                NotificationCenter.default.post(name: .gratitudeAccepted, object: updated)
+            }
         }
 
         return updated
@@ -346,6 +358,15 @@ enum GratitudeService {
             .order("created_at", ascending: false)
             .limit(limit)
             .execute().value
+    }
+
+    /// Badge count only — avoids loading notification rows + profile embeds.
+    static func unreadNotificationCount(userId: UUID) async throws -> Int {
+        try await supabase.from("notifications")
+            .select("id", head: true, count: .exact)
+            .eq("user_id", value: userId)
+            .eq("read", value: false)
+            .execute().count ?? 0
     }
 
     static func markRead(id: UUID) async throws {

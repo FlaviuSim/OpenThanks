@@ -2,16 +2,31 @@ import SwiftUI
 import UIKit
 
 enum ImageProcessing {
+    /// Long-edge cap for post photos — sharp on phone/web, small enough to load fast.
+    static let postMaxDimension: CGFloat = 1280
+    static let postJPEGQuality: CGFloat = 0.72
+    /// Profile avatars are shown small; keep files tiny.
+    static let avatarMaxDimension: CGFloat = 720
+    static let avatarJPEGQuality: CGFloat = 0.78
+
     /// Decode and shrink an image off the main thread for cropping/upload.
-    static func prepareForEditing(_ data: Data, maxDimension: CGFloat = 2048) async -> UIImage? {
+    static func prepareForEditing(_ data: Data, maxDimension: CGFloat = 1600) async -> UIImage? {
         await Task.detached(priority: .userInitiated) {
             guard let image = UIImage(data: data)?.normalizedOrientation() else { return nil }
             return image.downsampled(maxDimension: maxDimension)
         }.value
     }
 
-    static func jpegForUpload(_ image: UIImage, maxDimension: CGFloat = 1600, quality: CGFloat = 0.82) -> Data? {
+    static func jpegForUpload(
+        _ image: UIImage,
+        maxDimension: CGFloat = postMaxDimension,
+        quality: CGFloat = postJPEGQuality
+    ) -> Data? {
         image.downsampled(maxDimension: maxDimension).jpegData(compressionQuality: quality)
+    }
+
+    static func jpegForAvatar(_ image: UIImage) -> Data? {
+        jpegForUpload(image, maxDimension: avatarMaxDimension, quality: avatarJPEGQuality)
     }
 }
 

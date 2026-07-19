@@ -71,8 +71,31 @@ struct UserProfileView: View {
         .background(Theme.background)
         .navigationTitle(isOwnProfile ? "Profile" : shownProfile.displayName)
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: auth.currentProfile?.id == profile.id ? auth.currentProfile : profile) { await load() }
+        .task(id: profile.id) { await load() }
         .refreshable { await load() }
+        .animation(.easeInOut(duration: 0.2), value: section)
+        .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
+            guard let gratitude = note.object as? Gratitude else { return }
+            applyAccepted(gratitude)
+        }
+    }
+
+    /// Keep Sent/Received in sync when an appreciation is accepted (no pull-to-refresh).
+    private func applyAccepted(_ gratitude: Gratitude) {
+        guard gratitude.status == .accepted else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if gratitude.recipientId == profile.id,
+               !received.contains(where: { $0.id == gratitude.id }) {
+                received.insert(gratitude, at: 0)
+                stats.received += 1
+                if isOwnProfile { section = .received }
+            }
+            if gratitude.authorId == profile.id,
+               !sent.contains(where: { $0.id == gratitude.id }) {
+                sent.insert(gratitude, at: 0)
+                stats.sent += 1
+            }
+        }
     }
 
     private var header: some View {
@@ -355,18 +378,28 @@ struct UserProfileView: View {
     private func load() async {
         let viewerId = auth.userId
         do {
-            async let p = GratitudeService.profile(id: profile.id)
-            async let s = GratitudeService.stats(userId: profile.id)
+            // Own profile: use the already-loaded auth profile; skip a round trip.
+            if isOwnProfile {
+                freshProfile = auth.currentProfile ?? profile
+            } else {
+                async let p = GratitudeService.profile(id: profile.id)
+                freshProfile = try await p
+            }
+
             async let sentList = GratitudeService.sentBy(userId: profile.id, viewerId: viewerId)
             async let receivedList = GratitudeService.receivedBy(userId: profile.id, viewerId: viewerId)
             async let inspiredList = GratitudeService.inspirations(userId: profile.id, viewerId: viewerId)
-            let (profileResult, statsResult, sentResult, receivedResult, inspiredResult) =
-                try await (p, s, sentList, receivedList, inspiredList)
-            freshProfile = profileResult
-            stats = statsResult
-            sent = sentResult
-            received = receivedResult
-            inspirations = inspiredResult
+            // Accurate counts via head queries (lists are capped).
+            async let statsTask = GratitudeService.stats(userId: profile.id)
+
+            let (sentResult, receivedResult, inspiredResult, statsResult) =
+                try await (sentList, receivedList, inspiredList, statsTask)
+            withAnimation(.easeInOut(duration: 0.2)) {
+                sent = sentResult
+                received = receivedResult
+                inspirations = inspiredResult
+                stats = statsResult
+            }
         } catch {
             if error.isCancellation { /* keep existing content */ }
         }

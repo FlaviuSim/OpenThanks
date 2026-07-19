@@ -12,6 +12,8 @@ struct FeedView: View {
     @State private var loading = true
     @State private var error: String?
     @State private var showCompose = false
+    /// Once per session: if Personal has nothing, land on World instead.
+    @State private var didAutoSwitchToWorld = false
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
 
@@ -30,7 +32,6 @@ struct FeedView: View {
             .background(Theme.background)
             .task(id: scope) { await load() }
             .refreshable { await load() }
-            .onAppear { Task { await refreshPendingSentCount() } }
             .toolbar(.hidden, for: .navigationBar)
             .appDestinations()
             .fullScreenCover(isPresented: $showCompose) {
@@ -72,12 +73,14 @@ struct FeedView: View {
     private var picker: some View {
         HStack(spacing: 8) {
             ForEach(Scope.allCases, id: \.self) { s in
-                Button(s.rawValue) { scope = s }
-                    .font(Theme.body(15, weight: .semibold))
-                    .foregroundStyle(scope == s ? Theme.textPrimary : Theme.textSecondary)
-                    .padding(.horizontal, 18).padding(.vertical, 9)
-                    .background(scope == s ? Theme.surfaceRaised : .clear,
-                                in: RoundedRectangle(cornerRadius: 12))
+                Button(s.rawValue) {
+                    withAnimation(.easeInOut(duration: 0.2)) { scope = s }
+                }
+                .font(Theme.body(15, weight: .semibold))
+                .foregroundStyle(scope == s ? Theme.textPrimary : Theme.textSecondary)
+                .padding(.horizontal, 18).padding(.vertical, 9)
+                .background(scope == s ? Theme.surfaceRaised : .clear,
+                            in: RoundedRectangle(cornerRadius: 12))
             }
             Spacer()
         }
@@ -139,6 +142,8 @@ struct FeedView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 96)
+                .opacity(loading && !isEmpty ? 0.72 : 1)
+                .animation(.easeInOut(duration: 0.2), value: loading)
             }
         }
     }
@@ -158,14 +163,11 @@ struct FeedView: View {
         .padding(.top, 4)
     }
 
-    private func refreshPendingSentCount() async {
-        guard let userId = auth.userId else { return }
-        pendingSentCount = (try? await GratitudeService.pending(authorId: userId))?.count ?? pendingSentCount
-    }
-
     private func load() async {
         guard let userId = auth.userId else { return }
-        loading = true; error = nil
+        // Keep prior content visible while refreshing / switching scope.
+        loading = true
+        error = nil
         do {
             async let feedTask: [Gratitude] = scope == .personal
                 ? GratitudeService.personalFeed(userId: userId)
@@ -175,17 +177,31 @@ struct FeedView: View {
                 email: auth.currentProfile?.email,
                 phone: auth.currentProfile?.phone
             )
-            async let pendingSentTask: [Gratitude] = GratitudeService.pending(authorId: userId)
+            async let pendingSentTask = GratitudeService.pendingCount(authorId: userId)
 
             let result = try await feedTask
             let pending = (try? await pendingTask) ?? []
-            let pendingSent = (try? await pendingSentTask) ?? []
-            let hearts = try await GratitudeService.myHearts(userId: userId,
-                                                            among: result.map(\.id))
-            items = result
-            pendingToAccept = pending
-            pendingSentCount = pendingSent.count
-            heartedIds = hearts
+            let pendingSent = (try? await pendingSentTask) ?? pendingSentCount
+
+            // Empty personal feed → show World so Home isn't a blank screen.
+            if scope == .personal, result.isEmpty, !didAutoSwitchToWorld {
+                didAutoSwitchToWorld = true
+                pendingToAccept = pending
+                pendingSentCount = pendingSent
+                loading = false
+                withAnimation(.easeInOut(duration: 0.2)) { scope = .world }
+                return
+            }
+
+            async let heartsTask = GratitudeService.myHearts(userId: userId, among: result.map(\.id))
+            let hearts = (try? await heartsTask) ?? heartedIds
+
+            withAnimation(.easeInOut(duration: 0.2)) {
+                items = result
+                pendingToAccept = pending
+                pendingSentCount = pendingSent
+                heartedIds = hearts
+            }
         } catch {
             if !error.isCancellation {
                 self.error = error.localizedDescription
@@ -303,9 +319,11 @@ struct AvatarView: View {
     var body: some View {
         Group {
             if let url = profile?.avatarURL {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: { initials }
+                } placeholder: {
+                    initials
+                }
             } else {
                 initials
             }

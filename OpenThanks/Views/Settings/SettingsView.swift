@@ -137,7 +137,7 @@ struct SettingsView: View {
             }
             .task {
                 guard let userId = auth.userId else { return }
-                pendingCount = (try? await GratitudeService.pending(authorId: userId).count) ?? 0
+                pendingCount = (try? await GratitudeService.pendingCount(authorId: userId)) ?? 0
             }
         }
     }
