@@ -7,6 +7,10 @@ struct ComposeView: View {
 
     /// When set, the form edits this pending appreciation instead of creating one.
     var editing: Gratitude? = nil
+    /// Prefills the recipient field (e.g. from Home people search invite).
+    var initialRecipient: String? = nil
+    /// Prefills and links an existing member (e.g. Thank from their profile).
+    var initialRecipientProfile: Profile? = nil
     var onSaved: ((Gratitude) -> Void)? = nil
 
     @State private var recipient = ""
@@ -30,6 +34,8 @@ struct ComposeView: View {
     @State private var polishing: AppreciationAI.Style?
     @State private var messageBeforeAI: String?
     @State private var didPrefill = false
+    /// Kept so create can set `recipient_id` even if the typed field is a name.
+    @State private var linkedRecipient: Profile?
     @FocusState private var messageFocused: Bool
     @FocusState private var recipientFocused: Bool
 
@@ -153,6 +159,22 @@ struct ComposeView: View {
                 .focused($recipientFocused)
                 .padding(14)
                 .foregroundStyle(Theme.textPrimary)
+                .onChange(of: recipient) { _, newValue in
+                    // Drop the profile link if the sender rewrites the recipient.
+                    if let linked = linkedRecipient {
+                        let anchors = [
+                            linked.displayName,
+                            linked.fullName,
+                            linked.email,
+                            linked.username.isEmpty ? nil : "@\(linked.username)",
+                            linked.username.isEmpty ? nil : linked.username,
+                        ].compactMap { $0?.lowercased() }
+                        let typed = newValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        if !anchors.contains(typed) {
+                            linkedRecipient = nil
+                        }
+                    }
+                }
         }
     }
 
@@ -555,6 +577,17 @@ struct ComposeView: View {
         didPrefill = true
         if let target = editingTarget {
             applyEditing(target)
+        } else if let profile = initialRecipientProfile {
+            linkedRecipient = profile
+            if let name = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                recipient = name
+            } else if !profile.username.isEmpty {
+                recipient = profile.username
+            } else {
+                recipient = profile.displayName
+            }
+        } else if let initialRecipient {
+            recipient = initialRecipient.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             messageFocused = true
@@ -660,12 +693,14 @@ struct ComposeView: View {
                     sent = true
                 }
             } else {
+                let linked = linkedRecipient
                 let new = NewGratitude(
                     authorId: userId,
                     message: message.trimmingCharacters(in: .whitespacesAndNewlines),
-                    recipientEmail: contact.email,
-                    recipientPhone: contact.phone,
-                    recipientName: contact.name,
+                    recipientEmail: contact.email ?? linked?.email,
+                    recipientPhone: contact.phone ?? linked?.phone,
+                    recipientName: contact.name ?? linked?.fullName ?? linked?.displayName,
+                    recipientId: linked?.id,
                     visibility: visibility.rawValue,
                     mediaUrl: mediaUrl,
                     mediaType: mediaType,
@@ -712,6 +747,7 @@ struct ComposeView: View {
         existingMediaUrl = nil
         existingMediaType = nil
         removedPhoto = false
+        linkedRecipient = nil
         didPrefill = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             messageFocused = true

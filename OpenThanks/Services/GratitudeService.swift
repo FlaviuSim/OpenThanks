@@ -521,6 +521,31 @@ enum GratitudeService {
             .execute().value
     }
 
+    /// People search by name or username (same filters as the web home search).
+    static func searchProfiles(query: String, limit: Int = 10) async throws -> [Profile] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else { return [] }
+
+        // Keep the PostgREST `or` filter valid and avoid wildcard injection.
+        let safe = trimmed
+            .replacingOccurrences(of: ",", with: " ")
+            .replacingOccurrences(of: "(", with: "")
+            .replacingOccurrences(of: ")", with: "")
+            .replacingOccurrences(of: "\"", with: "")
+            .replacingOccurrences(of: "%", with: "")
+            .replacingOccurrences(of: "*", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard safe.count >= 2 else { return [] }
+
+        let pattern = "%\(safe)%"
+        return try await supabase.from("profiles")
+            .select()
+            .or("full_name.ilike.\"\(pattern)\",username.ilike.\"\(pattern)\"")
+            .order("full_name", ascending: true)
+            .limit(limit)
+            .execute().value
+    }
+
     /// Profile update. Pass `clearOptionalFields: true` from Edit Profile so
     /// clearing headline/nonprofit writes SQL NULL. Required onboarding only
     /// patches name, username, and avatar.

@@ -54,6 +54,8 @@ struct UserProfileView: View {
     @State private var received: [Gratitude] = []
     @State private var inspirations: [Inspiration] = []
     @State private var loaded = false
+    @State private var fullScreenAvatarURL: URL?
+    @State private var showCompose = false
 
     private var shownProfile: Profile { freshProfile ?? profile }
     private var isOwnProfile: Bool { auth.userId == profile.id }
@@ -79,6 +81,13 @@ struct UserProfileView: View {
             guard let gratitude = note.object as? Gratitude else { return }
             applyAccepted(gratitude)
         }
+        .fullScreenCover(item: $fullScreenAvatarURL) { url in
+            FullScreenImageView(url: url)
+        }
+        .fullScreenCover(isPresented: $showCompose) {
+            ComposeView(initialRecipientProfile: shownProfile)
+                .syncAppAppearance()
+        }
     }
 
     /// Keep Sent/Received in sync when an appreciation is accepted (no pull-to-refresh).
@@ -103,8 +112,22 @@ struct UserProfileView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            AvatarView(profile: shownProfile, size: 92)
-                .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
+            Group {
+                if let url = shownProfile.avatarURL {
+                    Button {
+                        fullScreenAvatarURL = url
+                    } label: {
+                        AvatarView(profile: shownProfile, size: 92)
+                            .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("View profile photo")
+                } else {
+                    AvatarView(profile: shownProfile, size: 92)
+                        .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
+                }
+            }
+
             Text(shownProfile.displayName)
                 .font(Theme.display(24, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
@@ -116,6 +139,29 @@ struct UserProfileView: View {
                     .font(Theme.body(14))
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
+            }
+
+            if !isOwnProfile {
+                Button {
+                    showCompose = true
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Thank \(firstName)")
+                            .font(Theme.body(14, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.coral)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(Theme.coral.opacity(0.12), in: Capsule())
+                    .overlay(
+                        Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+                .accessibilityLabel("Thank \(shownProfile.displayName)")
             }
         }
         .padding(.top, 8)

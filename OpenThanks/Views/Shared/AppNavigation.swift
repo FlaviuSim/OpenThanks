@@ -38,16 +38,22 @@ struct ProfileAvatarLink: View {
     }
 }
 
-/// Loads a post by id, then shows the detail screen.
+/// Loads a post by id, then shows accept/reject when it's still pending for
+/// the signed-in user — otherwise the normal post detail screen.
 struct GratitudeLoaderView: View {
     let gratitudeId: UUID
+    @Environment(AuthService.self) private var auth
     @State private var gratitude: Gratitude?
     @State private var failed = false
 
     var body: some View {
         Group {
             if let gratitude {
-                GratitudeDetailView(gratitude: gratitude)
+                if isPendingForCurrentUser(gratitude) {
+                    PendingAppreciationReviewView(gratitude: gratitude)
+                } else {
+                    GratitudeDetailView(gratitude: gratitude)
+                }
             } else if failed {
                 VStack(spacing: 10) {
                     HeartMark(size: 40)
@@ -69,6 +75,28 @@ struct GratitudeLoaderView: View {
                 if !error.isCancellation { failed = true }
             }
         }
+    }
+
+    private func isPendingForCurrentUser(_ gratitude: Gratitude) -> Bool {
+        guard gratitude.status == .pending else { return false }
+        guard let userId = auth.userId else { return false }
+        guard gratitude.authorId != userId else { return false }
+
+        if gratitude.recipientId == userId { return true }
+
+        if let email = auth.currentProfile?.email?.lowercased(),
+           let recipientEmail = gratitude.recipientEmail?.lowercased(),
+           email == recipientEmail {
+            return true
+        }
+
+        if let phone = auth.currentProfile?.phone,
+           let recipientPhone = gratitude.recipientPhone,
+           phone == recipientPhone {
+            return true
+        }
+
+        return false
     }
 }
 

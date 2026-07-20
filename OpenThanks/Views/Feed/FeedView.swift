@@ -13,6 +13,7 @@ struct FeedView: View {
     @State private var loading = true
     @State private var error: String?
     @State private var showCompose = false
+    @State private var composeRecipient: String?
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
 
@@ -22,6 +23,20 @@ struct FeedView: View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 header
+                HomeProfileSearch(
+                    onSelect: { profile in
+                        path.append(profile)
+                    },
+                    onInvite: { name in
+                        composeRecipient = name
+                        showCompose = true
+                    }
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+                .padding(.bottom, 2)
+                .zIndex(2)
+
                 picker
                 if pendingSentCount > 0 {
                     PendingAppreciationsBanner(count: pendingSentCount)
@@ -36,28 +51,40 @@ struct FeedView: View {
             .toolbar(.hidden, for: .navigationBar)
             .appDestinations()
             .fullScreenCover(isPresented: $showCompose) {
-                ComposeView()
+                ComposeView(initialRecipient: composeRecipient)
                     .syncAppAppearance()
+            }
+            .onChange(of: showCompose) { _, open in
+                if !open { composeRecipient = nil }
             }
             .syncAppAppearance()
         }
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(Theme.heartGradient)
-            Text("OpenThanks")
-                .font(Theme.display(20, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-            Spacer()
-            Button { showCompose = true } label: {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Theme.heartGradient)
+                Text("OpenThanks")
+                    .font(Theme.display(20, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                composeRecipient = nil
+                showCompose = true
+            } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 12, weight: .bold))
                     Text("Thank someone")
                         .font(Theme.body(13, weight: .semibold))
+                        .lineLimit(1)
                 }
                 .foregroundStyle(Color(hex: 0x2B1209))
                 .padding(.horizontal, 12)
@@ -86,7 +113,8 @@ struct FeedView: View {
             Spacer()
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
     }
 
     @ViewBuilder
@@ -347,5 +375,210 @@ struct AvatarView: View {
                 .font(Theme.body(size * 0.42, weight: .semibold))
                 .foregroundStyle(Theme.coralLight)
         }
+    }
+}
+
+// MARK: - Home people search
+
+/// Compact people search under the Home brand row — opens profiles or invites
+/// someone who isn't on OpenThanks yet (matches the web home search).
+private struct HomeProfileSearch: View {
+    var onSelect: (Profile) -> Void
+    var onInvite: (String) -> Void
+
+    @State private var query = ""
+    @State private var results: [Profile] = []
+    @State private var searching = false
+    @State private var didSearch = false
+    @FocusState private var focused: Bool
+
+    private var trimmed: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var showResults: Bool {
+        focused && trimmed.count >= 2
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            searchField
+
+            if showResults {
+                resultsPanel
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: showResults)
+        .animation(.easeInOut(duration: 0.18), value: results.map(\.id))
+        .task(id: trimmed) {
+            await runSearch(for: trimmed)
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(focused ? Theme.coral : Theme.textTertiary)
+
+            TextField("Search people by name", text: $query)
+                .font(Theme.body(15))
+                .foregroundStyle(Theme.textPrimary)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .focused($focused)
+                .submitLabel(.search)
+
+            if !query.isEmpty {
+                Button {
+                    clear()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(focused ? Theme.coral.opacity(0.45) : Theme.hairline, lineWidth: 1)
+        )
+    }
+
+    private var resultsPanel: some View {
+        VStack(spacing: 0) {
+            if searching && results.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.coral).controlSize(.small)
+                    Text("Searching…")
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                }
+                .padding(14)
+            } else if !results.isEmpty {
+                ForEach(Array(results.enumerated()), id: \.element.id) { index, profile in
+                    Button {
+                        focused = false
+                        onSelect(profile)
+                        clear()
+                    } label: {
+                        HStack(spacing: 12) {
+                            AvatarView(profile: profile, size: 40)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(profile.displayName)
+                                    .font(Theme.body(15, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineLimit(1)
+                                if !profile.username.isEmpty {
+                                    Text("@\(profile.username)")
+                                        .font(Theme.body(13))
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .lineLimit(1)
+                                } else if let headline = profile.headline, !headline.isEmpty {
+                                    Text(headline)
+                                        .font(Theme.body(13))
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < results.count - 1 {
+                        Rectangle()
+                            .fill(Theme.hairline)
+                            .frame(height: 0.5)
+                            .padding(.leading, 66)
+                    }
+                }
+            } else if didSearch {
+                VStack(spacing: 12) {
+                    Text("No one named “\(trimmed)” yet")
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+
+                    Button {
+                        focused = false
+                        onInvite(trimmed)
+                        clear()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Thank \(trimmed)")
+                                .font(Theme.body(14, weight: .semibold))
+                        }
+                        .foregroundStyle(Color(hex: 0x2B1209))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Theme.ctaGradient, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("We’ll help you send them an appreciation.")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(16)
+            }
+        }
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Theme.hairline)
+        )
+    }
+
+    private func clear() {
+        query = ""
+        results = []
+        searching = false
+        didSearch = false
+        focused = false
+    }
+
+    private func runSearch(for current: String) async {
+        guard current.count >= 2 else {
+            results = []
+            searching = false
+            didSearch = false
+            return
+        }
+
+        searching = true
+        didSearch = false
+        try? await Task.sleep(for: .milliseconds(280))
+        guard !Task.isCancelled else { return }
+
+        do {
+            let found = try await GratitudeService.searchProfiles(query: current)
+            guard !Task.isCancelled else { return }
+            results = found
+            didSearch = true
+        } catch {
+            if !error.isCancellation {
+                results = []
+                didSearch = true
+            }
+        }
+        searching = false
     }
 }
