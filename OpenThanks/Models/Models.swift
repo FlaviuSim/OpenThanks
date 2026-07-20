@@ -127,9 +127,9 @@ struct CountHolder: Codable, Hashable { let count: Int }
 struct NewGratitude: Encodable {
     let authorId: UUID
     let message: String
-    let recipientEmail: String?
-    let recipientPhone: String?
-    let recipientName: String?
+    var recipientEmail: String?
+    var recipientPhone: String?
+    var recipientName: String?
     var recipientId: UUID? = nil
     let visibility: String
     let mediaUrl: String?

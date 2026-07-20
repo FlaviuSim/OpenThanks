@@ -281,6 +281,43 @@ enum GratitudeService {
     static func create(_ new: NewGratitude) async throws -> Gratitude {
         var payload = new
 
+        // Thank-from-profile often has recipient_id + a display name, but no
+        // typed email. Pull contact fields from the linked profile so the
+        // claim email still goes out (and recipient_email is stored).
+        if let recipientId = payload.recipientId {
+            struct ContactRow: Decodable {
+                let email: String?
+                let phone: String?
+                let fullName: String?
+
+                enum CodingKeys: String, CodingKey {
+                    case email, phone
+                    case fullName = "full_name"
+                }
+            }
+            if let row: ContactRow = try? await supabase.from("profiles")
+                .select("email, phone, full_name")
+                .eq("id", value: recipientId)
+                .single()
+                .execute().value {
+                if payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    if let email = row.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
+                        payload.recipientEmail = AuthService.normalizedEmail(email)
+                    }
+                }
+                if payload.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    if let phone = row.phone?.trimmingCharacters(in: .whitespacesAndNewlines), !phone.isEmpty {
+                        payload.recipientPhone = phone
+                    }
+                }
+                if payload.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    if let name = row.fullName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                        payload.recipientName = name
+                    }
+                }
+            }
+        }
+
         // Link an existing OpenThanks account by email or phone when possible.
         if payload.recipientId == nil {
             struct IdRow: Decodable { let id: UUID }
