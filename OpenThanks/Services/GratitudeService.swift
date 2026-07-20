@@ -288,11 +288,10 @@ enum GratitudeService {
             .single()
             .execute().value
 
-        // Belt-and-suspenders: if create had a deliverable email but the row
-        // somehow lacks it (name-only thank-from-profile), patch before send.
+        // Ensure recipient_email is on the row before calling resend-email
+        // (production API requires it; thank-from-profile often starts name-only).
         if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !email.isEmpty,
-           gratitude.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+           !email.isEmpty {
             _ = try? await supabase.from("gratitudes")
                 .update(["recipient_email": email])
                 .eq("id", value: gratitude.id)
@@ -308,40 +307,47 @@ enum GratitudeService {
             )
         }
 
-        // Always attempt delivery when we know who it's for. resend-email can
-        // also resolve email from recipient_id when the column is empty.
-        let shouldEmail = !(payload.recipientEmail ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || payload.recipientId != nil
-        if shouldEmail {
+        // Only call the web claim-email API when we have a concrete address.
+        if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !email.isEmpty {
             do {
                 try await sendEmailReminder(gratitudeId: gratitude.id)
             } catch {
                 print("OpenThanks: claim email failed for \(gratitude.id): \(error.localizedDescription)")
             }
+        } else {
+            print("OpenThanks: skipped claim email for \(gratitude.id) — no recipient email on profile")
         }
 
         return gratitude
+    }
+
+    /// Contact fields for a member — used when thanking from their profile.
+    struct ProfileContact: Decodable {
+        let id: UUID
+        let email: String?
+        let phone: String?
+        let fullName: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id, email, phone
+            case fullName = "full_name"
+        }
+    }
+
+    static func profileContact(id: UUID) async throws -> ProfileContact {
+        try await supabase.from("profiles")
+            .select("id, email, phone, full_name")
+            .eq("id", value: id)
+            .single()
+            .execute().value
     }
 
     /// Fills recipient_id / email / phone / name from profiles when thanking
     /// a member (e.g. from their profile) or when only an email/phone was typed.
     private static func resolveRecipientContact(_ payload: inout NewGratitude) async {
         if let recipientId = payload.recipientId {
-            struct ContactRow: Decodable {
-                let email: String?
-                let phone: String?
-                let fullName: String?
-
-                enum CodingKeys: String, CodingKey {
-                    case email, phone
-                    case fullName = "full_name"
-                }
-            }
-            if let row: ContactRow = try? await supabase.from("profiles")
-                .select("email, phone, full_name")
-                .eq("id", value: recipientId)
-                .single()
-                .execute().value {
+            if let row = try? await profileContact(id: recipientId) {
                 if isBlank(payload.recipientEmail),
                    let email = row.email?.trimmingCharacters(in: .whitespacesAndNewlines),
                    !email.isEmpty {

@@ -36,6 +36,9 @@ struct ComposeView: View {
     @State private var didPrefill = false
     /// Kept so create can set `recipient_id` even if the typed field is a name.
     @State private var linkedRecipient: Profile?
+    /// Email for the linked member — loaded eagerly so claim mail can send
+    /// even when the profile object passed into compose has no email.
+    @State private var linkedRecipientEmail: String?
     @FocusState private var messageFocused: Bool
     @FocusState private var recipientFocused: Bool
 
@@ -166,12 +169,14 @@ struct ComposeView: View {
                             linked.displayName,
                             linked.fullName,
                             linked.email,
+                            linkedRecipientEmail,
                             linked.username.isEmpty ? nil : "@\(linked.username)",
                             linked.username.isEmpty ? nil : linked.username,
                         ].compactMap { $0?.lowercased() }
                         let typed = newValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                         if !anchors.contains(typed) {
                             linkedRecipient = nil
+                            linkedRecipientEmail = nil
                         }
                     }
                 }
@@ -579,6 +584,9 @@ struct ComposeView: View {
             applyEditing(target)
         } else if let profile = initialRecipientProfile {
             linkedRecipient = profile
+            if let email = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
+                linkedRecipientEmail = AuthService.normalizedEmail(email)
+            }
             if let name = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
                 recipient = name
             } else if !profile.username.isEmpty {
@@ -586,12 +594,27 @@ struct ComposeView: View {
             } else {
                 recipient = profile.displayName
             }
+            Task { await loadLinkedRecipientContact(profileId: profile.id) }
         } else if let initialRecipient {
             recipient = initialRecipient.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             messageFocused = true
         }
+    }
+
+    /// Pull the member's email/phone from profiles so claim email can send
+    /// without relying on the web API to fill recipient_email.
+    private func loadLinkedRecipientContact(profileId: UUID) async {
+        guard linkedRecipient?.id == profileId else { return }
+        guard let contact = try? await GratitudeService.profileContact(id: profileId) else { return }
+        if let email = contact.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
+            linkedRecipientEmail = AuthService.normalizedEmail(email)
+        }
+    }
+
+    private func isBlank(_ value: String?) -> Bool {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
     }
 
     private func beginEditing(_ gratitude: Gratitude) {
@@ -642,6 +665,11 @@ struct ComposeView: View {
         sending = true
         error = nil
         do {
+            // Finish loading the linked member's email if Thank opened from a profile.
+            if let linked = linkedRecipient, isBlank(linkedRecipientEmail) {
+                await loadLinkedRecipientContact(profileId: linked.id)
+            }
+
             var mediaUrl: String?
             var mediaType: String?
             if let photoData {
@@ -697,7 +725,7 @@ struct ComposeView: View {
                 let new = NewGratitude(
                     authorId: userId,
                     message: message.trimmingCharacters(in: .whitespacesAndNewlines),
-                    recipientEmail: contact.email ?? linked?.email,
+                    recipientEmail: contact.email ?? linkedRecipientEmail ?? linked?.email,
                     recipientPhone: contact.phone ?? linked?.phone,
                     recipientName: contact.name ?? linked?.fullName ?? linked?.displayName,
                     recipientId: linked?.id,
@@ -748,6 +776,7 @@ struct ComposeView: View {
         existingMediaType = nil
         removedPhoto = false
         linkedRecipient = nil
+        linkedRecipientEmail = nil
         didPrefill = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             messageFocused = true
