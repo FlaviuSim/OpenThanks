@@ -307,16 +307,21 @@ enum GratitudeService {
             )
         }
 
-        // Only call the web claim-email API when we have a concrete address.
-        if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !email.isEmpty {
+        // Claim email: send when we have an address, or when a member is linked
+        // so the web API can resolve email from recipient_id / auth.users.
+        let hasEmail = !(payload.recipientEmail ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+        let shouldEmail = hasEmail || payload.recipientId != nil
+
+        if shouldEmail {
             do {
                 try await sendEmailReminder(gratitudeId: gratitude.id)
             } catch {
                 print("OpenThanks: claim email failed for \(gratitude.id): \(error.localizedDescription)")
             }
         } else {
-            print("OpenThanks: skipped claim email for \(gratitude.id) — no recipient email on profile")
+            print("OpenThanks: skipped claim email for \(gratitude.id) — no recipient email or member id")
         }
 
         return gratitude

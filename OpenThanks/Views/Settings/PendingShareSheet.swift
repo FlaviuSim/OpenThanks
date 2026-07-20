@@ -22,6 +22,26 @@ struct PendingShareSheet: View {
         return (value?.isEmpty == false) ? value : nil
     }
 
+    /// Prefer @username / name on the row; mailto still uses the real address when known.
+    private var emailToLabel: String {
+        if let username = gratitude.recipient?.username.trimmingCharacters(in: .whitespacesAndNewlines),
+           !username.isEmpty {
+            return "To @\(username)"
+        }
+        if let name = gratitude.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            return "To \(name)"
+        }
+        if let display = gratitude.recipient?.displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+           !display.isEmpty {
+            return "To \(display)"
+        }
+        if recipientEmail != nil {
+            return "To their email"
+        }
+        return "Choose an address"
+    }
+
     private var messageBody: String {
         let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
             ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
@@ -76,16 +96,16 @@ struct PendingShareSheet: View {
                 ShareActionRow(
                     title: "Send via Email",
                     systemImage: "envelope.fill",
-                    subtitle: recipientEmail.map { "To \($0)" }
+                    subtitle: emailToLabel
                 ) {
                     openMail()
                 }
 
-                if let recipientEmail {
+                if recipientEmail != nil || gratitude.recipientId != nil {
                     ShareActionRow(
                         title: emailActionTitle,
                         systemImage: emailActionIcon,
-                        subtitle: emailSubtitle(for: recipientEmail),
+                        subtitle: emailSubtitle(),
                         showSpinner: emailState == .sending,
                         disabled: emailState == .sending
                     ) {
@@ -123,11 +143,22 @@ struct PendingShareSheet: View {
         }
     }
 
-    private func emailSubtitle(for email: String) -> String {
+    private func emailSubtitle() -> String {
+        let destination: String = {
+            if let username = gratitude.recipient?.username.trimmingCharacters(in: .whitespacesAndNewlines),
+               !username.isEmpty {
+                return "@\(username)"
+            }
+            if let name = gratitude.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !name.isEmpty {
+                return name
+            }
+            return "them"
+        }()
         switch emailState {
-        case .idle, .sending: "OpenThanks emails \(email)"
-        case .sent: "Reminder delivered to \(email)"
-        case .failed(let message): message
+        case .idle, .sending: return "OpenThanks emails \(destination)"
+        case .sent: return "Reminder delivered"
+        case .failed(let message): return message
         }
     }
 
@@ -144,10 +175,12 @@ struct PendingShareSheet: View {
     }
 
     private func openSMS() {
-        let phone = gratitude.recipientPhone ?? ""
         var components = URLComponents()
         components.scheme = "sms"
-        components.path = phone
+        if let phone = gratitude.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !phone.isEmpty {
+            components.path = phone
+        }
         components.queryItems = [URLQueryItem(name: "body", value: messageBody)]
         if let url = components.url {
             openURL(url)
@@ -157,7 +190,9 @@ struct PendingShareSheet: View {
     private func openMail() {
         var components = URLComponents()
         components.scheme = "mailto"
-        components.path = recipientEmail ?? ""
+        if let email = recipientEmail {
+            components.path = email
+        }
         components.queryItems = [
             URLQueryItem(name: "subject", value: "I wrote you an appreciation on OpenThanks"),
             URLQueryItem(name: "body", value: messageBody),

@@ -39,6 +39,9 @@ struct ComposeView: View {
     /// Email for the linked member — loaded eagerly so claim mail can send
     /// even when the profile object passed into compose has no email.
     @State private var linkedRecipientEmail: String?
+    @State private var recipientResults: [Profile] = []
+    @State private var recipientSearching = false
+    @State private var recipientDidSearch = false
     @FocusState private var messageFocused: Bool
     @FocusState private var recipientFocused: Bool
 
@@ -155,32 +158,255 @@ struct ComposeView: View {
     }
 
     private var recipientSection: some View {
-        field(label: "Who are you thanking?", hint: "Optional") {
-            TextField("Name, email, or leave blank", text: $recipient)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-                .focused($recipientFocused)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Who are you thanking?")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Optional")
+                    .font(Theme.body(12, weight: .medium))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                recipientFieldChrome
+
+                if linkedRecipient == nil, showRecipientSuggestions {
+                    recipientSuggestions
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: showRecipientSuggestions)
+            .animation(.easeInOut(duration: 0.18), value: linkedRecipient?.id)
+        }
+        .task(id: recipientSearchQuery) {
+            await runRecipientSearch(for: recipientSearchQuery)
+        }
+    }
+
+    private var recipientFieldChrome: some View {
+        Group {
+            if let linked = linkedRecipient {
+                HStack(spacing: 10) {
+                    linkedRecipientChip(linked)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            } else {
+                TextField("Name, @username, email, or leave blank", text: $recipient)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.default)
+                    .textContentType(.none)
+                    .focused($recipientFocused)
+                    .padding(14)
+                    .foregroundStyle(Theme.textPrimary)
+                    .submitLabel(.done)
+            }
+        }
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    recipientFocused && linkedRecipient == nil
+                        ? Theme.coral.opacity(0.45)
+                        : Theme.hairline,
+                    lineWidth: 1
+                )
+        )
+    }
+
+    private func linkedRecipientChip(_ profile: Profile) -> some View {
+        HStack(spacing: 8) {
+            AvatarView(profile: profile, size: 28)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(chipLabel(for: profile))
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                if let fullName = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !fullName.isEmpty,
+                   !profile.username.isEmpty {
+                    Text(fullName)
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+            Button {
+                clearLinkedRecipient(focusField: true)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove recipient")
+        }
+        .padding(.leading, 6)
+        .padding(.trailing, 10)
+        .padding(.vertical, 6)
+        .background(Theme.coralPale.opacity(0.55), in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Recipient \(chipLabel(for: profile))")
+    }
+
+    private var recipientSuggestions: some View {
+        VStack(spacing: 0) {
+            if recipientSearching && recipientResults.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView().tint(Theme.coral).controlSize(.small)
+                    Text("Searching…")
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                }
                 .padding(14)
-                .foregroundStyle(Theme.textPrimary)
-                .onChange(of: recipient) { _, newValue in
-                    // Drop the profile link if the sender rewrites the recipient.
-                    if let linked = linkedRecipient {
-                        let anchors = [
-                            linked.displayName,
-                            linked.fullName,
-                            linked.email,
-                            linkedRecipientEmail,
-                            linked.username.isEmpty ? nil : "@\(linked.username)",
-                            linked.username.isEmpty ? nil : linked.username,
-                        ].compactMap { $0?.lowercased() }
-                        let typed = newValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                        if !anchors.contains(typed) {
-                            linkedRecipient = nil
-                            linkedRecipientEmail = nil
+            } else if !recipientResults.isEmpty {
+                ForEach(Array(recipientResults.enumerated()), id: \.element.id) { index, profile in
+                    Button {
+                        selectLinkedRecipient(profile)
+                    } label: {
+                        HStack(spacing: 12) {
+                            AvatarView(profile: profile, size: 40)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(profile.displayName)
+                                    .font(Theme.body(15, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineLimit(1)
+                                if !profile.username.isEmpty {
+                                    Text("@\(profile.username)")
+                                        .font(Theme.body(13))
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(Theme.coral)
                         }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < recipientResults.count - 1 {
+                        Rectangle()
+                            .fill(Theme.hairline)
+                            .frame(height: 0.5)
+                            .padding(.leading, 66)
                     }
                 }
+            } else if recipientDidSearch {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(inviteSuggestionTitle)
+                        .font(Theme.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("We’ll send a claim link when you share — email, name, or leave blank all work.")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
+            }
         }
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Theme.hairline)
+        )
+    }
+
+    private var recipientSearchQuery: String {
+        guard linkedRecipient == nil else { return "" }
+        return recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var showRecipientSuggestions: Bool {
+        linkedRecipient == nil
+            && recipientFocused
+            && recipientSearchQuery.count >= 2
+    }
+
+    private var inviteSuggestionTitle: String {
+        let q = recipientSearchQuery
+        if looksLikeEmail(q) {
+            return "Invite \(q)"
+        }
+        if q.hasPrefix("@") {
+            return "No one with that username yet — keep typing an email or name to invite"
+        }
+        return "Invite “\(q)”"
+    }
+
+    private func chipLabel(for profile: Profile) -> String {
+        let handle = profile.username.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !handle.isEmpty { return "@\(handle)" }
+        return profile.displayName
+    }
+
+    private func selectLinkedRecipient(_ profile: Profile) {
+        linkedRecipient = profile
+        recipient = ""
+        recipientResults = []
+        recipientSearching = false
+        recipientDidSearch = false
+        recipientFocused = false
+        if let email = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
+            linkedRecipientEmail = AuthService.normalizedEmail(email)
+        } else {
+            linkedRecipientEmail = nil
+        }
+        Task { await loadLinkedRecipientContact(profileId: profile.id) }
+    }
+
+    private func clearLinkedRecipient(focusField: Bool) {
+        linkedRecipient = nil
+        linkedRecipientEmail = nil
+        recipient = ""
+        if focusField {
+            recipientFocused = true
+        }
+    }
+
+    private func runRecipientSearch(for current: String) async {
+        guard linkedRecipient == nil, current.count >= 2 else {
+            recipientResults = []
+            recipientSearching = false
+            recipientDidSearch = false
+            return
+        }
+
+        recipientSearching = true
+        recipientDidSearch = false
+        try? await Task.sleep(for: .milliseconds(280))
+        guard !Task.isCancelled else { return }
+
+        let query = current.hasPrefix("@") ? String(current.dropFirst()) : current
+        guard query.count >= 2 else {
+            recipientResults = []
+            recipientSearching = false
+            recipientDidSearch = false
+            return
+        }
+
+        do {
+            let found = try await GratitudeService.searchProfiles(query: query)
+            guard !Task.isCancelled else { return }
+            let selfId = auth.userId
+            recipientResults = found.filter { $0.id != selfId }
+            recipientDidSearch = true
+        } catch {
+            if !error.isCancellation {
+                recipientResults = []
+                recipientDidSearch = true
+            }
+        }
+        recipientSearching = false
     }
 
     private var messageSection: some View {
@@ -583,18 +809,7 @@ struct ComposeView: View {
         if let target = editingTarget {
             applyEditing(target)
         } else if let profile = initialRecipientProfile {
-            linkedRecipient = profile
-            if let email = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
-                linkedRecipientEmail = AuthService.normalizedEmail(email)
-            }
-            if let name = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
-                recipient = name
-            } else if !profile.username.isEmpty {
-                recipient = profile.username
-            } else {
-                recipient = profile.displayName
-            }
-            Task { await loadLinkedRecipientContact(profileId: profile.id) }
+            selectLinkedRecipient(profile)
         } else if let initialRecipient {
             recipient = initialRecipient.trimmingCharacters(in: .whitespacesAndNewlines)
         }
@@ -639,15 +854,24 @@ struct ComposeView: View {
         photoData = nil
         photoItem = nil
         photoPreview = nil
-        if let name = editing.recipientName, !name.isEmpty {
-            recipient = name
-        } else if let email = editing.recipientEmail {
-            recipient = email
-        } else if let phone = editing.recipientPhone {
-            recipient = phone
+        linkedRecipient = nil
+        linkedRecipientEmail = nil
+        recipient = ""
+
+        if let profile = editing.recipient {
+            selectLinkedRecipient(profile)
+        } else if let recipientId = editing.recipientId {
+            Task {
+                if let profile = try? await GratitudeService.profile(id: recipientId) {
+                    selectLinkedRecipient(profile)
+                } else {
+                    applyEditingFreeText(editing)
+                }
+            }
         } else {
-            recipient = ""
+            applyEditingFreeText(editing)
         }
+
         if let url = editing.mediaURL {
             Task {
                 if let (data, _) = try? await URLSession.shared.data(from: url),
@@ -658,6 +882,18 @@ struct ComposeView: View {
         }
     }
 
+    private func applyEditingFreeText(_ editing: Gratitude) {
+        if let name = editing.recipientName, !name.isEmpty {
+            recipient = name
+        } else if let email = editing.recipientEmail {
+            recipient = email
+        } else if let phone = editing.recipientPhone {
+            recipient = phone
+        } else {
+            recipient = ""
+        }
+    }
+
     // MARK: Send
 
     private func send() async {
@@ -665,10 +901,7 @@ struct ComposeView: View {
         sending = true
         error = nil
         do {
-            // Finish loading the linked member's email if Thank opened from a profile.
-            if let linked = linkedRecipient, isBlank(linkedRecipientEmail) {
-                await loadLinkedRecipientContact(profileId: linked.id)
-            }
+            await resolveRecipientBeforeSend()
 
             var mediaUrl: String?
             var mediaType: String?
@@ -690,12 +923,17 @@ struct ComposeView: View {
                 mediaType = existingMediaType ?? editingTarget?.mediaType
             }
 
-            // Mirror trimmed contact back into the field (emails with stray spaces).
-            let contact = parseRecipient(recipient)
-            if let email = contact.email {
-                recipient = email
+            let linked = linkedRecipient
+            let contact: (name: String?, email: String?, phone: String?)
+            if linked != nil {
+                contact = (nil, nil, nil)
             } else {
-                recipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+                contact = parseRecipient(recipient)
+                if let email = contact.email {
+                    recipient = email
+                } else {
+                    recipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
             }
 
             if let editing = editingTarget {
@@ -703,9 +941,9 @@ struct ComposeView: View {
                     id: editing.id,
                     update: GratitudeUpdate(
                         message: message.trimmingCharacters(in: .whitespacesAndNewlines),
-                        recipientEmail: contact.email,
-                        recipientPhone: contact.phone,
-                        recipientName: contact.name,
+                        recipientEmail: contact.email ?? linkedRecipientEmail ?? linked?.email,
+                        recipientPhone: contact.phone ?? linked?.phone,
+                        recipientName: contact.name ?? linked?.fullName ?? linked?.displayName,
                         visibility: visibility.rawValue,
                         mediaUrl: mediaUrl,
                         mediaType: mediaType
@@ -721,7 +959,6 @@ struct ComposeView: View {
                     sent = true
                 }
             } else {
-                let linked = linkedRecipient
                 let new = NewGratitude(
                     authorId: userId,
                     message: message.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -734,7 +971,17 @@ struct ComposeView: View {
                     mediaType: mediaType,
                     source: "ios"
                 )
-                created = try await GratitudeService.create(new)
+                var result = try await GratitudeService.create(new)
+                if result.recipient == nil, let linked {
+                    result.recipient = linked
+                }
+                if isBlank(result.recipientName), let linked {
+                    result.recipientName = linked.fullName ?? linked.displayName
+                }
+                if isBlank(result.recipientEmail) {
+                    result.recipientEmail = linkedRecipientEmail ?? linked?.email
+                }
+                created = result
                 sent = true
             }
         } catch {
@@ -743,12 +990,36 @@ struct ComposeView: View {
         sending = false
     }
 
+    /// Link a selected/@username member and finish loading their email before create.
+    private func resolveRecipientBeforeSend() async {
+        if linkedRecipient == nil {
+            let trimmed = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("@") {
+                let handle = String(trimmed.dropFirst())
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !handle.isEmpty,
+                   let profile = try? await GratitudeService.profile(username: handle) {
+                    selectLinkedRecipient(profile)
+                }
+            }
+        }
+
+        if let linked = linkedRecipient, isBlank(linkedRecipientEmail) {
+            await loadLinkedRecipientContact(profileId: linked.id)
+        }
+    }
+
     private func parseRecipient(_ raw: String)
         -> (name: String?, email: String?, phone: String?) {
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return (nil, nil, nil) }
-        if value.contains("@") {
+        if looksLikeEmail(value) {
             return (nil, AuthService.normalizedEmail(value), nil)
+        }
+        // Bare @username is handled via profile lookup before send — treat as name if unresolved.
+        if value.hasPrefix("@") {
+            let handle = String(value.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+            return (handle.isEmpty ? nil : handle, nil, nil)
         }
         let digits = value.filter { $0.isNumber }
         if digits.count >= 7 && value.allSatisfy({ "+()- 0123456789".contains($0) }) {
@@ -756,6 +1027,17 @@ struct ComposeView: View {
             return (nil, nil, e164)
         }
         return (value, nil, nil)
+    }
+
+    private func looksLikeEmail(_ value: String) -> Bool {
+        guard let at = value.firstIndex(of: "@") else { return false }
+        let local = value[..<at]
+        let domain = value[value.index(after: at)...]
+        return !local.isEmpty
+            && domain.contains(".")
+            && !domain.hasPrefix(".")
+            && !domain.hasSuffix(".")
+            && !domain.contains("@")
     }
 
     private func reset() {
@@ -777,6 +1059,9 @@ struct ComposeView: View {
         removedPhoto = false
         linkedRecipient = nil
         linkedRecipientEmail = nil
+        recipientResults = []
+        recipientSearching = false
+        recipientDidSearch = false
         didPrefill = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             messageFocused = true
@@ -812,6 +1097,26 @@ struct SuccessView: View {
         return (value?.isEmpty == false) ? value : nil
     }
 
+    /// Shown on share rows — prefer @username / name; blank To is fine.
+    private var emailToLabel: String {
+        if let username = gratitude.recipient?.username.trimmingCharacters(in: .whitespacesAndNewlines),
+           !username.isEmpty {
+            return "To @\(username)"
+        }
+        if let name = gratitude.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            return "To \(name)"
+        }
+        if let display = gratitude.recipient?.displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+           !display.isEmpty {
+            return "To \(display)"
+        }
+        if recipientEmail != nil {
+            return "To their email"
+        }
+        return "Choose an address"
+    }
+
     private var shareMessage: String {
         let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
             ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
@@ -822,8 +1127,8 @@ struct SuccessView: View {
     }
 
     private var subtitle: String {
-        if recipientEmail != nil {
-            return "We emailed them the claim link. You can also share it yourself, or edit anything before they claim."
+        if gratitude.recipientId != nil || recipientEmail != nil {
+            return "We emailed them the claim link when we could. You can also share it yourself, or edit anything before they claim."
         }
         return "Send the claim link so they can open it — or edit anything before they do."
     }
@@ -881,7 +1186,7 @@ struct SuccessView: View {
                     ShareActionRow(
                         title: "Send via Email",
                         systemImage: "envelope.fill",
-                        subtitle: recipientEmail.map { "To \($0)" }
+                        subtitle: emailToLabel
                     ) {
                         openMail()
                     }
@@ -915,10 +1220,12 @@ struct SuccessView: View {
     }
 
     private func openSMS() {
-        let phone = gratitude.recipientPhone ?? ""
         var components = URLComponents()
         components.scheme = "sms"
-        components.path = phone
+        if let phone = gratitude.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !phone.isEmpty {
+            components.path = phone
+        }
         components.queryItems = [URLQueryItem(name: "body", value: shareMessage)]
         if let url = components.url {
             openURL(url)
@@ -926,9 +1233,13 @@ struct SuccessView: View {
     }
 
     private func openMail() {
+        // Blank To is intentional when we only know the username — Mail lets
+        // the sender pick an address while keeping subject/body filled in.
         var components = URLComponents()
         components.scheme = "mailto"
-        components.path = recipientEmail ?? ""
+        if let email = recipientEmail {
+            components.path = email
+        }
         components.queryItems = [
             URLQueryItem(name: "subject", value: "I wrote you an appreciation on OpenThanks"),
             URLQueryItem(name: "body", value: shareMessage),
