@@ -280,10 +280,52 @@ enum GratitudeService {
     /// a recipient email is present (`POST /api/gratitudes/resend-email`).
     static func create(_ new: NewGratitude) async throws -> Gratitude {
         var payload = new
+        await resolveRecipientContact(&payload)
 
-        // Thank-from-profile often has recipient_id + a display name, but no
-        // typed email. Pull contact fields from the linked profile so the
-        // claim email still goes out (and recipient_email is stored).
+        let gratitude: Gratitude = try await supabase.from("gratitudes")
+            .insert(payload)
+            .select(feedSelect)
+            .single()
+            .execute().value
+
+        // Belt-and-suspenders: if create had a deliverable email but the row
+        // somehow lacks it (name-only thank-from-profile), patch before send.
+        if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !email.isEmpty,
+           gratitude.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            _ = try? await supabase.from("gratitudes")
+                .update(["recipient_email": email])
+                .eq("id", value: gratitude.id)
+                .execute()
+        }
+
+        if let recipientId = payload.recipientId, recipientId != payload.authorId {
+            await insertNotification(
+                userId: recipientId,
+                type: "gratitude_pending",
+                gratitudeId: gratitude.id,
+                fromUserId: payload.authorId
+            )
+        }
+
+        // Always attempt delivery when we know who it's for. resend-email can
+        // also resolve email from recipient_id when the column is empty.
+        let shouldEmail = !(payload.recipientEmail ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || payload.recipientId != nil
+        if shouldEmail {
+            do {
+                try await sendEmailReminder(gratitudeId: gratitude.id)
+            } catch {
+                print("OpenThanks: claim email failed for \(gratitude.id): \(error.localizedDescription)")
+            }
+        }
+
+        return gratitude
+    }
+
+    /// Fills recipient_id / email / phone / name from profiles when thanking
+    /// a member (e.g. from their profile) or when only an email/phone was typed.
+    private static func resolveRecipientContact(_ payload: inout NewGratitude) async {
         if let recipientId = payload.recipientId {
             struct ContactRow: Decodable {
                 let email: String?
@@ -300,25 +342,24 @@ enum GratitudeService {
                 .eq("id", value: recipientId)
                 .single()
                 .execute().value {
-                if payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                    if let email = row.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
-                        payload.recipientEmail = AuthService.normalizedEmail(email)
-                    }
+                if isBlank(payload.recipientEmail),
+                   let email = row.email?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !email.isEmpty {
+                    payload.recipientEmail = AuthService.normalizedEmail(email)
                 }
-                if payload.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                    if let phone = row.phone?.trimmingCharacters(in: .whitespacesAndNewlines), !phone.isEmpty {
-                        payload.recipientPhone = phone
-                    }
+                if isBlank(payload.recipientPhone),
+                   let phone = row.phone?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !phone.isEmpty {
+                    payload.recipientPhone = phone
                 }
-                if payload.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-                    if let name = row.fullName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
-                        payload.recipientName = name
-                    }
+                if isBlank(payload.recipientName),
+                   let name = row.fullName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !name.isEmpty {
+                    payload.recipientName = name
                 }
             }
         }
 
-        // Link an existing OpenThanks account by email or phone when possible.
         if payload.recipientId == nil {
             struct IdRow: Decodable { let id: UUID }
             if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
@@ -339,30 +380,10 @@ enum GratitudeService {
                 payload.recipientId = row.id
             }
         }
+    }
 
-        let gratitude: Gratitude = try await supabase.from("gratitudes")
-            .insert(payload)
-            .select(feedSelect)
-            .single()
-            .execute().value
-
-        if let recipientId = payload.recipientId, recipientId != payload.authorId {
-            await insertNotification(
-                userId: recipientId,
-                type: "gratitude_pending",
-                gratitudeId: gratitude.id,
-                fromUserId: payload.authorId
-            )
-        }
-
-        // Web create sends this automatically; iOS used to skip it and only
-        // offered a manual "Email Reminder" from the share sheet.
-        if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !email.isEmpty {
-            try? await sendEmailReminder(gratitudeId: gratitude.id)
-        }
-
-        return gratitude
+    private static func isBlank(_ value: String?) -> Bool {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
     }
 
     /// Update a pending appreciation you authored.
