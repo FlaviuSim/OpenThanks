@@ -49,7 +49,7 @@ struct SettingsView: View {
                     Toggle(isOn: $fridayReminderEnabled) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Friday Gratitude Reminder")
-                            Text("Every Friday at 9:00 AM")
+                            Text("Every Friday at 9:00 AM — a new question each week, matching your email.")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
                         }

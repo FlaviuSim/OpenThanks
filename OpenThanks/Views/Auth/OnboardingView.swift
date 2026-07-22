@@ -35,14 +35,31 @@ struct OnboardingView: View {
               ]),
     ]
 
+    private var progress: CGFloat {
+        CGFloat(page + 1) / CGFloat(slides.count)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(alignment: .center, spacing: 12) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Theme.surfaceRaised)
+                        Capsule()
+                            .fill(Theme.heartGradient)
+                            .frame(width: max(18, geo.size.width * progress))
+                            .animation(Motion.breathe, value: page)
+                    }
+                }
+                .frame(height: 6)
+                .frame(maxWidth: 120)
+
                 Text("\(page + 1) of \(slides.count)")
                     .font(Theme.body(13, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Theme.surfaceRaised, in: Capsule())
+                    .contentTransition(.numericText())
+
                 Spacer()
                 Button("Skip") { onFinish() }
                     .font(Theme.body(15, weight: .medium))
@@ -52,23 +69,30 @@ struct OnboardingView: View {
 
             TabView(selection: $page) {
                 ForEach(slides.indices, id: \.self) { i in
-                    slideView(slides[i]).tag(i)
+                    slideView(slides[i], index: i).tag(i)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .animation(Motion.breathe, value: page)
 
             Button(page == slides.count - 1 ? "Get Started" : "Continue") {
-                if page == slides.count - 1 { onFinish() }
-                else { withAnimation { page += 1 } }
+                WarmHaptics.selection()
+                if page == slides.count - 1 {
+                    onFinish()
+                } else {
+                    withAnimation(Motion.breathe) { page += 1 }
+                }
             }
             .buttonStyle(CTAButtonStyle())
             .padding(.horizontal, 24)
+            .sensoryFeedback(.selection, trigger: page)
 
             HStack(spacing: 6) {
                 ForEach(slides.indices, id: \.self) { i in
                     Capsule()
-                        .fill(i == page ? Theme.coral : Theme.textTertiary.opacity(0.5))
+                        .fill(i == page ? Theme.coral : Theme.textTertiary.opacity(0.45))
                         .frame(width: i == page ? 18 : 6, height: 6)
+                        .animation(Motion.breathe, value: page)
                 }
             }
             .padding(.top, 16)
@@ -78,7 +102,7 @@ struct OnboardingView: View {
         .background(Theme.background)
     }
 
-    private func slideView(_ slide: Slide) -> some View {
+    private func slideView(_ slide: Slide, index: Int) -> some View {
         VStack(alignment: .leading, spacing: 28) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(slide.headline.indices, id: \.self) { i in
@@ -90,9 +114,10 @@ struct OnboardingView: View {
                 }
             }
             .padding(.top, 24)
+            .softNoteReveal(delay: 0.02)
 
             VStack(alignment: .leading, spacing: 22) {
-                ForEach(slide.points, id: \.title) { point in
+                ForEach(Array(slide.points.enumerated()), id: \.element.title) { pointIndex, point in
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: point.icon)
                             .font(.system(size: 17, weight: .semibold))
@@ -109,11 +134,13 @@ struct OnboardingView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .softNoteReveal(delay: 0.08 + Double(pointIndex) * 0.06)
                 }
             }
             Spacer()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
+        .id(index)
     }
 }

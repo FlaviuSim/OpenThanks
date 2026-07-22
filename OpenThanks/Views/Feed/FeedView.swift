@@ -16,6 +16,7 @@ struct FeedView: View {
     @State private var composeRecipient: String?
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
+    @State private var scrollToPendingToken = 0
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
 
@@ -56,6 +57,9 @@ struct FeedView: View {
             }
             .onChange(of: showCompose) { _, open in
                 if !open { composeRecipient = nil }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .focusReceivedThanks)) { _ in
+                scrollToPendingToken += 1
             }
             .syncAppAppearance()
         }
@@ -143,37 +147,47 @@ struct FeedView: View {
             }
             Spacer()
         } else {
-            ScrollView {
-                LazyVStack(spacing: 14) {
-                    if !pendingToAccept.isEmpty {
-                        pendingHeader
-                        ForEach(pendingToAccept) { item in
-                            AcceptPendingCard(
-                                gratitude: item,
-                                onAccepted: { accepted in
-                                    pendingToAccept.removeAll { $0.id == accepted.id }
-                                    if !items.contains(where: { $0.id == accepted.id }) {
-                                        items.insert(accepted, at: 0)
-                                        items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 14) {
+                        if !pendingToAccept.isEmpty {
+                            pendingHeader
+                                .id("pendingThanks")
+                            ForEach(pendingToAccept) { item in
+                                AcceptPendingCard(
+                                    gratitude: item,
+                                    onAccepted: { accepted in
+                                        pendingToAccept.removeAll { $0.id == accepted.id }
+                                        if !items.contains(where: { $0.id == accepted.id }) {
+                                            items.insert(accepted, at: 0)
+                                            items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
+                                        }
+                                        Task { await refreshWidgetSnapshot() }
+                                    },
+                                    onDeclined: { id in
+                                        pendingToAccept.removeAll { $0.id == id }
+                                        Task { await refreshWidgetSnapshot() }
                                     }
-                                },
-                                onDeclined: { id in
-                                    pendingToAccept.removeAll { $0.id == id }
-                                }
-                            )
+                                )
+                            }
+                        }
+
+                        ForEach(items) { item in
+                            GratitudeCard(gratitude: item,
+                                          isHearted: heartedIds.contains(item.id),
+                                          onHeart: { toggleHeart(item) })
                         }
                     }
-
-                    ForEach(items) { item in
-                        GratitudeCard(gratitude: item,
-                                      isHearted: heartedIds.contains(item.id),
-                                      onHeart: { toggleHeart(item) })
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 96)
+                    .opacity(loading && !isEmpty ? 0.72 : 1)
+                    .animation(.easeInOut(duration: 0.2), value: loading)
+                }
+                .onChange(of: scrollToPendingToken) { _, _ in
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        proxy.scrollTo("pendingThanks", anchor: .top)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 96)
-                .opacity(loading && !isEmpty ? 0.72 : 1)
-                .animation(.easeInOut(duration: 0.2), value: loading)
             }
         }
     }
@@ -238,12 +252,24 @@ struct FeedView: View {
                 pendingSentCount = pendingSent
                 heartedIds = hearts
             }
+            await refreshWidgetSnapshot()
         } catch {
             if !error.isCancellation {
                 self.error = error.localizedDescription
             }
         }
         loading = false
+    }
+
+    private func refreshWidgetSnapshot() async {
+        guard let userId = auth.userId else { return }
+        await WidgetSnapshotRefresher.refresh(
+            displayName: auth.currentProfile?.displayName,
+            userId: userId,
+            email: auth.currentProfile?.email,
+            phone: auth.currentProfile?.phone,
+            pendingToAccept: pendingToAccept.count
+        )
     }
 
     private func toggleHeart(_ item: Gratitude) {

@@ -86,6 +86,7 @@ struct AcceptPendingCard: View {
                         .strokeBorder(Theme.coral.opacity(0.45), lineWidth: 1.5)
                 )
         )
+        .softNoteReveal()
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
         }

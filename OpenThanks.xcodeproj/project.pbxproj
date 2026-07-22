@@ -8,70 +8,159 @@
 
 /* Begin PBXBuildFile section */
 		00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9116D291352DD94BE647DB15 /* Theme.swift */; };
+		06EE4316D00DEEF35B015B7D /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
 		06F2D3E145B798C680888431 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEFAF07C21753839CBCCE3B /* ComposeView.swift */; };
 		0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */; };
+		108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D87DB1FBDF467DB01585D /* SiriIntroView.swift */; };
 		1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */; };
 		13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */; };
+		1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */; };
 		2AA3482072E822D921E27B77 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6386C42954F7E470B63181A1 /* MainTabView.swift */; };
+		2CAECB510E8C778E393B0216 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
 		2D6B5B90A67DA89C84438C57 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */; };
+		3857BA9E93809E31825460B2 /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		3941394E94699B39AF29657B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */; };
+		42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */; };
+		4DB57AC6BE2F0C7305871D75 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
 		4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E451C434563DD8702080E34 /* WelcomeView.swift */; };
+		51BEC8131C0FFD6895461EDC /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */; };
+		5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */; };
 		5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */; };
+		5FFBE5EF70EF711928166478 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
+		6C31438E31C6D9FBDD646645 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097424F66444F25FE6651FE0 /* Motion.swift */; };
+		6E80B389272E2DD329786D4C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C819BEB1D35972B783049B03 /* Assets.xcassets */; };
+		7022DED085369A4ECEDC0EDF /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
+		7198DDBD3ACCF9655E6B25C3 /* ShareInboxParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DA8313EA35838D5A67AFCCA /* ShareInboxParser.swift */; };
 		7744285F382417A1C7007F97 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475B3E155C6168A97BD17C48 /* NotificationService.swift */; };
+		77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
 		7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */; };
 		7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8D2450B91723A8252B49E /* ClaimAppreciationView.swift */; };
+		7C13BB5EF1BBAB56E55F6164 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
+		8388BA22A31E18A68F9A622F /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88382B39EC95AA443DDE696C /* ShareViewController.swift */; };
+		856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B863B534795C67594B79C1DC /* TabLaunchBridge.swift */; };
+		87E3E62EF67CABA629297F7B /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
+		8D9BF6AE672BFC3C51751D04 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F3FD90C322331B012FD48F /* AppNavigation.swift */; };
+		9334F241FD77D164F8A1CE22 /* OpenThanksWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */; };
 		985D66E76E069167F1534690 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24196DBDF1449EB46FBF5DD /* SettingsView.swift */; };
 		AF088828E1B25331AD362C85 /* NotificationPermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A007648B028C626C69ADFB /* NotificationPermissionView.swift */; };
 		B0DAC52F046E4E83AEF1BEAE /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7100E64F1ACD16964F60A63 /* NotificationsView.swift */; };
 		B433078D184312A101ECA432 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1BCD3D6D4207C94DE001B284 /* Assets.xcassets */; };
 		B44A3CEFF76027AF0F586362 /* EditProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4546F9384987CE5C913CD0 /* EditProfileSheet.swift */; };
+		B4DE495973DD611F929B0A40 /* GratitudePromptWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */; };
 		B9C2C7DCFAA6309EC4401A8D /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167153BE2EE275F81D5D2A05 /* AppConfig.swift */; };
 		BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC0A8CDE94660605C46C812 /* AuthService.swift */; };
 		C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */; };
 		C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C5038208573746C9F0E519 /* AcceptPendingCard.swift */; };
+		C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */; };
 		C8DB929803C920F0E53E0682 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0320D5FF717E6D107693552A /* Supabase */; };
+		CBD66B58879CB43B73DD5D59 /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
+		D114CD44AF748B2FE6CCBCAB /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		DF5DD2D1A0CF2C9B30E53033 /* DeepLinkHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */; };
+		E4AE19A6C4361EC218E20278 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
+		E5261ECE9E0D6C053E1BA064 /* WidgetSnapshotRefresher.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */; };
+		E532D4D7154D4251FC00E5A3 /* OpenThanksShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */; };
 		EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */; };
 		ED6CBED0D9F83C3794342573 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7180CB985A04524939619A0F /* Models.swift */; };
+		F06C4E890841A820B0D76D81 /* WidgetPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */; };
 		F0DEEBB646DB5DEC2C7ABFC2 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A25AD150B863DF00ABC41E23 /* OnboardingView.swift */; };
 		F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41CEF2962FB940913427807 /* FeedView.swift */; };
+		FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */; };
+		FEB2414FA2688F0D2F142C26 /* OpenThanksWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B032022447488A7BF2766 /* OpenThanksWidgetBundle.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		530E951E84F0607BB7583D48 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B87AECB34BE7AF44D6D91170 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1374A04F9D4D1060CA6A70F7;
+			remoteInfo = OpenThanksWidget;
+		};
+		A33C8BFB2360C7A5B5BBA73D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B87AECB34BE7AF44D6D91170 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0F7C3727F8C791747906562B;
+			remoteInfo = OpenThanksShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		82EEC59E7BB765ACFB3C38EE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9334F241FD77D164F8A1CE22 /* OpenThanksWidget.appex in Embed Foundation Extensions */,
+				E532D4D7154D4251FC00E5A3 /* OpenThanksShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		00A8D2450B91723A8252B49E /* ClaimAppreciationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaimAppreciationView.swift; sourceTree = "<group>"; };
 		00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
+		097424F66444F25FE6651FE0 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeService.swift; sourceTree = "<group>"; };
+		11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		167153BE2EE275F81D5D2A05 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
 		1BCD3D6D4207C94DE001B284 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1EC0A8CDE94660605C46C812 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		20248F044E360A013BCF425B /* OpenThanksShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksShare.entitlements; sourceTree = "<group>"; };
 		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
+		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
+		39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPalette.swift; sourceTree = "<group>"; };
+		3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppGroup+Files.swift"; sourceTree = "<group>"; };
+		432D87DB1FBDF467DB01585D /* SiriIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntroView.swift; sourceTree = "<group>"; };
 		475B3E155C6168A97BD17C48 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		50A007648B028C626C69ADFB /* NotificationPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionView.swift; sourceTree = "<group>"; };
+		619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6386C42954F7E470B63181A1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeDetailView.swift; sourceTree = "<group>"; };
 		7180CB985A04524939619A0F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		7BEFAF07C21753839CBCCE3B /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
 		85B4CF870C280FA94F05D8B8 /* OpenThanks.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanks.entitlements; sourceTree = "<group>"; };
+		87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksIntents.swift; sourceTree = "<group>"; };
+		88382B39EC95AA443DDE696C /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDeepLink.swift; sourceTree = "<group>"; };
+		8C000C57CC0B3785BC0BE99F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8DA8313EA35838D5A67AFCCA /* ShareInboxParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareInboxParser.swift; sourceTree = "<group>"; };
+		90545B0BC7BB52EBC843FDBB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9116D291352DD94BE647DB15 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FridayPrompts.swift; sourceTree = "<group>"; };
 		93C5038208573746C9F0E519 /* AcceptPendingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcceptPendingCard.swift; sourceTree = "<group>"; };
 		96F3FD90C322331B012FD48F /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
 		9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlexiblePostImage.swift; sourceTree = "<group>"; };
 		9E451C434563DD8702080E34 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenWidgets.swift; sourceTree = "<group>"; };
 		A24196DBDF1449EB46FBF5DD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A25AD150B863DF00ABC41E23 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A7100E64F1ACD16964F60A63 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
+		AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudePromptWidget.swift; sourceTree = "<group>"; };
+		AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeShareHandoff.swift; sourceTree = "<group>"; };
 		B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksApp.swift; sourceTree = "<group>"; };
+		B863B534795C67594B79C1DC /* TabLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabLaunchBridge.swift; sourceTree = "<group>"; };
 		BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkHost.swift; sourceTree = "<group>"; };
+		C41B032022447488A7BF2766 /* OpenThanksWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksWidgetBundle.swift; sourceTree = "<group>"; };
+		C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroup.swift; sourceTree = "<group>"; };
 		C7684C625234ED38D76E9335 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C819BEB1D35972B783049B03 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareSheet.swift; sourceTree = "<group>"; };
+		D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchBridge.swift; sourceTree = "<group>"; };
 		D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropper.swift; sourceTree = "<group>"; };
 		DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationAI.swift; sourceTree = "<group>"; };
 		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeSharePayload.swift; sourceTree = "<group>"; };
+		EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotRefresher.swift; sourceTree = "<group>"; };
 		EE58C9232B92D8AAD5346A26 /* OpenThanks.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenThanks.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F41CEF2962FB940913427807 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -104,9 +193,14 @@
 			children = (
 				DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */,
 				1EC0A8CDE94660605C46C812 /* AuthService.swift */,
+				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
+				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
 				0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */,
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
+				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
+				B863B534795C67594B79C1DC /* TabLaunchBridge.swift */,
+				EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -125,6 +219,7 @@
 				50A007648B028C626C69ADFB /* NotificationPermissionView.swift */,
 				A25AD150B863DF00ABC41E23 /* OnboardingView.swift */,
 				2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */,
+				432D87DB1FBDF467DB01585D /* SiriIntroView.swift */,
 				9E451C434563DD8702080E34 /* WelcomeView.swift */,
 			);
 			path = Auth;
@@ -138,10 +233,24 @@
 			path = Profile;
 			sourceTree = "<group>";
 		};
+		86F9F0820A5445FA29C17D46 /* OpenThanksShared */ = {
+			isa = PBXGroup;
+			children = (
+				C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */,
+				3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */,
+				EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */,
+				8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */,
+				39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */,
+			);
+			path = OpenThanksShared;
+			sourceTree = "<group>";
+		};
 		9DD084D79F8CF095155FE082 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				EE58C9232B92D8AAD5346A26 /* OpenThanks.app */,
+				11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */,
+				619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -176,6 +285,9 @@
 			isa = PBXGroup;
 			children = (
 				9ECA3A8A365EFD9885DD0954 /* OpenThanks */,
+				FC68CCAC7A6F4D6CA762887B /* OpenThanksShare */,
+				86F9F0820A5445FA29C17D46 /* OpenThanksShared */,
+				D035B18ED71E6FFB0B5F71AD /* OpenThanksWidget */,
 				9DD084D79F8CF095155FE082 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -212,6 +324,8 @@
 		CD3F2DFF90CB8C34C4119C55 /* Theme */ = {
 			isa = PBXGroup;
 			children = (
+				91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */,
+				097424F66444F25FE6651FE0 /* Motion.swift */,
 				9116D291352DD94BE647DB15 /* Theme.swift */,
 			);
 			path = Theme;
@@ -223,6 +337,20 @@
 				7180CB985A04524939619A0F /* Models.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		D035B18ED71E6FFB0B5F71AD /* OpenThanksWidget */ = {
+			isa = PBXGroup;
+			children = (
+				C819BEB1D35972B783049B03 /* Assets.xcassets */,
+				AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */,
+				90545B0BC7BB52EBC843FDBB /* Info.plist */,
+				A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */,
+				3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */,
+				C41B032022447488A7BF2766 /* OpenThanksWidgetBundle.swift */,
+				3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */,
+			);
+			path = OpenThanksWidget;
 			sourceTree = "<group>";
 		};
 		D44EEA79D1212DB973FB00D0 /* Notifications */ = {
@@ -258,9 +386,55 @@
 			path = Claim;
 			sourceTree = "<group>";
 		};
+		FC68CCAC7A6F4D6CA762887B /* OpenThanksShare */ = {
+			isa = PBXGroup;
+			children = (
+				8C000C57CC0B3785BC0BE99F /* Info.plist */,
+				20248F044E360A013BCF425B /* OpenThanksShare.entitlements */,
+				8DA8313EA35838D5A67AFCCA /* ShareInboxParser.swift */,
+				88382B39EC95AA443DDE696C /* ShareViewController.swift */,
+			);
+			path = OpenThanksShare;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0F7C3727F8C791747906562B /* OpenThanksShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0A4BAA6CD38617C3E24B9B3 /* Build configuration list for PBXNativeTarget "OpenThanksShare" */;
+			buildPhases = (
+				3AAFD3DC1CBDB3E835B82DB6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenThanksShare;
+			packageProductDependencies = (
+			);
+			productName = OpenThanksShare;
+			productReference = 11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		1374A04F9D4D1060CA6A70F7 /* OpenThanksWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2706FB349E919DB3C86A402 /* Build configuration list for PBXNativeTarget "OpenThanksWidget" */;
+			buildPhases = (
+				CDC02DED33F89DD17522A0C3 /* Sources */,
+				79DF12B7B64FAAB92F2F62D7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenThanksWidget;
+			packageProductDependencies = (
+			);
+			productName = OpenThanksWidget;
+			productReference = 619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		73C4A89C152CCB91D002DA95 /* OpenThanks */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8CAFC3BED4225D66A16B635C /* Build configuration list for PBXNativeTarget "OpenThanks" */;
@@ -268,10 +442,13 @@
 				273419D1B76E3E9B8552DF52 /* Sources */,
 				BB389B8778AA36F1078C043E /* Resources */,
 				B4331C10CA4C5D77645FF4AB /* Frameworks */,
+				82EEC59E7BB765ACFB3C38EE /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1D66126FB3F744415062936C /* PBXTargetDependency */,
+				8F688330FA4964041E5E885A /* PBXTargetDependency */,
 			);
 			name = OpenThanks;
 			packageProductDependencies = (
@@ -290,6 +467,14 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					0F7C3727F8C791747906562B = {
+						DevelopmentTeam = 53CL59ATX8;
+						ProvisioningStyle = Automatic;
+					};
+					1374A04F9D4D1060CA6A70F7 = {
+						DevelopmentTeam = 53CL59ATX8;
+						ProvisioningStyle = Automatic;
+					};
 					73C4A89C152CCB91D002DA95 = {
 						DevelopmentTeam = 53CL59ATX8;
 						ProvisioningStyle = Automatic;
@@ -314,11 +499,21 @@
 			projectRoot = "";
 			targets = (
 				73C4A89C152CCB91D002DA95 /* OpenThanks */,
+				1374A04F9D4D1060CA6A70F7 /* OpenThanksWidget */,
+				0F7C3727F8C791747906562B /* OpenThanksShare */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		79DF12B7B64FAAB92F2F62D7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6E80B389272E2DD329786D4C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BB389B8778AA36F1078C043E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -337,37 +532,92 @@
 			files = (
 				C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */,
 				B9C2C7DCFAA6309EC4401A8D /* AppConfig.swift in Sources */,
+				D114CD44AF748B2FE6CCBCAB /* AppGroup+Files.swift in Sources */,
+				8D9BF6AE672BFC3C51751D04 /* AppGroup.swift in Sources */,
 				8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */,
 				13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */,
 				BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */,
 				7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */,
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
+				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
+				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
+				77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */,
 				06F2D3E145B798C680888431 /* ComposeView.swift in Sources */,
 				DF5DD2D1A0CF2C9B30E53033 /* DeepLinkHost.swift in Sources */,
 				C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */,
 				B44A3CEFF76027AF0F586362 /* EditProfileSheet.swift in Sources */,
 				F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */,
 				EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */,
+				1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */,
 				1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */,
 				0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */,
 				E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */,
 				2AA3482072E822D921E27B77 /* MainTabView.swift in Sources */,
 				ED6CBED0D9F83C3794342573 /* Models.swift in Sources */,
+				6C31438E31C6D9FBDD646645 /* Motion.swift in Sources */,
 				AF088828E1B25331AD362C85 /* NotificationPermissionView.swift in Sources */,
 				7744285F382417A1C7007F97 /* NotificationService.swift in Sources */,
 				B0DAC52F046E4E83AEF1BEAE /* NotificationsView.swift in Sources */,
 				F0DEEBB646DB5DEC2C7ABFC2 /* OnboardingView.swift in Sources */,
 				945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */,
 				56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */,
+				5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */,
 				5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */,
 				3941394E94699B39AF29657B /* ProfileView.swift in Sources */,
 				985D66E76E069167F1534690 /* SettingsView.swift in Sources */,
+				108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */,
+				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,
 				4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */,
+				5FFBE5EF70EF711928166478 /* WidgetDeepLink.swift in Sources */,
+				06EE4316D00DEEF35B015B7D /* WidgetSnapshot.swift in Sources */,
+				E5261ECE9E0D6C053E1BA064 /* WidgetSnapshotRefresher.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3AAFD3DC1CBDB3E835B82DB6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CBD66B58879CB43B73DD5D59 /* AppGroup+Files.swift in Sources */,
+				51BEC8131C0FFD6895461EDC /* AppGroup.swift in Sources */,
+				7022DED085369A4ECEDC0EDF /* ComposeSharePayload.swift in Sources */,
+				7198DDBD3ACCF9655E6B25C3 /* ShareInboxParser.swift in Sources */,
+				8388BA22A31E18A68F9A622F /* ShareViewController.swift in Sources */,
+				4DB57AC6BE2F0C7305871D75 /* WidgetDeepLink.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CDC02DED33F89DD17522A0C3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3857BA9E93809E31825460B2 /* AppGroup+Files.swift in Sources */,
+				E4AE19A6C4361EC218E20278 /* AppGroup.swift in Sources */,
+				87E3E62EF67CABA629297F7B /* ComposeSharePayload.swift in Sources */,
+				B4DE495973DD611F929B0A40 /* GratitudePromptWidget.swift in Sources */,
+				42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */,
+				FEB2414FA2688F0D2F142C26 /* OpenThanksWidgetBundle.swift in Sources */,
+				7C13BB5EF1BBAB56E55F6164 /* WidgetDeepLink.swift in Sources */,
+				F06C4E890841A820B0D76D81 /* WidgetPalette.swift in Sources */,
+				2CAECB510E8C778E393B0216 /* WidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1D66126FB3F744415062936C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1374A04F9D4D1060CA6A70F7 /* OpenThanksWidget */;
+			targetProxy = 530E951E84F0607BB7583D48 /* PBXContainerItemProxy */;
+		};
+		8F688330FA4964041E5E885A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0F7C3727F8C791747906562B /* OpenThanksShare */;
+			targetProxy = A33C8BFB2360C7A5B5BBA73D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		12C34D3D92F167E584E618E9 /* Release */ = {
@@ -455,6 +705,63 @@
 			};
 			name = Debug;
 		};
+		58D4C91EE6AC3C02028E0931 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = 53CL59ATX8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		6AD7353B296E1467FC6AB2B4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = 53CL59ATX8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenThanksShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app.share;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A13CE9D8752D2EC659D7733F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = 53CL59ATX8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenThanksShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app.share;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 		AD1C54D2DBA8D51F4EB005EB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -476,6 +783,25 @@
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
+		};
+		B150A3D0CA43C687A1693DBE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 7;
+				DEVELOPMENT_TEAM = 53CL59ATX8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app.widget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
 		};
 		E6D75DCA2F9879785BADA2C4 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -550,6 +876,24 @@
 			buildConfigurations = (
 				1BD1FA26BA99C9A5133B77FB /* Debug */,
 				E6D75DCA2F9879785BADA2C4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B0A4BAA6CD38617C3E24B9B3 /* Build configuration list for PBXNativeTarget "OpenThanksShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A13CE9D8752D2EC659D7733F /* Debug */,
+				6AD7353B296E1467FC6AB2B4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C2706FB349E919DB3C86A402 /* Build configuration list for PBXNativeTarget "OpenThanksWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				58D4C91EE6AC3C02028E0931 /* Debug */,
+				B150A3D0CA43C687A1693DBE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -351,6 +351,7 @@ final class AuthService {
         hasResolvedProfile = false
         state = .signedOut
         Self.clearCachedProfile()
+        WidgetSnapshotRefresher.clear()
         try? await supabase.auth.signOut(scope: .local)
     }
 }

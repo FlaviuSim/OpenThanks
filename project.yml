@@ -11,15 +11,20 @@ targets:
   OpenThanks:
     type: application
     platform: iOS
-    sources: [OpenThanks]
+    sources:
+      - path: OpenThanks
+      - path: OpenThanksShared
     dependencies:
       - package: Supabase
         product: Supabase
+      - target: OpenThanksWidget
+      - target: OpenThanksShare
     info:
       path: OpenThanks/Info.plist
       properties:
         CFBundleDisplayName: OpenThanks
         CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Full-size launch screen (without it iOS letterboxes the app).
         UILaunchScreen:
           UIColorName: LaunchBackground
@@ -29,6 +34,7 @@ targets:
             CFBundleURLSchemes: [openthanks]
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryUsageDescription: Attach a photo to your appreciation.
+        NSSiriUsageDescription: OpenThanks uses Siri to help you thank someone or start an appreciation.
     entitlements:
       path: OpenThanks/OpenThanks.entitlements
       properties:
@@ -36,6 +42,8 @@ targets:
         com.apple.developer.associated-domains:
           - applinks:openthanks.com
           - applinks:www.openthanks.com
+        com.apple.security.application-groups:
+          - group.com.openthanks.app
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openthanks.app
@@ -46,3 +54,116 @@ targets:
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  OpenThanksWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: OpenThanksWidget
+      - path: OpenThanksShared
+    info:
+      path: OpenThanksWidget/Info.plist
+      properties:
+        CFBundleDisplayName: OpenThanks
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: OpenThanksWidget/OpenThanksWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.openthanks.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openthanks.app.widget
+        DEVELOPMENT_TEAM: 53CL59ATX8
+        TARGETED_DEVICE_FAMILY: 1
+        MARKETING_VERSION: 1.0.2
+        CURRENT_PROJECT_VERSION: 7
+        CODE_SIGN_STYLE: Automatic
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: false
+
+  OpenThanksShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: OpenThanksShare
+      - path: OpenThanksShared
+        excludes:
+          - WidgetSnapshot.swift
+    info:
+      path: OpenThanksShare/Info.plist
+      properties:
+        CFBundleDisplayName: OpenThanks
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule: >
+              SUBQUERY (
+                extensionItems,
+                $extensionItem,
+                SUBQUERY (
+                  $extensionItem.attachments,
+                  $attachment,
+                  ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.text"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.url"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.jpeg"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.png"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.vcard"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.contact"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.calendar-event"
+                  OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "com.apple.ical.ics"
+                ).@count > 0
+              ).@count > 0
+    entitlements:
+      path: OpenThanksShare/OpenThanksShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.openthanks.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openthanks.app.share
+        DEVELOPMENT_TEAM: 53CL59ATX8
+        TARGETED_DEVICE_FAMILY: 1
+        MARKETING_VERSION: 1.0.2
+        CURRENT_PROJECT_VERSION: 7
+        CODE_SIGN_STYLE: Automatic
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_KEY_CFBundleDisplayName: OpenThanks
+
+schemes:
+  OpenThanks:
+    build:
+      targets:
+        OpenThanks: all
+        OpenThanksWidget: [build]
+        OpenThanksShare: [build]
+    run:
+      config: Debug
+    archive:
+      config: Release
+
+  # Run this scheme to preview widgets. Change `_XCWidgetKind` to switch:
+  # GratitudePromptWidget | SendThanksWidget | ReceivedThanksWidget
+  OpenThanksWidget:
+    build:
+      targets:
+        OpenThanksWidget: all
+        OpenThanks: [build]
+    run:
+      config: Debug
+      askForAppToLaunch: true
+      environmentVariables:
+        _XCWidgetKind: GratitudePromptWidget
+        _XCWidgetFamily: systemMedium

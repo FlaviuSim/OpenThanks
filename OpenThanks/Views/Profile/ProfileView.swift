@@ -449,6 +449,14 @@ struct UserProfileView: View {
                 inspirations = inspiredResult
                 stats = statsResult
             }
+            if isOwnProfile, let userId = auth.userId {
+                await WidgetSnapshotRefresher.refresh(
+                    displayName: (freshProfile ?? profile).displayName,
+                    userId: userId,
+                    email: auth.currentProfile?.email,
+                    phone: auth.currentProfile?.phone
+                )
+            }
         } catch {
             if error.isCancellation { /* keep existing content */ }
         }

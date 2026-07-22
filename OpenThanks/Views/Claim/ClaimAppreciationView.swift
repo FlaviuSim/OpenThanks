@@ -82,8 +82,10 @@ struct PendingAppreciationReviewView: View {
                 }
                 .padding(18)
                 .card()
+                .softNoteReveal(delay: 0.05)
 
                 AppreciationVisibilityNote(visibility: gratitude.visibility)
+                    .softNoteReveal(delay: 0.12)
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -114,6 +116,7 @@ struct PendingAppreciationReviewView: View {
             .padding(20)
             .padding(.bottom, 96)
         }
+        .onAppear { WarmHaptics.received() }
     }
 
     private var declinedContent: some View {
@@ -171,7 +174,10 @@ struct PendingAppreciationReviewView: View {
                 accept: action == .accept
             )
             gratitude = updated
-            withAnimation(.easeInOut(duration: 0.2)) {
+            if action == .accept {
+                WarmHaptics.received()
+            }
+            withAnimation(Motion.note) {
                 outcome = action == .accept ? .accepted(updated) : .declined
             }
         } catch {

@@ -87,6 +87,27 @@ enum GratitudeService {
         return rows.filter { seen.insert($0.id).inserted }
     }
 
+    /// Count of pending appreciations waiting for this user (widget snapshot).
+    static func pendingToAcceptCount(
+        userId: UUID,
+        email: String? = nil,
+        phone: String? = nil
+    ) async throws -> Int {
+        try await pendingToAccept(userId: userId, email: email, phone: phone).count
+    }
+
+    /// How many appreciations this user authored since the start of the calendar month.
+    static func sentThisMonth(authorId: UUID) async throws -> Int {
+        let start = Calendar.current.date(
+            from: Calendar.current.dateComponents([.year, .month], from: Date())
+        ) ?? Date()
+        return try await supabase.from("gratitudes")
+            .select("id", head: true, count: .exact)
+            .eq("author_id", value: authorId)
+            .gte("created_at", value: start.ISO8601Format())
+            .execute().count ?? 0
+    }
+
     /// Accepted appreciations sent by a user, restricted to what `viewerId`
     /// may see: public posts, plus private ones the viewer is party to.
     static func sentBy(userId: UUID, viewerId: UUID?, limit: Int = 50) async throws -> [Gratitude] {

@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 @main
 struct OpenThanksApp: App {
@@ -17,7 +18,21 @@ struct OpenThanksApp: App {
                 .tint(Theme.coral)
                 .onOpenURL { url in
                     if url.scheme?.lowercased() == "openthanks" {
-                        auth.handleDeepLink(url)
+                        if WidgetDeepLink.isAuthCallback(url) {
+                            auth.handleDeepLink(url)
+                        } else if let destination = WidgetDeepLink.parse(url) {
+                            switch destination {
+                            case .compose:
+                                ComposeShareHandoff.queuePendingShareOrBlank()
+                            case .received:
+                                TabLaunchBridge.shared.queue(.received)
+                            case .home:
+                                TabLaunchBridge.shared.queue(.home)
+                            }
+                        } else {
+                            // Unknown custom-scheme URLs — try auth (Supabase variants).
+                            auth.handleDeepLink(url)
+                        }
                     } else {
                         _ = deepLinks.handle(url)
                     }
@@ -26,8 +41,16 @@ struct OpenThanksApp: App {
     }
 }
 
-final class AppDelegate: NSObject, UIApplicationDelegate {
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     weak var auth: AuthService?
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
 
     func application(
         _ application: UIApplication,
@@ -43,11 +66,38 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         print("Couldn't register for remote notifications: \(error.localizedDescription)")
     }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .badge]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let info = response.notification.request.content.userInfo
+        guard let type = info[NotificationService.thankReminderTypeKey] as? String else { return }
+
+        await MainActor.run {
+            switch type {
+            case NotificationService.thankReminderTypeValue:
+                let name = info[NotificationService.thankReminderNameKey] as? String
+                ComposeLaunchBridge.shared.queue(recipientName: name)
+            case NotificationService.fridayReminderTypeValue:
+                ComposeLaunchBridge.shared.queue()
+            default:
+                break
+            }
+        }
+    }
 }
 
 struct RootView: View {
-    enum NotificationGate {
-        case checking, needsPrompt, ready
+    enum HomeGate {
+        case checking, needsNotifications, needsSiriTip, ready
     }
 
     @Environment(AuthService.self) private var auth
@@ -55,8 +105,10 @@ struct RootView: View {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     /// One-time gate after profile is ready — ask for Friday reminder notifications.
     @AppStorage("hasCompletedNotificationPrompt") private var hasCompletedNotificationPrompt = false
+    /// One-time tip so people discover App Shortcuts / Siri phrases.
+    @AppStorage("hasCompletedSiriPrompt") private var hasCompletedSiriPrompt = false
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
-    @State private var notificationGate: NotificationGate = .checking
+    @State private var homeGate: HomeGate = .checking
 
     var body: some View {
         ZStack {
@@ -91,67 +143,83 @@ struct RootView: View {
         .deepLinkHost(deepLinks, auth: auth)
         .animation(.easeInOut(duration: 0.28), value: isSignedIn)
         .animation(.easeInOut(duration: 0.28), value: auth.hasResolvedProfile)
-        .animation(.easeInOut(duration: 0.22), value: notificationGate)
-        .task(id: notificationTaskID) {
-            await resolveNotificationGate()
+        .animation(.easeInOut(duration: 0.22), value: homeGate)
+        .task(id: homeGateTaskID) {
+            await resolveHomeGate()
         }
     }
 
     @ViewBuilder
     private var signedInHome: some View {
-        // Avoid a HeartMark flash when the prompt was already completed.
-        let gate = effectiveNotificationGate
-        switch gate {
+        switch effectiveHomeGate {
         case .checking:
             HeartMark(size: 64)
-        case .needsPrompt:
+        case .needsNotifications:
             NotificationPermissionView {
                 hasCompletedNotificationPrompt = true
-                notificationGate = .ready
+                homeGate = hasCompletedSiriPrompt ? .ready : .needsSiriTip
+            }
+        case .needsSiriTip:
+            SiriIntroView {
+                hasCompletedSiriPrompt = true
+                homeGate = .ready
             }
         case .ready:
             MainTabView()
         }
     }
 
-    private var effectiveNotificationGate: NotificationGate {
-        if hasCompletedNotificationPrompt { return .ready }
-        return notificationGate
+    private var effectiveHomeGate: HomeGate {
+        if !hasCompletedNotificationPrompt {
+            return homeGate == .needsNotifications ? .needsNotifications : homeGate
+        }
+        if !hasCompletedSiriPrompt {
+            return .needsSiriTip
+        }
+        return .ready
     }
 
     /// Re-check when the user finishes profile (or signs in) before entering the app.
-    private var notificationTaskID: String {
+    private var homeGateTaskID: String {
         let user = auth.userId?.uuidString ?? "out"
         let ready = auth.hasResolvedProfile && auth.currentProfile?.isCompleteForApp == true
-        return "\(user)-\(ready)-\(hasCompletedNotificationPrompt)"
+        return "\(user)-\(ready)-\(hasCompletedNotificationPrompt)-\(hasCompletedSiriPrompt)"
     }
 
-    private func resolveNotificationGate() async {
+    private func resolveHomeGate() async {
         guard case .signedIn = auth.state,
               auth.hasResolvedProfile,
               auth.currentProfile?.isCompleteForApp == true
         else {
-            notificationGate = .checking
+            homeGate = .checking
             return
         }
 
-        if hasCompletedNotificationPrompt {
-            notificationGate = .ready
-            return
-        }
+        OpenThanksShortcuts.updateAppShortcutParameters()
 
-        // Already decided at the system level — never show our ask screen.
-        if await NotificationService.hasResolvedAuthorization() {
-            if await NotificationService.isAuthorized() {
-                let enabled = await NotificationService.enableFridayReminder()
-                fridayReminderEnabled = enabled
+        if !hasCompletedNotificationPrompt {
+            if await NotificationService.hasResolvedAuthorization() {
+                if await NotificationService.isAuthorized() {
+                    let enabled = await NotificationService.enableFridayReminder()
+                    fridayReminderEnabled = enabled
+                }
+                hasCompletedNotificationPrompt = true
+            } else {
+                homeGate = .needsNotifications
+                return
             }
-            hasCompletedNotificationPrompt = true
-            notificationGate = .ready
+        }
+
+        if fridayReminderEnabled, hasCompletedNotificationPrompt {
+            await NotificationService.refreshFridayReminderIfEnabled(true)
+        }
+
+        if !hasCompletedSiriPrompt {
+            homeGate = .needsSiriTip
             return
         }
 
-        notificationGate = .needsPrompt
+        homeGate = .ready
     }
 
     private var isSignedIn: Bool {

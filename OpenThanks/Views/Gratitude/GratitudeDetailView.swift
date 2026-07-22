@@ -15,7 +15,9 @@ struct GratitudeDetailView: View {
         ScrollView {
             VStack(spacing: 20) {
                 postCard
+                    .softNoteReveal()
                 shareCard
+                    .softNoteReveal(delay: 0.08)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -27,7 +29,12 @@ struct GratitudeDetailView: View {
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
         }
-        .task { await loadHearted() }
+        .task {
+            await loadHearted()
+            if auth.userId == gratitude.recipientId {
+                WarmHaptics.received()
+            }
+        }
     }
 
     // MARK: Post

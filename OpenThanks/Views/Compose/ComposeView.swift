@@ -11,6 +11,10 @@ struct ComposeView: View {
     var initialRecipient: String? = nil
     /// Prefills and links an existing member (e.g. Thank from their profile).
     var initialRecipientProfile: Profile? = nil
+    /// Prefills the message (e.g. Siri “thank … for …”).
+    var initialMessage: String? = nil
+    /// App Group image from the Share Extension.
+    var initialImageFileName: String? = nil
     var onSaved: ((Gratitude) -> Void)? = nil
 
     @State private var recipient = ""
@@ -813,6 +817,18 @@ struct ComposeView: View {
         } else if let initialRecipient {
             recipient = initialRecipient.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        if editingTarget == nil,
+           let initialMessage,
+           !initialMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            message = String(initialMessage.prefix(maxLength))
+        }
+        if editingTarget == nil,
+           let fileName = initialImageFileName,
+           let data = ComposeShareStore.readImageData(fileName: fileName),
+           let image = UIImage(data: data) {
+            applyCroppedPhoto(image)
+            ComposeShareStore.removeImage(fileName: fileName)
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             messageFocused = true
         }
@@ -983,11 +999,22 @@ struct ComposeView: View {
                 }
                 created = result
                 sent = true
+                await refreshWidgetAfterSend()
             }
         } catch {
             self.error = error.localizedDescription
         }
         sending = false
+    }
+
+    private func refreshWidgetAfterSend() async {
+        guard let userId = auth.userId else { return }
+        await WidgetSnapshotRefresher.refresh(
+            displayName: auth.currentProfile?.displayName,
+            userId: userId,
+            email: auth.currentProfile?.email,
+            phone: auth.currentProfile?.phone
+        )
     }
 
     /// Link a selected/@username member and finish loading their email before create.
@@ -1085,7 +1112,6 @@ struct SuccessView: View {
     var onDone: () -> Void
 
     @Environment(\.openURL) private var openURL
-    @State private var burst = false
     @State private var copied = false
 
     private var shareURL: URL {
@@ -1137,9 +1163,7 @@ struct SuccessView: View {
         ScrollView {
             VStack(spacing: 0) {
                 VStack(spacing: 16) {
-                    HeartMark(size: 88)
-                        .scaleEffect(burst ? 1 : 0.4)
-                        .animation(.spring(response: 0.45, dampingFraction: 0.6), value: burst)
+                    AppreciationMoment(size: 88)
                         .padding(.top, 28)
 
                     VStack(spacing: 8) {
@@ -1153,6 +1177,7 @@ struct SuccessView: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 28)
                     }
+                    .softNoteReveal(delay: 0.12)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.bottom, 28)
@@ -1225,7 +1250,6 @@ struct SuccessView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { burst = true }
     }
 
     private func openSMS() {

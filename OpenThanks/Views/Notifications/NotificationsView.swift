@@ -98,7 +98,17 @@ struct NotificationsView: View {
         HStack(spacing: 12) {
             ProfileAvatarLink(profile: note.fromUser, size: 44)
             Group {
-                if let gratitudeId = note.gratitudeId {
+                if note.type == "gratitude_friday" {
+                    Button {
+                        Task {
+                            await markRead(note)
+                            ComposeLaunchBridge.shared.queue()
+                        }
+                    } label: {
+                        rowContent(note, linksToPost: true)
+                    }
+                    .buttonStyle(.plain)
+                } else if let gratitudeId = note.gratitudeId {
                     NavigationLink(value: GratitudeIdRoute(id: gratitudeId)) {
                         rowContent(note, linksToPost: true)
                     }

@@ -212,7 +212,8 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case "heart_received", "heart", "reaction":
             return "hearted your appreciation"
         case "gratitude_friday":
-            return "It's Friday — share some gratitude"
+            let date = createdAt ?? Date()
+            return FridayPrompts.prompt(for: date).headline
         case "reply":
             return "replied to your appreciation"
         default:

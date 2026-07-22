@@ -6,6 +6,10 @@ import Supabase
 enum NotificationService {
     private static let fridayReminderId = "friday-gratitude-reminder"
 
+    /// Local Gratitude Friday reminder — tap opens compose.
+    static let fridayReminderTypeKey = "type"
+    static let fridayReminderTypeValue = "gratitude_friday"
+
     struct DevicePushToken: Encodable {
         let userId: UUID
         let token: String
@@ -55,20 +59,30 @@ enum NotificationService {
         }
     }
 
+    /// Schedules the next Friday 9:00 AM local notification with that week's
+    /// rotating question (same bank as the web Friday email).
+    /// Call again on app launch so copy stays current week to week.
     static func enableFridayReminder() async -> Bool {
         guard await requestAuthorizationAndRegisterForPushes() else { return false }
 
+        await disableFridayReminder()
+
+        let fireDate = FridayPrompts.nextFridayNineAM()
+        let prompt = FridayPrompts.prompt(for: fireDate)
+
         let content = UNMutableNotificationContent()
-        content.title = "What are you grateful for?"
-        content.body = "Take a minute to appreciate someone who made this week better."
+        content.title = prompt.headline
+        content.body = prompt.body
         content.sound = .default
+        content.userInfo = [
+            fridayReminderTypeKey: fridayReminderTypeValue,
+        ]
 
-        var date = DateComponents()
-        date.weekday = 6
-        date.hour = 9
-        date.minute = 0
-
-        let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: true)
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: fireDate
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(
             identifier: fridayReminderId,
             content: content,
@@ -83,9 +97,41 @@ enum NotificationService {
         }
     }
 
+    /// Re-schedules only if the toggle is on and permission is granted.
+    static func refreshFridayReminderIfEnabled(_ enabled: Bool) async {
+        guard enabled else {
+            await disableFridayReminder()
+            return
+        }
+        guard await isAuthorized() else { return }
+        _ = await enableFridayReminder()
+    }
+
     static func disableFridayReminder() async {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [fridayReminderId])
+    }
+
+    /// Local reminder from Siri — tapping it opens compose for that person.
+    static let thankReminderTypeKey = "type"
+    static let thankReminderTypeValue = "thank_reminder"
+    static let thankReminderNameKey = "recipientName"
+
+    static func scheduleThankReminder(recipientName: String, fireDate: Date) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = "Time to say thanks"
+        content.body = "Thank \(recipientName) on OpenThanks"
+        content.sound = .default
+        content.userInfo = [
+            thankReminderTypeKey: thankReminderTypeValue,
+            thankReminderNameKey: recipientName,
+        ]
+
+        let interval = max(fireDate.timeIntervalSinceNow, 45)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+        let id = "thank-reminder-\(UUID().uuidString)"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+        try await UNUserNotificationCenter.current().add(request)
     }
 
     static func uploadDeviceToken(_ token: String, userId: UUID) async {

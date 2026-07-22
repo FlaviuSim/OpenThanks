@@ -3,14 +3,28 @@ import SwiftUI
 struct MainTabView: View {
     enum Tab { case feed, notifications, profile }
 
+    private enum ComposeSheet: Identifiable {
+        case blank
+        case launch(ComposeLaunchBridge.Request)
+
+        var id: String {
+            switch self {
+            case .blank: "blank"
+            case .launch(let request): request.id.uuidString
+            }
+        }
+    }
+
     @State private var tab: Tab = .feed
-    @State private var showCompose = false
+    @State private var composeSheet: ComposeSheet?
     @State private var unreadCount = 0
     @State private var feedPath = NavigationPath()
     @State private var notificationsPath = NavigationPath()
     @State private var profilePath = NavigationPath()
     @State private var showProfileSettings = false
     @Environment(AuthService.self) private var auth
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -40,12 +54,66 @@ struct MainTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .syncAppAppearance()
-        .fullScreenCover(isPresented: $showCompose) {
-            ComposeView()
+        .fullScreenCover(item: $composeSheet) { sheet in
+            composeView(for: sheet)
                 .syncAppAppearance()
         }
         .task { await refreshUnread() }
+        .onAppear {
+            presentPendingComposeIfNeeded()
+            presentPendingTabIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .composeLaunchQueued)) { _ in
+            presentPendingComposeIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .tabLaunchQueued)) { _ in
+            presentPendingTabIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            presentPendingComposeIfNeeded()
+            presentPendingTabIfNeeded()
+            if fridayReminderEnabled {
+                Task { await NotificationService.refreshFridayReminderIfEnabled(true) }
+            }
+        }
         .animation(.easeInOut(duration: 0.18), value: tab)
+    }
+
+    @ViewBuilder
+    private func composeView(for sheet: ComposeSheet) -> some View {
+        switch sheet {
+        case .blank:
+            ComposeView()
+        case .launch(let request):
+            ComposeView(
+                initialRecipient: request.recipientName,
+                initialRecipientProfile: request.profile,
+                initialMessage: request.message,
+                initialImageFileName: request.imageFileName
+            )
+        }
+    }
+
+    private func presentPendingComposeIfNeeded() {
+        // Share Extension may have written App Group payload before tabs mounted.
+        if ComposeLaunchBridge.shared.pending == nil {
+            ComposeShareHandoff.applyPendingShare()
+        }
+        guard let request = ComposeLaunchBridge.shared.consume() else { return }
+        composeSheet = .launch(request)
+    }
+
+    private func presentPendingTabIfNeeded() {
+        guard let destination = TabLaunchBridge.shared.consume() else { return }
+        switch destination {
+        case .feed, .home, .received:
+            feedPath = NavigationPath()
+            withAnimation(.easeInOut(duration: 0.18)) { tab = .feed }
+            if destination == .received {
+                NotificationCenter.default.post(name: .focusReceivedThanks, object: nil)
+            }
+        }
     }
 
     private var tabBar: some View {
@@ -53,7 +121,7 @@ struct MainTabView: View {
             tabItem(icon: "house.fill", label: "Home", value: .feed)
                 .frame(maxWidth: .infinity)
 
-            Button { showCompose = true } label: {
+            Button { composeSheet = .blank } label: {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(.white)
