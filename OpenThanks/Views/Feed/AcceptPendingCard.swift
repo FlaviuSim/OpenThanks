@@ -10,8 +10,11 @@ struct AcceptPendingCard: View {
     @State private var acting: Action?
     @State private var errorMessage: String?
     @State private var fullScreenImageURL: URL?
+    @State private var loadedAuthor: Profile?
 
     private enum Action { case accept, decline }
+
+    private var authorProfile: Profile? { gratitude.author ?? loadedAuthor }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -24,16 +27,14 @@ struct AcceptPendingCard: View {
                 Spacer()
             }
 
-            HStack(spacing: 10) {
-                AvatarView(profile: gratitude.author, size: 40)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(gratitude.author?.displayName ?? "Someone")
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("wrote you an appreciation")
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.textSecondary)
-                }
+            ProfilePersonLink(
+                profile: authorProfile,
+                size: 40,
+                nameFont: Theme.body(15, weight: .semibold)
+            ) {
+                Text("wrote you an appreciation")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Text(gratitude.message)
@@ -87,6 +88,10 @@ struct AcceptPendingCard: View {
         )
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
+        }
+        .task {
+            guard authorProfile == nil else { return }
+            loadedAuthor = try? await GratitudeService.profile(id: gratitude.authorId)
         }
     }
 

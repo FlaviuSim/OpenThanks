@@ -274,57 +274,82 @@ enum GratitudeService {
 
     // MARK: Compose
 
-    /// Creates a pending appreciation (direct Supabase insert, like mobile).
-    /// Matches the web create path for delivery: link an existing recipient,
-    /// insert an in-app pending notification, and email the claim link when
-    /// a recipient email is present (`POST /api/gratitudes/resend-email`).
+    /// Creates a pending appreciation via the web create API so claim email
+    /// resolution matches production (profiles.email → auth.users).
     static func create(_ new: NewGratitude) async throws -> Gratitude {
         var payload = new
         await resolveRecipientContact(&payload)
 
-        let gratitude: Gratitude = try await supabase.from("gratitudes")
-            .insert(payload)
-            .select(feedSelect)
-            .single()
-            .execute().value
-
-        // Ensure recipient_email is on the row before calling resend-email
-        // (production API requires it; thank-from-profile often starts name-only).
-        if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !email.isEmpty {
-            _ = try? await supabase.from("gratitudes")
-                .update(["recipient_email": email])
-                .eq("id", value: gratitude.id)
-                .execute()
+        guard let session = try? await supabase.auth.session else {
+            throw URLError(.userAuthenticationRequired)
         }
 
-        if let recipientId = payload.recipientId, recipientId != payload.authorId {
-            await insertNotification(
-                userId: recipientId,
-                type: "gratitude_pending",
-                gratitudeId: gratitude.id,
-                fromUserId: payload.authorId
+        struct CreateBody: Encodable {
+            let recipient_id: String?
+            let recipient_email: String?
+            let recipient_phone: String?
+            let recipient_name: String?
+            let message: String
+            let media_url: String?
+            let media_type: String?
+            let visibility: String
+        }
+
+        struct CreateResponse: Decodable {
+            let gratitude: Gratitude
+            let emailSent: Bool?
+        }
+
+        var request = URLRequest(
+            url: AppConfig.webAppURL.appending(path: "api/gratitudes")
+        )
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Idempotency-Key")
+        request.httpBody = try JSONEncoder().encode(
+            CreateBody(
+                recipient_id: payload.recipientId?.uuidString.lowercased(),
+                recipient_email: payload.recipientEmail,
+                recipient_phone: payload.recipientPhone,
+                recipient_name: payload.recipientName,
+                message: payload.message,
+                media_url: payload.mediaUrl,
+                media_type: payload.mediaType,
+                visibility: payload.visibility
+            )
+        )
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            struct APIError: Decodable { let error: String? }
+            let message = (try? JSONDecoder().decode(APIError.self, from: data))?.error
+            throw NSError(
+                domain: "OpenThanks",
+                code: http.statusCode,
+                userInfo: [
+                    NSLocalizedDescriptionKey: message ?? "Couldn't create the appreciation."
+                ]
             )
         }
 
-        // Claim email: send when we have an address, or when a member is linked
-        // so the web API can resolve email from recipient_id / auth.users.
-        let hasEmail = !(payload.recipientEmail ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
-        let shouldEmail = hasEmail || payload.recipientId != nil
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let created = try decoder.decode(CreateResponse.self, from: data).gratitude
 
-        if shouldEmail {
-            do {
-                try await sendEmailReminder(gratitudeId: gratitude.id)
-            } catch {
-                print("OpenThanks: claim email failed for \(gratitude.id): \(error.localizedDescription)")
-            }
-        } else {
-            print("OpenThanks: skipped claim email for \(gratitude.id) — no recipient email or member id")
+        // Re-fetch with feed embeds (author/recipient) for the success UI.
+        if let hydrated: Gratitude = try? await supabase.from("gratitudes")
+            .select(feedSelect)
+            .eq("id", value: created.id)
+            .single()
+            .execute()
+            .value {
+            return hydrated
         }
-
-        return gratitude
+        return created
     }
 
     /// Contact fields for a member — used when thanking from their profile.

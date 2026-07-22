@@ -10,6 +10,8 @@ struct PendingAppreciationReviewView: View {
     @State private var acting: Action?
     @State private var errorMessage: String?
     @State private var outcome: Outcome = .review
+    /// Fallback when the embed didn't include author (still navigate by id).
+    @State private var loadedAuthor: Profile?
 
     private enum Action { case accept, decline }
     private enum Outcome {
@@ -17,6 +19,8 @@ struct PendingAppreciationReviewView: View {
         case accepted(Gratitude)
         case declined
     }
+
+    private var authorProfile: Profile? { gratitude.author ?? loadedAuthor }
 
     var body: some View {
         Group {
@@ -34,6 +38,7 @@ struct PendingAppreciationReviewView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await linkRecipientIfNeeded()
+            await loadAuthorIfNeeded()
         }
     }
 
@@ -57,17 +62,11 @@ struct PendingAppreciationReviewView: View {
                     .foregroundStyle(Theme.textSecondary)
 
                 VStack(alignment: .leading, spacing: 14) {
-                    HStack(spacing: 10) {
-                        ProfileAvatarLink(profile: gratitude.author, size: 48)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(gratitude.author?.displayName ?? "Someone")
-                                .font(Theme.body(16, weight: .semibold))
-                                .foregroundStyle(Theme.textPrimary)
-                            if let date = gratitude.displayDate {
-                                Text(date, format: .relative(presentation: .named))
-                                    .font(Theme.body(12))
-                                    .foregroundStyle(Theme.textTertiary)
-                            }
+                    ProfilePersonLink(profile: authorProfile, size: 48) {
+                        if let date = gratitude.displayDate {
+                            Text(date, format: .relative(presentation: .named))
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textTertiary)
                         }
                     }
 
@@ -146,6 +145,11 @@ struct PendingAppreciationReviewView: View {
             recipientId: userId,
             authorId: gratitude.authorId
         )
+    }
+
+    private func loadAuthorIfNeeded() async {
+        guard authorProfile == nil else { return }
+        loadedAuthor = try? await GratitudeService.profile(id: gratitude.authorId)
     }
 
     private func respond(_ action: Action) async {

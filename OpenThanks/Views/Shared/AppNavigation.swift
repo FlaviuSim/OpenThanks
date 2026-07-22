@@ -38,6 +38,64 @@ struct ProfileAvatarLink: View {
     }
 }
 
+/// Avatar + display name (and optional subtitle) that opens the profile.
+/// Use on accept/reject and anywhere the name should be tappable too.
+struct ProfilePersonLink<Subtitle: View>: View {
+    let profile: Profile?
+    var size: CGFloat = 40
+    var nameFont: Font = Theme.body(16, weight: .semibold)
+    @ViewBuilder var subtitle: () -> Subtitle
+
+    init(
+        profile: Profile?,
+        size: CGFloat = 40,
+        nameFont: Font = Theme.body(16, weight: .semibold),
+        @ViewBuilder subtitle: @escaping () -> Subtitle
+    ) {
+        self.profile = profile
+        self.size = size
+        self.nameFont = nameFont
+        self.subtitle = subtitle
+    }
+
+    var body: some View {
+        if let profile {
+            NavigationLink(value: profile) {
+                personRow(profile: profile)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View \(profile.displayName)'s profile")
+        } else {
+            personRow(profile: nil)
+        }
+    }
+
+    private func personRow(profile: Profile?) -> some View {
+        HStack(spacing: 10) {
+            AvatarView(profile: profile, size: size)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(profile?.displayName ?? "Someone")
+                    .font(nameFont)
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                subtitle()
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+extension ProfilePersonLink where Subtitle == EmptyView {
+    init(
+        profile: Profile?,
+        size: CGFloat = 40,
+        nameFont: Font = Theme.body(16, weight: .semibold)
+    ) {
+        self.init(profile: profile, size: size, nameFont: nameFont) { EmptyView() }
+    }
+}
+
 /// Loads a post by id, then shows accept/reject when it's still pending for
 /// the signed-in user — otherwise the normal post detail screen.
 struct GratitudeLoaderView: View {
