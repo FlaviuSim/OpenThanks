@@ -188,6 +188,20 @@ struct ActionGlyph: View {
     }
 }
 
+/// Opens WhatsApp with a prefilled message (and optional phone).
+/// Uses `https://wa.me` so it works without an Info.plist query scheme.
+enum ShareChannels {
+    static func whatsAppURL(message: String, phone: String? = nil) -> URL? {
+        let digits = phone?.filter(\.isNumber) ?? ""
+        let base = digits.count >= 8
+            ? "https://wa.me/\(digits)"
+            : "https://wa.me/"
+        var components = URLComponents(string: base)
+        components?.queryItems = [URLQueryItem(name: "text", value: message)]
+        return components?.url
+    }
+}
+
 /// Tappable row used on share / nudge surfaces (text, email, edit, etc.).
 struct ShareActionRow: View {
     let title: String

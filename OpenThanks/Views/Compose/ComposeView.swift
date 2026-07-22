@@ -1184,6 +1184,15 @@ struct SuccessView: View {
                     }
 
                     ShareActionRow(
+                        title: "Send via WhatsApp",
+                        systemImage: "phone.bubble.fill",
+                        subtitle: gratitude.recipientPhone.map { "To \($0)" }
+                            ?? "Share the claim link"
+                    ) {
+                        openWhatsApp()
+                    }
+
+                    ShareActionRow(
                         title: "Send via Email",
                         systemImage: "envelope.fill",
                         subtitle: emailToLabel
@@ -1245,6 +1254,15 @@ struct SuccessView: View {
             URLQueryItem(name: "body", value: shareMessage),
         ]
         if let url = components.url {
+            openURL(url)
+        }
+    }
+
+    private func openWhatsApp() {
+        if let url = ShareChannels.whatsAppURL(
+            message: shareMessage,
+            phone: gratitude.recipientPhone
+        ) {
             openURL(url)
         }
     }

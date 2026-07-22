@@ -49,9 +49,10 @@ struct MainTabView: View {
     }
 
     private var tabBar: some View {
-        HStack {
+        HStack(spacing: 0) {
             tabItem(icon: "house.fill", label: "Home", value: .feed)
-            Spacer()
+                .frame(maxWidth: .infinity)
+
             Button { showCompose = true } label: {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 22, weight: .bold))
@@ -61,12 +62,16 @@ struct MainTabView: View {
                     .shadow(color: Theme.coral.opacity(0.5), radius: 12, y: 4)
             }
             .offset(y: -12)
-            Spacer()
+            .frame(width: 72)
+
             tabItem(icon: "bell.fill", label: "Notifications", value: .notifications,
                     badge: unreadCount)
+                .frame(maxWidth: .infinity)
+
             tabItem(icon: "person.fill", label: "Profile", value: .profile)
+                .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 28)
+        .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 4)
         .background(.ultraThinMaterial)
@@ -86,10 +91,13 @@ struct MainTabView: View {
                                 .offset(x: 4, y: -2)
                         }
                     }
-                Text(label).font(Theme.body(10, weight: .medium))
+                Text(label)
+                    .font(Theme.body(10, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .foregroundStyle(tab == value ? Theme.coral : Theme.textTertiary)
-            .frame(width: 66)
+            .frame(maxWidth: .infinity)
         }
     }
 
