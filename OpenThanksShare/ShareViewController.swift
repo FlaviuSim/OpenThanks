@@ -182,7 +182,7 @@ struct ShareComposeRoot: View {
                 if let message = draft.message {
                     labeled("Note", value: message)
                 } else if draft.kind == .photo {
-                    labeled("Note", value: "We’ll open a blank appreciation with this photo.")
+                    labeled("Note", value: "We’ll open a blank appreciation with this photo attached.")
                 } else if draft.sourceURL != nil {
                     labeled("From", value: draft.sourceURL ?? "")
                 } else {
@@ -250,7 +250,7 @@ struct ShareComposeRoot: View {
         case .contact, .url:
             return draft.recipientName == nil ? "Thank in OpenThanks" : "Thank this person"
         case .photo:
-            return "Thank this memory"
+            return "Thanks someone"
         case .calendar:
             return "Thank from this meeting"
         default:

@@ -21,14 +21,14 @@ struct SiriIntroView: View {
                         .font(Theme.display(28, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text("No setup needed — just say something like “Thank Maria on OpenThanks” or “Create an OpenThanks post.”")
+                    Text("Try “Send an appreciation on OpenThanks,” or “Thank Maria on OpenThanks” — we’ll draft the message for you (you still choose who it’s To).")
                         .font(Theme.body(16))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 8)
                 }
 
-                SiriTipView(intent: ThankSomeoneIntent(), isVisible: $tipVisible)
+                SiriTipView(intent: OpenComposeIntent(), isVisible: $tipVisible)
                     .padding(.top, 8)
             }
             .padding(.horizontal, 28)

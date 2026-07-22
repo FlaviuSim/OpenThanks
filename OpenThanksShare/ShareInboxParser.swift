@@ -28,7 +28,7 @@ enum ShareInboxParser {
                 }
                 if let image = await loadImage(from: provider) {
                     draft.kind = .photo
-                    draft.promptTitle = "Thank everyone in this memory."
+                    draft.promptTitle = "Thank someone in this memory"
                     draft.imageData = image.data
                     draft.imageExtension = image.ext
                     if draft.message == nil {

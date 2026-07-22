@@ -2,205 +2,208 @@ import AppIntents
 import Foundation
 import UserNotifications
 
-// MARK: - Name helpers
+// MARK: - Spoken snippet → message draft (never the To field)
 
-enum SiriRecipientName {
-    /// Phrases Siri often treats as “finished talking” — never use these as a person.
-    private static let dismissalPhrases: Set<String> = [
-        "all done", "done", "i'm done", "im done", "that's all", "thats all",
-        "that is all", "finished", "finish", "stop", "cancel", "never mind",
-        "nevermind", "no thanks", "nothing", "no one", "nobody", "okay", "ok",
-        "yes", "no",
-    ]
+/// Freeform speech captured from a Siri phrase slot (App Shortcuts require AppEntity).
+struct SpokenPhraseEntity: AppEntity {
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Details")
+    static var defaultQuery = SpokenPhraseQuery()
 
-    static func cleaned(_ raw: String?) -> String? {
-        guard let raw else { return nil }
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count >= 2 else { return nil }
-        let lowered = trimmed.lowercased()
-            .trimmingCharacters(in: .punctuationCharacters)
-        if dismissalPhrases.contains(lowered) { return nil }
-        return trimmed
-    }
-
-    /// Stable entity id that round-trips through `entities(for:)`.
-    static func entityId(for name: String) -> String {
-        "n:\(name)"
-    }
-
-    static func name(fromEntityId id: String) -> String? {
-        if id.hasPrefix("n:") {
-            let name = String(id.dropFirst(2))
-            return cleaned(name) ?? (name.isEmpty ? nil : name)
-        }
-        return cleaned(id)
-    }
-}
-
-// MARK: - Person entity (required for App Shortcut phrase slots)
-
-struct ThankRecipientEntity: AppEntity {
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Person")
-    static var defaultQuery = ThankRecipientQuery()
-
+    /// Same as `text` so `entities(for:)` always round-trips.
     var id: String
-    var name: String
-    var profileId: UUID?
+    var text: String
 
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(name)")
+        DisplayRepresentation(title: "\(text)")
     }
 }
 
-/// Freeform name query — returns **one** entity for whatever the user said.
-/// Do not attach profile search hits here; multiple matches make Siri re-ask
-/// “who?” in a loop (and “all done” can get captured as the name).
-struct ThankRecipientQuery: EntityStringQuery {
-    func entities(for identifiers: [String]) async throws -> [ThankRecipientEntity] {
-        identifiers.compactMap { id in
-            if let name = SiriRecipientName.name(fromEntityId: id) {
-                return ThankRecipientEntity(
-                    id: SiriRecipientName.entityId(for: name),
-                    name: name,
-                    profileId: nil
-                )
-            }
-            if let uuid = UUID(uuidString: id) {
-                return ThankRecipientEntity(id: id, name: id, profileId: uuid)
-            }
-            return nil
+struct SpokenPhraseQuery: EntityStringQuery {
+    func entities(for identifiers: [String]) async throws -> [SpokenPhraseEntity] {
+        // Never return empty — empty results make Siri re-ask in a loop.
+        identifiers.map { id in
+            let text = id.trimmingCharacters(in: .whitespacesAndNewlines)
+            return SpokenPhraseEntity(id: id, text: text.isEmpty ? id : text)
         }
     }
 
-    func entities(matching string: String) async throws -> [ThankRecipientEntity] {
-        guard let name = SiriRecipientName.cleaned(string) else { return [] }
-        return [
-            ThankRecipientEntity(
-                id: SiriRecipientName.entityId(for: name),
-                name: name,
-                profileId: nil
-            ),
-        ]
+    func entities(matching string: String) async throws -> [SpokenPhraseEntity] {
+        let text = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return [] }
+        return [SpokenPhraseEntity(id: text, text: text)]
     }
 
-    func suggestedEntities() async throws -> [ThankRecipientEntity] {
+    func suggestedEntities() async throws -> [SpokenPhraseEntity] {
         []
     }
 }
 
-// MARK: - Thank someone (opens compose prefilled)
+enum SiriMessageDraft {
+    /// Turns spoken phrase content into compose **message** text (To stays empty).
+    static func fromSpoken(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
 
-/// “Siri, thank Maria on OpenThanks for introducing me to John.”
+        if looksLikeName(text) {
+            let name = softNameCase(text)
+            // Open-ended so they can keep writing after the name.
+            return "Thank you, \(name). "
+        }
+
+        let lower = text.lowercased()
+        if lower.hasPrefix("thank") {
+            return ensureEnding(text)
+        }
+        if lower.hasPrefix("for ") {
+            return ensureEnding("Thank you \(text)")
+        }
+        return ensureEnding("Thank you for \(text)")
+    }
+
+    /// Short, name-like phrases (Maria, James, my mom) — not full sentences.
+    static func looksLikeName(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = trimmed.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard (1...4).contains(words.count), trimmed.count <= 48 else { return false }
+
+        let bannedChars = CharacterSet(charactersIn: "@#/:\\n")
+        if trimmed.unicodeScalars.contains(where: { bannedChars.contains($0) }) { return false }
+        if trimmed.contains("http") { return false }
+
+        let lower = trimmed.lowercased()
+        let notNames = [
+            "someone", "somebody", "anyone", "everybody", "everyone",
+            "appreciation", "thanks", "thank you",
+        ]
+        if notNames.contains(lower) { return false }
+
+        // Full thoughts belong in the message body as-is (with thank-you framing).
+        let sentenceHints = [" because ", " when ", " after ", " for helping", " for being", " who "]
+        if sentenceHints.contains(where: { lower.contains($0) }) { return false }
+        if lower.hasPrefix("for ") { return false }
+
+        return true
+    }
+
+    private static func softNameCase(_ text: String) -> String {
+        text.split(separator: " ").map { word -> String in
+            let w = String(word)
+            let lower = w.lowercased()
+            // Keep small words lowercase unless first.
+            if ["and", "of", "the", "da", "de", "van", "von"].contains(lower) {
+                return lower
+            }
+            guard let first = w.first else { return w }
+            return String(first).uppercased() + w.dropFirst().lowercased()
+        }
+        .joined(separator: " ")
+    }
+
+    private static func ensureEnding(_ text: String) -> String {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let last = t.last else { return t }
+        if ".!?".contains(last) { return t + " " }
+        return t + ". "
+    }
+}
+
+// MARK: - Open blank compose
+
+struct OpenComposeIntent: AppIntent {
+    static var title: LocalizedStringResource = "Send an Appreciation"
+    static var description = IntentDescription(
+        "Opens OpenThanks to a new blank appreciation."
+    )
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        ComposeLaunchBridge.shared.queue()
+        return .result(dialog: "Opening OpenThanks.")
+    }
+}
+
+// MARK: - Phrase → message draft (To left blank)
+
+/// Spoken details become the **message**, never the recipient field.
+struct DraftAppreciationIntent: AppIntent {
+    static var title: LocalizedStringResource = "Draft an Appreciation"
+    static var description = IntentDescription(
+        "Opens OpenThanks with a message draft from what you said."
+    )
+    static var openAppWhenRun = true
+
+    @Parameter(title: "Details")
+    var phrase: SpokenPhraseEntity
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Draft an appreciation about \(\.$phrase)")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let draft = SiriMessageDraft.fromSpoken(phrase.text)
+        // Intentionally no recipientName / profile — user picks To in-app.
+        ComposeLaunchBridge.shared.queue(message: draft)
+        return .result(dialog: "Opening OpenThanks.")
+    }
+}
+
+/// Older shortcut name — same as draft intent when a phrase is present.
 struct ThankSomeoneIntent: AppIntent {
     static var title: LocalizedStringResource = "Thank Someone on OpenThanks"
     static var description = IntentDescription(
-        "Opens a new appreciation with a person and optional reason filled in."
+        "Opens OpenThanks with a thank-you message draft."
     )
     static var openAppWhenRun = true
 
-    /// No `requestValueDialog` — a custom dialog + AppEntity often loops in Siri.
-    @Parameter(title: "Name")
-    var person: ThankRecipientEntity
-
-    @Parameter(title: "Reason")
-    var reason: String?
+    @Parameter(title: "Details")
+    var phrase: SpokenPhraseEntity
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Thank \(\.$person) on OpenThanks") {
-            \.$reason
-        }
+        Summary("Thank \(\.$phrase) on OpenThanks")
     }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let name = SiriRecipientName.cleaned(person.name) else {
-            throw $person.needsValueError("Who do you want to thank?")
-        }
-
-        let draft: String? = {
-            guard let reason = reason?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !reason.isEmpty
-            else { return nil }
-            if reason.lowercased().hasPrefix("for ") {
-                return "Thank you \(reason)."
-            }
-            return "Thank you for \(reason)."
-        }()
-
-        var profile: Profile?
-        if let id = person.profileId {
-            profile = try? await GratitudeService.profile(id: id)
-        }
-        if profile == nil {
-            profile = try? await resolveMember(named: name)
-        }
-
-        ComposeLaunchBridge.shared.queue(
-            recipientName: name,
-            message: draft,
-            profile: profile
-        )
-
-        if let reason = reason?.trimmingCharacters(in: .whitespacesAndNewlines), !reason.isEmpty {
-            return .result(dialog: "Opening OpenThanks to thank \(name) for \(reason).")
-        }
-        return .result(dialog: "Opening OpenThanks to thank \(name).")
+        let draft = SiriMessageDraft.fromSpoken(phrase.text)
+        ComposeLaunchBridge.shared.queue(message: draft)
+        return .result(dialog: "Opening OpenThanks.")
     }
 }
 
-// MARK: - Create a post
-
-/// “Siri, create an OpenThanks post for my daughter’s teacher.”
 struct CreateAppreciationIntent: AppIntent {
     static var title: LocalizedStringResource = "Create an OpenThanks Appreciation"
     static var description = IntentDescription(
-        "Starts a new appreciation for someone you name."
+        "Opens OpenThanks with a message draft."
     )
     static var openAppWhenRun = true
 
-    @Parameter(title: "For")
-    var person: ThankRecipientEntity
+    @Parameter(title: "Details")
+    var phrase: SpokenPhraseEntity
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Create an OpenThanks post for \(\.$person)")
+        Summary("Create an OpenThanks post about \(\.$phrase)")
     }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let name = SiriRecipientName.cleaned(person.name) else {
-            throw $person.needsValueError("Who is this appreciation for?")
-        }
-
-        var profile: Profile?
-        if let id = person.profileId {
-            profile = try? await GratitudeService.profile(id: id)
-        }
-        if profile == nil {
-            profile = try? await resolveMember(named: name)
-        }
-
-        ComposeLaunchBridge.shared.queue(
-            recipientName: name,
-            message: nil,
-            profile: profile
-        )
-        return .result(dialog: "Opening a new appreciation for \(name).")
+        let draft = SiriMessageDraft.fromSpoken(phrase.text)
+        ComposeLaunchBridge.shared.queue(message: draft)
+        return .result(dialog: "Opening OpenThanks.")
     }
 }
 
-// MARK: - Remind me to thank
-
-/// “Siri, remind me to thank James after the meeting.”
 struct RemindToThankIntent: AppIntent {
     static var title: LocalizedStringResource = "Remind Me to Thank Someone"
     static var description = IntentDescription(
         "Sets a reminder to thank someone on OpenThanks."
     )
-    /// Stay in Siri when possible — notification will reopen the app later.
     static var openAppWhenRun = false
 
     @Parameter(title: "Name")
-    var person: ThankRecipientEntity
+    var person: String
 
     @Parameter(
         title: "When",
@@ -215,8 +218,9 @@ struct RemindToThankIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let name = SiriRecipientName.cleaned(person.name) else {
-            throw $person.needsValueError("Who should I remind you to thank?")
+        let name = person.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name.count >= 1 else {
+            throw $person.needsValueError(IntentDialog("Who should I remind you to thank?"))
         }
 
         let requested = when ?? Date().addingTimeInterval(60 * 60)
@@ -243,65 +247,47 @@ struct RemindToThankIntent: AppIntent {
     }
 }
 
-// MARK: - Shortcuts phrases (what Siri listens for)
+// MARK: - Shortcuts
 
 struct OpenThanksShortcuts: AppShortcutsProvider {
+    static var shortcutTileColor: ShortcutTileColor = .orange
+
     static var appShortcuts: [AppShortcut] {
+        // No slots — always blank compose, no follow-up.
         AppShortcut(
-            intent: ThankSomeoneIntent(),
+            intent: OpenComposeIntent(),
             phrases: [
-                "Thank \(\.$person) on \(.applicationName)",
-                "Send thanks to \(\.$person) on \(.applicationName)",
-                "Appreciate \(\.$person) on \(.applicationName)",
+                "Send an appreciation on \(.applicationName)",
+                "Create an appreciation on \(.applicationName)",
+                "Write an appreciation on \(.applicationName)",
+                "New appreciation on \(.applicationName)",
+                "Create an \(.applicationName) post",
+                "Open \(.applicationName) to say thanks",
+                "Start an appreciation on \(.applicationName)",
                 "Thank someone on \(.applicationName)",
+                "Send thanks on \(.applicationName)",
+                "Appreciate someone on \(.applicationName)",
+                "Create an \(.applicationName) appreciation",
+                "New \(.applicationName) appreciation",
             ],
-            shortTitle: "Thank someone",
+            shortTitle: "Send appreciation",
             systemImageName: "heart.fill"
         )
 
+        // Spoken details → message body (To stays empty).
         AppShortcut(
-            intent: CreateAppreciationIntent(),
+            intent: DraftAppreciationIntent(),
             phrases: [
-                "Create an \(.applicationName) post for \(\.$person)",
-                "New \(.applicationName) appreciation for \(\.$person)",
-                "Write an appreciation for \(\.$person) on \(.applicationName)",
-                "Create an \(.applicationName) post",
+                "Thank \(\.$phrase) on \(.applicationName)",
+                "Send thanks to \(\.$phrase) on \(.applicationName)",
+                "Appreciate \(\.$phrase) on \(.applicationName)",
+                "Create an \(.applicationName) post for \(\.$phrase)",
+                "New \(.applicationName) appreciation for \(\.$phrase)",
+                "Write an appreciation for \(\.$phrase) on \(.applicationName)",
+                "Draft an appreciation for \(\.$phrase) on \(.applicationName)",
             ],
-            shortTitle: "New appreciation",
-            systemImageName: "square.and.pencil"
+            shortTitle: "Draft appreciation",
+            systemImageName: "text.badge.plus"
         )
-
-        AppShortcut(
-            intent: RemindToThankIntent(),
-            phrases: [
-                "Remind me to thank \(\.$person) on \(.applicationName)",
-                "Set a reminder to thank \(\.$person) on \(.applicationName)",
-                "Remind me to thank someone on \(.applicationName)",
-            ],
-            shortTitle: "Remind to thank",
-            systemImageName: "bell.fill"
-        )
-    }
-}
-
-// MARK: - Helpers
-
-private func resolveMember(named raw: String) async throws -> Profile? {
-    let query = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard query.count >= 2 else { return nil }
-
-    let handle = query.hasPrefix("@") ? String(query.dropFirst()) : query
-    if let byUsername = try? await GratitudeService.profile(username: handle.lowercased()) {
-        return byUsername
-    }
-
-    let results = try await GratitudeService.searchProfiles(query: handle, limit: 5)
-    if results.count == 1 { return results[0] }
-
-    let lowered = handle.lowercased()
-    return results.first {
-        $0.fullName?.lowercased() == lowered
-            || $0.username.lowercased() == lowered
-            || $0.displayName.lowercased() == lowered
     }
 }
