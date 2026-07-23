@@ -5,6 +5,8 @@ struct AcceptPendingCard: View {
     let gratitude: Gratitude
     var onAccepted: (Gratitude) -> Void
     var onDeclined: (UUID) -> Void
+    /// Called when an optimistic accept/decline failed so the parent can restore the card.
+    var onFailed: (Gratitude) -> Void = { _ in }
 
     @Environment(AuthService.self) private var auth
     @State private var acting: Action?
@@ -100,6 +102,17 @@ struct AcceptPendingCard: View {
         guard let userId = auth.userId else { return }
         acting = accept ? .accept : .decline
         errorMessage = nil
+
+        // Remove the card immediately so a slow network (or a feed refresh race)
+        // can't leave the UI stuck on "Accepting…" / bring the card back mid-flight.
+        if accept {
+            var optimistic = gratitude
+            optimistic.status = .accepted
+            onAccepted(optimistic)
+        } else {
+            onDeclined(gratitude.id)
+        }
+
         do {
             // Ensure we're attached as recipient when match was by email/phone.
             if gratitude.recipientId != userId, let token = gratitude.claimToken {
@@ -117,10 +130,9 @@ struct AcceptPendingCard: View {
             )
             if accept {
                 onAccepted(updated)
-            } else {
-                onDeclined(gratitude.id)
             }
         } catch {
+            onFailed(gratitude)
             errorMessage = error.localizedDescription
             acting = nil
         }

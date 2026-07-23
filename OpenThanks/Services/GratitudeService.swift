@@ -1,5 +1,12 @@
+import CryptoKit
 import Foundation
 import Supabase
+
+/// Stable idempotency key for create retries (same payload → same key).
+private func idempotencyKey(from seed: String) -> String {
+    let digest = SHA256.hash(data: Data(seed.utf8))
+    return digest.map { String(format: "%02x", $0) }.joined()
+}
 
 /// All PostgREST access. Column and relationship names are taken verbatim
 /// from the live schema (FK constraints: gratitudes_author_id_fkey,
@@ -243,14 +250,17 @@ enum GratitudeService {
             .execute().value
 
         if accept {
-            await insertNotification(
-                userId: updated.authorId,
-                type: "gratitude_received",
-                gratitudeId: updated.id,
-                fromUserId: recipientId
-            )
             await MainActor.run {
                 NotificationCenter.default.post(name: .gratitudeAccepted, object: updated)
+            }
+            // Don't hold the accept UI on notification insert.
+            Task {
+                await insertNotification(
+                    userId: updated.authorId,
+                    type: "gratitude_received",
+                    gratitudeId: updated.id,
+                    fromUserId: recipientId
+                )
             }
         }
 
@@ -327,7 +337,20 @@ enum GratitudeService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue(UUID().uuidString, forHTTPHeaderField: "X-Idempotency-Key")
+        // Stable for this payload so retries after a timeout don't create duplicates.
+        let idempotencySeed = [
+            payload.authorId.uuidString,
+            payload.message,
+            payload.recipientId?.uuidString ?? "",
+            payload.recipientEmail ?? "",
+            payload.recipientPhone ?? "",
+            payload.recipientName ?? "",
+            payload.mediaUrl ?? "",
+            payload.visibility,
+        ].joined(separator: "|")
+        request.setValue(idempotencyKey(from: idempotencySeed), forHTTPHeaderField: "X-Idempotency-Key")
+        // Create returns after DB insert; claim email is sent asynchronously on the server.
+        request.timeoutInterval = 45
         request.httpBody = try JSONEncoder().encode(
             CreateBody(
                 recipient_id: payload.recipientId?.uuidString.lowercased(),

@@ -8,6 +8,9 @@ struct FeedView: View {
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
     @State private var pendingToAccept: [Gratitude] = []
+    /// Ids the user already accepted/declined this session — keeps pull-to-refresh
+    /// from resurrecting a card when a stale pending query races the accept write.
+    @State private var resolvedPendingIds: Set<UUID> = []
     @State private var pendingSentCount = 0
     @State private var heartedIds: Set<UUID> = []
     @State private var loading = true
@@ -17,6 +20,7 @@ struct FeedView: View {
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
     @State private var scrollToPendingToken = 0
+    @State private var loadGeneration = 0
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
 
@@ -60,6 +64,10 @@ struct FeedView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .focusReceivedThanks)) { _ in
                 scrollToPendingToken += 1
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
+                guard let gratitude = note.object as? Gratitude else { return }
+                applyAcceptedPending(gratitude)
             }
             .syncAppAppearance()
         }
@@ -157,15 +165,19 @@ struct FeedView: View {
                                 AcceptPendingCard(
                                     gratitude: item,
                                     onAccepted: { accepted in
-                                        pendingToAccept.removeAll { $0.id == accepted.id }
-                                        if !items.contains(where: { $0.id == accepted.id }) {
-                                            items.insert(accepted, at: 0)
-                                            items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
-                                        }
-                                        Task { await refreshWidgetSnapshot() }
+                                        applyAcceptedPending(accepted)
                                     },
                                     onDeclined: { id in
+                                        resolvedPendingIds.insert(id)
                                         pendingToAccept.removeAll { $0.id == id }
+                                        Task { await refreshWidgetSnapshot() }
+                                    },
+                                    onFailed: { gratitude in
+                                        resolvedPendingIds.remove(gratitude.id)
+                                        if !pendingToAccept.contains(where: { $0.id == gratitude.id }) {
+                                            pendingToAccept.insert(gratitude, at: 0)
+                                        }
+                                        items.removeAll { $0.id == gratitude.id }
                                         Task { await refreshWidgetSnapshot() }
                                     }
                                 )
@@ -207,9 +219,35 @@ struct FeedView: View {
         .padding(.top, 4)
     }
 
+    private func applyAcceptedPending(_ gratitude: Gratitude) {
+        resolvedPendingIds.insert(gratitude.id)
+        pendingToAccept.removeAll { $0.id == gratitude.id }
+        if gratitude.status == .accepted {
+            if let idx = items.firstIndex(where: { $0.id == gratitude.id }) {
+                items[idx] = gratitude
+            } else {
+                items.insert(gratitude, at: 0)
+            }
+            items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
+        }
+        Task { await refreshWidgetSnapshot() }
+    }
+
+    private func applyPendingList(_ pending: [Gratitude]) {
+        // Drop anything this session already resolved, then prune ids the server
+        // no longer returns as pending (accept landed).
+        let filtered = pending.filter { !resolvedPendingIds.contains($0.id) }
+        resolvedPendingIds = Set(resolvedPendingIds.filter { id in
+            pending.contains(where: { $0.id == id })
+        })
+        pendingToAccept = filtered
+    }
+
     private func load() async {
         guard let userId = auth.userId else { return }
         // Keep prior content visible while refreshing / switching scope.
+        loadGeneration += 1
+        let generation = loadGeneration
         loading = true
         error = nil
         do {
@@ -227,16 +265,20 @@ struct FeedView: View {
             let pending = (try? await pendingTask) ?? []
             let pendingSent = (try? await pendingSentTask) ?? pendingSentCount
 
+            guard generation == loadGeneration else { return }
+
             // Attach recipient + pending notification as soon as we see them —
             // don't wait until accept/decline (which used to create the notice).
-            for item in pending {
+            for item in pending where !resolvedPendingIds.contains(item.id) {
                 await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
             }
+
+            guard generation == loadGeneration else { return }
 
             // Empty personal feed → show World so Home isn't a blank screen.
             if scope == .personal, result.isEmpty, !didAutoSwitchToWorld {
                 didAutoSwitchToWorld = true
-                pendingToAccept = pending
+                applyPendingList(pending)
                 pendingSentCount = pendingSent
                 loading = false
                 withAnimation(.easeInOut(duration: 0.2)) { scope = .world }
@@ -246,9 +288,11 @@ struct FeedView: View {
             async let heartsTask = GratitudeService.myHearts(userId: userId, among: result.map(\.id))
             let hearts = (try? await heartsTask) ?? heartedIds
 
+            guard generation == loadGeneration else { return }
+
             withAnimation(.easeInOut(duration: 0.2)) {
                 items = result
-                pendingToAccept = pending
+                applyPendingList(pending)
                 pendingSentCount = pendingSent
                 heartedIds = hearts
             }
@@ -258,7 +302,9 @@ struct FeedView: View {
                 self.error = error.localizedDescription
             }
         }
-        loading = false
+        if generation == loadGeneration {
+            loading = false
+        }
     }
 
     private func refreshWidgetSnapshot() async {
