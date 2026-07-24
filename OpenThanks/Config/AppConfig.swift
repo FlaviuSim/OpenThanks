@@ -25,6 +25,11 @@ enum AppConfig {
     /// Optional legacy endpoint — unused; compose uses on-device Apple Intelligence.
     static let polishEndpoint: URL? = nil
 
+    /// PostHog product analytics (same project as openthanks.com).
+    /// Client project token — safe in the app binary; mirrors NEXT_PUBLIC_POSTHOG_KEY.
+    static let postHogKey = "phc_tDCoDmFjVxnMikoRQ3EAXP5kgz5EJq9pMTxsGkmLvkXq"
+    static let postHogHost = "https://us.i.posthog.com"
+
     static func publicStorageURL(for storedPath: String, bucket: String = mediaBucket) -> URL? {
         let trimmed = storedPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }

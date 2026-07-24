@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import AVKit
 
 struct ComposeView: View {
     @Environment(AuthService.self) private var auth
@@ -15,6 +16,8 @@ struct ComposeView: View {
     var initialMessage: String? = nil
     /// App Group image from the Share Extension.
     var initialImageFileName: String? = nil
+    /// PostHog `source` for the compose funnel (matches web event names).
+    var analyticsSource: String = "compose"
     var onSaved: ((Gratitude) -> Void)? = nil
 
     @State private var recipient = ""
@@ -22,7 +25,14 @@ struct ComposeView: View {
     @State private var visibility: GratitudeVisibility = .public
     @State private var photoItem: PhotosPickerItem?
     @State private var photoData: Data?
+    @State private var mediaContentType: String?
+    @State private var attachedMediaKind: AttachedMediaKind?
     @State private var photoPreview: UIImage?
+    /// Full-resolution (or editing-sized) image so crop/zoom can be reopened after attach.
+    @State private var editableSourceImage: UIImage?
+    @State private var videoPreviewURL: URL?
+    @State private var videoPreviewIsLocalTemp = false
+    @State private var showFullScreenVideo = false
     @State private var existingMediaUrl: String?
     @State private var existingMediaType: String?
     @State private var removedPhoto = false
@@ -38,6 +48,8 @@ struct ComposeView: View {
     @State private var polishing: AppreciationAI.Style?
     @State private var messageBeforeAI: String?
     @State private var didPrefill = false
+    @State private var didTrackFormStart = false
+    @State private var didCompleteSend = false
     /// Kept so create can set `recipient_id` even if the typed field is a name.
     @State private var linkedRecipient: Profile?
     /// Email for the linked member — loaded eagerly so claim mail can send
@@ -52,15 +64,34 @@ struct ComposeView: View {
     @State private var linkLabelDraft = ""
     @State private var linkURLDraft = ""
     @State private var linkReplaceRange = NSRange(location: 0, length: 0)
+    /// Cached so opening compose doesn’t hit Foundation Models on every body pass.
+    @State private var aiAvailable = false
 
     private let maxLength = 1500
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨", "🌟", "💐"]
     private var editingTarget: Gratitude? { activeEditing ?? editing }
     private var isEditing: Bool { editingTarget != nil }
 
+    private enum AttachedMediaKind {
+        case image
+        case video
+    }
+
     private struct CropItem: Identifiable {
         let id = UUID()
         let image: UIImage
+    }
+
+    private var hasAttachedMedia: Bool {
+        if photoData != nil { return true }
+        if photoPreview != nil || videoPreviewURL != nil { return true }
+        return existingMediaUrl != nil && !removedPhoto
+    }
+
+    private var showingVideo: Bool {
+        if attachedMediaKind == .video { return true }
+        if attachedMediaKind == .image { return false }
+        return existingMediaType?.lowercased().hasPrefix("video") == true && !removedPhoto
     }
 
     var body: some View {
@@ -85,13 +116,18 @@ struct ComposeView: View {
                     messageFocused = true
                 },
                 onCrop: { cropped in
-                    applyCroppedPhoto(cropped)
+                    applyCroppedPhoto(cropped, source: item.image)
                     cropItem = nil
                     photoItem = nil
                     messageFocused = true
                 }
             )
             .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showFullScreenVideo) {
+            if let url = videoPreviewURL ?? existingMediaURLResolved {
+                FullScreenVideoView(url: url)
+            }
         }
     }
 
@@ -129,8 +165,11 @@ struct ComposeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
-                    .foregroundStyle(Theme.textSecondary)
+                Button("Cancel") {
+                    trackAbandonIfNeeded()
+                    dismiss()
+                }
+                .foregroundStyle(Theme.textSecondary)
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -142,11 +181,57 @@ struct ComposeView: View {
                 .foregroundStyle(Theme.coral)
             }
         }
-        .onAppear { prefillIfNeeded() }
+        .onAppear {
+            prefillIfNeeded()
+            trackFormStartIfNeeded()
+            // Don’t block presenting compose on Foundation Models readiness.
+            Task.detached(priority: .utility) {
+                let available = AppreciationAI.isAvailable
+                await MainActor.run { aiAvailable = available }
+            }
+        }
+        .onDisappear {
+            trackAbandonIfNeeded()
+        }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
-            Task { await handlePickedPhoto(item) }
+            trackFormStartIfNeeded()
+            Task { await handlePickedMedia(item) }
         }
+        .onChange(of: message) { _, _ in
+            if !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                trackFormStartIfNeeded()
+            }
+        }
+        .onChange(of: recipient) { _, _ in
+            if !recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                trackFormStartIfNeeded()
+            }
+        }
+    }
+
+    private func trackFormStartIfNeeded() {
+        guard !didTrackFormStart else { return }
+        didTrackFormStart = true
+        Analytics.appreciationFormStarted(source: analyticsSource)
+    }
+
+    private func trackAbandonIfNeeded() {
+        guard didTrackFormStart, !didCompleteSend, !sent else { return }
+        didCompleteSend = true // prevent double-fire from Cancel + onDisappear
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        Analytics.appreciationFormAbandoned(
+            source: analyticsSource,
+            messageLength: trimmed.count,
+            hasRecipient: linkedRecipient != nil
+                || !recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            hasMedia: hasAttachedMedia
+        )
+    }
+
+    private var existingMediaURLResolved: URL? {
+        guard !removedPhoto else { return nil }
+        return AppConfig.mediaURL(from: existingMediaUrl)
     }
 
     // MARK: Sections
@@ -428,11 +513,12 @@ struct ComposeView: View {
                         onAddLink: { label, range in
                             beginAddLink(label: label, range: range)
                         },
-                        onAI: AppreciationAI.isAvailable ? { Task { await runAI(.warmer) } } : nil,
+                        showAI: aiAvailable,
                         aiTitle: polishing != nil ? "Warming up…" : "Make it warmer",
                         aiEnabled: polishing == nil
                             && !sending
-                            && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                        onAI: aiAvailable ? { Task { await runAI(.warmer) } } : nil
                     )
                     .frame(minHeight: 160)
 
@@ -452,24 +538,7 @@ struct ComposeView: View {
                     emojiShortcuts
 
                     HStack(alignment: .center, spacing: 10) {
-                        Button {
-                            beginAddLink(label: "", range: NSRange(location: (message as NSString).length, length: 0))
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "link")
-                                    .font(.system(size: 12, weight: .bold))
-                                Text("Add link")
-                                    .font(Theme.body(13, weight: .semibold))
-                            }
-                            .foregroundStyle(Theme.coral)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Theme.coral.opacity(0.12), in: Capsule())
-                        }
-                        .buttonStyle(ScalePressButtonStyle())
-                        .disabled(sending || polishing != nil)
-
-                        if AppreciationAI.isAvailable {
+                        if aiAvailable {
                             aiChip
                         }
 
@@ -569,17 +638,30 @@ struct ComposeView: View {
     }
 
     private var photoSection: some View {
-        field(label: "Photo", hint: "Optional") {
-            if let photoPreview {
+        field(label: "Photo or video", hint: "Optional") {
+            if hasAttachedMedia {
                 ZStack(alignment: .topTrailing) {
-                    Image(uiImage: photoPreview)
-                        .resizable()
-                        .flexiblePhotoPreview(maxHeight: 420)
+                    mediaPreviewBody
 
                     HStack(spacing: 8) {
+                        if !showingVideo {
+                            Button {
+                                openCropEditor()
+                            } label: {
+                                Label("Adjust", systemImage: "crop")
+                                    .font(Theme.body(12, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
+                                    .background(.black.opacity(0.55), in: Capsule())
+                            }
+                            .disabled(loadingPhoto || sending)
+                            .accessibilityLabel("Adjust photo crop")
+                        }
+
                         PhotosPicker(
                             selection: $photoItem,
-                            matching: .images,
+                            matching: .any(of: [.images, .videos]),
                             photoLibrary: .shared()
                         ) {
                             Label("Replace", systemImage: "arrow.triangle.2.circlepath")
@@ -601,7 +683,7 @@ struct ComposeView: View {
                                 .background(.black.opacity(0.55), in: Circle())
                         }
                         .disabled(loadingPhoto || sending)
-                        .accessibilityLabel("Remove photo")
+                        .accessibilityLabel("Remove media")
                     }
                     .padding(12)
                 }
@@ -609,7 +691,7 @@ struct ComposeView: View {
             } else {
                 PhotosPicker(
                     selection: $photoItem,
-                    matching: .images,
+                    matching: .any(of: [.images, .videos]),
                     photoLibrary: .shared()
                 ) {
                     HStack(spacing: 14) {
@@ -620,15 +702,17 @@ struct ComposeView: View {
                                     .frame(width: 46, height: 46)
                                 ProgressView().tint(.white)
                             } else {
-                                ActionGlyph(systemImage: "photo")
+                                ActionGlyph(systemImage: "photo.on.rectangle.angled")
                             }
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(loadingPhoto ? "Preparing photo…" : "Add a photo")
+                            Text(loadingPhoto ? "Preparing…" : "Add a photo or video")
                                 .font(Theme.body(15, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
-                            Text("Crop it to look great in the feed")
+                            Text(loadingPhoto
+                                 ? "Hang tight"
+                                 : "Photos can be cropped · videos up to 50MB")
                                 .font(Theme.body(13))
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -648,6 +732,71 @@ struct ComposeView: View {
                 Text(photoError)
                     .font(Theme.body(12))
                     .foregroundStyle(.red)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var mediaPreviewBody: some View {
+        if showingVideo, let _ = videoPreviewURL ?? existingMediaURLResolved {
+            Button {
+                showFullScreenVideo = true
+            } label: {
+                ZStack(alignment: .bottomLeading) {
+                    if let photoPreview {
+                        Image(uiImage: photoPreview)
+                            .resizable()
+                            .flexiblePhotoPreview(maxHeight: 420)
+                            .overlay { Color.black.opacity(0.22) }
+                    } else {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Theme.surfaceRaised)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 220)
+                            .overlay {
+                                Image(systemName: "play.circle.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundStyle(.white.opacity(0.9))
+                            }
+                    }
+                    Label("Video · tap to play", systemImage: "play.circle.fill")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(12)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Preview video, tap to open")
+        } else if let photoPreview {
+            Button {
+                openCropEditor()
+            } label: {
+                Image(uiImage: photoPreview)
+                    .resizable()
+                    .flexiblePhotoPreview(maxHeight: 420)
+                    .overlay(alignment: .bottomLeading) {
+                        Label("Tap to adjust", systemImage: "crop")
+                            .font(Theme.body(12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(.black.opacity(0.45), in: Capsule())
+                            .padding(12)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Attached photo, tap to adjust crop")
+        } else if let url = existingMediaURLResolved {
+            // Remote image still loading into preview — show placeholder.
+            CachedAsyncImage(url: url) { image in
+                image
+                    .resizable()
+                    .flexiblePhotoPreview(maxHeight: 420)
+            } placeholder: {
+                ProgressView().tint(Theme.coral)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 180)
+                    .background(Theme.surfaceRaised)
             }
         }
     }
@@ -842,6 +991,7 @@ struct ComposeView: View {
                 messageBeforeAI = original
                 message = String(rewritten.prefix(maxLength))
             }
+            Analytics.appreciationAIRewrite(tone: style.rawValue)
             messageFocused = true
         } catch {
             self.error = error.localizedDescription
@@ -850,13 +1000,21 @@ struct ComposeView: View {
 
     // MARK: Photo
 
-    private func handlePickedPhoto(_ item: PhotosPickerItem) async {
+    private func handlePickedMedia(_ item: PhotosPickerItem) async {
         loadingPhoto = true
         photoError = nil
         messageFocused = false
         recipientFocused = false
         defer { loadingPhoto = false }
 
+        if VideoProcessing.isVideoContentTypes(item.supportedContentTypes) {
+            await handlePickedVideo(item)
+        } else {
+            await handlePickedPhoto(item)
+        }
+    }
+
+    private func handlePickedPhoto(_ item: PhotosPickerItem) async {
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else {
                 photoError = "Couldn't load that photo. Try another one."
@@ -868,6 +1026,7 @@ struct ComposeView: View {
                 photoItem = nil
                 return
             }
+            editableSourceImage = prepared
             cropItem = CropItem(image: prepared)
         } catch {
             photoError = "Couldn't load that photo. Try another one."
@@ -875,7 +1034,52 @@ struct ComposeView: View {
         }
     }
 
-    private func applyCroppedPhoto(_ image: UIImage) {
+    private func handlePickedVideo(_ item: PhotosPickerItem) async {
+        do {
+            guard let movie = try await item.loadTransferable(type: VideoProcessing.MovieFile.self) else {
+                photoError = VideoProcessing.VideoError.loadFailed.localizedDescription
+                photoItem = nil
+                return
+            }
+            let prepared = try await VideoProcessing.prepareForUpload(from: movie.url)
+            try? FileManager.default.removeItem(at: movie.url)
+            applyPreparedVideo(prepared)
+            photoItem = nil
+            messageFocused = true
+        } catch let error as VideoProcessing.VideoError {
+            photoError = error.localizedDescription
+            photoItem = nil
+        } catch {
+            photoError = VideoProcessing.VideoError.loadFailed.localizedDescription
+            photoItem = nil
+        }
+    }
+
+    private func applyPreparedVideo(_ prepared: VideoProcessing.PreparedVideo) {
+        clearVideoPreviewFile()
+        attachedMediaKind = .video
+        photoData = prepared.uploadData
+        mediaContentType = prepared.contentType
+        photoPreview = prepared.poster
+        editableSourceImage = nil
+        videoPreviewURL = prepared.previewFileURL
+        videoPreviewIsLocalTemp = true
+        removedPhoto = false
+        existingMediaUrl = nil
+        existingMediaType = nil
+        photoError = nil
+        cropItem = nil
+    }
+
+    private func applyCroppedPhoto(_ image: UIImage, source: UIImage? = nil) {
+        clearVideoPreviewFile()
+        attachedMediaKind = .image
+        mediaContentType = "image/jpeg"
+        if let source {
+            editableSourceImage = source
+        } else if editableSourceImage == nil {
+            editableSourceImage = image
+        }
         if let jpeg = ImageProcessing.jpegForUpload(image) {
             photoData = jpeg
             photoPreview = UIImage(data: jpeg) ?? image.downsampled(maxDimension: 720)
@@ -885,12 +1089,48 @@ struct ComposeView: View {
             photoPreview = image.downsampled(maxDimension: 720)
         }
         removedPhoto = false
+        existingMediaUrl = nil
+        existingMediaType = nil
         photoError = nil
     }
 
+    private func openCropEditor() {
+        guard !showingVideo else { return }
+        if let source = editableSourceImage ?? photoPreview {
+            cropItem = CropItem(image: source)
+            return
+        }
+        // Existing remote image — load then open cropper.
+        guard let url = existingMediaURLResolved else { return }
+        loadingPhoto = true
+        Task {
+            defer { loadingPhoto = false }
+            guard let (data, _) = try? await URLSession.shared.data(from: url),
+                  let image = await ImageProcessing.prepareForEditing(data) else {
+                photoError = "Couldn't open that photo for editing."
+                return
+            }
+            editableSourceImage = image
+            photoPreview = image.downsampled(maxDimension: 800)
+            cropItem = CropItem(image: image)
+        }
+    }
+
+    private func clearVideoPreviewFile() {
+        if videoPreviewIsLocalTemp, let url = videoPreviewURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        videoPreviewURL = nil
+        videoPreviewIsLocalTemp = false
+    }
+
     private func clearPhoto() {
+        clearVideoPreviewFile()
         photoData = nil
+        mediaContentType = nil
+        attachedMediaKind = nil
         photoPreview = nil
+        editableSourceImage = nil
         photoItem = nil
         photoError = nil
         removedPhoto = true
@@ -923,7 +1163,9 @@ struct ComposeView: View {
            let fileName = initialImageFileName,
            let data = ComposeShareStore.readImageData(fileName: fileName),
            let image = UIImage(data: data) {
-            applyCroppedPhoto(image)
+            let prepared = image.normalizedOrientation().downsampled(maxDimension: 1600)
+            editableSourceImage = prepared
+            cropItem = CropItem(image: prepared)
             ComposeShareStore.removeImage(fileName: fileName)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -965,8 +1207,12 @@ struct ComposeView: View {
         existingMediaType = editing.mediaType
         removedPhoto = false
         photoData = nil
+        mediaContentType = nil
         photoItem = nil
         photoPreview = nil
+        editableSourceImage = nil
+        clearVideoPreviewFile()
+        attachedMediaKind = nil
         linkedRecipient = nil
         linkedRecipientEmail = nil
         recipient = ""
@@ -986,10 +1232,22 @@ struct ComposeView: View {
         }
 
         if let url = editing.mediaURL {
-            Task {
-                if let (data, _) = try? await URLSession.shared.data(from: url),
-                   let image = UIImage(data: data) {
-                    photoPreview = image.downsampled(maxDimension: 800)
+            let isVideo = editing.mediaType?.lowercased().hasPrefix("video") == true
+            if isVideo {
+                attachedMediaKind = .video
+                videoPreviewURL = url
+                videoPreviewIsLocalTemp = false
+                Task {
+                    photoPreview = await VideoProcessing.thumbnail(from: url)
+                }
+            } else {
+                attachedMediaKind = .image
+                Task {
+                    if let (data, _) = try? await URLSession.shared.data(from: url),
+                       let image = await ImageProcessing.prepareForEditing(data) {
+                        editableSourceImage = image
+                        photoPreview = image.downsampled(maxDimension: 800)
+                    }
                 }
             }
         }
@@ -1018,19 +1276,32 @@ struct ComposeView: View {
 
             var mediaUrl: String?
             var mediaType: String?
-            if let photoData {
-                // Re-encode so uploads stay small even if photoData came from an older path.
-                let uploadData: Data
-                if let image = UIImage(data: photoData),
-                   let compressed = ImageProcessing.jpegForUpload(image) {
-                    uploadData = compressed
-                } else {
-                    uploadData = photoData
+            if let photoData, let kind = attachedMediaKind {
+                switch kind {
+                case .image:
+                    let uploadData: Data
+                    if let image = UIImage(data: photoData),
+                       let compressed = ImageProcessing.jpegForUpload(image) {
+                        uploadData = compressed
+                    } else {
+                        uploadData = photoData
+                    }
+                    let url = try await GratitudeService.uploadMedia(
+                        data: uploadData,
+                        contentType: mediaContentType ?? "image/jpeg",
+                        userId: userId
+                    )
+                    mediaUrl = url.absoluteString
+                    mediaType = "image"
+                case .video:
+                    let url = try await GratitudeService.uploadMedia(
+                        data: photoData,
+                        contentType: mediaContentType ?? "video/mp4",
+                        userId: userId
+                    )
+                    mediaUrl = url.absoluteString
+                    mediaType = "video"
                 }
-                let url = try await GratitudeService.uploadMedia(
-                    data: uploadData, contentType: "image/jpeg", userId: userId)
-                mediaUrl = url.absoluteString
-                mediaType = "image"
             } else if !removedPhoto {
                 mediaUrl = existingMediaUrl ?? editingTarget?.mediaUrl
                 mediaType = existingMediaType ?? editingTarget?.mediaType
@@ -1064,6 +1335,15 @@ struct ComposeView: View {
                 )
                 created = updated
                 activeEditing = nil
+                didCompleteSend = true
+                Analytics.appreciationSubmitted(
+                    hasMedia: mediaUrl != nil,
+                    messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
+                    hasRecipient: linked != nil || contact.email != nil || contact.phone != nil
+                        || !(contact.name ?? "").isEmpty,
+                    visibility: visibility.rawValue,
+                    source: analyticsSource
+                )
                 onSaved?(updated)
                 if self.editing != nil {
                     dismiss()
@@ -1095,11 +1375,21 @@ struct ComposeView: View {
                     result.recipientEmail = linkedRecipientEmail ?? linked?.email
                 }
                 created = result
+                didCompleteSend = true
+                Analytics.appreciationSubmitted(
+                    hasMedia: mediaUrl != nil,
+                    messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
+                    hasRecipient: linked != nil || contact.email != nil || contact.phone != nil
+                        || !(contact.name ?? "").isEmpty,
+                    visibility: visibility.rawValue,
+                    source: analyticsSource
+                )
                 sent = true
                 await refreshWidgetAfterSend()
             }
         } catch {
             self.error = error.localizedDescription
+            Analytics.appreciationFailed(error: error.localizedDescription, source: analyticsSource)
         }
         sending = false
     }
@@ -1168,7 +1458,11 @@ struct ComposeView: View {
         recipient = ""
         message = ""
         photoData = nil
+        mediaContentType = nil
+        attachedMediaKind = nil
         photoPreview = nil
+        editableSourceImage = nil
+        clearVideoPreviewFile()
         photoItem = nil
         cropItem = nil
         photoError = nil

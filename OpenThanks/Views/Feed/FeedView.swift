@@ -21,6 +21,7 @@ struct FeedView: View {
     @State private var didAutoSwitchToWorld = false
     @State private var scrollToPendingToken = 0
     @State private var loadGeneration = 0
+    @FocusState private var searchFocused: Bool
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
 
@@ -29,10 +30,13 @@ struct FeedView: View {
             VStack(spacing: 0) {
                 header
                 HomeProfileSearch(
+                    focused: $searchFocused,
                     onSelect: { profile in
+                        Analytics.capture("home_search_profile_opened")
                         path.append(profile)
                     },
                     onInvite: { name in
+                        Analytics.capture("home_search_invite_compose", ["query_length": name.count])
                         composeRecipient = name
                         showCompose = true
                     }
@@ -51,12 +55,21 @@ struct FeedView: View {
                 content
             }
             .background(Theme.background)
+            // Dismiss search keyboard when the user scrolls/drags anywhere on Home.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 8).onChanged { _ in
+                    dismissSearchKeyboard()
+                }
+            )
             .task(id: scope) { await load() }
             .refreshable { await load() }
             .toolbar(.hidden, for: .navigationBar)
             .appDestinations()
             .fullScreenCover(isPresented: $showCompose) {
-                ComposeView(initialRecipient: composeRecipient)
+                ComposeView(
+                    initialRecipient: composeRecipient,
+                    analyticsSource: composeRecipient == nil ? "home_thank_someone" : "home_search_invite"
+                )
                     .syncAppAppearance()
             }
             .onChange(of: showCompose) { _, open in
@@ -195,6 +208,7 @@ struct FeedView: View {
                     .opacity(loading && !isEmpty ? 0.72 : 1)
                     .animation(.easeInOut(duration: 0.2), value: loading)
                 }
+                .scrollDismissesKeyboard(.immediately)
                 .onChange(of: scrollToPendingToken) { _, _ in
                     withAnimation(.easeInOut(duration: 0.35)) {
                         proxy.scrollTo("pendingThanks", anchor: .top)
@@ -202,6 +216,11 @@ struct FeedView: View {
                 }
             }
         }
+    }
+
+    private func dismissSearchKeyboard() {
+        guard searchFocused else { return }
+        searchFocused = false
     }
 
     private var pendingHeader: some View {
@@ -323,6 +342,9 @@ struct FeedView: View {
         let wasHearted = heartedIds.contains(item.id)
         // Optimistic update
         if wasHearted { heartedIds.remove(item.id) } else { heartedIds.insert(item.id) }
+        Analytics.capture(wasHearted ? "appreciation_unhearted" : "appreciation_hearted", [
+            "scope": scope.rawValue.lowercased(),
+        ])
         if let idx = items.firstIndex(where: { $0.id == item.id }) {
             let delta = wasHearted ? -1 : 1
             items[idx].hearts = [CountHolder(count: max(0, item.heartCount + delta))]
@@ -389,11 +411,16 @@ struct GratitudeCard: View {
             }
             .buttonStyle(.plain)
 
-            if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
-                Button { fullScreenImageURL = url } label: {
-                    FlexiblePostImage(url: url, maxHeight: 420)
+            if let url = gratitude.mediaURL {
+                let isVideo = gratitude.mediaType?.lowercased().hasPrefix("video") == true
+                if isVideo {
+                    FlexiblePostMedia(url: url, mediaType: gratitude.mediaType, maxHeight: 420)
+                } else {
+                    Button { fullScreenImageURL = url } label: {
+                        FlexiblePostImage(url: url, maxHeight: 420)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             HStack(spacing: 12) {
@@ -461,6 +488,7 @@ struct AvatarView: View {
 /// Compact people search under the Home brand row — opens profiles or invites
 /// someone who isn't on OpenThanks yet (matches the web home search).
 private struct HomeProfileSearch: View {
+    var focused: FocusState<Bool>.Binding
     var onSelect: (Profile) -> Void
     var onInvite: (String) -> Void
 
@@ -468,14 +496,13 @@ private struct HomeProfileSearch: View {
     @State private var results: [Profile] = []
     @State private var searching = false
     @State private var didSearch = false
-    @FocusState private var focused: Bool
 
     private var trimmed: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var showResults: Bool {
-        focused && trimmed.count >= 2
+        focused.wrappedValue && trimmed.count >= 2
     }
 
     var body: some View {
@@ -498,14 +525,14 @@ private struct HomeProfileSearch: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(focused ? Theme.coral : Theme.textTertiary)
+                .foregroundStyle(focused.wrappedValue ? Theme.coral : Theme.textTertiary)
 
             TextField("Search people by name", text: $query)
                 .font(Theme.body(15))
                 .foregroundStyle(Theme.textPrimary)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
-                .focused($focused)
+                .focused(focused)
                 .submitLabel(.search)
 
             if !query.isEmpty {
@@ -525,7 +552,7 @@ private struct HomeProfileSearch: View {
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(focused ? Theme.coral.opacity(0.45) : Theme.hairline, lineWidth: 1)
+                .strokeBorder(focused.wrappedValue ? Theme.coral.opacity(0.45) : Theme.hairline, lineWidth: 1)
         )
     }
 
@@ -543,7 +570,7 @@ private struct HomeProfileSearch: View {
             } else if !results.isEmpty {
                 ForEach(Array(results.enumerated()), id: \.element.id) { index, profile in
                     Button {
-                        focused = false
+                        focused.wrappedValue = false
                         onSelect(profile)
                         clear()
                     } label: {
@@ -592,7 +619,7 @@ private struct HomeProfileSearch: View {
                         .multilineTextAlignment(.center)
 
                     Button {
-                        focused = false
+                        focused.wrappedValue = false
                         onInvite(trimmed)
                         clear()
                     } label: {
@@ -630,7 +657,7 @@ private struct HomeProfileSearch: View {
         results = []
         searching = false
         didSearch = false
-        focused = false
+        focused.wrappedValue = false
     }
 
     private func runSearch(for current: String) async {

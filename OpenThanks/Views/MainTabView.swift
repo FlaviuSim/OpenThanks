@@ -99,13 +99,14 @@ struct MainTabView: View {
     private func composeView(for sheet: ComposeSheet) -> some View {
         switch sheet {
         case .blank:
-            ComposeView()
+            ComposeView(analyticsSource: "tab_compose")
         case .launch(let request):
             ComposeView(
                 initialRecipient: request.recipientName,
                 initialRecipientProfile: request.profile,
                 initialMessage: request.message,
-                initialImageFileName: request.imageFileName
+                initialImageFileName: request.imageFileName,
+                analyticsSource: request.analyticsSource
             )
         }
     }

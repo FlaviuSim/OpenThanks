@@ -28,10 +28,16 @@ enum AppreciationAI {
     }
 
     /// True when the on-device model can run (Apple Intelligence device + ready).
+    /// Prefer calling this off the main path when opening UI — the system check can be slow.
     static var isAvailable: Bool {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
-            return SystemLanguageModel.default.isAvailable
+            switch SystemLanguageModel.default.availability {
+            case .available:
+                return true
+            default:
+                return false
+            }
         }
         #endif
         return false

@@ -119,7 +119,7 @@ struct OpenComposeIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        ComposeLaunchBridge.shared.queue()
+        ComposeLaunchBridge.shared.queue(analyticsSource: "siri_open_compose")
         return .result(dialog: "Opening OpenThanks.")
     }
 }
@@ -145,7 +145,7 @@ struct DraftAppreciationIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let draft = SiriMessageDraft.fromSpoken(phrase.text)
         // Intentionally no recipientName / profile — user picks To in-app.
-        ComposeLaunchBridge.shared.queue(message: draft)
+        ComposeLaunchBridge.shared.queue(message: draft, analyticsSource: "siri_draft")
         return .result(dialog: "Opening OpenThanks.")
     }
 }
@@ -168,7 +168,7 @@ struct ThankSomeoneIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let draft = SiriMessageDraft.fromSpoken(phrase.text)
-        ComposeLaunchBridge.shared.queue(message: draft)
+        ComposeLaunchBridge.shared.queue(message: draft, analyticsSource: "siri_draft")
         return .result(dialog: "Opening OpenThanks.")
     }
 }
@@ -190,7 +190,7 @@ struct CreateAppreciationIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let draft = SiriMessageDraft.fromSpoken(phrase.text)
-        ComposeLaunchBridge.shared.queue(message: draft)
+        ComposeLaunchBridge.shared.queue(message: draft, analyticsSource: "siri_draft")
         return .result(dialog: "Opening OpenThanks.")
     }
 }

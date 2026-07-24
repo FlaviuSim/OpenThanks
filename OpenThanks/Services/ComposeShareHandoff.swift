@@ -6,7 +6,7 @@ enum ComposeShareHandoff {
     @MainActor
     static func queuePendingShareOrBlank() {
         if applyPendingShare() { return }
-        ComposeLaunchBridge.shared.queue()
+        ComposeLaunchBridge.shared.queue(analyticsSource: "deep_link_compose")
     }
 
     /// If a share is waiting (e.g. user signed in after opening the URL), queue it.
@@ -17,7 +17,8 @@ enum ComposeShareHandoff {
         ComposeLaunchBridge.shared.queue(
             recipientName: payload.recipientName,
             message: payload.message,
-            imageFileName: payload.imageFileName
+            imageFileName: payload.imageFileName,
+            analyticsSource: "share_extension"
         )
         return true
     }

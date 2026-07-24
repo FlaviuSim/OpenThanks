@@ -70,7 +70,7 @@ struct SettingsView: View {
 
                     Toggle(isOn: $calendarNudgeEnabled) {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Evening thank-you nudge")
+                            Text("Evening Thank-You Nudge")
                             Text("Weekdays at 8:00 PM, when today’s calendar suggests someone to thank. Events stay on your device.")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
@@ -282,7 +282,7 @@ struct PendingAppreciationsView: View {
                 .presentationDetents([.medium])
         }
         .fullScreenCover(item: $editing) { g in
-            ComposeView(editing: g) { updated in
+            ComposeView(editing: g, analyticsSource: "edit_pending") { updated in
                 if let index = pending.firstIndex(where: { $0.id == updated.id }) {
                     pending[index] = updated
                 }

@@ -85,7 +85,10 @@ struct UserProfileView: View {
             FullScreenImageView(url: url)
         }
         .fullScreenCover(isPresented: $showCompose) {
-            ComposeView(initialRecipientProfile: shownProfile)
+            ComposeView(
+                initialRecipientProfile: shownProfile,
+                analyticsSource: "profile_thank"
+            )
                 .syncAppAppearance()
         }
     }

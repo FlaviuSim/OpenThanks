@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         UNUserNotificationCenter.current().delegate = self
         CalendarGratitudeBackgroundRefresh.register()
         CalendarGratitudeBackgroundRefresh.schedule()
+        Analytics.setup()
         return true
     }
 
@@ -87,11 +88,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         case NotificationService.thankReminderTypeValue:
             let name = info[NotificationService.thankReminderNameKey] as? String
             await MainActor.run {
-                ComposeLaunchBridge.shared.queue(recipientName: name)
+                ComposeLaunchBridge.shared.queue(recipientName: name, analyticsSource: "notification_thank_reminder")
             }
         case NotificationService.fridayReminderTypeValue:
             await MainActor.run {
-                ComposeLaunchBridge.shared.queue()
+                ComposeLaunchBridge.shared.queue(analyticsSource: "notification_friday")
             }
         case NotificationService.calendarNudgeTypeValue:
             let name = info[NotificationService.calendarNudgeNameKey] as? String
@@ -109,7 +110,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 ComposeLaunchBridge.shared.queue(
                     recipientName: name,
                     message: message,
-                    profile: profile
+                    profile: profile,
+                    analyticsSource: "calendar_evening_nudge"
                 )
             }
         default:

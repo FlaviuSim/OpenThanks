@@ -20,19 +20,23 @@ final class ComposeLaunchBridge {
         var profile: Profile?
         /// App Group ShareInbox filename to attach as the post photo.
         var imageFileName: String?
+        /// PostHog compose funnel `source`.
+        var analyticsSource: String
 
         init(
             id: UUID = UUID(),
             recipientName: String? = nil,
             message: String? = nil,
             profile: Profile? = nil,
-            imageFileName: String? = nil
+            imageFileName: String? = nil,
+            analyticsSource: String = "compose_launch"
         ) {
             self.id = id
             self.recipientName = recipientName
             self.message = message
             self.profile = profile
             self.imageFileName = imageFileName
+            self.analyticsSource = analyticsSource
         }
     }
 
@@ -42,7 +46,8 @@ final class ComposeLaunchBridge {
         recipientName: String? = nil,
         message: String? = nil,
         profile: Profile? = nil,
-        imageFileName: String? = nil
+        imageFileName: String? = nil,
+        analyticsSource: String = "compose_launch"
     ) {
         let trimmedName = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -51,7 +56,8 @@ final class ComposeLaunchBridge {
             recipientName: (trimmedName?.isEmpty == false) ? trimmedName : nil,
             message: (trimmedMessage?.isEmpty == false) ? trimmedMessage : nil,
             profile: profile,
-            imageFileName: (trimmedImage?.isEmpty == false) ? trimmedImage : nil
+            imageFileName: (trimmedImage?.isEmpty == false) ? trimmedImage : nil,
+            analyticsSource: analyticsSource
         )
         NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
     }

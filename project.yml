@@ -7,6 +7,9 @@ packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
     from: 2.0.0
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios.git
+    from: 3.28.0
 targets:
   OpenThanks:
     type: application
@@ -17,6 +20,8 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+      - package: PostHog
+        product: PostHog
       - target: OpenThanksWidget
       - target: OpenThanksShare
     info:

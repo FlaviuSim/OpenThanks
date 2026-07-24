@@ -46,11 +46,16 @@ struct AcceptPendingCard: View {
             )
             .fixedSize(horizontal: false, vertical: true)
 
-            if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
-                Button { fullScreenImageURL = url } label: {
-                    FlexiblePostImage(url: url, maxHeight: 280)
+            if let url = gratitude.mediaURL {
+                let isVideo = gratitude.mediaType?.lowercased().hasPrefix("video") == true
+                if isVideo {
+                    FlexiblePostMedia(url: url, mediaType: gratitude.mediaType, maxHeight: 280)
+                } else {
+                    Button { fullScreenImageURL = url } label: {
+                        FlexiblePostImage(url: url, maxHeight: 280)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             AppreciationVisibilityNote(visibility: gratitude.visibility)
@@ -110,8 +115,10 @@ struct AcceptPendingCard: View {
         if accept {
             var optimistic = gratitude
             optimistic.status = .accepted
+            Analytics.capture("appreciation_accepted")
             onAccepted(optimistic)
         } else {
+            Analytics.capture("appreciation_declined")
             onDeclined(gratitude.id)
         }
 

@@ -78,8 +78,12 @@ struct PendingAppreciationReviewView: View {
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
 
-                    if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
-                        FlexiblePostImage(url: url, maxHeight: 420)
+                    if let url = gratitude.mediaURL {
+                        FlexiblePostMedia(
+                            url: url,
+                            mediaType: gratitude.mediaType,
+                            maxHeight: 420
+                        )
                     }
                 }
                 .padding(18)

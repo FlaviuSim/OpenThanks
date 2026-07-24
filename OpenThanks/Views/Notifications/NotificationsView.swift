@@ -102,7 +102,7 @@ struct NotificationsView: View {
                     Button {
                         Task {
                             await markRead(note)
-                            ComposeLaunchBridge.shared.queue()
+                            ComposeLaunchBridge.shared.queue(analyticsSource: "notification_friday_tap")
                         }
                     } label: {
                         rowContent(note, linksToPost: true)

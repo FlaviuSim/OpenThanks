@@ -71,11 +71,16 @@ struct GratitudeDetailView: View {
             .lineSpacing(4)
             .fixedSize(horizontal: false, vertical: true)
 
-            if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
-                Button { fullScreenImageURL = url } label: {
-                    FlexiblePostImage(url: url, maxHeight: 520)
+            if let url = gratitude.mediaURL {
+                let isVideo = gratitude.mediaType?.lowercased().hasPrefix("video") == true
+                if isVideo {
+                    FlexiblePostMedia(url: url, mediaType: gratitude.mediaType, maxHeight: 520)
+                } else {
+                    Button { fullScreenImageURL = url } label: {
+                        FlexiblePostImage(url: url, maxHeight: 520)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             HStack(spacing: 12) {

@@ -10,6 +10,7 @@
 		00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9116D291352DD94BE647DB15 /* Theme.swift */; };
 		06EE4316D00DEEF35B015B7D /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
 		06F2D3E145B798C680888431 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEFAF07C21753839CBCCE3B /* ComposeView.swift */; };
+		0ACC6D5C451B4F99A20FFA2E /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DF3638B7D67D53E1D3EFE1C9 /* PostHog */; };
 		0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */; };
 		108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D87DB1FBDF467DB01585D /* SiriIntroView.swift */; };
 		1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */; };
@@ -23,6 +24,7 @@
 		3AD34DD6B9F207035D2FB879 /* LinkifiedText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23112A6E99B11377C47229C1 /* LinkifiedText.swift */; };
 		3C8C00DFC8C051B256BCB340 /* HeartedByView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */; };
 		3F808764AE86830A598D0F51 /* GratitudeOpportunityRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */; };
+		400E1CD96FA8D62CD08C05AE /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C1F5AF689FF4B940FFDD36 /* Analytics.swift */; };
 		42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */; };
 		4DB57AC6BE2F0C7305871D75 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
 		4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E451C434563DD8702080E34 /* WelcomeView.swift */; };
@@ -33,6 +35,7 @@
 		5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */; };
 		5FFBE5EF70EF711928166478 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
 		6C31438E31C6D9FBDD646645 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097424F66444F25FE6651FE0 /* Motion.swift */; };
+		6C538E48BED0F8D5D2DF4472 /* PostMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F0BE629D251F856F14F577 /* PostMediaViews.swift */; };
 		6E80B389272E2DD329786D4C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C819BEB1D35972B783049B03 /* Assets.xcassets */; };
 		7022DED085369A4ECEDC0EDF /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
 		7198DDBD3ACCF9655E6B25C3 /* ShareInboxParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DA8313EA35838D5A67AFCCA /* ShareInboxParser.swift */; };
@@ -55,6 +58,7 @@
 		B433078D184312A101ECA432 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1BCD3D6D4207C94DE001B284 /* Assets.xcassets */; };
 		B44A3CEFF76027AF0F586362 /* EditProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4546F9384987CE5C913CD0 /* EditProfileSheet.swift */; };
 		B4DE495973DD611F929B0A40 /* GratitudePromptWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */; };
+		B6C3DBD7181AD1C36ABEB924 /* VideoProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C1B132702899893D08B37C /* VideoProcessing.swift */; };
 		B9C2C7DCFAA6309EC4401A8D /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167153BE2EE275F81D5D2A05 /* AppConfig.swift */; };
 		BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC0A8CDE94660605C46C812 /* AuthService.swift */; };
 		C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */; };
@@ -123,9 +127,11 @@
 		1EC0A8CDE94660605C46C812 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		20248F044E360A013BCF425B /* OpenThanksShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksShare.entitlements; sourceTree = "<group>"; };
 		23112A6E99B11377C47229C1 /* LinkifiedText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkifiedText.swift; sourceTree = "<group>"; };
+		27F0BE629D251F856F14F577 /* PostMediaViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostMediaViews.swift; sourceTree = "<group>"; };
 		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
 		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
+		34C1B132702899893D08B37C /* VideoProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessing.swift; sourceTree = "<group>"; };
 		39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		3BBB847CC3698D40E17D709A /* CalendarPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPermissionView.swift; sourceTree = "<group>"; };
 		3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPalette.swift; sourceTree = "<group>"; };
@@ -157,6 +163,7 @@
 		A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenWidgets.swift; sourceTree = "<group>"; };
 		A24196DBDF1449EB46FBF5DD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A25AD150B863DF00ABC41E23 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		A4C1F5AF689FF4B940FFDD36 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		A7100E64F1ACD16964F60A63 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudePromptWidget.swift; sourceTree = "<group>"; };
 		AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeShareHandoff.swift; sourceTree = "<group>"; };
@@ -187,6 +194,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C8DB929803C920F0E53E0682 /* Supabase in Frameworks */,
+				0ACC6D5C451B4F99A20FFA2E /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,6 +213,7 @@
 		12E0C031F8678221EDC7000E /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A4C1F5AF689FF4B940FFDD36 /* Analytics.swift */,
 				DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */,
 				1EC0A8CDE94660605C46C812 /* AuthService.swift */,
 				566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */,
@@ -217,6 +226,7 @@
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
 				B863B534795C67594B79C1DC /* TabLaunchBridge.swift */,
+				34C1B132702899893D08B37C /* VideoProcessing.swift */,
 				EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */,
 			);
 			path = Services;
@@ -320,6 +330,7 @@
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
 				2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */,
 				23112A6E99B11377C47229C1 /* LinkifiedText.swift */,
+				27F0BE629D251F856F14F577 /* PostMediaViews.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -474,6 +485,7 @@
 			name = OpenThanks;
 			packageProductDependencies = (
 				0320D5FF717E6D107693552A /* Supabase */,
+				DF3638B7D67D53E1D3EFE1C9 /* PostHog */,
 			);
 			productName = OpenThanks;
 			productReference = EE58C9232B92D8AAD5346A26 /* OpenThanks.app */;
@@ -512,6 +524,7 @@
 			mainGroup = A29D4226E14E551D09C6B8DD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				613A9E4EF0E6D515992D01AA /* XCRemoteSwiftPackageReference "posthog-ios" */,
 				CDBDCC94DD709CAA83FE1332 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -552,6 +565,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */,
+				400E1CD96FA8D62CD08C05AE /* Analytics.swift in Sources */,
 				B9C2C7DCFAA6309EC4401A8D /* AppConfig.swift in Sources */,
 				D114CD44AF748B2FE6CCBCAB /* AppGroup+Files.swift in Sources */,
 				8D9BF6AE672BFC3C51751D04 /* AppGroup.swift in Sources */,
@@ -591,11 +605,13 @@
 				56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */,
 				5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */,
 				5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */,
+				6C538E48BED0F8D5D2DF4472 /* PostMediaViews.swift in Sources */,
 				3941394E94699B39AF29657B /* ProfileView.swift in Sources */,
 				985D66E76E069167F1534690 /* SettingsView.swift in Sources */,
 				108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */,
 				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,
+				B6C3DBD7181AD1C36ABEB924 /* VideoProcessing.swift in Sources */,
 				4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */,
 				5FFBE5EF70EF711928166478 /* WidgetDeepLink.swift in Sources */,
 				06EE4316D00DEEF35B015B7D /* WidgetSnapshot.swift in Sources */,
@@ -929,6 +945,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		613A9E4EF0E6D515992D01AA /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.28.0;
+			};
+		};
 		CDBDCC94DD709CAA83FE1332 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -944,6 +968,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CDBDCC94DD709CAA83FE1332 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		DF3638B7D67D53E1D3EFE1C9 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 613A9E4EF0E6D515992D01AA /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -70,12 +70,14 @@ final class AuthService {
                         self.currentProfile = nil
                         self.hasResolvedProfile = false
                         Self.clearCachedProfile()
+                        Analytics.reset()
                     }
                 case .signedOut, .userDeleted:
                     self.state = .signedOut
                     self.currentProfile = nil
                     self.hasResolvedProfile = false
                     Self.clearCachedProfile()
+                    Analytics.reset()
                 default:
                     break
                 }
@@ -119,6 +121,11 @@ final class AuthService {
             if let profile = existing.first {
                 guard self.userId == userId else { return }
                 currentProfile = profile
+                Analytics.identify(
+                    userId: userId,
+                    email: profile.email ?? email,
+                    name: profile.fullName ?? profile.displayName
+                )
                 // Phone sync is non-blocking — don't hold the splash on it.
                 Task { await self.syncConfirmedPhone(userId: userId) }
                 return
@@ -134,6 +141,7 @@ final class AuthService {
                 .select().single().execute().value
             guard self.userId == userId else { return }
             currentProfile = inserted
+            Analytics.identify(userId: userId, email: email, name: inserted.displayName)
         } catch {
             errorMessage = "Couldn't load your profile: \(error.localizedDescription)"
         }
@@ -352,6 +360,7 @@ final class AuthService {
         state = .signedOut
         Self.clearCachedProfile()
         WidgetSnapshotRefresher.clear()
+        Analytics.reset()
         try? await supabase.auth.signOut(scope: .local)
     }
 }

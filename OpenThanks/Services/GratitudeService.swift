@@ -500,12 +500,23 @@ enum GratitudeService {
         contentType: String,
         userId: UUID
     ) async throws -> URL {
-        let ext = contentType.contains("png") ? "png" : "jpg"
+        let ext = Self.fileExtension(for: contentType)
         let path = "\(userId.uuidString.lowercased())/\(UUID().uuidString.lowercased()).\(ext)"
         try await supabase.storage
             .from(bucket)
             .upload(path, data: data, options: .init(contentType: contentType, upsert: true))
         return try supabase.storage.from(bucket).getPublicURL(path: path)
+    }
+
+    private static func fileExtension(for contentType: String) -> String {
+        let lower = contentType.lowercased()
+        if lower.contains("png") { return "png" }
+        if lower.contains("webp") { return "webp" }
+        if lower.contains("mp4") { return "mp4" }
+        if lower.contains("webm") { return "webm" }
+        if lower.contains("quicktime") || lower.contains("mov") { return "mov" }
+        if lower.contains("jpeg") || lower.contains("jpg") { return "jpg" }
+        return "bin"
     }
 
     // MARK: Hearts
