@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        CalendarGratitudeBackgroundRefresh.register()
+        CalendarGratitudeBackgroundRefresh.schedule()
         return true
     }
 
@@ -81,23 +83,44 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let info = response.notification.request.content.userInfo
         guard let type = info[NotificationService.thankReminderTypeKey] as? String else { return }
 
-        await MainActor.run {
-            switch type {
-            case NotificationService.thankReminderTypeValue:
-                let name = info[NotificationService.thankReminderNameKey] as? String
+        switch type {
+        case NotificationService.thankReminderTypeValue:
+            let name = info[NotificationService.thankReminderNameKey] as? String
+            await MainActor.run {
                 ComposeLaunchBridge.shared.queue(recipientName: name)
-            case NotificationService.fridayReminderTypeValue:
-                ComposeLaunchBridge.shared.queue()
-            default:
-                break
             }
+        case NotificationService.fridayReminderTypeValue:
+            await MainActor.run {
+                ComposeLaunchBridge.shared.queue()
+            }
+        case NotificationService.calendarNudgeTypeValue:
+            let name = info[NotificationService.calendarNudgeNameKey] as? String
+            let message = info[NotificationService.calendarNudgeMessageKey] as? String
+            let email = info[NotificationService.calendarNudgeEmailKey] as? String
+            var profile: Profile?
+            if let idString = info[NotificationService.calendarNudgeProfileIdKey] as? String,
+               let id = UUID(uuidString: idString) {
+                profile = try? await GratitudeService.profile(id: id)
+            }
+            if profile == nil, let email {
+                profile = try? await GratitudeService.profile(email: email)
+            }
+            await MainActor.run {
+                ComposeLaunchBridge.shared.queue(
+                    recipientName: name,
+                    message: message,
+                    profile: profile
+                )
+            }
+        default:
+            break
         }
     }
 }
 
 struct RootView: View {
     enum HomeGate {
-        case checking, needsNotifications, needsSiriTip, ready
+        case checking, needsNotifications, needsCalendar, needsSiriTip, ready
     }
 
     @Environment(AuthService.self) private var auth
@@ -105,9 +128,12 @@ struct RootView: View {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
     /// One-time gate after profile is ready — ask for Friday reminder notifications.
     @AppStorage("hasCompletedNotificationPrompt") private var hasCompletedNotificationPrompt = false
+    /// One-time gate for calendar access (evening thank-you nudges).
+    @AppStorage("hasCompletedCalendarPrompt") private var hasCompletedCalendarPrompt = false
     /// One-time tip so people discover App Shortcuts / Siri phrases.
     @AppStorage("hasCompletedSiriPrompt") private var hasCompletedSiriPrompt = false
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
+    @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @State private var homeGate: HomeGate = .checking
 
     var body: some View {
@@ -157,6 +183,11 @@ struct RootView: View {
         case .needsNotifications:
             NotificationPermissionView {
                 hasCompletedNotificationPrompt = true
+                homeGate = nextGateAfterNotifications()
+            }
+        case .needsCalendar:
+            CalendarPermissionView {
+                hasCompletedCalendarPrompt = true
                 homeGate = hasCompletedSiriPrompt ? .ready : .needsSiriTip
             }
         case .needsSiriTip:
@@ -169,9 +200,18 @@ struct RootView: View {
         }
     }
 
+    private func nextGateAfterNotifications() -> HomeGate {
+        if !hasCompletedCalendarPrompt { return .needsCalendar }
+        if !hasCompletedSiriPrompt { return .needsSiriTip }
+        return .ready
+    }
+
     private var effectiveHomeGate: HomeGate {
         if !hasCompletedNotificationPrompt {
             return homeGate == .needsNotifications ? .needsNotifications : homeGate
+        }
+        if !hasCompletedCalendarPrompt {
+            return homeGate == .needsCalendar ? .needsCalendar : homeGate
         }
         if !hasCompletedSiriPrompt {
             return .needsSiriTip
@@ -183,7 +223,7 @@ struct RootView: View {
     private var homeGateTaskID: String {
         let user = auth.userId?.uuidString ?? "out"
         let ready = auth.hasResolvedProfile && auth.currentProfile?.isCompleteForApp == true
-        return "\(user)-\(ready)-\(hasCompletedNotificationPrompt)-\(hasCompletedSiriPrompt)"
+        return "\(user)-\(ready)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)"
     }
 
     private func resolveHomeGate() async {
@@ -210,8 +250,46 @@ struct RootView: View {
             }
         }
 
+        if !hasCompletedCalendarPrompt {
+            if CalendarMeetingService.hasFullAccess {
+                // Already granted (e.g. reinstall) — keep nudge on and schedule.
+                calendarNudgeEnabled = true
+                var emails = Set<String>()
+                if let email = auth.currentProfile?.email?.lowercased() {
+                    emails.insert(email)
+                }
+                await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
+                    true,
+                    authorId: auth.userId,
+                    selfEmails: emails
+                )
+                CalendarGratitudeBackgroundRefresh.schedule()
+                hasCompletedCalendarPrompt = true
+            } else if CalendarMeetingService.accessState == .notDetermined {
+                homeGate = .needsCalendar
+                return
+            } else {
+                // Denied / restricted / write-only — don't keep prompting.
+                calendarNudgeEnabled = false
+                hasCompletedCalendarPrompt = true
+            }
+        }
+
         if fridayReminderEnabled, hasCompletedNotificationPrompt {
             await NotificationService.refreshFridayReminderIfEnabled(true)
+        }
+
+        if calendarNudgeEnabled, hasCompletedCalendarPrompt {
+            var emails = Set<String>()
+            if let email = auth.currentProfile?.email?.lowercased() {
+                emails.insert(email)
+            }
+            await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
+                true,
+                authorId: auth.userId,
+                selfEmails: emails
+            )
+            CalendarGratitudeBackgroundRefresh.schedule()
         }
 
         if !hasCompletedSiriPrompt {

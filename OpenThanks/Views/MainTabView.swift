@@ -25,6 +25,7 @@ struct MainTabView: View {
     @Environment(AuthService.self) private var auth
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
+    @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -75,6 +76,20 @@ struct MainTabView: View {
             presentPendingTabIfNeeded()
             if fridayReminderEnabled {
                 Task { await NotificationService.refreshFridayReminderIfEnabled(true) }
+            }
+            if calendarNudgeEnabled {
+                Task {
+                    var emails = Set<String>()
+                    if let email = auth.currentProfile?.email?.lowercased() {
+                        emails.insert(email)
+                    }
+                    await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
+                        true,
+                        authorId: auth.userId,
+                        selfEmails: emails
+                    )
+                    CalendarGratitudeBackgroundRefresh.schedule()
+                }
             }
         }
         .animation(.easeInOut(duration: 0.18), value: tab)

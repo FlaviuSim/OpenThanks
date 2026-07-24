@@ -688,6 +688,20 @@ enum GratitudeService {
             .execute().value
     }
 
+    /// Lookup by email (calendar attendee → OpenThanks member chip).
+    static func profile(email: String) async throws -> Profile? {
+        let normalized = email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !normalized.isEmpty else { return nil }
+        let rows: [Profile] = try await supabase.from("profiles")
+            .select()
+            .eq("email", value: normalized)
+            .limit(1)
+            .execute().value
+        return rows.first
+    }
+
     /// People search by name or username (same filters as the web home search).
     static func searchProfiles(query: String, limit: Int = 10) async throws -> [Profile] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)

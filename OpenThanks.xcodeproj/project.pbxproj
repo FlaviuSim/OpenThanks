@@ -21,6 +21,7 @@
 		3857BA9E93809E31825460B2 /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		3941394E94699B39AF29657B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */; };
 		3C8C00DFC8C051B256BCB340 /* HeartedByView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */; };
+		3F808764AE86830A598D0F51 /* GratitudeOpportunityRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */; };
 		42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */; };
 		4DB57AC6BE2F0C7305871D75 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
 		4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E451C434563DD8702080E34 /* WelcomeView.swift */; };
@@ -38,6 +39,7 @@
 		7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */; };
 		7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A8D2450B91723A8252B49E /* ClaimAppreciationView.swift */; };
 		7C13BB5EF1BBAB56E55F6164 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
+		7E2EFE12321E2ECFE1CC661A /* CalendarPermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBB847CC3698D40E17D709A /* CalendarPermissionView.swift */; };
 		8388BA22A31E18A68F9A622F /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88382B39EC95AA443DDE696C /* ShareViewController.swift */; };
 		856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B863B534795C67594B79C1DC /* TabLaunchBridge.swift */; };
 		87E3E62EF67CABA629297F7B /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
@@ -56,6 +58,7 @@
 		C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */; };
 		C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C5038208573746C9F0E519 /* AcceptPendingCard.swift */; };
 		C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */; };
+		C84278A64A98CA238E9303C3 /* CalendarGratitudeBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */; };
 		C8DB929803C920F0E53E0682 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0320D5FF717E6D107693552A /* Supabase */; };
 		CBD66B58879CB43B73DD5D59 /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		D114CD44AF748B2FE6CCBCAB /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
@@ -71,6 +74,7 @@
 		F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41CEF2962FB940913427807 /* FeedView.swift */; };
 		FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */; };
 		FEB2414FA2688F0D2F142C26 /* OpenThanksWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B032022447488A7BF2766 /* OpenThanksWidgetBundle.swift */; };
+		FF60DD89D5A059CB7194C72C /* CalendarMeetingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -120,13 +124,16 @@
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
 		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
 		39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
+		3BBB847CC3698D40E17D709A /* CalendarPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPermissionView.swift; sourceTree = "<group>"; };
 		3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPalette.swift; sourceTree = "<group>"; };
 		3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppGroup+Files.swift"; sourceTree = "<group>"; };
 		432D87DB1FBDF467DB01585D /* SiriIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntroView.swift; sourceTree = "<group>"; };
 		475B3E155C6168A97BD17C48 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		50A007648B028C626C69ADFB /* NotificationPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionView.swift; sourceTree = "<group>"; };
+		566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarGratitudeBackgroundRefresh.swift; sourceTree = "<group>"; };
 		619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6386C42954F7E470B63181A1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeOpportunityRanker.swift; sourceTree = "<group>"; };
 		6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeDetailView.swift; sourceTree = "<group>"; };
 		7180CB985A04524939619A0F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		7BEFAF07C21753839CBCCE3B /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
@@ -159,6 +166,7 @@
 		D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareSheet.swift; sourceTree = "<group>"; };
 		D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchBridge.swift; sourceTree = "<group>"; };
 		D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropper.swift; sourceTree = "<group>"; };
+		DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMeetingService.swift; sourceTree = "<group>"; };
 		DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationAI.swift; sourceTree = "<group>"; };
 		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeSharePayload.swift; sourceTree = "<group>"; };
@@ -195,9 +203,12 @@
 			children = (
 				DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */,
 				1EC0A8CDE94660605C46C812 /* AuthService.swift */,
+				566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */,
+				DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */,
 				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
+				65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */,
 				0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */,
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
@@ -218,6 +229,7 @@
 		473A987E8ECF1A6B6E8E6481 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				3BBB847CC3698D40E17D709A /* CalendarPermissionView.swift */,
 				50A007648B028C626C69ADFB /* NotificationPermissionView.swift */,
 				A25AD150B863DF00ABC41E23 /* OnboardingView.swift */,
 				2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */,
@@ -541,6 +553,9 @@
 				13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */,
 				BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */,
 				7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */,
+				C84278A64A98CA238E9303C3 /* CalendarGratitudeBackgroundRefresh.swift in Sources */,
+				FF60DD89D5A059CB7194C72C /* CalendarMeetingService.swift in Sources */,
+				7E2EFE12321E2ECFE1CC661A /* CalendarPermissionView.swift in Sources */,
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
 				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
 				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
@@ -553,6 +568,7 @@
 				EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */,
 				1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */,
 				1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */,
+				3F808764AE86830A598D0F51 /* GratitudeOpportunityRanker.swift in Sources */,
 				0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */,
 				3C8C00DFC8C051B256BCB340 /* HeartedByView.swift in Sources */,
 				E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */,

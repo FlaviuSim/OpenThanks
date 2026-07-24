@@ -37,6 +37,18 @@
 	<string>Attach a photo to your appreciation.</string>
 	<key>NSSiriUsageDescription</key>
 	<string>OpenThanks uses Siri to help you thank someone or start an appreciation.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>OpenThanks reads today’s meetings to suggest one person you might want to thank each evening. Events stay on your device.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>OpenThanks reads today’s meetings and attendees to suggest one person you might want to thank each evening. Events stay on your device.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.openthanks.app.calendar-gratitude-refresh</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

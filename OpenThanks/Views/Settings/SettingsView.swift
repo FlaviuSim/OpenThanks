@@ -7,7 +7,19 @@ struct SettingsView: View {
     @State private var showEditProfile = false
     @State private var notificationError: String?
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
+    @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+    @State private var calendarAccessTick = 0
+
+    private var calendarAccessLabel: String {
+        _ = calendarAccessTick
+        switch CalendarMeetingService.accessState {
+        case .fullAccess: return "Allowed"
+        case .writeOnly: return "Write only — needs full access"
+        case .denied, .restricted: return "Off"
+        case .notDetermined: return "Not set"
+        }
+    }
 
     private var lightModeEnabled: Binding<Bool> {
         Binding(
@@ -55,6 +67,42 @@ struct SettingsView: View {
                         }
                     }
                     .tint(Theme.coral)
+
+                    Toggle(isOn: $calendarNudgeEnabled) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Evening thank-you nudge")
+                            Text("Weekdays at 8:00 PM, when today’s calendar suggests someone to thank. Events stay on your device.")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .tint(Theme.coral)
+
+                    if calendarNudgeEnabled {
+                        HStack {
+                            Text("Calendar access")
+                                .foregroundStyle(Theme.textPrimary)
+                            Spacer()
+                            Text(calendarAccessLabel)
+                                .font(Theme.body(13))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+
+                        if CalendarMeetingService.accessState != .fullAccess {
+                            Button("Allow Calendar") {
+                                Task {
+                                    let granted = await CalendarMeetingService.requestAccess()
+                                    calendarAccessTick += 1
+                                    if granted {
+                                        await refreshCalendarNudge()
+                                    } else {
+                                        notificationError = "Calendar access is required for evening thank-you nudges. You can enable it in Settings → OpenThanks."
+                                    }
+                                }
+                            }
+                            .foregroundStyle(Theme.coral)
+                        }
+                    }
 
                     if let notificationError {
                         Text(notificationError)
@@ -135,10 +183,54 @@ struct SettingsView: View {
                     }
                 }
             }
+            .onChange(of: calendarNudgeEnabled) { _, enabled in
+                notificationError = nil
+                Task {
+                    if enabled {
+                        let didEnable = await NotificationService.enableCalendarGratitudeNudge(
+                            authorId: auth.userId,
+                            selfEmails: selfEmails
+                        )
+                        calendarAccessTick += 1
+                        if !didEnable {
+                            calendarNudgeEnabled = false
+                            if !CalendarMeetingService.hasFullAccess {
+                                notificationError = "Calendar access is required for evening thank-you nudges."
+                            } else {
+                                notificationError = "Notifications are off. Enable them in Settings to get evening nudges."
+                            }
+                        } else {
+                            CalendarGratitudeBackgroundRefresh.schedule()
+                        }
+                    } else {
+                        await NotificationService.disableCalendarGratitudeNudge()
+                    }
+                }
+            }
             .task {
                 guard let userId = auth.userId else { return }
                 pendingCount = (try? await GratitudeService.pendingCount(authorId: userId)) ?? 0
+                calendarAccessTick += 1
             }
+        }
+    }
+
+    private var selfEmails: Set<String> {
+        var emails = Set<String>()
+        if let email = auth.currentProfile?.email?.lowercased() {
+            emails.insert(email)
+        }
+        return emails
+    }
+
+    private func refreshCalendarNudge() async {
+        await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
+            calendarNudgeEnabled,
+            authorId: auth.userId,
+            selfEmails: selfEmails
+        )
+        if calendarNudgeEnabled {
+            CalendarGratitudeBackgroundRefresh.schedule()
         }
     }
 

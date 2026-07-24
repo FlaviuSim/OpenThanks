@@ -112,6 +112,137 @@ enum NotificationService {
             .removePendingNotificationRequests(withIdentifiers: [fridayReminderId])
     }
 
+    // MARK: Calendar evening gratitude nudge
+
+    private static let calendarNudgeId = "calendar-gratitude-nudge"
+    static let calendarNudgeTypeValue = "calendar_gratitude_nudge"
+    static let calendarNudgeNameKey = "recipientName"
+    static let calendarNudgeEmailKey = "recipientEmail"
+    static let calendarNudgeMessageKey = "messageDraft"
+    static let calendarNudgeMeetingKey = "meetingTitle"
+    static let calendarNudgeProfileIdKey = "profileId"
+
+    /// Weekday 8:00 PM local — only when today’s calendar yields a strong candidate.
+    static func refreshCalendarGratitudeNudgeIfEnabled(
+        _ enabled: Bool,
+        authorId: UUID? = nil,
+        selfEmails: Set<String> = []
+    ) async {
+        guard enabled else {
+            await disableCalendarGratitudeNudge()
+            return
+        }
+        guard await isAuthorized() else {
+            await disableCalendarGratitudeNudge()
+            return
+        }
+        guard CalendarMeetingService.hasFullAccess else {
+            await disableCalendarGratitudeNudge()
+            return
+        }
+
+        let cal = Calendar.current
+        let now = Date()
+        let weekday = cal.component(.weekday, from: now)
+        if weekday == 1 || weekday == 7 {
+            await disableCalendarGratitudeNudge()
+            return
+        }
+
+        guard let eightPM = cal.date(bySettingHour: 20, minute: 0, second: 0, of: now) else {
+            await disableCalendarGratitudeNudge()
+            return
+        }
+
+        // Past tonight’s window — clear and wait for tomorrow’s refresh.
+        if now >= eightPM {
+            await disableCalendarGratitudeNudge()
+            return
+        }
+
+        let resolvedAuthorId: UUID?
+        if let authorId {
+            resolvedAuthorId = authorId
+        } else if let session = try? await supabase.auth.session {
+            resolvedAuthorId = session.user.id
+        } else {
+            resolvedAuthorId = nil
+        }
+
+        guard let nudge = await GratitudeOpportunityRanker.pickNudge(
+            for: now,
+            authorId: resolvedAuthorId,
+            selfEmails: selfEmails,
+            now: now
+        ) else {
+            await disableCalendarGratitudeNudge()
+            return
+        }
+
+        await disableCalendarGratitudeNudge()
+
+        let content = UNMutableNotificationContent()
+        content.title = "Someone to thank tonight?"
+        let meetingBit = nudge.meetingTitle.count <= 40
+            ? " about \(nudge.meetingTitle)"
+            : ""
+        content.body = "You met with \(nudge.personName)\(meetingBit) — send a quick thanks?"
+        content.sound = .default
+
+        var info: [String: Any] = [
+            fridayReminderTypeKey: calendarNudgeTypeValue,
+            calendarNudgeNameKey: nudge.personName,
+            calendarNudgeMeetingKey: nudge.meetingTitle,
+        ]
+        if let email = nudge.email {
+            info[calendarNudgeEmailKey] = email
+        }
+        if let draft = nudge.messageDraft {
+            info[calendarNudgeMessageKey] = draft
+        }
+        if let profileId = nudge.profile?.id {
+            info[calendarNudgeProfileIdKey] = profileId.uuidString
+        }
+        content.userInfo = info
+
+        let components = cal.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: eightPM
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: calendarNudgeId,
+            content: content,
+            trigger: trigger
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            // Leave cancelled if scheduling fails.
+        }
+    }
+
+    /// Enables the evening nudge: notification permission + calendar access, then schedule.
+    static func enableCalendarGratitudeNudge(
+        authorId: UUID?,
+        selfEmails: Set<String>
+    ) async -> Bool {
+        guard await requestAuthorizationAndRegisterForPushes() else { return false }
+        guard await CalendarMeetingService.requestAccess() else { return false }
+        await refreshCalendarGratitudeNudgeIfEnabled(
+            true,
+            authorId: authorId,
+            selfEmails: selfEmails
+        )
+        return true
+    }
+
+    static func disableCalendarGratitudeNudge() async {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [calendarNudgeId])
+    }
+
     /// Local reminder from Siri — tapping it opens compose for that person.
     static let thankReminderTypeKey = "type"
     static let thankReminderTypeValue = "thank_reminder"
