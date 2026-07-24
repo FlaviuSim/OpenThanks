@@ -394,7 +394,7 @@ struct GratitudeCard: View {
                 .buttonStyle(.plain)
             }
 
-            HStack(spacing: 18) {
+            HStack(spacing: 12) {
                 Button(action: onHeart) {
                     HStack(spacing: 5) {
                         Image(systemName: isHearted ? "heart.fill" : "heart")
@@ -404,7 +404,11 @@ struct GratitudeCard: View {
                     }
                     .font(Theme.body(14, weight: .medium))
                 }
-                Spacer()
+                .accessibilityLabel(isHearted ? "Remove heart" : "Heart")
+
+                HeartedByView(gratitudeId: gratitude.id, heartCount: gratitude.heartCount)
+
+                Spacer(minLength: 0)
                 if gratitude.visibility == .private {
                     Label("Private", systemImage: "lock.fill")
                         .font(Theme.body(12, weight: .medium))

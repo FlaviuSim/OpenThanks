@@ -522,6 +522,35 @@ enum GratitudeService {
         return Set(rows.map(\.gratitude_id))
     }
 
+    /// People who hearted an appreciation, most recent first.
+    /// `hearts.user_id` points at auth.users, so profiles are fetched in a
+    /// second query (same approach as the web `/api/hearts` endpoint).
+    static func hearters(for gratitudeId: UUID, limit: Int = 50) async throws -> (count: Int, hearters: [Profile]) {
+        struct HeartRow: Decodable {
+            let userId: UUID
+            enum CodingKeys: String, CodingKey { case userId = "user_id" }
+        }
+
+        let rows: [HeartRow] = try await supabase.from("hearts")
+            .select("user_id, created_at")
+            .eq("gratitude_id", value: gratitudeId)
+            .order("created_at", ascending: false)
+            .execute().value
+
+        let count = rows.count
+        guard count > 0 else { return (0, []) }
+
+        let previewIds = Array(rows.prefix(limit).map(\.userId))
+        let profiles: [Profile] = try await supabase.from("profiles")
+            .select("id, username, full_name, avatar_url, headline")
+            .in("id", values: previewIds.map(\.uuidString))
+            .execute().value
+
+        let byId = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
+        let ordered = previewIds.compactMap { byId[$0] }
+        return (count, ordered)
+    }
+
     static func heart(gratitudeId: UUID, userId: UUID, authorId: UUID) async throws {
         try await supabase.from("hearts")
             .insert(["gratitude_id": gratitudeId.uuidString,

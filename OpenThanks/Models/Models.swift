@@ -35,6 +35,15 @@ struct Profile: Codable, Identifiable, Hashable {
     }
 
     var displayName: String { fullName ?? "@\(username)" }
+    /// First name for compact “hearted by” summaries (matches the web UI).
+    var firstName: String {
+        if let fullName,
+           let first = fullName.split(whereSeparator: \.isWhitespace).first,
+           !first.isEmpty {
+            return String(first)
+        }
+        return displayName
+    }
     var avatarURL: URL? { AppConfig.mediaURL(from: avatarUrl) }
     var webProfileURL: URL { AppConfig.webAppURL.appending(path: username) }
     var isCompleteForApp: Bool {
