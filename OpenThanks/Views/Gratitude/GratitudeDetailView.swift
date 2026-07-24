@@ -63,11 +63,13 @@ struct GratitudeDetailView: View {
                 }
             }
 
-            Text(gratitude.message)
-                .font(Theme.display(19, weight: .regular))
-                .foregroundStyle(Theme.textPrimary)
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
+            LinkifiedText(
+                text: gratitude.message,
+                font: Theme.display(19, weight: .regular),
+                foreground: Theme.textPrimary
+            )
+            .lineSpacing(4)
+            .fixedSize(horizontal: false, vertical: true)
 
             if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
                 Button { fullScreenImageURL = url } label: {

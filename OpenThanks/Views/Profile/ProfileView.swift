@@ -322,11 +322,13 @@ struct UserProfileView: View {
                                     .font(Theme.body(14, weight: .semibold))
                                     .foregroundStyle(Theme.textPrimary)
                                     .multilineTextAlignment(.leading)
-                                Text(g.message)
-                                    .font(Theme.body(13))
-                                    .foregroundStyle(Theme.textSecondary)
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.leading)
+                                LinkifiedText(
+                                    text: g.message,
+                                    font: Theme.body(13),
+                                    foreground: Theme.textSecondary
+                                )
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
                                 if g.visibility == .private {
                                     Label("Private", systemImage: "lock.fill")
                                         .font(Theme.body(11, weight: .medium))
@@ -401,11 +403,13 @@ struct UserProfileView: View {
                     .foregroundStyle(Theme.textSecondary))
                     .multilineTextAlignment(.leading)
                 if let message = ins.gratitude?.message {
-                    Text("“\(message)”")
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.textSecondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                    LinkifiedText(
+                        text: "“\(message)”",
+                        font: Theme.body(13),
+                        foreground: Theme.textSecondary
+                    )
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                 }
             }
             Spacer()

@@ -378,12 +378,14 @@ struct GratitudeCard: View {
             }
 
             NavigationLink(value: gratitude) {
-                Text(gratitude.message)
-                    .font(Theme.body(15))
-                    .foregroundStyle(Theme.textPrimary.opacity(0.92))
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                LinkifiedText(
+                    text: gratitude.message,
+                    font: Theme.body(15),
+                    foreground: Theme.textPrimary.opacity(0.92)
+                )
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
 

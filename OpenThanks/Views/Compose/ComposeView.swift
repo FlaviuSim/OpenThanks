@@ -48,6 +48,10 @@ struct ComposeView: View {
     @State private var recipientDidSearch = false
     @FocusState private var messageFocused: Bool
     @FocusState private var recipientFocused: Bool
+    @State private var showAddLinkSheet = false
+    @State private var linkLabelDraft = ""
+    @State private var linkURLDraft = ""
+    @State private var linkReplaceRange = NSRange(location: 0, length: 0)
 
     private let maxLength = 1500
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨", "🌟", "💐"]
@@ -416,25 +420,31 @@ struct ComposeView: View {
     private var messageSection: some View {
         field(label: "Your message") {
             VStack(spacing: 0) {
-                TextEditor(text: $message)
-                    .focused($messageFocused)
-                    .scrollContentBackground(.hidden)
+                ZStack(alignment: .topLeading) {
+                    MessageEditor(
+                        text: $message,
+                        minHeight: 160,
+                        isEditable: !(loadingPhoto || sending || polishing != nil),
+                        onAddLink: { label, range in
+                            beginAddLink(label: label, range: range)
+                        },
+                        onAI: AppreciationAI.isAvailable ? { Task { await runAI(.warmer) } } : nil,
+                        aiTitle: polishing != nil ? "Warming up…" : "Make it warmer",
+                        aiEnabled: polishing == nil
+                            && !sending
+                            && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
                     .frame(minHeight: 160)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 10)
-                    .padding(.bottom, 6)
-                    .foregroundStyle(Theme.textPrimary)
-                    .disabled(loadingPhoto || sending || polishing != nil)
-                    .overlay(alignment: .topLeading) {
-                        if message.isEmpty {
-                            Text("What would you like to say?")
-                                .font(Theme.body(16))
-                                .foregroundStyle(Theme.textTertiary)
-                                .padding(.top, 18)
-                                .padding(.leading, 16)
-                                .allowsHitTesting(false)
-                        }
+
+                    if message.isEmpty {
+                        Text("What would you like to say?")
+                            .font(Theme.body(16))
+                            .foregroundStyle(Theme.textTertiary)
+                            .padding(.top, 18)
+                            .padding(.leading, 16)
+                            .allowsHitTesting(false)
                     }
+                }
 
                 Divider().overlay(Theme.hairline)
 
@@ -442,6 +452,23 @@ struct ComposeView: View {
                     emojiShortcuts
 
                     HStack(alignment: .center, spacing: 10) {
+                        Button {
+                            beginAddLink(label: "", range: NSRange(location: (message as NSString).length, length: 0))
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 12, weight: .bold))
+                                Text("Add link")
+                                    .font(Theme.body(13, weight: .semibold))
+                            }
+                            .foregroundStyle(Theme.coral)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Theme.coral.opacity(0.12), in: Capsule())
+                        }
+                        .buttonStyle(ScalePressButtonStyle())
+                        .disabled(sending || polishing != nil)
+
                         if AppreciationAI.isAvailable {
                             aiChip
                         }
@@ -469,6 +496,76 @@ struct ComposeView: View {
                 .padding(12)
             }
         }
+        .sheet(isPresented: $showAddLinkSheet) {
+            addLinkSheet
+        }
+    }
+
+    private var addLinkSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Link text", text: $linkLabelDraft)
+                        .textInputAutocapitalization(.sentences)
+                    TextField("https://", text: $linkURLDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                } footer: {
+                    Text("Highlight text in your message, then Add link — or enter both the label and URL here. Links stay as plain text and open when someone reads the appreciation.")
+                        .font(Theme.body(12))
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
+            .navigationTitle("Add link")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showAddLinkSheet = false }
+                        .foregroundStyle(Theme.coral)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") { applyLink() }
+                        .font(Theme.body(16, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                        .disabled(!canApplyLink)
+                }
+            }
+            .syncAppAppearance()
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var canApplyLink: Bool {
+        !linkLabelDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && LinkifiedText.normalizedURL(linkURLDraft) != nil
+    }
+
+    private func beginAddLink(label: String, range: NSRange) {
+        linkLabelDraft = label
+        linkURLDraft = ""
+        linkReplaceRange = range
+        showAddLinkSheet = true
+        messageFocused = false
+    }
+
+    private func applyLink() {
+        guard let markdown = LinkifiedText.markdownLink(label: linkLabelDraft, urlRaw: linkURLDraft) else {
+            return
+        }
+        let ns = message as NSString
+        let maxLoc = ns.length
+        let location = min(max(linkReplaceRange.location, 0), maxLoc)
+        let length = min(max(linkReplaceRange.length, 0), maxLoc - location)
+        let range = NSRange(location: location, length: length)
+        message = ns.replacingCharacters(in: range, with: markdown)
+        if message.count > maxLength {
+            message = String(message.prefix(maxLength))
+        }
+        showAddLinkSheet = false
+        messageFocused = true
     }
 
     private var photoSection: some View {

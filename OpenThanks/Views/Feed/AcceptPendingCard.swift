@@ -39,10 +39,12 @@ struct AcceptPendingCard: View {
                     .foregroundStyle(Theme.textSecondary)
             }
 
-            Text(gratitude.message)
-                .font(Theme.body(15))
-                .foregroundStyle(Theme.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+            LinkifiedText(
+                text: gratitude.message,
+                font: Theme.body(15),
+                foreground: Theme.textPrimary
+            )
+            .fixedSize(horizontal: false, vertical: true)
 
             if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
                 Button { fullScreenImageURL = url } label: {

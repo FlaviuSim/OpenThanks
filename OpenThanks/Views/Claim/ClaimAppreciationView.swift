@@ -70,11 +70,13 @@ struct PendingAppreciationReviewView: View {
                         }
                     }
 
-                    Text(gratitude.message)
-                        .font(Theme.display(18, weight: .regular))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
+                    LinkifiedText(
+                        text: gratitude.message,
+                        font: Theme.display(18, weight: .regular),
+                        foreground: Theme.textPrimary
+                    )
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
 
                     if let url = gratitude.mediaURL, gratitude.mediaType?.hasPrefix("video") != true {
                         FlexiblePostImage(url: url, maxHeight: 420)

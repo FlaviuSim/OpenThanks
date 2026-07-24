@@ -325,11 +325,13 @@ struct PendingAppreciationsView: View {
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textTertiary)
                         }
-                        Text(g.message)
-                            .font(Theme.body(13))
-                            .foregroundStyle(Theme.textSecondary)
-                            .lineLimit(3)
-                            .multilineTextAlignment(.leading)
+                        LinkifiedText(
+                            text: g.message,
+                            font: Theme.body(13),
+                            foreground: Theme.textSecondary
+                        )
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
                         Text("Pending — tap to share the claim link")
                             .font(Theme.body(12, weight: .semibold))
                             .foregroundStyle(Theme.coral)
