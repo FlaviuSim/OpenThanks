@@ -54,6 +54,17 @@ struct DeepLinkHostModifier: ViewModifier {
                     }
                     .appDestinations()
             }
+        case .pendingSent(let resendId):
+            NavigationStack {
+                PendingAppreciationsView(highlightId: resendId)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close") { deepLinks.clear() }
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .appDestinations()
+            }
         }
     }
 }

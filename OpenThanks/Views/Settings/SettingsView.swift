@@ -241,12 +241,15 @@ struct SettingsView: View {
 
 struct PendingAppreciationsView: View {
     @Environment(AuthService.self) private var auth
+    /// When opened from an author-reminder link (`?resend=`), open that item's share sheet.
+    var highlightId: UUID? = nil
     @State private var pending: [Gratitude] = []
     @State private var sharing: Gratitude?
     @State private var editing: Gratitude?
     @State private var deleting: Gratitude?
     @State private var busyId: UUID?
     @State private var errorMessage: String?
+    @State private var didApplyHighlight = false
 
     var body: some View {
         ScrollView {
@@ -306,6 +309,14 @@ struct PendingAppreciationsView: View {
             Text("This pending appreciation will be removed permanently. The claim link will stop working.")
         }
         .task { await reload() }
+    }
+
+    private func applyHighlightIfNeeded() {
+        guard !didApplyHighlight, let highlightId else { return }
+        didApplyHighlight = true
+        if let match = pending.first(where: { $0.id == highlightId }) {
+            sharing = match
+        }
     }
 
     private func pendingCard(_ g: Gratitude) -> some View {
@@ -404,6 +415,7 @@ struct PendingAppreciationsView: View {
     private func reload() async {
         guard let userId = auth.userId else { return }
         pending = (try? await GratitudeService.pending(authorId: userId)) ?? []
+        applyHighlightIfNeeded()
     }
 
     private func delete(_ gratitude: Gratitude) async {

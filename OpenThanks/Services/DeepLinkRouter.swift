@@ -11,6 +11,8 @@ final class DeepLinkRouter {
         case gratitude(id: UUID)
         case slug(String)
         case profile(username: String)
+        /// Author's Pending Appreciations (optional `?resend=` highlight).
+        case pendingSent(resendId: UUID?)
 
         var id: String {
             switch self {
@@ -18,6 +20,8 @@ final class DeepLinkRouter {
             case .gratitude(let id): "gratitude-\(id.uuidString)"
             case .slug(let slug): "slug-\(slug)"
             case .profile(let username): "profile-\(username)"
+            case .pendingSent(let resendId):
+                "pending-sent-\(resendId?.uuidString ?? "all")"
             }
         }
     }
@@ -25,7 +29,7 @@ final class DeepLinkRouter {
     private static let hosts: Set<String> = ["openthanks.com", "www.openthanks.com"]
 
     private static let reservedRoots: Set<String> = [
-        "auth", "api", "feed", "pending", "notifications", "donate",
+        "auth", "api", "feed", "pending", "sent", "notifications", "donate",
         "profile", "privacy", "terms", "unsubscribe", "claim-appreciation",
         "claim", "for", "gratitude", "ingest", "_next",
     ]
@@ -74,6 +78,10 @@ final class DeepLinkRouter {
             let slug = parts.dropFirst().joined(separator: "/")
             guard !slug.isEmpty else { return nil }
             return .slug(slug)
+        case "pending", "sent":
+            // Author reminder emails: /pending?resend=<id> or legacy /sent?resend=<id>
+            let resendId = UUID(uuidString: queryValue(url, name: "resend") ?? "")
+            return .pendingSent(resendId: resendId)
         default:
             guard parts.count == 1,
                   !reservedRoots.contains(first),
@@ -81,6 +89,13 @@ final class DeepLinkRouter {
             else { return nil }
             return .profile(username: parts[0].lowercased())
         }
+    }
+
+    private static func queryValue(_ url: URL, name: String) -> String? {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name.lowercased() == name.lowercased() })?
+            .value
     }
 
     private static func isPlausibleUsername(_ value: String) -> Bool {
