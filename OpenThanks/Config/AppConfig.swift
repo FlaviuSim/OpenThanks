@@ -23,7 +23,7 @@ enum AppConfig {
     /// Also register in Supabase Auth → URL Configuration → Redirect URLs.
     static let redirectURL = URL(string: "openthanks://auth-callback")!
 
-    /// HTTPS OAuth lander on the website. Supabase redirects here after Google;
+    /// HTTPS OAuth lander on the website. Supabase redirects here after Google/LinkedIn;
     /// the page (or iOS 17.4+ https callback) hands the PKCE `code` back to the app.
     /// Must be listed in Supabase Redirect URLs: https://openthanks.com/auth/mobile
     static let oauthRedirectURL = URL(string: "https://openthanks.com/auth/mobile")!

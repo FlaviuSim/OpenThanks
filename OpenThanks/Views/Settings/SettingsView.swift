@@ -61,7 +61,7 @@ struct SettingsView: View {
                     Toggle(isOn: $fridayReminderEnabled) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Friday Gratitude Reminder")
-                            Text("Every Friday at 9:00 AM — a new question each week, matching your email.")
+                            Text("Every Friday at 9:00 AM — a gentle prompt.")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -71,7 +71,7 @@ struct SettingsView: View {
                     Toggle(isOn: $calendarNudgeEnabled) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Evening Thank-You Nudge")
-                            Text("Weekdays at 8:00 PM, when today’s calendar suggests someone to thank. Events stay on your device.")
+                            Text("Weekdays at 8:00 PM when your Calendar suggests someone to thank. 100% private—your calendar data never leaves your device.")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
                         }

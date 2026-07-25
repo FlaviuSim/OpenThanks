@@ -95,22 +95,24 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 ComposeLaunchBridge.shared.queue(analyticsSource: "notification_friday")
             }
         case NotificationService.calendarNudgeTypeValue:
-            let name = info[NotificationService.calendarNudgeNameKey] as? String
+            let name = (info[NotificationService.calendarNudgeNameKey] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             let message = info[NotificationService.calendarNudgeMessageKey] as? String
-            let email = info[NotificationService.calendarNudgeEmailKey] as? String
-            var profile: Profile?
-            if let idString = info[NotificationService.calendarNudgeProfileIdKey] as? String,
-               let id = UUID(uuidString: idString) {
-                profile = try? await GratitudeService.profile(id: id)
-            }
-            if profile == nil, let email {
-                profile = try? await GratitudeService.profile(email: email)
+            let email = (info[NotificationService.calendarNudgeEmailKey] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            // Prefer calendar email in To — no OpenThanks profile lookup.
+            let toField: String?
+            if let email, !email.isEmpty {
+                toField = email
+            } else if let name, !name.isEmpty {
+                toField = name
+            } else {
+                toField = nil
             }
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(
-                    recipientName: name,
+                    recipientName: toField,
                     message: message,
-                    profile: profile,
                     analyticsSource: "calendar_evening_nudge"
                 )
             }

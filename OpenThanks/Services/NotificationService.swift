@@ -120,7 +120,6 @@ enum NotificationService {
     static let calendarNudgeEmailKey = "recipientEmail"
     static let calendarNudgeMessageKey = "messageDraft"
     static let calendarNudgeMeetingKey = "meetingTitle"
-    static let calendarNudgeProfileIdKey = "profileId"
 
     /// Weekday 8:00 PM local — only when today’s calendar yields a strong candidate.
     static func refreshCalendarGratitudeNudgeIfEnabled(
@@ -199,9 +198,6 @@ enum NotificationService {
         }
         if let draft = nudge.messageDraft {
             info[calendarNudgeMessageKey] = draft
-        }
-        if let profileId = nudge.profile?.id {
-            info[calendarNudgeProfileIdKey] = profileId.uuidString
         }
         content.userInfo = info
 

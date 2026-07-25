@@ -40,8 +40,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryUsageDescription: Attach a photo to your appreciation.
         NSSiriUsageDescription: OpenThanks uses Siri to help you thank someone or start an appreciation.
-        NSCalendarsUsageDescription: OpenThanks reads today’s meetings to suggest one person you might want to thank each evening. Events stay on your device.
-        NSCalendarsFullAccessUsageDescription: OpenThanks reads today’s meetings and attendees to suggest one person you might want to thank each evening. Events stay on your device.
+        NSCalendarsUsageDescription: OpenThanks reads today’s meetings to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.
+        NSCalendarsFullAccessUsageDescription: OpenThanks reads today’s meetings and attendees to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.
         UIBackgroundModes:
           - fetch
         BGTaskSchedulerPermittedIdentifiers:

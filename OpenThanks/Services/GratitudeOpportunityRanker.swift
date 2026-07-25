@@ -13,7 +13,6 @@ struct GratitudeNudge: Equatable, Sendable {
     let eventId: String
     let day: Date
     let score: Double
-    var profile: Profile?
     var messageDraft: String?
 }
 
@@ -116,13 +115,9 @@ enum GratitudeOpportunityRanker {
             eventId: chosen.meeting.id,
             day: cal.startOfDay(for: day),
             score: chosen.score,
-            profile: nil,
             messageDraft: nil
         )
 
-        if let email = nudge.email {
-            nudge.profile = try? await GratitudeService.profile(email: email)
-        }
         nudge.messageDraft = await makeDraft(for: nudge)
         return nudge
     }

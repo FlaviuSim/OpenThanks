@@ -107,14 +107,25 @@ enum WidgetPromptKind: String, CaseIterable, Codable {
     }
 
     /// Rotate prompts through the day so the Home Screen feels alive, not static.
-    static func prompt(at date: Date, snapshot: WidgetSnapshot) -> WidgetPromptKind {
+    /// Medium favors the monthly count more often so the larger size stays stats-forward.
+    static func prompt(
+        at date: Date,
+        snapshot: WidgetSnapshot,
+        family: WidgetFamily? = nil
+    ) -> WidgetPromptKind {
         let hour = Calendar.current.component(.hour, from: date)
         let day = Calendar.current.ordinality(of: .day, in: .year, for: date) ?? 0
         var pool: [WidgetPromptKind] = [.whoHelped, .thankSomeone, .monthlyCount]
         if snapshot.hasReceived {
             pool.append(.someoneAppreciated)
         }
-        let index = (day + hour / 6) % max(pool.count, 1)
+        // Bias medium toward monthlyCount without making it the only message.
+        if family == .systemMedium {
+            pool.append(.monthlyCount)
+            pool.append(.monthlyCount)
+        }
+        let slot = hour / 4
+        let index = (day + slot) % max(pool.count, 1)
         return pool[index]
     }
 }

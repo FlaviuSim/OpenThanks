@@ -20,7 +20,7 @@ struct CalendarPermissionView: View {
                         .font(Theme.display(28, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text("Allow Calendar so OpenThanks can suggest one person from today’s meetings each weekday evening. Events stay on your device.")
+                    Text("Allow Calendar so OpenThanks can suggest one person from today’s meetings each weekday evening. Events only stay on your device and never seen by anyone.")
                         .font(Theme.body(16))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)

@@ -2,10 +2,14 @@ import AuthenticationServices
 import SwiftUI
 
 struct WelcomeView: View {
+    private enum OAuthBusy: Equatable {
+        case google, linkedin, apple
+    }
+
     @Environment(AuthService.self) private var auth
     @State private var showEmailSheet = false
     @State private var showPhoneSheet = false
-    @State private var oauthBusy = false
+    @State private var oauthBusy: OAuthBusy?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,26 +42,35 @@ struct WelcomeView: View {
                 .signInWithAppleButtonStyle(.black)
                 .frame(height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .disabled(oauthBusy)
+                .disabled(oauthBusy != nil)
 
                 authButton(
                     iconView: AnyView(GoogleGlyph()),
-                    label: oauthBusy ? "Opening Google…" : "Continue with Google"
+                    label: oauthBusy == .google ? "Opening Google…" : "Continue with Google"
                 ) {
-                    Task { await signInWithGoogle() }
+                    Task { await signInWithOAuth(.google) }
                 }
-                .disabled(oauthBusy)
-                .opacity(oauthBusy ? 0.7 : 1)
+                .disabled(oauthBusy != nil)
+                .opacity(oauthBusy != nil ? 0.7 : 1)
+
+                authButton(
+                    iconView: AnyView(LinkedInGlyph()),
+                    label: oauthBusy == .linkedin ? "Opening LinkedIn…" : "Continue with LinkedIn"
+                ) {
+                    Task { await signInWithOAuth(.linkedin) }
+                }
+                .disabled(oauthBusy != nil)
+                .opacity(oauthBusy != nil ? 0.7 : 1)
 
                 authButton(icon: "envelope.fill", label: "Continue with Email") {
                     showEmailSheet = true
                 }
-                .disabled(oauthBusy)
+                .disabled(oauthBusy != nil)
 
                 authButton(icon: "phone.fill", label: "Continue with Phone") {
                     showPhoneSheet = true
                 }
-                .disabled(oauthBusy)
+                .disabled(oauthBusy != nil)
             }
             .padding(.horizontal, 24)
 
@@ -113,11 +126,18 @@ struct WelcomeView: View {
         }
     }
 
-    private func signInWithGoogle() async {
-        guard !oauthBusy else { return }
-        oauthBusy = true
-        defer { oauthBusy = false }
-        _ = await auth.signInWithGoogle()
+    private func signInWithOAuth(_ provider: OAuthBusy) async {
+        guard oauthBusy == nil else { return }
+        oauthBusy = provider
+        defer { oauthBusy = nil }
+        switch provider {
+        case .google:
+            _ = await auth.signInWithGoogle()
+        case .linkedin:
+            _ = await auth.signInWithLinkedIn()
+        case .apple:
+            break
+        }
     }
 
     private func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
@@ -145,8 +165,8 @@ struct WelcomeView: View {
                 if !formatted.isEmpty { appleFullName = formatted }
             }
             Task {
-                oauthBusy = true
-                defer { oauthBusy = false }
+                oauthBusy = .apple
+                defer { oauthBusy = nil }
                 _ = await auth.signInWithApple(
                     idToken: idToken,
                     fullName: appleFullName
@@ -174,6 +194,17 @@ private struct GoogleGlyph: View {
                 )
             )
             .frame(width: 20, height: 20)
+            .accessibilityHidden(true)
+    }
+}
+
+private struct LinkedInGlyph: View {
+    var body: some View {
+        Text("in")
+            .font(.system(size: 12, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(width: 20, height: 20)
+            .background(Color(red: 0.04, green: 0.40, blue: 0.76), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             .accessibilityHidden(true)
     }
 }

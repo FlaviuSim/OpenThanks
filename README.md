@@ -33,11 +33,11 @@ If the project file ever fails to open on a newer Xcode, regenerate it: `brew in
      2. iOS bundle ID `com.openthanks.app` (required for native Sign in with Apple).
      Comma- or newline-separated is fine. If the bundle ID is missing you get
      `unacceptable audience in id_token` from the app.
-   - **Google:** confirm enabled.
+   - **Google / LinkedIn (OIDC):** confirm enabled in Authentication → Providers.
    - **Redirect URLs** (Authentication → URL Configuration):
-     - `https://openthanks.com/auth/mobile` (iOS Google OAuth lander)
+     - `https://openthanks.com/auth/mobile` (iOS OAuth lander for Google/LinkedIn)
      - `openthanks://auth-callback` (app custom scheme)
-   The Welcome screen offers Sign in with Apple + Continue with Google alongside email/phone OTP. LinkedIn from the web was intentionally dropped on iOS.
+   The Welcome screen offers Apple, Google, LinkedIn, email OTP, and phone OTP.
 4. **Hearts uniqueness:** the toggle assumes one heart per (user, gratitude). Add a unique index if one doesn't exist.
 
 ## Fonts

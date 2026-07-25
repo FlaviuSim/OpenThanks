@@ -236,21 +236,30 @@ final class AuthService {
     // MARK: Sign-in methods
 
     /// Google OAuth via ASWebAuthenticationSession.
-    ///
-    /// Uses the HTTPS lander (`/auth/mobile`) as Supabase `redirect_to` so Auth
-    /// doesn't fall back to the website Site URL. The session completes when
-    /// iOS receives either that HTTPS URL (iOS 17.4+) or `openthanks://…`.
     @discardableResult
     func signInWithGoogle() async -> Bool {
+        await signInWithOAuth(provider: .google, method: "google")
+    }
+
+    /// LinkedIn OIDC OAuth via ASWebAuthenticationSession (same flow as Google).
+    @discardableResult
+    func signInWithLinkedIn() async -> Bool {
+        await signInWithOAuth(provider: .linkedinOIDC, method: "linkedin")
+    }
+
+    /// Shared OAuth path: HTTPS lander (`/auth/mobile`) as Supabase `redirect_to`,
+    /// then complete when iOS receives `openthanks://…` (or the HTTPS URL on iOS 17.4+).
+    @discardableResult
+    private func signInWithOAuth(provider: Provider, method: String) async -> Bool {
         errorMessage = nil
         do {
             _ = try await supabase.auth.signInWithOAuth(
-                provider: .google,
+                provider: provider,
                 redirectTo: AppConfig.oauthRedirectURL
             ) { @MainActor url in
                 try await Self.presentOAuthSession(url: url)
             }
-            Analytics.capture("auth_signed_in", ["method": "google"])
+            Analytics.capture("auth_signed_in", ["method": method])
             return true
         } catch {
             if Self.isOAuthCancellation(error) { return false }
@@ -296,7 +305,7 @@ final class AuthService {
                         domain: "OpenThanks.OAuth",
                         code: -2,
                         userInfo: [
-                            NSLocalizedDescriptionKey: "Couldn't start Google sign-in."
+                            NSLocalizedDescriptionKey: "Couldn't start sign-in."
                         ]
                     )
                 )
