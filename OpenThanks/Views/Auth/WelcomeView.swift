@@ -1,9 +1,11 @@
+import AuthenticationServices
 import SwiftUI
 
 struct WelcomeView: View {
     @Environment(AuthService.self) private var auth
     @State private var showEmailSheet = false
     @State private var showPhoneSheet = false
+    @State private var oauthBusy = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,12 +30,34 @@ struct WelcomeView: View {
                 .padding(.bottom, 36)
 
             VStack(spacing: 12) {
+                SignInWithAppleButton(.continue) { request in
+                    request.requestedScopes = [.email, .fullName]
+                } onCompletion: { result in
+                    handleAppleResult(result)
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 52)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .disabled(oauthBusy)
+
+                authButton(
+                    iconView: AnyView(GoogleGlyph()),
+                    label: oauthBusy ? "Opening Google…" : "Continue with Google"
+                ) {
+                    Task { await signInWithGoogle() }
+                }
+                .disabled(oauthBusy)
+                .opacity(oauthBusy ? 0.7 : 1)
+
                 authButton(icon: "envelope.fill", label: "Continue with Email") {
                     showEmailSheet = true
                 }
+                .disabled(oauthBusy)
+
                 authButton(icon: "phone.fill", label: "Continue with Phone") {
                     showPhoneSheet = true
                 }
+                .disabled(oauthBusy)
             }
             .padding(.horizontal, 24)
 
@@ -66,9 +90,19 @@ struct WelcomeView: View {
     }
 
     private func authButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        authButton(
+            iconView: AnyView(
+                Image(systemName: icon).font(.system(size: 17))
+            ),
+            label: label,
+            action: action
+        )
+    }
+
+    private func authButton(iconView: AnyView, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 17))
+                iconView
                 Text(label).font(Theme.body(16, weight: .medium))
             }
             .foregroundStyle(Theme.textPrimary)
@@ -77,6 +111,70 @@ struct WelcomeView: View {
             .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.hairline))
         }
+    }
+
+    private func signInWithGoogle() async {
+        guard !oauthBusy else { return }
+        oauthBusy = true
+        defer { oauthBusy = false }
+        _ = await auth.signInWithGoogle()
+    }
+
+    private func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .failure(let error):
+            if let authError = error as? ASAuthorizationError,
+               authError.code == .canceled || authError.code == .unknown {
+                return
+            }
+            auth.errorMessage = error.localizedDescription
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = credential.identityToken,
+                  let idToken = String(data: tokenData, encoding: .utf8)
+            else {
+                auth.errorMessage = "Couldn't complete Sign in with Apple."
+                return
+            }
+            var appleFullName: String?
+            if let components = credential.fullName {
+                let formatted = PersonNameComponentsFormatter.localizedString(
+                    from: components,
+                    style: .default
+                ).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !formatted.isEmpty { appleFullName = formatted }
+            }
+            Task {
+                oauthBusy = true
+                defer { oauthBusy = false }
+                _ = await auth.signInWithApple(
+                    idToken: idToken,
+                    fullName: appleFullName
+                )
+            }
+        }
+    }
+}
+
+/// Minimal multicolor “G” so the Google button reads clearly without an asset.
+private struct GoogleGlyph: View {
+    var body: some View {
+        Text("G")
+            .font(.system(size: 17, weight: .bold, design: .rounded))
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.26, green: 0.52, blue: 0.96),
+                        Color(red: 0.22, green: 0.73, blue: 0.33),
+                        Color(red: 0.98, green: 0.74, blue: 0.02),
+                        Color(red: 0.92, green: 0.26, blue: 0.21),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 20, height: 20)
+            .accessibilityHidden(true)
     }
 }
 

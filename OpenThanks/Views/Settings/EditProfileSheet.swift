@@ -80,7 +80,7 @@ struct EditProfileSheet: View {
 
                 if required {
                     Section {
-                        Text("Add your name, username, and a profile photo before entering OpenThanks.")
+                        Text("Add your name and username to enter OpenThanks. A profile photo is optional.")
                             .font(Theme.body(13))
                             .foregroundStyle(Theme.textSecondary)
                     }
@@ -99,7 +99,7 @@ struct EditProfileSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(required ? "Continue" : "Save") { Task { await save() } }
-                        .disabled(saving || cleanUsername.isEmpty || cleanFullName.isEmpty || !hasAvatar)
+                        .disabled(saving || cleanUsername.isEmpty || cleanFullName.isEmpty)
                         .foregroundStyle(Theme.coral)
                 }
             }
@@ -146,7 +146,7 @@ struct EditProfileSheet: View {
             .frame(maxWidth: .infinity)
 
             PhotosPicker(selection: $photoItem, matching: .images) {
-                Text(hasAvatar ? "Change Profile Photo" : "Add Profile Photo")
+                Text(hasAvatar ? "Change Profile Photo" : "Add Profile Photo (optional)")
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.coral)
                     .frame(maxWidth: .infinity)

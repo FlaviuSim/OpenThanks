@@ -49,7 +49,7 @@ struct Profile: Codable, Identifiable, Hashable {
     var isCompleteForApp: Bool {
         let name = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let handle = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !name.isEmpty && !handle.isEmpty && avatarURL != nil
+        return !name.isEmpty && !handle.isEmpty
     }
 }
 

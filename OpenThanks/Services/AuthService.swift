@@ -1,12 +1,18 @@
+import AuthenticationServices
 import Foundation
-import Supabase
 import Observation
+import Supabase
+import UIKit
 
 let supabase = SupabaseClient(
     supabaseURL: AppConfig.supabaseURL,
     supabaseKey: AppConfig.supabaseKey,
     options: SupabaseClientOptions(
-        auth: .init(emitLocalSessionAsInitialSession: true)
+        auth: .init(
+            // Custom scheme — used as ASWebAuthenticationSession callback scheme.
+            redirectToURL: AppConfig.redirectURL,
+            emitLocalSessionAsInitialSession: true
+        )
     )
 )
 
@@ -62,9 +68,12 @@ final class AuthService {
                                 )
                             }
                         }
-                        await self.loadOrCreateProfile(userId: session.user.id,
-                                                       email: session.user.email,
-                                                       phone: session.user.phone)
+                        await self.loadOrCreateProfile(
+                            userId: session.user.id,
+                            email: session.user.email,
+                            phone: session.user.phone,
+                            metadata: session.user.userMetadata
+                        )
                     } else {
                         self.state = .signedOut
                         self.currentProfile = nil
@@ -109,7 +118,12 @@ final class AuthService {
 
     // MARK: Profile bootstrap
 
-    private func loadOrCreateProfile(userId: UUID, email: String?, phone: String?) async {
+    private func loadOrCreateProfile(
+        userId: UUID,
+        email: String?,
+        phone: String?,
+        metadata: [String: AnyJSON] = [:]
+    ) async {
         defer {
             if self.userId == userId {
                 hasResolvedProfile = true
@@ -132,18 +146,63 @@ final class AuthService {
             }
             // First sign-in on this backend from mobile: create a minimal row.
             let username = Self.suggestUsername(email: email, phone: phone)
+            let row = NewProfileRow(
+                id: userId.uuidString,
+                email: email,
+                phone: phone,
+                username: username,
+                fullName: Self.metadataString(metadata, keys: ["full_name", "name"]),
+                avatarUrl: Self.metadataString(metadata, keys: ["avatar_url", "picture"])
+            )
             let inserted: Profile = try await supabase
                 .from("profiles")
-                .insert(["id": userId.uuidString,
-                         "email": email,
-                         "phone": phone,
-                         "username": username])
+                .insert(row)
                 .select().single().execute().value
             guard self.userId == userId else { return }
             currentProfile = inserted
-            Analytics.identify(userId: userId, email: email, name: inserted.displayName)
+            Analytics.identify(
+                userId: userId,
+                email: email,
+                name: inserted.fullName ?? inserted.displayName
+            )
         } catch {
             errorMessage = "Couldn't load your profile: \(error.localizedDescription)"
+        }
+    }
+
+    private static func metadataString(_ metadata: [String: AnyJSON], keys: [String]) -> String? {
+        for key in keys {
+            guard let value = metadata[key] else { continue }
+            if case .string(let string) = value {
+                let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty { return trimmed }
+            }
+        }
+        return nil
+    }
+
+    private struct NewProfileRow: Encodable {
+        let id: String
+        let email: String?
+        let phone: String?
+        let username: String
+        let fullName: String?
+        let avatarUrl: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id, email, phone, username
+            case fullName = "full_name"
+            case avatarUrl = "avatar_url"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(id, forKey: .id)
+            try c.encodeIfPresent(email, forKey: .email)
+            try c.encodeIfPresent(phone, forKey: .phone)
+            try c.encode(username, forKey: .username)
+            try c.encodeIfPresent(fullName, forKey: .fullName)
+            try c.encodeIfPresent(avatarUrl, forKey: .avatarUrl)
         }
     }
 
@@ -176,6 +235,148 @@ final class AuthService {
 
     // MARK: Sign-in methods
 
+    /// Google OAuth via ASWebAuthenticationSession.
+    ///
+    /// Uses the HTTPS lander (`/auth/mobile`) as Supabase `redirect_to` so Auth
+    /// doesn't fall back to the website Site URL. The session completes when
+    /// iOS receives either that HTTPS URL (iOS 17.4+) or `openthanks://…`.
+    @discardableResult
+    func signInWithGoogle() async -> Bool {
+        errorMessage = nil
+        do {
+            _ = try await supabase.auth.signInWithOAuth(
+                provider: .google,
+                redirectTo: AppConfig.oauthRedirectURL
+            ) { @MainActor url in
+                try await Self.presentOAuthSession(url: url)
+            }
+            Analytics.capture("auth_signed_in", ["method": "google"])
+            return true
+        } catch {
+            if Self.isOAuthCancellation(error) { return false }
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    @MainActor
+    private static func presentOAuthSession(url: URL) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            // Strong ref kept until the completion handler runs (session holds it weakly).
+            var presentation: OAuthPresentationContext? = OAuthPresentationContext()
+
+            let session = ASWebAuthenticationSession(
+                url: url,
+                callbackURLScheme: AppConfig.redirectURL.scheme
+            ) { callbackURL, error in
+                defer { presentation = nil }
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let callbackURL {
+                    continuation.resume(returning: callbackURL)
+                } else {
+                    continuation.resume(
+                        throwing: NSError(
+                            domain: "OpenThanks.OAuth",
+                            code: -1,
+                            userInfo: [
+                                NSLocalizedDescriptionKey: "OAuth returned no callback URL."
+                            ]
+                        )
+                    )
+                }
+            }
+
+            session.presentationContextProvider = presentation
+            session.prefersEphemeralWebBrowserSession = false
+            guard session.start() else {
+                presentation = nil
+                continuation.resume(
+                    throwing: NSError(
+                        domain: "OpenThanks.OAuth",
+                        code: -2,
+                        userInfo: [
+                            NSLocalizedDescriptionKey: "Couldn't start Google sign-in."
+                        ]
+                    )
+                )
+                return
+            }
+        }
+    }
+
+    /// Native Sign in with Apple → Supabase `signInWithIdToken`.
+    @discardableResult
+    func signInWithApple(idToken: String, fullName: String?) async -> Bool {
+        errorMessage = nil
+        do {
+            _ = try await supabase.auth.signInWithIdToken(
+                credentials: OpenIDConnectCredentials(
+                    provider: .apple,
+                    idToken: idToken
+                )
+            )
+            // Apple only sends the person's name on the first authorization.
+            if let fullName, !fullName.isEmpty {
+                _ = try? await supabase.auth.update(
+                    user: UserAttributes(data: ["full_name": .string(fullName)])
+                )
+                if var profile = currentProfile,
+                   (profile.fullName == nil || profile.fullName?.isEmpty == true) {
+                    profile.fullName = fullName
+                    currentProfile = profile
+                    _ = try? await supabase.from("profiles")
+                        .update(["full_name": fullName])
+                        .eq("id", value: profile.id)
+                        .execute()
+                }
+            }
+            Analytics.capture("auth_signed_in", ["method": "apple"])
+            return true
+        } catch {
+            errorMessage = Self.friendlyAuthError(error)
+            return false
+        }
+    }
+
+    private static func friendlyAuthError(_ error: Error) -> String {
+        let raw = error.localizedDescription
+        let lower = raw.lowercased()
+        if lower.contains("unacceptable audience")
+            || (lower.contains("audience") && lower.contains("id_token")) {
+            return "Apple sign-in isn’t configured for this app yet. In Supabase → Authentication → Providers → Apple, add Client ID “com.openthanks.app” (keep your web Services ID first)."
+        }
+        return raw
+    }
+
+    private static func isOAuthCancellation(_ error: Error) -> Bool {
+        if let webAuth = error as? ASWebAuthenticationSessionError,
+           webAuth.code == .canceledLogin {
+            return true
+        }
+        let ns = error as NSError
+        return ns.domain == ASWebAuthenticationSessionError.errorDomain
+            && ns.code == ASWebAuthenticationSessionError.canceledLogin.rawValue
+    }
+}
+
+/// Keeps a presentation anchor alive for `ASWebAuthenticationSession`.
+private final class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let key = scenes.flatMap(\.windows).first(where: \.isKeyWindow) {
+            return key
+        }
+        if let first = scenes.flatMap(\.windows).first {
+            return first
+        }
+        return ASPresentationAnchor()
+    }
+}
+
+// MARK: - OTP + account
+
+extension AuthService {
     func sendEmailCode(to email: String) async -> Bool {
         let email = Self.normalizedEmail(email)
         do {

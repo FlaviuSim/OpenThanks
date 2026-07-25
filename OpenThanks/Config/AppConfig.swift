@@ -3,8 +3,10 @@ import Foundation
 /// Central configuration. Values below were pulled live from the `open-thanks`
 /// Supabase project (dsftvyuzmhlqadhbubgw) on 2026-07-06.
 enum AppConfig {
-    /// Supabase project URL (verified via management API).
-    static let supabaseURL = URL(string: "https://dsftvyuzmhlqadhbubgw.supabase.co")!
+    /// Supabase API via custom domain (same project as `*.supabase.co`).
+    /// Keeps Google/OAuth and API calls on db.openthanks.com instead of the
+    /// long project-ref host.
+    static let supabaseURL = URL(string: "https://db.openthanks.com")!
 
     /// Modern publishable key (safe to ship in a client binary; RLS is enabled
     /// on every public table, verified at generation time).
@@ -17,10 +19,14 @@ enum AppConfig {
     /// Web app origin used for route-relative media URLs created by openthanks.com.
     static let webAppURL = URL(string: "https://openthanks.com")!
 
-    /// Deep-link scheme used for OAuth (Google) redirects.
-    /// Must be registered in Supabase Auth → URL Configuration → Redirect URLs
-    /// as: openthanks://auth-callback
+    /// Custom-scheme callback ASWebAuthenticationSession listens for.
+    /// Also register in Supabase Auth → URL Configuration → Redirect URLs.
     static let redirectURL = URL(string: "openthanks://auth-callback")!
+
+    /// HTTPS OAuth lander on the website. Supabase redirects here after Google;
+    /// the page (or iOS 17.4+ https callback) hands the PKCE `code` back to the app.
+    /// Must be listed in Supabase Redirect URLs: https://openthanks.com/auth/mobile
+    static let oauthRedirectURL = URL(string: "https://openthanks.com/auth/mobile")!
 
     /// Optional legacy endpoint — unused; compose uses on-device Apple Intelligence.
     static let polishEndpoint: URL? = nil

@@ -55,6 +55,8 @@ targets:
           - applinks:www.openthanks.com
         com.apple.security.application-groups:
           - group.com.openthanks.app
+        com.apple.developer.applesignin:
+          - Default
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openthanks.app
