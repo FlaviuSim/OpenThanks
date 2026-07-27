@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Route for posts we only know by id (e.g. notification taps).
-struct GratitudeIdRoute: Hashable { let id: UUID }
+struct GratitudeIdRoute: Hashable, Identifiable { let id: UUID }
 
 /// Pending list pushed from Home / Notifications banners.
 struct PendingAppreciationsRoute: Hashable {}
@@ -20,18 +20,34 @@ extension View {
     }
 }
 
-/// An avatar that pushes the person's profile when tapped — used everywhere
+/// An avatar that opens the person's profile when tapped — used everywhere
 /// a profile image appears.
+///
+/// Prefer `onOpen` (or `path`) inside multi-column / split shells — bare
+/// `NavigationLink(value:)` often fails to push when nested under
+/// `NavigationSplitView`.
 struct ProfileAvatarLink: View {
     let profile: Profile?
     var size: CGFloat = 40
+    /// Programmatic open (iPad two-pane / nested chrome). When nil, uses NavigationLink.
+    var onOpen: ((Profile) -> Void)? = nil
 
     var body: some View {
         if let profile {
-            NavigationLink(value: profile) {
-                AvatarView(profile: profile, size: size)
+            if let onOpen {
+                Button {
+                    onOpen(profile)
+                } label: {
+                    AvatarView(profile: profile, size: size)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View \(profile.displayName)'s profile")
+            } else {
+                NavigationLink(value: profile) {
+                    AvatarView(profile: profile, size: size)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         } else {
             AvatarView(profile: nil, size: size)
         }
@@ -44,27 +60,40 @@ struct ProfilePersonLink<Subtitle: View>: View {
     let profile: Profile?
     var size: CGFloat = 40
     var nameFont: Font = Theme.body(16, weight: .semibold)
+    var onOpen: ((Profile) -> Void)? = nil
     @ViewBuilder var subtitle: () -> Subtitle
 
     init(
         profile: Profile?,
         size: CGFloat = 40,
         nameFont: Font = Theme.body(16, weight: .semibold),
+        onOpen: ((Profile) -> Void)? = nil,
         @ViewBuilder subtitle: @escaping () -> Subtitle
     ) {
         self.profile = profile
         self.size = size
         self.nameFont = nameFont
+        self.onOpen = onOpen
         self.subtitle = subtitle
     }
 
     var body: some View {
         if let profile {
-            NavigationLink(value: profile) {
-                personRow(profile: profile)
+            if let onOpen {
+                Button {
+                    onOpen(profile)
+                } label: {
+                    personRow(profile: profile)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View \(profile.displayName)'s profile")
+            } else {
+                NavigationLink(value: profile) {
+                    personRow(profile: profile)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View \(profile.displayName)'s profile")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("View \(profile.displayName)'s profile")
         } else {
             personRow(profile: nil)
         }
@@ -90,9 +119,10 @@ extension ProfilePersonLink where Subtitle == EmptyView {
     init(
         profile: Profile?,
         size: CGFloat = 40,
-        nameFont: Font = Theme.body(16, weight: .semibold)
+        nameFont: Font = Theme.body(16, weight: .semibold),
+        onOpen: ((Profile) -> Void)? = nil
     ) {
-        self.init(profile: profile, size: size, nameFont: nameFont) { EmptyView() }
+        self.init(profile: profile, size: size, nameFont: nameFont, onOpen: onOpen) { EmptyView() }
     }
 }
 
@@ -100,6 +130,7 @@ extension ProfilePersonLink where Subtitle == EmptyView {
 /// the signed-in user — otherwise the normal post detail screen.
 struct GratitudeLoaderView: View {
     let gratitudeId: UUID
+    var onOpenProfile: ((Profile) -> Void)? = nil
     @Environment(AuthService.self) private var auth
     @State private var gratitude: Gratitude?
     @State private var failed = false
@@ -110,7 +141,10 @@ struct GratitudeLoaderView: View {
                 if isPendingForCurrentUser(gratitude) {
                     PendingAppreciationReviewView(gratitude: gratitude)
                 } else {
-                    GratitudeDetailView(gratitude: gratitude)
+                    GratitudeDetailView(
+                        gratitude: gratitude,
+                        onOpenProfile: onOpenProfile
+                    )
                 }
             } else if failed {
                 VStack(spacing: 10) {

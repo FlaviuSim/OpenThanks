@@ -1,18 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "1430"
-   version = "1.7">
+   version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES"
-      runPostActionsOnFailure = "NO">
+      buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
+            buildForTesting = "NO"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "73C4A89C152CCB91D002DA95"
@@ -22,25 +21,11 @@
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
-            buildForTesting = "NO"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0F7C3727F8C791747906562B"
-               BuildableName = "OpenThanksShare.appex"
-               BlueprintName = "OpenThanksShare"
-               ReferencedContainer = "container:OpenThanks.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "NO"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "23C3E00573C837BA91005762"
@@ -63,34 +48,19 @@
                ReferencedContainer = "container:OpenThanks.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "NO"
-            buildForRunning = "NO"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "1374A04F9D4D1060CA6A70F7"
-               BuildableName = "OpenThanksWidget.appex"
-               BlueprintName = "OpenThanksWidget"
-               ReferencedContainer = "container:OpenThanks.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      shouldUseLaunchSchemeArgsEnv = "YES">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "73C4A89C152CCB91D002DA95"
-            BuildableName = "OpenThanks.app"
-            BlueprintName = "OpenThanks"
+            BlueprintIdentifier = "23C3E00573C837BA91005762"
+            BuildableName = "OpenThanksWatch.app"
+            BlueprintName = "OpenThanksWatch"
             ReferencedContainer = "container:OpenThanks.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -111,14 +81,12 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "73C4A89C152CCB91D002DA95"
-            BuildableName = "OpenThanks.app"
-            BlueprintName = "OpenThanks"
+            BlueprintIdentifier = "23C3E00573C837BA91005762"
+            BuildableName = "OpenThanksWatch.app"
+            BlueprintName = "OpenThanksWatch"
             ReferencedContainer = "container:OpenThanks.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -130,9 +98,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "73C4A89C152CCB91D002DA95"
-            BuildableName = "OpenThanks.app"
-            BlueprintName = "OpenThanks"
+            BlueprintIdentifier = "23C3E00573C837BA91005762"
+            BuildableName = "OpenThanksWatch.app"
+            BlueprintName = "OpenThanksWatch"
             ReferencedContainer = "container:OpenThanks.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

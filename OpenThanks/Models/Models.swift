@@ -223,6 +223,8 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case "gratitude_friday":
             let date = createdAt ?? Date()
             return FridayPrompts.prompt(for: date).headline
+        case "pay_it_forward_reminder":
+            return "Ready to pay it forward?"
         case "reply":
             return "replied to your appreciation"
         default:

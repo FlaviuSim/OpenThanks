@@ -24,7 +24,7 @@ struct GratitudeTimelineProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (GratitudeEntry) -> Void) {
-        // Widget gallery / Recommended preview — show the engaging monthly copy on medium.
+        // Widget gallery / Recommended preview — show the engaging monthly copy on medium+.
         if context.isPreview {
             completion(previewEntry(for: context.family))
             return
@@ -62,7 +62,8 @@ struct GratitudeTimelineProvider: TimelineProvider {
             pendingToAccept: 1,
             updatedAt: .now
         )
-        let prompt: WidgetPromptKind = family == .systemMedium ? .monthlyCount : .whoHelped
+        let prompt: WidgetPromptKind =
+            family == .systemSmall ? .whoHelped : .monthlyCount
         return GratitudeEntry(date: .now, snapshot: snapshot, prompt: prompt)
     }
 }
@@ -81,7 +82,12 @@ struct GratitudePromptWidget: Widget {
         .configurationDisplayName("Daily gratitude")
         .description("Rotating prompts — including how many people you’ve thanked this month.")
         // Medium first so the gallery leads with the fuller, rotating layout.
-        .supportedFamilies([.systemMedium, .systemSmall])
+        .supportedFamilies([
+            .systemMedium,
+            .systemSmall,
+            .systemLarge,
+            .systemExtraLarge,
+        ])
     }
 }
 
@@ -89,52 +95,70 @@ struct GratitudePromptView: View {
     @Environment(\.widgetFamily) private var family
     var entry: GratitudeEntry
 
+    private var isCompact: Bool { family == .systemSmall }
+    private var isLarge: Bool {
+        family == .systemLarge || family == .systemExtraLarge
+    }
+
     var body: some View {
         Link(destination: entry.prompt.deepLink) {
-            VStack(alignment: .leading, spacing: family == .systemSmall ? 6 : 8) {
+            VStack(alignment: .leading, spacing: isCompact ? 6 : 10) {
                 brandRow
 
                 Text(entry.prompt.headline(for: entry.snapshot))
-                    .font(.system(size: family == .systemSmall ? 15 : 17, weight: .semibold, design: .serif))
+                    .font(.system(size: headlineSize, weight: .semibold, design: .serif))
                     .foregroundStyle(WidgetPalette.textPrimary)
-                    .lineLimit(family == .systemSmall ? 4 : 3)
+                    .lineLimit(isCompact ? 4 : (isLarge ? 4 : 3))
                     .minimumScaleFactor(0.85)
                     .fixedSize(horizontal: false, vertical: true)
 
-                if family == .systemMedium {
+                if !isCompact {
                     Text(entry.prompt.subtitle)
-                        .font(.system(size: 13))
+                        .font(.system(size: isLarge ? 15 : 13))
                         .foregroundStyle(WidgetPalette.textSecondary)
-                        .lineLimit(2)
+                        .lineLimit(isLarge ? 3 : 2)
 
                     // Always keep this month’s count visible while the headline rotates.
                     if entry.prompt != .monthlyCount {
                         Text(monthlyCountLine)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: isLarge ? 14 : 12, weight: .medium))
                             .foregroundStyle(WidgetPalette.coral)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
+                    }
+
+                    if isLarge, entry.snapshot.pendingToAccept > 0 {
+                        Text(pendingLine)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(WidgetPalette.textSecondary)
+                            .lineLimit(1)
                     }
                 }
 
                 Spacer(minLength: 0)
 
                 Text(ctaLabel)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: isLarge ? 14 : 12, weight: .medium))
                     .foregroundStyle(WidgetPalette.textSecondary)
             }
-            .padding(14)
+            .padding(isLarge ? 18 : 14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
+    }
+
+    private var headlineSize: CGFloat {
+        if isCompact { return 15 }
+        if isLarge { return 22 }
+        return 17
     }
 
     private var brandRow: some View {
         HStack(spacing: 5) {
             Image(systemName: "heart.fill")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: isLarge ? 13 : 11, weight: .semibold))
                 .foregroundStyle(WidgetPalette.coral)
             Text("OpenThanks")
-                .font(.system(size: family == .systemSmall ? 11 : 12, weight: .semibold, design: .rounded))
+                .font(.system(size: isCompact ? 11 : (isLarge ? 14 : 12), weight: .semibold, design: .rounded))
                 .foregroundStyle(WidgetPalette.coral)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -150,8 +174,17 @@ struct GratitudePromptView: View {
         return "\(n) appreciations sent this month"
     }
 
+    private var pendingLine: String {
+        let n = entry.snapshot.pendingToAccept
+        if n == 1 { return "1 appreciation waiting to be accepted" }
+        return "\(n) appreciations waiting to be accepted"
+    }
+
     private var ctaLabel: String {
         let reading = entry.prompt.deepLink == WidgetDeepLink.received
+        if isLarge {
+            return reading ? "Tap to read thanks" : "Tap to thank someone"
+        }
         if family == .systemMedium {
             return reading ? "Read thanks" : "Send thanks"
         }

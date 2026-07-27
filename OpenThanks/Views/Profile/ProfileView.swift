@@ -69,7 +69,8 @@ struct UserProfileView: View {
                 sectionContent
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 96)
+            .tabChromeBottomPadding()
+            .readableWidth()
         }
         .background(Theme.background)
         .navigationTitle(isOwnProfile ? "Profile" : shownProfile.displayName)
@@ -84,12 +85,11 @@ struct UserProfileView: View {
         .fullScreenCover(item: $fullScreenAvatarURL) { url in
             FullScreenImageView(url: url)
         }
-        .fullScreenCover(isPresented: $showCompose) {
+        .composeCover(isPresented: $showCompose) {
             ComposeView(
                 initialRecipientProfile: shownProfile,
                 analyticsSource: "profile_thank"
             )
-                .syncAppAppearance()
         }
     }
 

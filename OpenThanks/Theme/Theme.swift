@@ -77,6 +77,12 @@ enum Theme {
         }
         return .system(size: size, weight: weight)
     }
+
+    /// Centered reading column on iPad / regular width — keeps notes note-sized.
+    static let readableMaxWidth: CGFloat = 600
+
+    /// Bottom clearance for the floating iPhone tab bar; unused when sidebar is shown.
+    static let phoneTabBarClearance: CGFloat = 96
 }
 
 extension Color {
@@ -124,6 +130,117 @@ struct CardBackground: ViewModifier {
 
 extension View {
     func card() -> some View { modifier(CardBackground()) }
+
+    /// Caps width and centers content for comfortable reading on iPad.
+    func readableWidth(_ maxWidth: CGFloat = Theme.readableMaxWidth) -> some View {
+        frame(maxWidth: maxWidth)
+            .frame(maxWidth: .infinity)
+    }
+
+    /// Phone tab-bar clearance on compact; normal safe-area padding on regular (sidebar).
+    func tabChromeBottomPadding() -> some View {
+        modifier(TabChromeBottomPaddingModifier())
+    }
+
+    /// Full-screen compose on iPhone; centered form sheet on iPad regular width.
+    func composeCover<Content: View>(
+        isPresented: Binding<Bool>,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        modifier(ComposeCoverModifier(isPresented: isPresented, content: content))
+    }
+
+    func composeCover<Item: Identifiable, Content: View>(
+        item: Binding<Item?>,
+        @ViewBuilder content: @escaping (Item) -> Content
+    ) -> some View {
+        modifier(ComposeCoverItemModifier(item: item, content: content))
+    }
+}
+
+private struct TabChromeBottomPaddingModifier: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    func body(content: Content) -> some View {
+        content.padding(
+            .bottom,
+            sizeClass == .regular ? 24 : Theme.phoneTabBarClearance
+        )
+    }
+}
+
+private struct ComposeCoverModifier<SheetContent: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    @ViewBuilder var content: () -> SheetContent
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var useSheet: Bool { sizeClass == .regular }
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: sheetPresented) {
+                self.content()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .frame(maxWidth: 640)
+                    .frame(maxWidth: .infinity)
+                    .syncAppAppearance()
+            }
+            .fullScreenCover(isPresented: fullScreenPresented) {
+                self.content().syncAppAppearance()
+            }
+    }
+
+    private var sheetPresented: Binding<Bool> {
+        Binding(
+            get: { useSheet && isPresented },
+            set: { if useSheet { isPresented = $0 } }
+        )
+    }
+
+    private var fullScreenPresented: Binding<Bool> {
+        Binding(
+            get: { !useSheet && isPresented },
+            set: { if !useSheet { isPresented = $0 } }
+        )
+    }
+}
+
+private struct ComposeCoverItemModifier<Item: Identifiable, SheetContent: View>: ViewModifier {
+    @Binding var item: Item?
+    @ViewBuilder var content: (Item) -> SheetContent
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    private var useSheet: Bool { sizeClass == .regular }
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: sheetItem) { value in
+                self.content(value)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .frame(maxWidth: 640)
+                    .frame(maxWidth: .infinity)
+                    .syncAppAppearance()
+            }
+            .fullScreenCover(item: fullScreenItem) { value in
+                self.content(value).syncAppAppearance()
+            }
+    }
+
+    private var sheetItem: Binding<Item?> {
+        Binding(
+            get: { useSheet ? item : nil },
+            set: { if useSheet { item = $0 } }
+        )
+    }
+
+    private var fullScreenItem: Binding<Item?> {
+        Binding(
+            get: { useSheet ? nil : item },
+            set: { if !useSheet { item = $0 } }
+        )
+    }
 }
 
 struct CTAButtonStyle: ButtonStyle {

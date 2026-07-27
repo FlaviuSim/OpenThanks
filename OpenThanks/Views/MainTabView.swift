@@ -1,7 +1,8 @@
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
-    enum Tab { case feed, notifications, profile }
+    enum Tab: Hashable { case feed, notifications, profile }
 
     private enum ComposeSheet: Identifiable {
         case blank
@@ -22,42 +23,33 @@ struct MainTabView: View {
     @State private var notificationsPath = NavigationPath()
     @State private var profilePath = NavigationPath()
     @State private var showProfileSettings = false
+    /// Home people-search is focused — hide the tab bar (native search-mode UX).
+    @State private var homeSearchActive = false
+    /// Selected post for iPad list↔detail on Home.
+    @State private var feedDetail: Gratitude?
+    /// Selected notification route for iPad list↔detail.
+    @State private var notificationDetail: GratitudeIdRoute?
     @Environment(AuthService.self) private var auth
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
 
+    private var usesSidebar: Bool { sizeClass == .regular }
+
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Keep all tabs mounted so switching is instant and images stay cached.
-            FeedView(path: $feedPath)
-                .opacity(tab == .feed ? 1 : 0)
-                .allowsHitTesting(tab == .feed)
-                .zIndex(tab == .feed ? 1 : 0)
-
-            NotificationsView(
-                path: $notificationsPath,
-                unreadCount: $unreadCount,
-                isSelected: tab == .notifications
-            )
-                .opacity(tab == .notifications ? 1 : 0)
-                .allowsHitTesting(tab == .notifications)
-                .zIndex(tab == .notifications ? 1 : 0)
-
-            ProfileView(path: $profilePath, showSettings: $showProfileSettings)
-                .opacity(tab == .profile ? 1 : 0)
-                .allowsHitTesting(tab == .profile)
-                .zIndex(tab == .profile ? 1 : 0)
-
-            tabBar
-                .zIndex(10)
+        Group {
+            if usesSidebar {
+                sidebarShell
+            } else {
+                phoneShell
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .syncAppAppearance()
-        .fullScreenCover(item: $composeSheet) { sheet in
+        .composeCover(item: $composeSheet) { sheet in
             composeView(for: sheet)
-                .syncAppAppearance()
         }
         .task { await refreshUnread() }
         .onAppear {
@@ -93,6 +85,171 @@ struct MainTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.18), value: tab)
+        .animation(.easeInOut(duration: 0.2), value: homeSearchActive)
+        .onChange(of: tab) { _, newTab in
+            if newTab != .feed {
+                homeSearchActive = false
+                resignKeyboard()
+            }
+            // Keep list↔detail selection when switching tabs so return feels continuous.
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { _ in
+            // Fallback if pay-it-forward isn't shown; delayed so it stays gentle.
+            AppStoreReviewPrompt.scheduleAfterReceivingAppreciation()
+        }
+        .onChange(of: composeSheet != nil) { _, open in
+            if open {
+                homeSearchActive = false
+                resignKeyboard()
+            }
+        }
+    }
+
+    // MARK: - iPad sidebar shell
+
+    private var sidebarShell: some View {
+        NavigationSplitView {
+            List {
+                Section {
+                    sidebarRow(title: "Home", systemImage: "house.fill", value: .feed)
+                    Button {
+                        selectTab(.notifications)
+                    } label: {
+                        Label {
+                            HStack {
+                                Text("Notifications")
+                                if unreadCount > 0 {
+                                    Spacer(minLength: 8)
+                                    Text("\(min(unreadCount, 99))")
+                                        .font(Theme.body(12, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(Theme.coral, in: Capsule())
+                                }
+                            }
+                        } icon: {
+                            Image(systemName: "bell.fill")
+                        }
+                    }
+                    .foregroundStyle(tab == .notifications ? Theme.coral : Theme.textPrimary)
+                    .listRowBackground(tab == .notifications ? Theme.coral.opacity(0.12) : Color.clear)
+
+                    sidebarRow(title: "Profile", systemImage: "person.fill", value: .profile)
+                }
+
+                Section {
+                    Button {
+                        resignKeyboard()
+                        homeSearchActive = false
+                        composeSheet = .blank
+                    } label: {
+                        Label("Thank someone", systemImage: "heart.fill")
+                            .foregroundStyle(Theme.coral)
+                    }
+                }
+            }
+            .listStyle(.sidebar)
+            .navigationTitle("OpenThanks")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        composeSheet = .blank
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                    .accessibilityLabel("Thank someone")
+                }
+            }
+        } detail: {
+            detailColumn
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private func sidebarRow(title: String, systemImage: String, value: Tab) -> some View {
+        Button {
+            selectTab(value)
+        } label: {
+            Label(title, systemImage: systemImage)
+        }
+        .foregroundStyle(tab == value ? Theme.coral : Theme.textPrimary)
+        .listRowBackground(tab == value ? Theme.coral.opacity(0.12) : Color.clear)
+    }
+
+    /// Keep stacks mounted (like phone) so tab switches stay instant and image cache survives.
+    private var detailColumn: some View {
+        ZStack {
+            FeedView(
+                path: $feedPath,
+                isSelected: tab == .feed,
+                searchActive: $homeSearchActive,
+                splitSelection: $feedDetail
+            )
+            .opacity(tab == .feed ? 1 : 0)
+            .allowsHitTesting(tab == .feed)
+            .zIndex(tab == .feed ? 1 : 0)
+
+            NotificationsView(
+                path: $notificationsPath,
+                unreadCount: $unreadCount,
+                isSelected: tab == .notifications,
+                splitSelection: $notificationDetail
+            )
+            .opacity(tab == .notifications ? 1 : 0)
+            .allowsHitTesting(tab == .notifications)
+            .zIndex(tab == .notifications ? 1 : 0)
+
+            ProfileView(path: $profilePath, showSettings: $showProfileSettings)
+                .opacity(tab == .profile ? 1 : 0)
+                .allowsHitTesting(tab == .profile)
+                .zIndex(tab == .profile ? 1 : 0)
+        }
+    }
+
+    // MARK: - iPhone shell
+
+    private var phoneShell: some View {
+        ZStack(alignment: .bottom) {
+            FeedView(
+                path: $feedPath,
+                isSelected: tab == .feed,
+                searchActive: $homeSearchActive
+            )
+            .opacity(tab == .feed ? 1 : 0)
+            .allowsHitTesting(tab == .feed)
+            .zIndex(tab == .feed ? 1 : 0)
+
+            NotificationsView(
+                path: $notificationsPath,
+                unreadCount: $unreadCount,
+                isSelected: tab == .notifications
+            )
+            .opacity(tab == .notifications ? 1 : 0)
+            .allowsHitTesting(tab == .notifications)
+            .zIndex(tab == .notifications ? 1 : 0)
+
+            ProfileView(path: $profilePath, showSettings: $showProfileSettings)
+                .opacity(tab == .profile ? 1 : 0)
+                .allowsHitTesting(tab == .profile)
+                .zIndex(tab == .profile ? 1 : 0)
+
+            if !homeSearchActive {
+                tabBar
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(10)
+            }
+        }
+    }
+
+    /// Ends editing app-wide — needed because Home stays mounted under other tabs.
+    private func resignKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
     }
 
     @ViewBuilder
@@ -112,7 +269,6 @@ struct MainTabView: View {
     }
 
     private func presentPendingComposeIfNeeded() {
-        // Share Extension may have written App Group payload before tabs mounted.
         if ComposeLaunchBridge.shared.pending == nil {
             ComposeShareHandoff.applyPendingShare()
         }
@@ -137,7 +293,11 @@ struct MainTabView: View {
             tabItem(icon: "house.fill", label: "Home", value: .feed)
                 .frame(maxWidth: .infinity)
 
-            Button { composeSheet = .blank } label: {
+            Button {
+                resignKeyboard()
+                homeSearchActive = false
+                composeSheet = .blank
+            } label: {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(.white)
@@ -186,6 +346,8 @@ struct MainTabView: View {
     }
 
     private func selectTab(_ value: Tab) {
+        resignKeyboard()
+        homeSearchActive = false
         if tab == value {
             popToRoot(value)
             return
@@ -193,13 +355,14 @@ struct MainTabView: View {
         withAnimation(.easeInOut(duration: 0.18)) { tab = value }
     }
 
-    /// Re-tapping the active tab returns to that tab's root screen.
     private func popToRoot(_ value: Tab) {
         switch value {
         case .feed:
             feedPath = NavigationPath()
+            feedDetail = nil
         case .notifications:
             notificationsPath = NavigationPath()
+            notificationDetail = nil
         case .profile:
             profilePath = NavigationPath()
             showProfileSettings = false

@@ -11,7 +11,16 @@ struct OpenThanksApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .onAppear { appDelegate.auth = auth }
+                .onAppear {
+                    appDelegate.auth = auth
+                    WatchConnectivityService.shared.activate(auth: auth)
+                }
+                .onChange(of: auth.userId) { _, _ in
+                    WatchConnectivityService.shared.pushAuthContext()
+                }
+                .onChange(of: auth.currentProfile?.displayName) { _, _ in
+                    WatchConnectivityService.shared.pushAuthContext()
+                }
                 .environment(auth)
                 .environment(deepLinks)
                 .syncAppAppearance()
@@ -53,6 +62,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         CalendarGratitudeBackgroundRefresh.schedule()
         Analytics.setup()
         return true
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        if let auth {
+            WatchConnectivityService.shared.activate(auth: auth)
+            WatchConnectivityService.shared.pushAuthContext()
+        }
     }
 
     func application(

@@ -119,11 +119,13 @@ enum WidgetPromptKind: String, CaseIterable, Codable {
         if snapshot.hasReceived {
             pool.append(.someoneAppreciated)
         }
-        // Bias medium toward monthlyCount without making it the only message.
-        if family == .systemMedium {
+        // Bias medium / large toward monthlyCount without making it the only message.
+        #if os(iOS)
+        if family == .systemMedium || family == .systemLarge || family == .systemExtraLarge {
             pool.append(.monthlyCount)
             pool.append(.monthlyCount)
         }
+        #endif
         let slot = hour / 4
         let index = (day + slot) % max(pool.count, 1)
         return pool[index]

@@ -74,12 +74,19 @@ final class AuthService {
                             phone: session.user.phone,
                             metadata: session.user.userMetadata
                         )
+                        await MainActor.run {
+                            WatchConnectivityService.shared.activate(auth: self)
+                            WatchConnectivityService.shared.pushAuthContext()
+                        }
                     } else {
                         self.state = .signedOut
                         self.currentProfile = nil
                         self.hasResolvedProfile = false
                         Self.clearCachedProfile()
                         Analytics.reset()
+                        await MainActor.run {
+                            WatchConnectivityService.shared.pushAuthContext()
+                        }
                     }
                 case .signedOut, .userDeleted:
                     self.state = .signedOut
@@ -87,6 +94,9 @@ final class AuthService {
                     self.hasResolvedProfile = false
                     Self.clearCachedProfile()
                     Analytics.reset()
+                    await MainActor.run {
+                        WatchConnectivityService.shared.pushAuthContext()
+                    }
                 default:
                     break
                 }

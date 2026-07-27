@@ -4,6 +4,8 @@ struct NotificationsView: View {
     @Binding var path: NavigationPath
     @Binding var unreadCount: Int
     var isSelected = true
+    /// When set (iPad sidebar shell), post taps fill the detail pane instead of pushing.
+    var splitSelection: Binding<GratitudeIdRoute?>? = nil
     @Environment(AuthService.self) private var auth
     @State private var notes: [AppNotification] = []
     @State private var pendingCount = 0
@@ -14,35 +16,26 @@ struct NotificationsView: View {
         notes.contains { $0.read != true }
     }
 
+    private var usesSplitDetail: Bool { splitSelection != nil }
+
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                if loading && notes.isEmpty && pendingCount == 0 {
-                    ProgressView().tint(Theme.coral)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            if pendingCount > 0 {
-                                PendingAppreciationsBanner(count: pendingCount)
-                                    .padding(.horizontal, 16)
-                                    .padding(.top, 12)
-                                    .padding(.bottom, 8)
-                            }
-
-                            if notes.isEmpty {
-                                emptyState
-                                    .padding(.top, pendingCount > 0 ? 24 : 80)
-                            } else {
-                                ForEach(notes) { note in
-                                    row(note)
-                                    Rectangle().fill(Theme.hairline).frame(height: 0.5)
-                                        .padding(.leading, 68)
-                                }
-                            }
+                if usesSplitDetail {
+                    GeometryReader { geo in
+                        HStack(spacing: 0) {
+                            listChrome
+                                .frame(width: listPaneWidth(for: geo.size.width))
+                            Rectangle()
+                                .fill(Theme.hairline)
+                                .frame(width: 0.5)
+                                .ignoresSafeArea()
+                            detailPane
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
-                        .padding(.bottom, 96)
                     }
+                } else {
+                    listChrome
                 }
             }
             .background(Theme.background)
@@ -75,6 +68,61 @@ struct NotificationsView: View {
         }
     }
 
+    private func listPaneWidth(for total: CGFloat) -> CGFloat {
+        min(420, max(320, total * 0.4))
+    }
+
+    @ViewBuilder
+    private var detailPane: some View {
+        if let route = splitSelection?.wrappedValue {
+            GratitudeLoaderView(
+                gratitudeId: route.id,
+                onOpenProfile: { path.append($0) }
+            )
+        } else {
+            ContentUnavailableView(
+                "Select a notification",
+                systemImage: "bell",
+                description: Text("Choose a notification to open the appreciation here.")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.background)
+        }
+    }
+
+    private var listChrome: some View {
+        Group {
+            if loading && notes.isEmpty && pendingCount == 0 {
+                ProgressView().tint(Theme.coral)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if pendingCount > 0 {
+                            PendingAppreciationsBanner(count: pendingCount)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 12)
+                                .padding(.bottom, 8)
+                        }
+
+                        if notes.isEmpty {
+                            emptyState
+                                .padding(.top, pendingCount > 0 ? 24 : 80)
+                        } else {
+                            ForEach(notes) { note in
+                                row(note)
+                                Rectangle().fill(Theme.hairline).frame(height: 0.5)
+                                    .padding(.leading, 68)
+                            }
+                        }
+                    }
+                    .tabChromeBottomPadding()
+                    .readableWidth()
+                }
+            }
+        }
+    }
+
 
     private var emptyState: some View {
         VStack(spacing: 12) {
@@ -95,8 +143,15 @@ struct NotificationsView: View {
     @ViewBuilder
     private func row(_ note: AppNotification) -> some View {
         let unread = note.read != true
+        let selected = usesSplitDetail
+            && note.gratitudeId != nil
+            && splitSelection?.wrappedValue?.id == note.gratitudeId
         HStack(spacing: 12) {
-            ProfileAvatarLink(profile: note.fromUser, size: 44)
+            ProfileAvatarLink(
+                profile: note.fromUser,
+                size: 44,
+                onOpen: { path.append($0) }
+            )
             Group {
                 if note.type == "gratitude_friday" {
                     Button {
@@ -108,14 +163,34 @@ struct NotificationsView: View {
                         rowContent(note, linksToPost: true)
                     }
                     .buttonStyle(.plain)
-                } else if let gratitudeId = note.gratitudeId {
-                    NavigationLink(value: GratitudeIdRoute(id: gratitudeId)) {
+                } else if note.type == "pay_it_forward_reminder" {
+                    Button {
+                        Task {
+                            await markRead(note)
+                            ComposeLaunchBridge.shared.queue(analyticsSource: "notification_pay_it_forward")
+                        }
+                    } label: {
                         rowContent(note, linksToPost: true)
                     }
                     .buttonStyle(.plain)
-                    .simultaneousGesture(TapGesture().onEnded {
-                        Task { await markRead(note) }
-                    })
+                } else if let gratitudeId = note.gratitudeId {
+                    if usesSplitDetail {
+                        Button {
+                            Task { await markRead(note) }
+                            splitSelection?.wrappedValue = GratitudeIdRoute(id: gratitudeId)
+                        } label: {
+                            rowContent(note, linksToPost: true)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        NavigationLink(value: GratitudeIdRoute(id: gratitudeId)) {
+                            rowContent(note, linksToPost: true)
+                        }
+                        .buttonStyle(.plain)
+                        .simultaneousGesture(TapGesture().onEnded {
+                            Task { await markRead(note) }
+                        })
+                    }
                 } else {
                     Button {
                         Task { await markRead(note) }
@@ -128,7 +203,7 @@ struct NotificationsView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(unread ? Theme.coral.opacity(0.06) : Color.clear)
+        .background(selected ? Theme.coral.opacity(0.12) : (unread ? Theme.coral.opacity(0.06) : Color.clear))
     }
 
     private func rowContent(_ note: AppNotification, linksToPost: Bool) -> some View {
@@ -163,7 +238,9 @@ struct NotificationsView: View {
 
     private func displayName(for note: AppNotification) -> String {
         if let name = note.fromUser?.displayName { return name }
-        if note.type == "gratitude_friday" { return "OpenThanks" }
+        if note.type == "gratitude_friday" || note.type == "pay_it_forward_reminder" {
+            return "OpenThanks"
+        }
         return "Someone"
     }
 

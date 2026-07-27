@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.openthanks.app.calendar-gratitude-refresh</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -33,26 +37,33 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>OpenThanks reads today’s meetings and attendees to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>OpenThanks reads today’s meetings to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Attach a photo to your appreciation.</string>
 	<key>NSSiriUsageDescription</key>
 	<string>OpenThanks uses Siri to help you thank someone or start an appreciation.</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>OpenThanks reads today’s meetings to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>OpenThanks reads today’s meetings and attendees to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
-	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.openthanks.app.calendar-gratitude-refresh</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
 	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>

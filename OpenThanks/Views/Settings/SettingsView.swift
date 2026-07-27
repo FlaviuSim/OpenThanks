@@ -28,6 +28,22 @@ struct SettingsView: View {
         )
     }
 
+    private var feedbackMailURL: URL {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = "flaviu@openthanks.com"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "OpenThanks feedback"),
+            URLQueryItem(
+                name: "body",
+                value: "\n\n—\nApp version \(version) (\(build))"
+            ),
+        ]
+        return components.url ?? URL(string: "mailto:flaviu@openthanks.com")!
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -138,6 +154,15 @@ struct SettingsView: View {
                         }
                     }
                     .tint(Theme.coral)
+
+                    Link(destination: feedbackMailURL) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Send Feedback")
+                            Text("Email us at flaviu@openthanks.com")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
 
                     HStack {
                         Text("About OpenThanks")
@@ -276,6 +301,9 @@ struct PendingAppreciationsView: View {
                 }
             }
             .padding(16)
+            // Clear the floating tab bar so Edit / Share / Delete stay tappable.
+            .tabChromeBottomPadding()
+            .readableWidth()
         }
         .background(Theme.background)
         .navigationTitle("Pending Appreciations")
@@ -284,7 +312,7 @@ struct PendingAppreciationsView: View {
             PendingShareSheet(gratitude: g)
                 .presentationDetents([.medium])
         }
-        .fullScreenCover(item: $editing) { g in
+        .composeCover(item: $editing) { g in
             ComposeView(editing: g, analyticsSource: "edit_pending") { updated in
                 if let index = pending.firstIndex(where: { $0.id == updated.id }) {
                     pending[index] = updated

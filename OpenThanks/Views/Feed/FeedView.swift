@@ -4,6 +4,12 @@ struct FeedView: View {
     enum Scope: String, CaseIterable { case personal = "Personal", world = "World" }
 
     @Binding var path: NavigationPath
+    /// False when another tab is showing — Home stays mounted, so clear search focus.
+    var isSelected: Bool = true
+    /// Mirrors search focus so the tab bar can hide during search (native search-mode).
+    @Binding var searchActive: Bool
+    /// When set (iPad sidebar shell), card taps fill the detail column instead of pushing.
+    var splitSelection: Binding<Gratitude?>? = nil
     @Environment(AuthService.self) private var auth
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
@@ -17,6 +23,10 @@ struct FeedView: View {
     @State private var error: String?
     @State private var showCompose = false
     @State private var composeRecipient: String?
+    @State private var composeAnalyticsSource = "home_thank_someone"
+    /// After accepting, gently invite the recipient to thank someone else.
+    @State private var payItForwardFromName: String?
+    @State private var payItForwardPresentedIds: Set<UUID> = []
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
     @State private var scrollToPendingToken = 0
@@ -24,35 +34,33 @@ struct FeedView: View {
     @FocusState private var searchFocused: Bool
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
+    private var usesSplitDetail: Bool { splitSelection != nil }
+    private var showPayItForward: Binding<Bool> {
+        Binding(
+            get: { payItForwardFromName != nil },
+            set: { if !$0 { payItForwardFromName = nil } }
+        )
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                header
-                HomeProfileSearch(
-                    focused: $searchFocused,
-                    onSelect: { profile in
-                        Analytics.capture("home_search_profile_opened")
-                        path.append(profile)
-                    },
-                    onInvite: { name in
-                        Analytics.capture("home_search_invite_compose", ["query_length": name.count])
-                        composeRecipient = name
-                        showCompose = true
+            Group {
+                if usesSplitDetail {
+                    GeometryReader { geo in
+                        HStack(spacing: 0) {
+                            feedChrome
+                                .frame(width: listPaneWidth(for: geo.size.width))
+                            Rectangle()
+                                .fill(Theme.hairline)
+                                .frame(width: 0.5)
+                                .ignoresSafeArea()
+                            detailPane
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
                     }
-                )
-                .padding(.horizontal, 20)
-                .padding(.top, 10)
-                .padding(.bottom, 2)
-                .zIndex(2)
-
-                picker
-                if pendingSentCount > 0 {
-                    PendingAppreciationsBanner(count: pendingSentCount)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 8)
+                } else {
+                    feedChrome
                 }
-                content
             }
             .background(Theme.background)
             // Dismiss search keyboard when the user scrolls/drags anywhere on Home.
@@ -63,17 +71,44 @@ struct FeedView: View {
             )
             .task(id: scope) { await load() }
             .refreshable { await load() }
-            .toolbar(.hidden, for: .navigationBar)
+            // Keep the bar hidden on the Home root; show it when a profile/post is pushed
+            // so Back works (especially important on iPad two-pane).
+            .toolbar(path.isEmpty ? .hidden : .automatic, for: .navigationBar)
             .appDestinations()
-            .fullScreenCover(isPresented: $showCompose) {
+            .composeCover(isPresented: $showCompose) {
                 ComposeView(
                     initialRecipient: composeRecipient,
-                    analyticsSource: composeRecipient == nil ? "home_thank_someone" : "home_search_invite"
+                    analyticsSource: composeAnalyticsSource
                 )
-                    .syncAppAppearance()
+            }
+            .sheet(isPresented: showPayItForward) {
+                PayItForwardSheet(
+                    fromName: payItForwardFromName,
+                    onThankSomeone: {
+                        composeRecipient = nil
+                        composeAnalyticsSource = "post_accept_pay_it_forward"
+                        Analytics.capture("pay_it_forward_tapped", ["source": "feed_accept"])
+                        showCompose = true
+                    }
+                )
+                .syncAppAppearance()
             }
             .onChange(of: showCompose) { _, open in
-                if !open { composeRecipient = nil }
+                if open { dismissSearchKeyboard() }
+                if !open {
+                    composeRecipient = nil
+                    composeAnalyticsSource = "home_thank_someone"
+                }
+            }
+            .onChange(of: searchFocused) { _, focused in
+                searchActive = focused
+            }
+            .onChange(of: isSelected) { _, selected in
+                if !selected { dismissSearchKeyboard() }
+            }
+            .onChange(of: path.count) { _, _ in
+                // Pushing a profile (or any destination) should end search.
+                dismissSearchKeyboard()
             }
             .onReceive(NotificationCenter.default.publisher(for: .focusReceivedThanks)) { _ in
                 scrollToPendingToken += 1
@@ -83,6 +118,60 @@ struct FeedView: View {
                 applyAcceptedPending(gratitude)
             }
             .syncAppAppearance()
+        }
+    }
+
+    private func listPaneWidth(for total: CGFloat) -> CGFloat {
+        min(420, max(320, total * 0.4))
+    }
+
+    @ViewBuilder
+    private var detailPane: some View {
+        if let gratitude = splitSelection?.wrappedValue {
+            GratitudeDetailView(
+                gratitude: gratitude,
+                onOpenProfile: { path.append($0) }
+            )
+        } else {
+            ContentUnavailableView(
+                "Select an appreciation",
+                systemImage: "heart",
+                description: Text("Choose a note from Home to read it here.")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.background)
+        }
+    }
+
+    private var feedChrome: some View {
+        VStack(spacing: 0) {
+            header
+            HomeProfileSearch(
+                focused: $searchFocused,
+                onSelect: { profile in
+                    Analytics.capture("home_search_profile_opened")
+                    path.append(profile)
+                },
+                onInvite: { name in
+                    Analytics.capture("home_search_invite_compose", ["query_length": name.count])
+                    composeRecipient = name
+                    composeAnalyticsSource = "home_search_invite"
+                    showCompose = true
+                }
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+            .zIndex(2)
+
+            picker
+            if pendingSentCount > 0 {
+                PendingAppreciationsBanner(count: pendingSentCount)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                    .readableWidth()
+            }
+            content
         }
     }
 
@@ -100,24 +189,29 @@ struct FeedView: View {
 
             Spacer(minLength: 8)
 
-            Button {
-                composeRecipient = nil
-                showCompose = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("Thank someone")
-                        .font(Theme.body(13, weight: .semibold))
-                        .lineLimit(1)
+            // Sidebar already has Thank someone — avoid a second CTA on iPad.
+            if !usesSplitDetail {
+                Button {
+                    dismissSearchKeyboard()
+                    composeRecipient = nil
+                    composeAnalyticsSource = "home_thank_someone"
+                    showCompose = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("Thank someone")
+                            .font(Theme.body(13, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(Color(hex: 0x2B1209))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(Theme.ctaGradient, in: Capsule())
+                    .shadow(color: Theme.coral.opacity(0.35), radius: 8, y: 2)
                 }
-                .foregroundStyle(Color(hex: 0x2B1209))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(Theme.ctaGradient, in: Capsule())
-                .shadow(color: Theme.coral.opacity(0.35), radius: 8, y: 2)
+                .accessibilityLabel("Thank someone — share an appreciation")
             }
-            .accessibilityLabel("Thank someone — share an appreciation")
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
@@ -179,6 +273,7 @@ struct FeedView: View {
                                     gratitude: item,
                                     onAccepted: { accepted in
                                         applyAcceptedPending(accepted)
+                                        presentPayItForward(from: accepted)
                                     },
                                     onDeclined: { id in
                                         resolvedPendingIds.insert(id)
@@ -198,13 +293,19 @@ struct FeedView: View {
                         }
 
                         ForEach(items) { item in
-                            GratitudeCard(gratitude: item,
-                                          isHearted: heartedIds.contains(item.id),
-                                          onHeart: { toggleHeart(item) })
+                            GratitudeCard(
+                                gratitude: item,
+                                isHearted: heartedIds.contains(item.id),
+                                onHeart: { toggleHeart(item) },
+                                onSelect: usesSplitDetail ? { selectPost(item) } : nil,
+                                isSelected: splitSelection?.wrappedValue?.id == item.id,
+                                onOpenProfile: { path.append($0) }
+                            )
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 96)
+                    .tabChromeBottomPadding()
+                    .readableWidth()
                     .opacity(loading && !isEmpty ? 0.72 : 1)
                     .animation(.easeInOut(duration: 0.2), value: loading)
                 }
@@ -219,8 +320,12 @@ struct FeedView: View {
     }
 
     private func dismissSearchKeyboard() {
-        guard searchFocused else { return }
-        searchFocused = false
+        if searchFocused { searchFocused = false }
+        if searchActive { searchActive = false }
+    }
+
+    private func selectPost(_ item: Gratitude) {
+        splitSelection?.wrappedValue = item
     }
 
     private var pendingHeader: some View {
@@ -250,6 +355,20 @@ struct FeedView: View {
             items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
         }
         Task { await refreshWidgetSnapshot() }
+    }
+
+    private func presentPayItForward(from gratitude: Gratitude) {
+        // Accept fires twice (optimistic + confirmed) — only nudge once per post.
+        guard !payItForwardPresentedIds.contains(gratitude.id) else { return }
+        payItForwardPresentedIds.insert(gratitude.id)
+        let name = gratitude.author?.fullName
+            ?? gratitude.author?.displayName
+            ?? gratitude.author?.username
+        // Slight delay so the pending card dismiss animation settles first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            payItForwardFromName = name ?? "someone"
+            Analytics.capture("pay_it_forward_shown", ["source": "feed_accept"])
+        }
     }
 
     private func applyPendingList(_ pending: [Gratitude]) {
@@ -368,14 +487,23 @@ struct GratitudeCard: View {
     let gratitude: Gratitude
     let isHearted: Bool
     let onHeart: () -> Void
+    /// When set (iPad split), opens the post in the detail column instead of pushing.
+    var onSelect: (() -> Void)? = nil
+    var isSelected: Bool = false
+    /// Prefer programmatic profile open so avatars work inside multi-column shells.
+    var onOpenProfile: ((Profile) -> Void)? = nil
 
     @State private var fullScreenImageURL: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                ProfileAvatarLink(profile: gratitude.author, size: 38)
-                NavigationLink(value: gratitude) {
+                ProfileAvatarLink(
+                    profile: gratitude.author,
+                    size: 38,
+                    onOpen: onOpenProfile
+                )
+                openControl {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 1) {
                             (Text(gratitude.author?.displayName ?? "Someone")
@@ -396,10 +524,9 @@ struct GratitudeCard: View {
                         Spacer()
                     }
                 }
-                .buttonStyle(.plain)
             }
 
-            NavigationLink(value: gratitude) {
+            openControl {
                 LinkifiedText(
                     text: gratitude.message,
                     font: Theme.body(15),
@@ -409,7 +536,6 @@ struct GratitudeCard: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.plain)
 
             if let url = gratitude.mediaURL {
                 let isVideo = gratitude.mediaType?.lowercased().hasPrefix("video") == true
@@ -447,8 +573,25 @@ struct GratitudeCard: View {
         }
         .padding(16)
         .card()
+        .overlay {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(Theme.coral.opacity(0.85), lineWidth: 2)
+            }
+        }
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
+        }
+    }
+
+    @ViewBuilder
+    private func openControl<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if let onSelect {
+            Button(action: onSelect, label: content)
+                .buttonStyle(.plain)
+        } else {
+            NavigationLink(value: gratitude, label: content)
+                .buttonStyle(.plain)
         }
     }
 }
@@ -523,37 +666,53 @@ private struct HomeProfileSearch: View {
 
     private var searchField: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(focused.wrappedValue ? Theme.coral : Theme.textTertiary)
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(focused.wrappedValue ? Theme.coral : Theme.textTertiary)
 
-            TextField("Search people by name", text: $query)
-                .font(Theme.body(15))
-                .foregroundStyle(Theme.textPrimary)
-                .textInputAutocapitalization(.words)
-                .autocorrectionDisabled()
-                .focused(focused)
-                .submitLabel(.search)
+                TextField("Search people by name", text: $query)
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.textPrimary)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .focused(focused)
+                    .submitLabel(.search)
 
-            if !query.isEmpty {
-                Button {
-                    clear()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Theme.textTertiary)
+                if !query.isEmpty {
+                    Button {
+                        query = ""
+                        results = []
+                        searching = false
+                        didSearch = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Clear search")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(focused.wrappedValue ? Theme.coral.opacity(0.45) : Theme.hairline, lineWidth: 1)
+            )
+
+            // Native search-bar Cancel — ends editing and restores the tab bar.
+            if focused.wrappedValue {
+                Button("Cancel") {
+                    clear()
+                }
+                .font(Theme.body(15, weight: .medium))
+                .foregroundStyle(Theme.coral)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(focused.wrappedValue ? Theme.coral.opacity(0.45) : Theme.hairline, lineWidth: 1)
-        )
+        .animation(.easeInOut(duration: 0.18), value: focused.wrappedValue)
     }
 
     private var resultsPanel: some View {

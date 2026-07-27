@@ -20,6 +20,9 @@ struct PendingAppreciationReviewView: View {
         case declined
     }
 
+    @State private var showCompose = false
+    @State private var showPayItForward = false
+
     private var authorProfile: Profile? { gratitude.author ?? loadedAuthor }
 
     var body: some View {
@@ -28,7 +31,33 @@ struct PendingAppreciationReviewView: View {
             case .review:
                 reviewContent
             case .accepted(let accepted):
-                GratitudeDetailView(gratitude: accepted)
+                VStack(spacing: 0) {
+                    if showPayItForward {
+                        PayItForwardNudgeCard(
+                            fromName: authorProfile?.fullName
+                                ?? authorProfile?.displayName,
+                            onThankSomeone: {
+                                Analytics.capture(
+                                    "pay_it_forward_tapped",
+                                    ["source": "claim_accept"]
+                                )
+                                showCompose = true
+                                AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
+                            },
+                            onDismiss: {
+                                withAnimation(Motion.note) {
+                                    showPayItForward = false
+                                }
+                                AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
+                            }
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 4)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                    GratitudeDetailView(gratitude: accepted)
+                }
             case .declined:
                 declinedContent
             }
@@ -36,6 +65,9 @@ struct PendingAppreciationReviewView: View {
         .background(Theme.background)
         .navigationTitle(outcomeTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .composeCover(isPresented: $showCompose) {
+            ComposeView(analyticsSource: "post_accept_pay_it_forward")
+        }
         .task {
             await linkRecipientIfNeeded()
             await loadAuthorIfNeeded()
@@ -120,7 +152,8 @@ struct PendingAppreciationReviewView: View {
                 }
             }
             .padding(20)
-            .padding(.bottom, 96)
+            .tabChromeBottomPadding()
+            .readableWidth()
         }
         .onAppear { WarmHaptics.received() }
     }
@@ -182,6 +215,8 @@ struct PendingAppreciationReviewView: View {
             gratitude = updated
             if action == .accept {
                 WarmHaptics.received()
+                Analytics.capture("pay_it_forward_shown", ["source": "claim_accept"])
+                showPayItForward = true
             }
             withAnimation(Motion.note) {
                 outcome = action == .accept ? .accepted(updated) : .declined

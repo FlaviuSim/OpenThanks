@@ -4,6 +4,8 @@ import SwiftUI
 /// mirroring the web post page (openthanks.com/for/{slug}).
 struct GratitudeDetailView: View {
     @State var gratitude: Gratitude
+    /// When set (iPad two-pane), open profiles via the parent NavigationPath.
+    var onOpenProfile: ((Profile) -> Void)? = nil
     @Environment(AuthService.self) private var auth
     @Environment(\.openURL) private var openURL
 
@@ -21,7 +23,8 @@ struct GratitudeDetailView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
-            .padding(.bottom, 96)
+            .tabChromeBottomPadding()
+            .readableWidth()
         }
         .background(Theme.background)
         .navigationTitle("Appreciation")
@@ -42,7 +45,11 @@ struct GratitudeDetailView: View {
     private var postCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                ProfileAvatarLink(profile: gratitude.author, size: 44)
+                ProfileAvatarLink(
+                    profile: gratitude.author,
+                    size: 44,
+                    onOpen: onOpenProfile
+                )
                 VStack(alignment: .leading, spacing: 1) {
                     (Text(gratitude.author?.displayName ?? "Someone")
                         .font(Theme.body(15, weight: .semibold))
@@ -59,7 +66,11 @@ struct GratitudeDetailView: View {
                 }
                 Spacer()
                 if let recipient = gratitude.recipient {
-                    ProfileAvatarLink(profile: recipient, size: 32)
+                    ProfileAvatarLink(
+                        profile: recipient,
+                        size: 32,
+                        onOpen: onOpenProfile
+                    )
                 }
             }
 

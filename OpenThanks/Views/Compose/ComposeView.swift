@@ -137,9 +137,9 @@ struct ComposeView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     intro
 
-                    recipientSection
-
                     messageSection
+
+                    recipientSection
 
                     photoSection
 
@@ -253,13 +253,18 @@ struct ComposeView: View {
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Who are you thanking?")
+                Text("To")
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Text("Optional")
                     .font(Theme.body(12, weight: .medium))
                     .foregroundStyle(Theme.textTertiary)
             }
+
+            Text("Optional — only needed if you want OpenThanks to notify them. Leave it blank and share the claim link yourself after creating. Nobody sees this until they accept, and you can edit anytime before then.")
+                .font(Theme.body(13))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 8) {
                 recipientFieldChrome
@@ -398,7 +403,7 @@ struct ComposeView: View {
                     Text(inviteSuggestionTitle)
                         .font(Theme.body(14, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("We’ll send a claim link when you share — email, name, or leave blank all work.")
+                    Text("Leave blank if you prefer — you’ll get a claim link to share after sending.")
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
