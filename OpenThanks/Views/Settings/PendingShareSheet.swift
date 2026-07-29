@@ -61,7 +61,7 @@ struct PendingShareSheet: View {
                     Text("Nudge \(gratitude.recipientDisplayName)")
                         .font(Theme.display(20, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("They haven't claimed your appreciation yet. Send them the link directly.")
+                    Text("They haven't accepted your appreciation yet. Send them the link directly so they see it and accept your appreciation.")
                         .font(Theme.body(14))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
@@ -98,7 +98,7 @@ struct PendingShareSheet: View {
                         title: "Send via WhatsApp",
                         systemImage: "phone.bubble.fill",
                         subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                            ?? "Share the claim link"
+                            ?? "Share the link to accept"
                     ) {
                         openWhatsApp()
                     }

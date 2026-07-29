@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(AuthService.self) private var auth
@@ -6,10 +7,16 @@ struct SettingsView: View {
     @State private var pendingCount = 0
     @State private var showEditProfile = false
     @State private var notificationError: String?
+    @State private var showOpenSystemSettings = false
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
     @State private var calendarAccessTick = 0
+    /// Serializes toggle work so rapid taps can't leave AppStorage fighting the Toggle.
+    @State private var fridayToggleTask: Task<Void, Never>?
+    @State private var calendarToggleTask: Task<Void, Never>?
+    @State private var fridayToggleEpoch = 0
+    @State private var calendarToggleEpoch = 0
 
     private var calendarAccessLabel: String {
         _ = calendarAccessTick
@@ -25,6 +32,20 @@ struct SettingsView: View {
         Binding(
             get: { appearance == AppAppearance.light.rawValue },
             set: { appearance = $0 ? AppAppearance.light.rawValue : AppAppearance.dark.rawValue }
+        )
+    }
+
+    private var fridayReminderBinding: Binding<Bool> {
+        Binding(
+            get: { fridayReminderEnabled },
+            set: { setFridayReminderEnabled($0) }
+        )
+    }
+
+    private var calendarNudgeBinding: Binding<Bool> {
+        Binding(
+            get: { calendarNudgeEnabled },
+            set: { setCalendarNudgeEnabled($0) }
         )
     }
 
@@ -50,6 +71,11 @@ struct SettingsView: View {
                 Section("Account") {
                     Button { showEditProfile = true } label: { rowLabel("Edit Profile") }
                     NavigationLink {
+                        StatsView()
+                    } label: {
+                        rowLabel("Your Stats")
+                    }
+                    NavigationLink {
                         PendingAppreciationsView()
                     } label: {
                         HStack {
@@ -74,7 +100,7 @@ struct SettingsView: View {
                 .listRowBackground(Theme.surface)
 
                 Section("Notifications") {
-                    Toggle(isOn: $fridayReminderEnabled) {
+                    Toggle(isOn: fridayReminderBinding) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Friday Gratitude Reminder")
                             Text("Every Friday at 9:00 AM — a gentle prompt.")
@@ -84,7 +110,7 @@ struct SettingsView: View {
                     }
                     .tint(Theme.coral)
 
-                    Toggle(isOn: $calendarNudgeEnabled) {
+                    Toggle(isOn: calendarNudgeBinding) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Evening Thank-You Nudge")
                             Text("Weekdays at 8:00 PM when your Calendar suggests someone to thank. 100% private—your calendar data never leaves your device.")
@@ -111,8 +137,11 @@ struct SettingsView: View {
                                     calendarAccessTick += 1
                                     if granted {
                                         await refreshCalendarNudge()
+                                        notificationError = nil
+                                        showOpenSystemSettings = false
                                     } else {
-                                        notificationError = "Calendar access is required for evening thank-you nudges. You can enable it in Settings → OpenThanks."
+                                        notificationError = "Calendar access is required for evening thank-you nudges. Enable it in iPhone Settings → OpenThanks."
+                                        showOpenSystemSettings = true
                                     }
                                 }
                             }
@@ -124,6 +153,16 @@ struct SettingsView: View {
                         Text(notificationError)
                             .font(Theme.body(12))
                             .foregroundStyle(.red)
+
+                        if showOpenSystemSettings {
+                            Button("Open iPhone Settings") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(url)
+                                }
+                            }
+                            .font(Theme.body(13, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                        }
                     }
                 }
                 .listRowBackground(Theme.surface)
@@ -194,48 +233,14 @@ struct SettingsView: View {
                     .syncAppAppearance()
             }
             .syncAppAppearance()
-            .onChange(of: fridayReminderEnabled) { _, enabled in
-                notificationError = nil
-                Task {
-                    if enabled {
-                        let didEnable = await NotificationService.enableFridayReminder()
-                        if !didEnable {
-                            fridayReminderEnabled = false
-                            notificationError = "Notifications are off. Enable them in Settings to get Friday reminders."
-                        }
-                    } else {
-                        await NotificationService.disableFridayReminder()
-                    }
-                }
-            }
-            .onChange(of: calendarNudgeEnabled) { _, enabled in
-                notificationError = nil
-                Task {
-                    if enabled {
-                        let didEnable = await NotificationService.enableCalendarGratitudeNudge(
-                            authorId: auth.userId,
-                            selfEmails: selfEmails
-                        )
-                        calendarAccessTick += 1
-                        if !didEnable {
-                            calendarNudgeEnabled = false
-                            if !CalendarMeetingService.hasFullAccess {
-                                notificationError = "Calendar access is required for evening thank-you nudges."
-                            } else {
-                                notificationError = "Notifications are off. Enable them in Settings to get evening nudges."
-                            }
-                        } else {
-                            CalendarGratitudeBackgroundRefresh.schedule()
-                        }
-                    } else {
-                        await NotificationService.disableCalendarGratitudeNudge()
-                    }
-                }
-            }
             .task {
                 guard let userId = auth.userId else { return }
                 pendingCount = (try? await GratitudeService.pendingCount(authorId: userId)) ?? 0
                 calendarAccessTick += 1
+            }
+            .onDisappear {
+                fridayToggleTask?.cancel()
+                calendarToggleTask?.cancel()
             }
         }
     }
@@ -246,6 +251,86 @@ struct SettingsView: View {
             emails.insert(email)
         }
         return emails
+    }
+
+    private func setFridayReminderEnabled(_ enabled: Bool) {
+        fridayToggleTask?.cancel()
+        fridayToggleEpoch += 1
+        let epoch = fridayToggleEpoch
+        notificationError = nil
+        showOpenSystemSettings = false
+        fridayReminderEnabled = enabled
+
+        fridayToggleTask = Task {
+            if enabled {
+                let failure = await NotificationService.enableFridayReminder()
+                guard !Task.isCancelled, epoch == fridayToggleEpoch else { return }
+                await MainActor.run {
+                    if let failure {
+                        notificationError = message(for: failure, feature: "Friday reminders")
+                        showOpenSystemSettings = failure == .notificationsDenied
+                        // Let the Toggle finish its on animation before reverting —
+                        // reverting inside the same turn can leave the control stuck off.
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(50))
+                            guard epoch == fridayToggleEpoch else { return }
+                            fridayReminderEnabled = false
+                        }
+                    }
+                }
+            } else {
+                await NotificationService.disableFridayReminder()
+            }
+        }
+    }
+
+    private func setCalendarNudgeEnabled(_ enabled: Bool) {
+        calendarToggleTask?.cancel()
+        calendarToggleEpoch += 1
+        let epoch = calendarToggleEpoch
+        notificationError = nil
+        showOpenSystemSettings = false
+        calendarNudgeEnabled = enabled
+
+        calendarToggleTask = Task {
+            if enabled {
+                let failure = await NotificationService.enableCalendarGratitudeNudge(
+                    authorId: auth.userId,
+                    selfEmails: selfEmails
+                )
+                guard !Task.isCancelled, epoch == calendarToggleEpoch else { return }
+                await MainActor.run {
+                    calendarAccessTick += 1
+                    if let failure {
+                        notificationError = message(for: failure, feature: "evening thank-you nudges")
+                        showOpenSystemSettings = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(50))
+                            guard epoch == calendarToggleEpoch else { return }
+                            calendarNudgeEnabled = false
+                        }
+                    } else {
+                        CalendarGratitudeBackgroundRefresh.schedule()
+                    }
+                }
+            } else {
+                await NotificationService.disableCalendarGratitudeNudge()
+            }
+        }
+    }
+
+    private func message(
+        for failure: NotificationService.ReminderEnableFailure,
+        feature: String
+    ) -> String {
+        switch failure {
+        case .notificationsDenied:
+            return "Notifications are off. Enable them in iPhone Settings to get \(feature)."
+        case .calendarDenied:
+            return "Calendar access is required for evening thank-you nudges. Enable it in iPhone Settings → OpenThanks."
+        case .schedulingFailed:
+            return "Couldn't schedule \(feature). Try again in a moment."
+        }
     }
 
     private func refreshCalendarNudge() async {
@@ -334,7 +419,7 @@ struct PendingAppreciationsView: View {
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: {
-            Text("This pending appreciation will be removed permanently. The claim link will stop working.")
+            Text("This pending appreciation will be removed permanently. The link to accept will stop working.")
         }
         .task { await reload() }
     }
@@ -371,7 +456,7 @@ struct PendingAppreciationsView: View {
                         )
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
-                        Text("Pending — tap to share the claim link")
+                        Text("Pending — tap to share the link to accept")
                             .font(Theme.body(12, weight: .semibold))
                             .foregroundStyle(Theme.coral)
                     }
@@ -406,7 +491,7 @@ struct PendingAppreciationsView: View {
         .card()
         .contextMenu {
             Button { sharing = g } label: {
-                Label("Share claim link", systemImage: "square.and.arrow.up")
+                Label("Share link to accept", systemImage: "square.and.arrow.up")
             }
             Button { editing = g } label: {
                 Label("Edit", systemImage: "pencil")

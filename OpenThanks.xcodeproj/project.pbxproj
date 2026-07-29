@@ -33,6 +33,7 @@
 		400E1CD96FA8D62CD08C05AE /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C1F5AF689FF4B940FFDD36 /* Analytics.swift */; };
 		42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */; };
 		472E06539772B7665712C59E /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
+		4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */; };
 		4DB57AC6BE2F0C7305871D75 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
 		4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E451C434563DD8702080E34 /* WelcomeView.swift */; };
 		51BEC8131C0FFD6895461EDC /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
@@ -41,7 +42,9 @@
 		5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */; };
 		5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */; };
 		5FFBE5EF70EF711928166478 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
+		63E69EA329C6E4FBDD18277C /* StreakMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45105695C56A05D8C6192577 /* StreakMath.swift */; };
 		652CB389E2FF994DB08D335E /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
+		69B4F6E0C080880220BFF632 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA066FE29E589A34FD32C5E /* StatsView.swift */; };
 		6C31438E31C6D9FBDD646645 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097424F66444F25FE6651FE0 /* Motion.swift */; };
 		6C538E48BED0F8D5D2DF4472 /* PostMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F0BE629D251F856F14F577 /* PostMediaViews.swift */; };
 		6CE1E3F87BC0DA2F0FF4D845 /* AppStoreReviewPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56F72311BC9752D833B4C08 /* AppStoreReviewPrompt.swift */; };
@@ -97,7 +100,7 @@
 		F0DEEBB646DB5DEC2C7ABFC2 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A25AD150B863DF00ABC41E23 /* OnboardingView.swift */; };
 		F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41CEF2962FB940913427807 /* FeedView.swift */; };
 		FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */; };
-		FD4FD5B91A8E1714D55933F0 /* OpenThanksWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C1A1612FD16ABCA6168C5A99 /* OpenThanksWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		FD4FD5B91A8E1714D55933F0 /* OpenThanksWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C1A1612FD16ABCA6168C5A99 /* OpenThanksWatch.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FDD318014FDE724E16267431 /* WatchConnectivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */; };
 		FEB2414FA2688F0D2F142C26 /* OpenThanksWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B032022447488A7BF2766 /* OpenThanksWidgetBundle.swift */; };
 		FF60DD89D5A059CB7194C72C /* CalendarMeetingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */; };
@@ -191,6 +194,7 @@
 		27F0BE629D251F856F14F577 /* PostMediaViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostMediaViews.swift; sourceTree = "<group>"; };
 		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
+		306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionConfigService.swift; sourceTree = "<group>"; };
 		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
 		34C1B132702899893D08B37C /* VideoProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessing.swift; sourceTree = "<group>"; };
 		39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
@@ -199,10 +203,12 @@
 		3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppGroup+Files.swift"; sourceTree = "<group>"; };
 		432D87DB1FBDF467DB01585D /* SiriIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntroView.swift; sourceTree = "<group>"; };
 		446585D437E05A38AD0D2F0E /* MessageEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageEditor.swift; sourceTree = "<group>"; };
+		45105695C56A05D8C6192577 /* StreakMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakMath.swift; sourceTree = "<group>"; };
 		475B3E155C6168A97BD17C48 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		50A007648B028C626C69ADFB /* NotificationPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionView.swift; sourceTree = "<group>"; };
 		566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarGratitudeBackgroundRefresh.swift; sourceTree = "<group>"; };
 		5A78907B236CBABA2233D056 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
+		5AA066FE29E589A34FD32C5E /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6386C42954F7E470B63181A1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeOpportunityRanker.swift; sourceTree = "<group>"; };
@@ -313,6 +319,7 @@
 				1EC0A8CDE94660605C46C812 /* AuthService.swift */,
 				566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */,
 				DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */,
+				306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */,
 				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
@@ -320,6 +327,7 @@
 				0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */,
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
+				45105695C56A05D8C6192577 /* StreakMath.swift */,
 				B863B534795C67594B79C1DC /* TabLaunchBridge.swift */,
 				34C1B132702899893D08B37C /* VideoProcessing.swift */,
 				1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */,
@@ -463,6 +471,7 @@
 				FD4546F9384987CE5C913CD0 /* EditProfileSheet.swift */,
 				D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */,
 				A24196DBDF1449EB46FBF5DD /* SettingsView.swift */,
+				5AA066FE29E589A34FD32C5E /* StatsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -778,6 +787,7 @@
 				FF60DD89D5A059CB7194C72C /* CalendarMeetingService.swift in Sources */,
 				7E2EFE12321E2ECFE1CC661A /* CalendarPermissionView.swift in Sources */,
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
+				4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */,
 				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
 				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
 				77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */,
@@ -811,6 +821,8 @@
 				3941394E94699B39AF29657B /* ProfileView.swift in Sources */,
 				985D66E76E069167F1534690 /* SettingsView.swift in Sources */,
 				108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */,
+				69B4F6E0C080880220BFF632 /* StatsView.swift in Sources */,
+				63E69EA329C6E4FBDD18277C /* StreakMath.swift in Sources */,
 				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,
 				B6C3DBD7181AD1C36ABEB924 /* VideoProcessing.swift in Sources */,
@@ -988,6 +1000,8 @@
 				DEVELOPMENT_TEAM = 53CL59ATX8;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.app;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
 				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app.watch;
 				SDKROOT = watchos;
@@ -1026,10 +1040,12 @@
 				DEVELOPMENT_TEAM = 53CL59ATX8;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.app;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
 				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.app.watch;
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Debug;

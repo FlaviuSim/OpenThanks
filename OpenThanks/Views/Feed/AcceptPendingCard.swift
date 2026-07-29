@@ -13,6 +13,8 @@ struct AcceptPendingCard: View {
     @State private var errorMessage: String?
     @State private var fullScreenImageURL: URL?
     @State private var loadedAuthor: Profile?
+    /// Prevents double-tap from starting two accept tasks (second failure can resurrect the card).
+    @State private var didSubmit = false
 
     private enum Action { case accept, decline }
 
@@ -74,7 +76,7 @@ struct AcceptPendingCard: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(SecondaryCapsuleButtonStyle())
-                .disabled(acting != nil)
+                .disabled(acting != nil || didSubmit)
 
                 Button {
                     Task { await respond(accept: true) }
@@ -83,7 +85,7 @@ struct AcceptPendingCard: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CTAButtonStyle())
-                .disabled(acting != nil)
+                .disabled(acting != nil || didSubmit)
             }
         }
         .padding(16)
@@ -106,7 +108,9 @@ struct AcceptPendingCard: View {
     }
 
     private func respond(accept: Bool) async {
+        guard !didSubmit else { return }
         guard let userId = auth.userId else { return }
+        didSubmit = true
         acting = accept ? .accept : .decline
         errorMessage = nil
 
@@ -140,10 +144,36 @@ struct AcceptPendingCard: View {
             if accept {
                 onAccepted(updated)
             }
-        } catch {
-            onFailed(gratitude)
-            errorMessage = error.localizedDescription
             acting = nil
+        } catch is CancellationError {
+            // Unstructured Task can cancel after the card is removed — don't resurrect it.
+            acting = nil
+        } catch {
+            // Already accepted/declined (e.g. double-submit) — keep it gone.
+            if Self.isAlreadyResolvedError(error) {
+                if accept {
+                    var resolved = gratitude
+                    resolved.status = .accepted
+                    onAccepted(resolved)
+                } else {
+                    onDeclined(gratitude.id)
+                }
+                acting = nil
+                return
+            }
+            didSubmit = false
+            acting = nil
+            errorMessage = error.localizedDescription
+            onFailed(gratitude)
         }
+    }
+
+    private static func isAlreadyResolvedError(_ error: Error) -> Bool {
+        let text = error.localizedDescription.lowercased()
+        return text.contains("already")
+            || text.contains("no rows")
+            || text.contains("0 rows")
+            || text.contains("not found")
+            || text.contains("processed")
     }
 }

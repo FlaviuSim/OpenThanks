@@ -48,6 +48,10 @@ struct MainTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .syncAppAppearance()
+        .sheet(isPresented: $showProfileSettings) {
+            SettingsView()
+                .syncAppAppearance()
+        }
         .composeCover(item: $composeSheet) { sheet in
             composeView(for: sheet)
         }
@@ -144,9 +148,20 @@ struct MainTabView: View {
                         homeSearchActive = false
                         composeSheet = .blank
                     } label: {
-                        Label("Thank someone", systemImage: "heart.fill")
+                        Label("Thank Someone", systemImage: "heart.fill")
                             .foregroundStyle(Theme.coral)
                     }
+                }
+
+                Section {
+                    Button {
+                        resignKeyboard()
+                        homeSearchActive = false
+                        showProfileSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                    .foregroundStyle(Theme.textPrimary)
                 }
             }
             .listStyle(.sidebar)
@@ -158,7 +173,7 @@ struct MainTabView: View {
                     } label: {
                         Image(systemName: "square.and.pencil")
                     }
-                    .accessibilityLabel("Thank someone")
+                    .accessibilityLabel("Thank Someone")
                 }
             }
         } detail: {
@@ -273,6 +288,7 @@ struct MainTabView: View {
             ComposeShareHandoff.applyPendingShare()
         }
         guard let request = ComposeLaunchBridge.shared.consume() else { return }
+        showProfileSettings = false
         composeSheet = .launch(request)
     }
 

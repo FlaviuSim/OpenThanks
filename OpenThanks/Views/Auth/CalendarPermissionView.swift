@@ -75,12 +75,12 @@ struct CalendarPermissionView: View {
             emails.insert(email)
         }
 
-        let enabled = await NotificationService.enableCalendarGratitudeNudge(
+        let failure = await NotificationService.enableCalendarGratitudeNudge(
             authorId: auth.userId,
             selfEmails: emails
         )
-        calendarNudgeEnabled = enabled
-        if enabled {
+        calendarNudgeEnabled = failure == nil
+        if failure == nil {
             CalendarGratitudeBackgroundRefresh.schedule()
         }
         onFinished()

@@ -115,6 +115,22 @@ enum GratitudeService {
             .execute().count ?? 0
     }
 
+    /// Lightweight sent rows for Stats streaks / competition eligibility.
+    static func sentActivity(
+        authorId: UUID,
+        since: Date,
+        limit: Int = 500
+    ) async throws -> [SentActivity] {
+        try await supabase.from("gratitudes")
+            .select("id, created_at, source, status, recipient_id, author_id")
+            .eq("author_id", value: authorId)
+            .gte("created_at", value: since.ISO8601Format())
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+    }
+
     /// Accepted appreciations sent by a user, restricted to what `viewerId`
     /// may see: public posts, plus private ones the viewer is party to.
     static func sentBy(userId: UUID, viewerId: UUID?, limit: Int = 50) async throws -> [Gratitude] {
@@ -242,29 +258,45 @@ enum GratitudeService {
             acceptedAt: accept ? ISO8601DateFormatter().string(from: Date()) : nil
         )
 
-        let updated: Gratitude = try await supabase.from("gratitudes")
-            .update(update)
-            .eq("id", value: gratitudeId)
-            .select(feedSelect)
-            .single()
-            .execute().value
+        do {
+            let updated: Gratitude = try await supabase.from("gratitudes")
+                .update(update)
+                .eq("id", value: gratitudeId)
+                .eq("status", value: "pending")
+                .select(feedSelect)
+                .single()
+                .execute().value
 
-        if accept {
-            await MainActor.run {
-                NotificationCenter.default.post(name: .gratitudeAccepted, object: updated)
+            if accept {
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .gratitudeAccepted, object: updated)
+                }
+                // Don't hold the accept UI on notification insert.
+                Task {
+                    await insertNotification(
+                        userId: updated.authorId,
+                        type: "gratitude_received",
+                        gratitudeId: updated.id,
+                        fromUserId: recipientId
+                    )
+                }
             }
-            // Don't hold the accept UI on notification insert.
-            Task {
-                await insertNotification(
-                    userId: updated.authorId,
-                    type: "gratitude_received",
-                    gratitudeId: updated.id,
-                    fromUserId: recipientId
-                )
+
+            return updated
+        } catch {
+            // Concurrent accept/decline already landed — return the current row.
+            let current = try await gratitude(id: gratitudeId)
+            if accept, current.status == .accepted {
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .gratitudeAccepted, object: current)
+                }
+                return current
             }
+            if !accept, current.status == .rejected {
+                return current
+            }
+            throw error
         }
-
-        return updated
     }
 
     /// Hearts on posts this user sent or received — people they inspired.
@@ -324,6 +356,7 @@ enum GratitudeService {
             let media_url: String?
             let media_type: String?
             let visibility: String
+            let source: String
         }
 
         struct CreateResponse: Decodable {
@@ -360,7 +393,8 @@ enum GratitudeService {
                 message: payload.message,
                 media_url: payload.mediaUrl,
                 media_type: payload.mediaType,
-                visibility: payload.visibility
+                visibility: payload.visibility,
+                source: payload.source
             )
         )
 
@@ -590,21 +624,25 @@ enum GratitudeService {
     // MARK: Notifications
 
     /// Best-effort insert — never fails the calling action.
-    /// Dedupes `gratitude_pending` so linking a recipient more than once
-    /// (feed load, claim link, accept) doesn't spam the inbox.
+    /// Dedupes `gratitude_pending` (same recipient + post) and `heart_received`
+    /// (same hearter + post) so repeat link/heart actions don't spam the inbox.
     private static func insertNotification(
         userId: UUID,
         type: String,
         gratitudeId: UUID,
         fromUserId: UUID
     ) async {
-        if type == "gratitude_pending" {
+        if type == "gratitude_pending" || type == "heart_received" {
             struct IdRow: Decodable { let id: UUID }
-            let existing: [IdRow] = (try? await supabase.from("notifications")
+            var query = supabase.from("notifications")
                 .select("id")
                 .eq("user_id", value: userId)
                 .eq("gratitude_id", value: gratitudeId)
                 .eq("type", value: type)
+            if type == "heart_received" {
+                query = query.eq("from_user_id", value: fromUserId)
+            }
+            let existing: [IdRow] = (try? await query
                 .limit(1)
                 .execute().value) ?? []
             if !existing.isEmpty { return }

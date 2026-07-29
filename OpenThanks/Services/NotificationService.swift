@@ -59,11 +59,17 @@ enum NotificationService {
         }
     }
 
-    /// Schedules the next Friday 9:00 AM local notification with that week's
-    /// rotating question (same bank as the web Friday email).
-    /// Call again on app launch so copy stays current week to week.
-    static func enableFridayReminder() async -> Bool {
-        guard await requestAuthorizationAndRegisterForPushes() else { return false }
+    /// Why enabling a Settings notification toggle failed (nil = success).
+    enum ReminderEnableFailure: Equatable {
+        case notificationsDenied
+        case calendarDenied
+        case schedulingFailed
+    }
+
+    static func enableFridayReminder() async -> ReminderEnableFailure? {
+        guard await requestAuthorizationAndRegisterForPushes() else {
+            return .notificationsDenied
+        }
 
         await disableFridayReminder()
 
@@ -91,9 +97,9 @@ enum NotificationService {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            return true
+            return nil
         } catch {
-            return false
+            return .schedulingFailed
         }
     }
 
@@ -220,18 +226,31 @@ enum NotificationService {
     }
 
     /// Enables the evening nudge: notification permission + calendar access, then schedule.
+    /// Returns nil on success. Preference can stay on even when there’s no candidate tonight.
     static func enableCalendarGratitudeNudge(
         authorId: UUID?,
         selfEmails: Set<String>
-    ) async -> Bool {
-        guard await requestAuthorizationAndRegisterForPushes() else { return false }
-        guard await CalendarMeetingService.requestAccess() else { return false }
+    ) async -> ReminderEnableFailure? {
+        guard await requestAuthorizationAndRegisterForPushes() else {
+            return .notificationsDenied
+        }
+        // Don't re-prompt when the system already denied — Settings must flip it.
+        switch CalendarMeetingService.accessState {
+        case .fullAccess:
+            break
+        case .notDetermined:
+            guard await CalendarMeetingService.requestAccess() else {
+                return .calendarDenied
+            }
+        case .denied, .restricted, .writeOnly:
+            return .calendarDenied
+        }
         await refreshCalendarGratitudeNudgeIfEnabled(
             true,
             authorId: authorId,
             selfEmails: selfEmails
         )
-        return true
+        return nil
     }
 
     static func disableCalendarGratitudeNudge() async {

@@ -17,6 +17,9 @@ struct FeedView: View {
     /// Ids the user already accepted/declined this session — keeps pull-to-refresh
     /// from resurrecting a card when a stale pending query races the accept write.
     @State private var resolvedPendingIds: Set<UUID> = []
+    /// Bumped when a failed accept re-inserts a card so SwiftUI doesn't reuse
+    /// stuck "Accepting…" @State from the previous attempt.
+    @State private var pendingCardEpoch: [UUID: Int] = [:]
     @State private var pendingSentCount = 0
     @State private var heartedIds: Set<UUID> = []
     @State private var loading = true
@@ -200,7 +203,7 @@ struct FeedView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 12, weight: .bold))
-                        Text("Thank someone")
+                        Text("Thank Someone")
                             .font(Theme.body(13, weight: .semibold))
                             .lineLimit(1)
                     }
@@ -210,7 +213,7 @@ struct FeedView: View {
                     .background(Theme.ctaGradient, in: Capsule())
                     .shadow(color: Theme.coral.opacity(0.35), radius: 8, y: 2)
                 }
-                .accessibilityLabel("Thank someone — share an appreciation")
+                .accessibilityLabel("Thank Someone — share an appreciation")
             }
         }
         .padding(.horizontal, 20)
@@ -281,7 +284,10 @@ struct FeedView: View {
                                         Task { await refreshWidgetSnapshot() }
                                     },
                                     onFailed: { gratitude in
+                                        // Genuine network failure after optimistic remove —
+                                        // allow retry with a fresh button state.
                                         resolvedPendingIds.remove(gratitude.id)
+                                        pendingCardEpoch[gratitude.id, default: 0] += 1
                                         if !pendingToAccept.contains(where: { $0.id == gratitude.id }) {
                                             pendingToAccept.insert(gratitude, at: 0)
                                         }
@@ -289,6 +295,7 @@ struct FeedView: View {
                                         Task { await refreshWidgetSnapshot() }
                                     }
                                 )
+                                .id("pending-\(item.id)-\(pendingCardEpoch[item.id, default: 0])")
                             }
                         }
 
@@ -372,13 +379,9 @@ struct FeedView: View {
     }
 
     private func applyPendingList(_ pending: [Gratitude]) {
-        // Drop anything this session already resolved, then prune ids the server
-        // no longer returns as pending (accept landed).
-        let filtered = pending.filter { !resolvedPendingIds.contains($0.id) }
-        resolvedPendingIds = Set(resolvedPendingIds.filter { id in
-            pending.contains(where: { $0.id == id })
-        })
-        pendingToAccept = filtered
+        // Once accepted/declined this session, never resurrect — even if a stale
+        // pending query still returns the row (or a failed twin request tries to).
+        pendingToAccept = pending.filter { !resolvedPendingIds.contains($0.id) }
     }
 
     private func load() async {
@@ -603,7 +606,7 @@ struct AvatarView: View {
     var body: some View {
         Group {
             if let url = profile?.avatarURL {
-                CachedAsyncImage(url: url) { image in
+                CachedAsyncImage(url: url, maxPixelSize: RemoteImageCache.avatarMaxPixelSize) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     initials

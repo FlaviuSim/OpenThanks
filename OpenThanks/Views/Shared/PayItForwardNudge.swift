@@ -44,7 +44,7 @@ struct PayItForwardNudgeCard: View {
                 .foregroundStyle(Theme.textTertiary)
 
             Button(action: onThankSomeone) {
-                Text("Thank someone")
+                Text("Thank Someone")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(CTAButtonStyle())

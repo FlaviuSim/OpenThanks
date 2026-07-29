@@ -38,6 +38,6 @@
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.openthanks.app</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
-	<false/>
+	<true/>
 </dict>
 </plist>

@@ -131,7 +131,7 @@ struct EditProfileSheet: View {
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                 } else if let avatarURL = auth.currentProfile?.avatarURL {
-                    CachedAsyncImage(url: avatarURL) { image in
+                    CachedAsyncImage(url: avatarURL, maxPixelSize: RemoteImageCache.avatarMaxPixelSize) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         avatarPlaceholder

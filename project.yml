@@ -4,6 +4,28 @@ options:
   deploymentTarget:
     iOS: "17.0"
     watchOS: "10.0"
+  # App Store Connect requires watch companions under Watch/ (not PlugIns/).
+  # XcodeGen already emits that; only add CodeSignOnCopy on the embed.
+  postGenCommand: |
+    python3 - <<'PY'
+    from pathlib import Path
+    import re
+    path = Path("OpenThanks.xcodeproj/project.pbxproj")
+    text = path.read_text()
+    text2, n = re.subn(
+        r'(OpenThanksWatch\.app in Embed Watch Content \*/ = \{isa = PBXBuildFile; fileRef = [A-F0-9]+ /\* OpenThanksWatch\.app \*/; settings = \{ATTRIBUTES = \()(?!CodeSignOnCopy)(RemoveHeadersOnCopy, \); \}; \};)',
+        r'\1CodeSignOnCopy, \2',
+        text,
+        count=1,
+    )
+    if n:
+        text = text2
+    # Safety: never leave Watch content in PlugIns (App Store rejects it).
+    if 'Embed Watch Content' in text and 'CONTENTS_FOLDER_PATH)/Watch' not in text:
+        raise SystemExit("postGenCommand: Watch embed is not under Watch/ — aborting")
+    path.write_text(text)
+    print("postGenCommand: Watch companion under Watch/ with CodeSignOnCopy")
+    PY
 packages:
   Supabase:
     url: https://github.com/supabase/supabase-swift
@@ -188,7 +210,8 @@ targets:
         CFBundleIconName: AppIcon
         WKCompanionAppBundleIdentifier: com.openthanks.app
         WKApplication: true
-        WKRunsIndependentlyOfCompanionApp: false
+        # Independent so Xcode can install the Watch app directly; phone relay still works.
+        WKRunsIndependentlyOfCompanionApp: true
         CFBundleURLTypes:
           - CFBundleURLName: com.openthanks.app.watch
             CFBundleURLSchemes: [openthanks-watch]
@@ -209,6 +232,14 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         GENERATE_INFOPLIST_FILE: false
+        # YES for Archive/TestFlight so only OpenThanks.app is the distributable product.
+        SKIP_INSTALL: YES
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.openthanks.app
+        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: YES
+      configs:
+        # Allow Run → Apple Watch during development without breaking Release archives.
+        Debug:
+          SKIP_INSTALL: NO
 
   OpenThanksWatchWidgets:
     type: app-extension
@@ -253,10 +284,10 @@ schemes:
     build:
       targets:
         OpenThanks: all
-        OpenThanksWidget: [build]
-        OpenThanksShare: [build]
-        OpenThanksWatch: [build]
-        OpenThanksWatchWidgets: [build]
+        OpenThanksWidget: all
+        OpenThanksShare: all
+        OpenThanksWatch: all
+        OpenThanksWatchWidgets: all
     run:
       config: Debug
     archive:
@@ -266,10 +297,15 @@ schemes:
     build:
       targets:
         OpenThanksWatch: all
-        OpenThanksWatchWidgets: [build]
-        OpenThanks: [build]
+        OpenThanksWatchWidgets: all
+        # Build iOS host for embedding, but do not launch it from this scheme.
+        OpenThanks: [test, profile, analyze, archive]
     run:
       config: Debug
+      executable: OpenThanksWatch
+    profile:
+      config: Release
+      executable: OpenThanksWatch
 
   # Run this scheme to preview widgets. Change `_XCWidgetKind` to switch:
   # GratitudePromptWidget | SendThanksWidget | ReceivedThanksWidget

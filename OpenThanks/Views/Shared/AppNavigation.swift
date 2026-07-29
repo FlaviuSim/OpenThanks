@@ -206,7 +206,7 @@ struct FullScreenImageView: View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
 
-            CachedAsyncImage(url: url) { image in
+            CachedAsyncImage(url: url, maxPixelSize: RemoteImageCache.fullScreenMaxPixelSize) { image in
                 image.resizable()
                     .aspectRatio(contentMode: .fit)
                     .scaleEffect(scale)

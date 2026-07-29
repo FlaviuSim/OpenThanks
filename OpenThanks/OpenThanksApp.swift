@@ -61,6 +61,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         CalendarGratitudeBackgroundRefresh.register()
         CalendarGratitudeBackgroundRefresh.schedule()
         Analytics.setup()
+        RemoteImageCache.prepare()
         return true
     }
 
@@ -260,8 +261,8 @@ struct RootView: View {
         if !hasCompletedNotificationPrompt {
             if await NotificationService.hasResolvedAuthorization() {
                 if await NotificationService.isAuthorized() {
-                    let enabled = await NotificationService.enableFridayReminder()
-                    fridayReminderEnabled = enabled
+                    let failure = await NotificationService.enableFridayReminder()
+                    fridayReminderEnabled = failure == nil
                 }
                 hasCompletedNotificationPrompt = true
             } else {

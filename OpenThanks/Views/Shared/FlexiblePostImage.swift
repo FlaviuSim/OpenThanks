@@ -7,7 +7,7 @@ struct FlexiblePostImage: View {
     var cornerRadius: CGFloat = 14
 
     var body: some View {
-        CachedAsyncImage(url: url) { image in
+        CachedAsyncImage(url: url, maxPixelSize: RemoteImageCache.feedMaxPixelSize) { image in
             image
                 .resizable()
                 .aspectRatio(contentMode: .fit)

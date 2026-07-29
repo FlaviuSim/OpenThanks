@@ -227,9 +227,21 @@ struct AppNotification: Codable, Identifiable, Hashable {
             return "Ready to pay it forward?"
         case "reply":
             return "replied to your appreciation"
+        case "competition_winner":
+            return "You completed the competition — we'll follow up with how to receive your prize."
         default:
             return type.replacingOccurrences(of: "_", with: " ")
         }
+    }
+
+    /// Prefer remote winner copy when available (Notifications UI).
+    var displayVerb: String {
+        if type == "competition_winner" {
+            let body = CompetitionConfigService.cached.winnerNotifyBody
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !body.isEmpty { return body }
+        }
+        return verb
     }
 }
 

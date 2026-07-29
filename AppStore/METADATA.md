@@ -32,7 +32,7 @@ WHY OPENTHANKS
 
 HOW IT WORKS
 1. Thank someone — write a short note (and optional photo)
-2. Send them the claim link by text, email, or copy/paste
+2. Send them the link to accept by text, email, or copy/paste
 3. They accept — and the appreciation can brighten the World feed
 
 Sign in with email or phone. No ads. Built for real gratitude.
@@ -70,7 +70,7 @@ Sign in with email OTP (or phone SMS) using a test account you create before rev
 
 To demo the core flow:
 1. Create an appreciation to a second email you control
-2. Open the claim link / accept from the Home “waiting for you” card
+2. Open the link to accept from the Home “waiting for you” card
 3. Confirm it appears under Profile → Received
 
 Universal Links: openthanks.com claim/for/profile routes open in-app when installed.

@@ -57,7 +57,6 @@ struct ComposeView: View {
     @State private var linkedRecipientEmail: String?
     @State private var recipientResults: [Profile] = []
     @State private var recipientSearching = false
-    @State private var recipientDidSearch = false
     @FocusState private var messageFocused: Bool
     @FocusState private var recipientFocused: Bool
     @State private var showAddLinkSheet = false
@@ -243,7 +242,7 @@ struct ComposeView: View {
                 .foregroundStyle(Theme.textPrimary)
             Text(isEditing
                  ? "Update the message or details before they claim it."
-                 : "A few sincere words can stay with someone for years.")
+                 : "A few kind words can make someone's day")
                 .font(Theme.body(15))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -261,7 +260,7 @@ struct ComposeView: View {
                     .foregroundStyle(Theme.textTertiary)
             }
 
-            Text("Optional — only needed if you want OpenThanks to notify them. Leave it blank and share the claim link yourself after creating. Nobody sees this until they accept, and you can edit anytime before then.")
+            Text("Optional — only needed if you want OpenThanks to notify them. Leave it blank and share the link to accept yourself after creating. Nobody sees this until they accept, and you can edit anytime before then.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -361,7 +360,7 @@ struct ComposeView: View {
                     Spacer()
                 }
                 .padding(14)
-            } else if !recipientResults.isEmpty {
+            } else {
                 ForEach(Array(recipientResults.enumerated()), id: \.element.id) { index, profile in
                     Button {
                         selectLinkedRecipient(profile)
@@ -398,18 +397,6 @@ struct ComposeView: View {
                             .padding(.leading, 66)
                     }
                 }
-            } else if recipientDidSearch {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(inviteSuggestionTitle)
-                        .font(Theme.body(14, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("Leave blank if you prefer — you’ll get a claim link to share after sending.")
-                        .font(Theme.body(12))
-                        .foregroundStyle(Theme.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
             }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -428,17 +415,7 @@ struct ComposeView: View {
         linkedRecipient == nil
             && recipientFocused
             && recipientSearchQuery.count >= 2
-    }
-
-    private var inviteSuggestionTitle: String {
-        let q = recipientSearchQuery
-        if looksLikeEmail(q) {
-            return "Invite \(q)"
-        }
-        if q.hasPrefix("@") {
-            return "No one with that username yet — keep typing an email or name to invite"
-        }
-        return "Invite “\(q)”"
+            && (recipientSearching || !recipientResults.isEmpty)
     }
 
     private func chipLabel(for profile: Profile) -> String {
@@ -452,7 +429,6 @@ struct ComposeView: View {
         recipient = ""
         recipientResults = []
         recipientSearching = false
-        recipientDidSearch = false
         recipientFocused = false
         if let email = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
             linkedRecipientEmail = AuthService.normalizedEmail(email)
@@ -475,12 +451,10 @@ struct ComposeView: View {
         guard linkedRecipient == nil, current.count >= 2 else {
             recipientResults = []
             recipientSearching = false
-            recipientDidSearch = false
             return
         }
 
         recipientSearching = true
-        recipientDidSearch = false
         try? await Task.sleep(for: .milliseconds(280))
         guard !Task.isCancelled else { return }
 
@@ -488,7 +462,6 @@ struct ComposeView: View {
         guard query.count >= 2 else {
             recipientResults = []
             recipientSearching = false
-            recipientDidSearch = false
             return
         }
 
@@ -497,11 +470,9 @@ struct ComposeView: View {
             guard !Task.isCancelled else { return }
             let selfId = auth.userId
             recipientResults = found.filter { $0.id != selfId }
-            recipientDidSearch = true
         } catch {
             if !error.isCancellation {
                 recipientResults = []
-                recipientDidSearch = true
             }
         }
         recipientSearching = false
@@ -528,7 +499,7 @@ struct ComposeView: View {
                     .frame(minHeight: 160)
 
                     if message.isEmpty {
-                        Text("What would you like to say?")
+                        Text("Thank you for…")
                             .font(Theme.body(16))
                             .foregroundStyle(Theme.textTertiary)
                             .padding(.top, 18)
@@ -793,7 +764,7 @@ struct ComposeView: View {
             .accessibilityLabel("Attached photo, tap to adjust crop")
         } else if let url = existingMediaURLResolved {
             // Remote image still loading into preview — show placeholder.
-            CachedAsyncImage(url: url) { image in
+            CachedAsyncImage(url: url, maxPixelSize: RemoteImageCache.feedMaxPixelSize) { image in
                 image
                     .resizable()
                     .flexiblePhotoPreview(maxHeight: 420)
@@ -1484,7 +1455,6 @@ struct ComposeView: View {
         linkedRecipientEmail = nil
         recipientResults = []
         recipientSearching = false
-        recipientDidSearch = false
         didPrefill = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             messageFocused = true
@@ -1550,9 +1520,9 @@ struct SuccessView: View {
 
     private var subtitle: String {
         if gratitude.recipientId != nil || recipientEmail != nil {
-            return "We emailed them the claim link when we could. You can also share it yourself, or edit anything before they claim."
+            return "We emailed them the link to accept when we could. You can also share it yourself, or edit anything before they accept."
         }
-        return "Send the claim link so they can open it — or edit anything before they do."
+        return "Send the link to accept so they can open it — or edit anything before they do."
     }
 
     var body: some View {
@@ -1608,7 +1578,7 @@ struct SuccessView: View {
                         title: "Send via WhatsApp",
                         systemImage: "phone.bubble.fill",
                         subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                            ?? "Share the claim link"
+                            ?? "Share the link to accept"
                     ) {
                         openWhatsApp()
                     }

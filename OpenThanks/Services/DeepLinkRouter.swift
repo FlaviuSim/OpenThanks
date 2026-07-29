@@ -31,7 +31,7 @@ final class DeepLinkRouter {
     private static let reservedRoots: Set<String> = [
         "auth", "api", "feed", "pending", "sent", "notifications", "donate",
         "profile", "privacy", "terms", "unsubscribe", "claim-appreciation",
-        "claim", "for", "gratitude", "ingest", "_next",
+        "claim", "for", "gratitude", "ingest", "_next", "competition",
     ]
 
     var destination: Destination?

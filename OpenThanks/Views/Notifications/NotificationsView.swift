@@ -213,7 +213,7 @@ struct NotificationsView: View {
                 Text(displayName(for: note))
                     .font(Theme.body(15, weight: unread ? .semibold : .regular))
                     .foregroundStyle(Theme.textPrimary)
-                Text(note.verb)
+                Text(note.displayVerb)
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -238,7 +238,9 @@ struct NotificationsView: View {
 
     private func displayName(for note: AppNotification) -> String {
         if let name = note.fromUser?.displayName { return name }
-        if note.type == "gratitude_friday" || note.type == "pay_it_forward_reminder" {
+        if note.type == "gratitude_friday"
+            || note.type == "pay_it_forward_reminder"
+            || note.type == "competition_winner" {
             return "OpenThanks"
         }
         return "Someone"

@@ -221,10 +221,27 @@ struct PendingAppreciationReviewView: View {
             withAnimation(Motion.note) {
                 outcome = action == .accept ? .accepted(updated) : .declined
             }
+            acting = nil
+        } catch is CancellationError {
+            acting = nil
         } catch {
+            // Already resolved elsewhere — show the accepted/declined outcome.
+            if let current = try? await GratitudeService.gratitude(id: gratitude.id) {
+                if action == .accept, current.status == .accepted {
+                    gratitude = current
+                    withAnimation(Motion.note) { outcome = .accepted(current) }
+                    acting = nil
+                    return
+                }
+                if action == .decline, current.status == .rejected {
+                    withAnimation(Motion.note) { outcome = .declined }
+                    acting = nil
+                    return
+                }
+            }
             errorMessage = error.localizedDescription
+            acting = nil
         }
-        acting = nil
     }
 }
 
@@ -278,7 +295,7 @@ struct ClaimAppreciationView: View {
                 case .ownAppreciation:
                     messageState(
                         title: "This is your appreciation",
-                        body: "Only the recipient can accept it. Share the claim link with them.",
+                        body: "Only the recipient can accept it. Share the link to accept with them.",
                         systemImage: "paperplane"
                     )
                 case .ready:

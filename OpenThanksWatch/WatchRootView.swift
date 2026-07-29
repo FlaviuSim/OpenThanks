@@ -42,10 +42,16 @@ struct WatchRootView: View {
 
 struct WatchComposeView: View {
     @Environment(WatchPhoneSession.self) private var session
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var message = ""
     @State private var recipient = ""
     @State private var status: Status = .idle
     @State private var pendingWaiting = 0
+    /// Prevents overlapping `presentTextInputController` calls (a common Watch crash after interruption).
+    @State private var isPresentingInput = false
+    /// Bumped when input is cancelled by the system so stale dictation callbacks are ignored.
+    @State private var inputGeneration = 0
 
     private enum Status: Equatable {
         case idle
@@ -62,7 +68,7 @@ struct WatchComposeView: View {
     private var hasMessage: Bool { !trimmedMessage.isEmpty }
 
     private var canSend: Bool {
-        hasMessage && status != .sending
+        hasMessage && status != .sending && !isPresentingInput
     }
 
     var body: some View {
@@ -86,10 +92,17 @@ struct WatchComposeView: View {
             }
             .padding(.vertical, 2)
         }
-        .navigationTitle("Thank someone")
+        .navigationTitle("Thank Someone")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            restoreComposeDraftIfNeeded()
             pendingWaiting = WidgetSnapshotStore.load().pendingToAccept
+            Task { await session.flushQueueIfPossible() }
+        }
+        .onChange(of: message) { _, _ in persistComposeDraft() }
+        .onChange(of: recipient) { _, _ in persistComposeDraft() }
+        .onChange(of: scenePhase) { _, phase in
+            handleScenePhase(phase)
         }
     }
 
@@ -118,7 +131,7 @@ struct WatchComposeView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "waveform")
                         .font(.system(size: 28, weight: .semibold))
-                    Text("Speak thanks")
+                    Text("Record a thanks")
                         .font(.system(.headline, design: .rounded))
                 }
                 .foregroundStyle(.white)
@@ -127,7 +140,8 @@ struct WatchComposeView: View {
                 .background(watchCoral, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Speak your appreciation")
+            .disabled(isPresentingInput)
+            .accessibilityLabel("Record a thanks")
 
             Button(action: dictateRecipient) {
                 Text(recipient.isEmpty ? "Add a name (optional)" : "To: \(recipient)")
@@ -135,6 +149,7 @@ struct WatchComposeView: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .disabled(isPresentingInput)
         }
     }
 
@@ -173,7 +188,7 @@ struct WatchComposeView: View {
                         ProgressView()
                             .tint(.white)
                     } else {
-                        Label("Send", systemImage: "heart.fill")
+                        Label("Send to iPhone", systemImage: "heart.fill")
                             .font(.system(.headline, design: .rounded))
                     }
                 }
@@ -187,13 +202,13 @@ struct WatchComposeView: View {
             .disabled(!canSend)
 
             HStack(spacing: 10) {
-                Button("Speak again", action: dictateMessage)
+                Button("Record again", action: dictateMessage)
                 Button(recipient.isEmpty ? "Add To" : "Edit To", action: dictateRecipient)
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
             .buttonStyle(.plain)
-            .disabled(status == .sending)
+            .disabled(status == .sending || isPresentingInput)
         }
     }
 
@@ -210,10 +225,11 @@ struct WatchComposeView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Button("Speak another") {
+            Button("Record another") {
                 status = .idle
                 message = ""
                 recipient = ""
+                WatchComposeDraftStore.clear()
             }
             .font(.caption)
             .foregroundStyle(watchCoral)
@@ -274,6 +290,58 @@ struct WatchComposeView: View {
         }
     }
 
+    // MARK: - Lifecycle
+
+    private func handleScenePhase(_ phase: ScenePhase) {
+        switch phase {
+        case .active:
+            // Dictation may have been dismissed by the system without a callback.
+            isPresentingInput = false
+            restoreComposeDraftIfNeeded()
+            if case .sending = status {
+                // Mid-flight send was interrupted; draft is still local — let them retry.
+                status = .idle
+            }
+            Task { await session.flushQueueIfPossible() }
+        case .inactive, .background:
+            dismissVoiceInputIfNeeded()
+            persistComposeDraft()
+        @unknown default:
+            persistComposeDraft()
+        }
+    }
+
+    private func dismissVoiceInputIfNeeded() {
+        guard isPresentingInput else { return }
+        // Tear down the system sheet cleanly so a later present doesn't crash.
+        // Don't bump `inputGeneration` — a completion with spoken text may still arrive.
+        WKApplication.shared().visibleInterfaceController?.dismissTextInputController()
+        isPresentingInput = false
+    }
+
+    private func restoreComposeDraftIfNeeded() {
+        guard let draft = WatchComposeDraftStore.load() else { return }
+        if message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            message = draft.message
+        }
+        if recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            recipient = draft.recipient
+        }
+        // Coming back with a saved note should show Send, not a stale success screen.
+        if case .success = status, !draft.message.isEmpty {
+            status = .idle
+        }
+    }
+
+    private func persistComposeDraft() {
+        switch status {
+        case .success, .queued:
+            WatchComposeDraftStore.clear()
+        case .idle, .sending, .failed:
+            WatchComposeDraftStore.save(message: message, recipient: recipient)
+        }
+    }
+
     // MARK: - Voice input
 
     private func dictateMessage() {
@@ -288,6 +356,7 @@ struct WatchComposeView: View {
             message = clipped
             if case .failed = status { status = .idle }
             if case .queued = status { status = .idle }
+            WatchComposeDraftStore.save(message: clipped, recipient: recipient)
             WKInterfaceDevice.current().play(.click)
         }
     }
@@ -295,6 +364,7 @@ struct WatchComposeView: View {
     private func dictateRecipient() {
         presentVoiceInput(suggestions: nil) { spoken in
             recipient = spoken
+            WatchComposeDraftStore.save(message: message, recipient: spoken)
             WKInterfaceDevice.current().play(.click)
         }
     }
@@ -303,25 +373,35 @@ struct WatchComposeView: View {
         suggestions: [String]?,
         onResult: @escaping (String) -> Void
     ) {
+        guard !isPresentingInput else { return }
+        guard scenePhase == .active else { return }
         guard let controller = WKApplication.shared().visibleInterfaceController else { return }
+
+        isPresentingInput = true
+        inputGeneration += 1
+        let generation = inputGeneration
         // `.plain` opens the Watch text input sheet where dictation is the natural path
         // (mic / scribble / emoji) — not an always-on tiny keyboard field.
         controller.presentTextInputController(
             withSuggestions: suggestions,
             allowedInputMode: .plain
         ) { result in
-            guard let items = result as? [String],
-                  let text = items.first?
-                    .trimmingCharacters(in: .whitespacesAndNewlines),
-                  !text.isEmpty
-            else { return }
             Task { @MainActor in
+                guard generation == inputGeneration else { return }
+                isPresentingInput = false
+                // Cancel / system interruption → nil result. Keep any prior draft intact.
+                guard let items = result as? [String],
+                      let text = items.first?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                      !text.isEmpty
+                else { return }
                 onResult(text)
             }
         }
     }
 
     private func send() async {
+        guard canSend else { return }
         status = .sending
         let outcome = await session.sendAppreciation(message: message, recipient: recipient)
         switch outcome {
@@ -329,13 +409,17 @@ struct WatchComposeView: View {
             status = .success
             message = ""
             recipient = ""
+            WatchComposeDraftStore.clear()
             WKInterfaceDevice.current().play(.success)
         case .queued(let note):
             status = .queued(note)
             message = ""
             recipient = ""
+            WatchComposeDraftStore.clear()
         case .failed(let note):
             status = .failed(note)
+            // Keep the draft so they can retry after coming back to the Watch.
+            WatchComposeDraftStore.save(message: message, recipient: recipient)
             WKInterfaceDevice.current().play(.failure)
         }
     }

@@ -2,31 +2,58 @@ import Foundation
 import WatchConnectivity
 
 /// iPhone side of Watch Connectivity: pushes auth context and creates appreciations.
+/// Safe with no Watch paired — activates once, then no-ops until a Watch is available.
 @MainActor
 final class WatchConnectivityService: NSObject {
     static let shared = WatchConnectivityService()
 
     private weak var auth: AuthService?
-    private var activated = false
+    private var didRequestActivation = false
+
+    /// True after activation completes with a paired Watch that has our companion installed.
+    private(set) var isWatchReady = false
 
     func activate(auth: AuthService) {
         self.auth = auth
+        // Simulator WCSession without a paired Watch floods logs with
+        // "pairingIDs no longer match" / "WCSession is not paired" and is
+        // useless for phone-only runs. Real devices (and Watch testing) still activate.
+        #if targetEnvironment(simulator)
+        return
+        #else
         guard WCSession.isSupported() else { return }
+
         let session = WCSession.default
-        if session.delegate == nil || !(session.delegate is WatchConnectivityService) {
+        if session.delegate !== self {
             session.delegate = self
         }
-        if session.activationState != .activated {
+
+        // Request activation at most once until the session deactivates.
+        switch session.activationState {
+        case .notActivated where !didRequestActivation:
+            didRequestActivation = true
             session.activate()
+        case .activated:
+            refreshWatchReadiness(session)
+            pushAuthContext()
+        default:
+            break
         }
-        activated = true
-        pushAuthContext()
+        #endif
     }
 
     func pushAuthContext() {
+        #if targetEnvironment(simulator)
+        return
+        #else
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.activationState == .activated else { return }
+        guard session.isPaired, session.isWatchAppInstalled else {
+            isWatchReady = false
+            return
+        }
+        isWatchReady = true
 
         let context: WatchRelay.AuthContext
         if let userId = auth?.userId {
@@ -44,8 +71,15 @@ final class WatchConnectivityService: NSObject {
             try session.updateApplicationContext([WatchRelay.authContextKey: data])
         } catch {
             // Non-fatal — Watch will retry when reachable / next activate.
+            #if DEBUG
             print("WatchConnectivity auth context failed: \(error.localizedDescription)")
+            #endif
         }
+        #endif
+    }
+
+    private func refreshWatchReadiness(_ session: WCSession) {
+        isWatchReady = session.isPaired && session.isWatchAppInstalled
     }
 
     // MARK: - Create
@@ -117,7 +151,9 @@ final class WatchConnectivityService: NSObject {
         guard WCSession.isSupported(),
               let replyData = WatchRelay.encode(reply) else { return }
         let session = WCSession.default
-        guard session.activationState == .activated else { return }
+        guard session.activationState == .activated,
+              session.isPaired,
+              session.isWatchAppInstalled else { return }
 
         var context: [String: Any] = [WatchRelay.createResultKey: replyData]
         let authContext = WatchRelay.AuthContext(
@@ -128,11 +164,7 @@ final class WatchConnectivityService: NSObject {
         if let authData = WatchRelay.encode(authContext) {
             context[WatchRelay.authContextKey] = authData
         }
-        do {
-            try session.updateApplicationContext(context)
-        } catch {
-            // Best-effort; interactive replies already cover the happy path.
-        }
+        try? session.updateApplicationContext(context)
     }
 
     private static func parseRecipient(_ raw: String?)
@@ -174,6 +206,16 @@ extension WatchConnectivityService: WCSessionDelegate {
         error: Error?
     ) {
         Task { @MainActor in
+            if activationState == .activated {
+                refreshWatchReadiness(session)
+                pushAuthContext()
+            }
+        }
+    }
+
+    nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
+        Task { @MainActor in
+            refreshWatchReadiness(session)
             pushAuthContext()
         }
     }
@@ -181,7 +223,12 @@ extension WatchConnectivityService: WCSessionDelegate {
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
 
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
-        session.activate()
+        Task { @MainActor in
+            didRequestActivation = false
+            isWatchReady = false
+            session.activate()
+            didRequestActivation = true
+        }
     }
 
     nonisolated func session(

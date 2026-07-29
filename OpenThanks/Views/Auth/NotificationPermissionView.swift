@@ -69,8 +69,8 @@ struct NotificationPermissionView: View {
     private func allowNotifications() async {
         busy = true
         defer { busy = false }
-        let enabled = await NotificationService.enableFridayReminder()
-        fridayReminderEnabled = enabled
+        let failure = await NotificationService.enableFridayReminder()
+        fridayReminderEnabled = failure == nil
         onFinished()
     }
 

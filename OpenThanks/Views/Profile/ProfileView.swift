@@ -24,11 +24,8 @@ struct ProfileView: View {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape").foregroundStyle(Theme.textSecondary)
                     }
+                    .accessibilityLabel("Settings")
                 }
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-                    .syncAppAppearance()
             }
             .appDestinations()
             .syncAppAppearance()
@@ -165,6 +162,27 @@ struct UserProfileView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 6)
                 .accessibilityLabel("Thank \(shownProfile.displayName)")
+            } else {
+                NavigationLink {
+                    StatsView()
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Your Stats")
+                            .font(Theme.body(14, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.coral)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 9)
+                    .background(Theme.coral.opacity(0.12), in: Capsule())
+                    .overlay(
+                        Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+                .accessibilityLabel("Your Stats")
             }
         }
         .padding(.top, 8)

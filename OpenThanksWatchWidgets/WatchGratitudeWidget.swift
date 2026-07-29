@@ -112,7 +112,7 @@ struct WatchComplicationView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             default:
-                Label("Thank someone", systemImage: "heart.fill")
+                Label("Thank Someone", systemImage: "heart.fill")
             }
         }
         .widgetURL(WatchComposeURL.compose)
