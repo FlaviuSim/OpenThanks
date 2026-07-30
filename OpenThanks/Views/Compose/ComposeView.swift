@@ -245,11 +245,16 @@ struct ComposeView: View {
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Send To:")
-                .font(Theme.body(14, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Send To")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Optional")
+                    .font(Theme.body(12, weight: .medium))
+                    .foregroundStyle(Theme.textTertiary)
+            }
 
-            Text("Optional - if you put in an email or username, we'll notify the recipient. Either way, you will get a link to share with the recipient so they can accept the appreciation.")
+            Text("If you put in an email or username, we'll notify the recipient. Either way, you will get a link to share with the recipient so they can accept the appreciation.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
