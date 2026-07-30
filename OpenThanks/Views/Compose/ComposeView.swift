@@ -136,9 +136,9 @@ struct ComposeView: View {
                 VStack(alignment: .leading, spacing: 28) {
                     intro
 
-                    messageSection
-
                     recipientSection
+
+                    messageSection
 
                     photoSection
 
@@ -236,31 +236,20 @@ struct ComposeView: View {
     // MARK: Sections
 
     private var intro: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(isEditing ? "Edit your appreciation" : "Share something kind")
-                .font(Theme.display(26, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-            Text(isEditing
-                 ? "Update the message or details before they claim it."
-                 : "A few kind words can make someone's day")
-                .font(Theme.body(15))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        Text(isEditing ? "Edit your appreciation" : "A few kind words can make someone's day")
+            .font(Theme.display(isEditing ? 26 : 22, weight: .semibold))
+            .foregroundStyle(Theme.textPrimary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
     }
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("To")
-                    .font(Theme.body(14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("Optional")
-                    .font(Theme.body(12, weight: .medium))
-                    .foregroundStyle(Theme.textTertiary)
-            }
+            Text("Send To:")
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
 
-            Text("Optional — only needed if you want OpenThanks to notify them. Leave it blank and share the link to accept yourself after creating. Nobody sees this until they accept, and you can edit anytime before then.")
+            Text("Optional - if you put in an email or username, we'll notify the recipient. Either way, you will get a link to share with the recipient so they can accept the appreciation.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -291,7 +280,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Name, @username, email, or leave blank", text: $recipient)
+                TextField("Email, Username, or leave blank", text: $recipient)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.default)
@@ -479,7 +468,7 @@ struct ComposeView: View {
     }
 
     private var messageSection: some View {
-        field(label: "Your message") {
+        field(label: "Your Appreciation") {
             VStack(spacing: 0) {
                 ZStack(alignment: .topLeading) {
                     MessageEditor(
@@ -499,7 +488,7 @@ struct ComposeView: View {
                     .frame(minHeight: 160)
 
                     if message.isEmpty {
-                        Text("Thank you for…")
+                        Text("Jonny, thank you for...")
                             .font(Theme.body(16))
                             .foregroundStyle(Theme.textTertiary)
                             .padding(.top, 18)
