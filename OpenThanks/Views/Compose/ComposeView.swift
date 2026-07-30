@@ -1503,108 +1503,139 @@ struct SuccessView: View {
             ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
         let greeting = name.map { "Hey \($0)! " } ?? "Hey! "
         return greeting
-            + "I wrote you an appreciation on OpenThanks 💛 You can read and claim it here: "
+            + "I wrote you an appreciation on OpenThanks 💛 You can read and accept it here: "
             + shareURL.absoluteString
     }
 
     private var subtitle: String {
         if gratitude.recipientId != nil || recipientEmail != nil {
-            return "We emailed them the link to accept when we could. You can also share it yourself, or edit anything before they accept."
+            return "We notified them when we could. You can also share the link yourself."
         }
-        return "Send the link to accept so they can open it — or edit anything before they do."
+        return "Share the link so they can open and accept your appreciation."
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                VStack(spacing: 16) {
-                    AppreciationMoment(size: 88)
-                        .padding(.top, 28)
+                hero
+                    .padding(.bottom, 28)
 
-                    VStack(spacing: 8) {
-                        Text("Your appreciation\nhas been shared!")
-                            .font(Theme.display(28, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                            .multilineTextAlignment(.center)
-                        Text(subtitle)
-                            .font(Theme.body(15))
-                            .foregroundStyle(Theme.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 28)
-                    }
-                    .softNoteReveal(delay: 0.12)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 28)
+                VStack(spacing: 20) {
+                    primaryCopyButton
+                        .softNoteReveal(delay: 0.18)
 
-                VStack(spacing: 10) {
-                    Button {
-                        UIPasteboard.general.string = shareURL.absoluteString
-                        withAnimation(.easeInOut(duration: 0.2)) { copied = true }
-                        Task {
-                            try? await Task.sleep(for: .seconds(2))
-                            withAnimation(.easeInOut(duration: 0.2)) { copied = false }
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Send them the link")
+                            .font(Theme.body(13, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                            .textCase(.uppercase)
+                            .tracking(0.4)
+                            .padding(.leading, 4)
+
+                        VStack(spacing: 10) {
+                            ShareActionRow(
+                                title: "Text Message",
+                                systemImage: "bubble.left.and.bubble.right.fill",
+                                subtitle: gratitude.recipientPhone.map { "To \($0)" }
+                                    ?? "Opens Messages with the link"
+                            ) {
+                                openSMS()
+                            }
+
+                            ShareActionRow(
+                                title: "WhatsApp",
+                                systemImage: "phone.bubble.fill",
+                                subtitle: gratitude.recipientPhone.map { "To \($0)" }
+                                    ?? "Share the link to accept"
+                            ) {
+                                openWhatsApp()
+                            }
+
+                            ShareActionRow(
+                                title: "Email",
+                                systemImage: "envelope.fill",
+                                subtitle: emailToLabel
+                            ) {
+                                openMail()
+                            }
                         }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: copied ? "checkmark" : "link")
-                                .font(.system(size: 15, weight: .bold))
-                            Text(copied ? "Link Copied!" : "Copy Link")
-                        }
                     }
-                    .buttonStyle(CTAButtonStyle())
-                    .sensoryFeedback(.success, trigger: copied)
-
-                    ShareActionRow(
-                        title: "Send via Text",
-                        systemImage: "bubble.left.and.bubble.right.fill",
-                        subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                    ) {
-                        openSMS()
-                    }
-
-                    ShareActionRow(
-                        title: "Send via WhatsApp",
-                        systemImage: "phone.bubble.fill",
-                        subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                            ?? "Share the link to accept"
-                    ) {
-                        openWhatsApp()
-                    }
-
-                    ShareActionRow(
-                        title: "Send via Email",
-                        systemImage: "envelope.fill",
-                        subtitle: emailToLabel
-                    ) {
-                        openMail()
-                    }
+                    .softNoteReveal(delay: 0.24)
 
                     ShareActionRow(
                         title: "Edit Appreciation",
                         systemImage: "square.and.pencil",
-                        subtitle: "Update the message or details"
+                        subtitle: "Change the message or details before they accept"
                     ) {
                         onEdit()
                     }
+                    .softNoteReveal(delay: 0.3)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 24)
 
                 Button(action: onDone) {
                     Text("Done")
                         .font(Theme.body(16, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 18)
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 28)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
             }
+            .readableWidth(420)
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 20)
         }
         .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var hero: some View {
+        VStack(spacing: 18) {
+            AppreciationMoment(size: 84)
+                .padding(.top, 20)
+
+            VStack(spacing: 10) {
+                Text("Your appreciation has been shared!")
+                    .font(Theme.display(26, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(subtitle)
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 8)
+            }
+            .softNoteReveal(delay: 0.1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 28)
+    }
+
+    private var primaryCopyButton: some View {
+        Button {
+            UIPasteboard.general.string = shareURL.absoluteString
+            withAnimation(.easeInOut(duration: 0.2)) { copied = true }
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                withAnimation(.easeInOut(duration: 0.2)) { copied = false }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: copied ? "checkmark" : "link")
+                    .font(.system(size: 15, weight: .bold))
+                Text(copied ? "Link Copied!" : "Copy Link")
+            }
+        }
+        .buttonStyle(CTAButtonStyle())
+        .sensoryFeedback(.success, trigger: copied)
+        .accessibilityHint("Copies the link to accept so you can paste it anywhere")
     }
 
     private func openSMS() {

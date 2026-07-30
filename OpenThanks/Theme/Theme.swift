@@ -331,21 +331,22 @@ struct ShareActionRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                ActionGlyph(systemImage: systemImage)
+                ActionGlyph(systemImage: systemImage, size: 44)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(Theme.body(16, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
-                            .font(Theme.body(12))
+                            .font(Theme.body(13))
                             .foregroundStyle(Theme.textSecondary)
                             .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
 
                 if showSpinner {
                     ProgressView().tint(Theme.coral)
@@ -356,7 +357,9 @@ struct ShareActionRow: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)

@@ -47,28 +47,35 @@ struct PendingShareSheet: View {
             ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
         let greeting = name.map { "Hey \($0)! " } ?? "Hey! "
         return greeting
-            + "I wrote you an appreciation on OpenThanks 💛 You can read and claim it here: "
+            + "I wrote you an appreciation on OpenThanks 💛 You can read and accept it here: "
             + shareURL.absoluteString
     }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                Capsule().fill(Theme.hairline).frame(width: 36, height: 4)
-                    .padding(.top, 10)
-
-                VStack(spacing: 6) {
-                    Text("Nudge \(gratitude.recipientDisplayName)")
-                        .font(Theme.display(20, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("They haven't accepted your appreciation yet. Send them the link directly so they see it and accept your appreciation.")
-                        .font(Theme.body(14))
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, 24)
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Theme.hairline)
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 12)
+                    .padding(.bottom, 20)
 
                 VStack(spacing: 10) {
+                    Text("Nudge \(gratitude.recipientDisplayName)")
+                        .font(Theme.display(22, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                    Text("They haven't accepted yet. Send the link so they can see it and accept.")
+                        .font(Theme.body(15))
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 24)
+
+                VStack(spacing: 20) {
                     Button {
                         UIPasteboard.general.string = shareURL.absoluteString
                         withAnimation(.easeInOut(duration: 0.2)) { copied = true }
@@ -86,40 +93,52 @@ struct PendingShareSheet: View {
                     .buttonStyle(CTAButtonStyle())
                     .sensoryFeedback(.success, trigger: copied)
 
-                    ShareActionRow(
-                        title: "Send via Text",
-                        systemImage: "bubble.left.and.bubble.right.fill",
-                        subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                    ) {
-                        openSMS()
-                    }
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Send them the link")
+                            .font(Theme.body(13, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                            .textCase(.uppercase)
+                            .tracking(0.4)
+                            .padding(.leading, 4)
 
-                    ShareActionRow(
-                        title: "Send via WhatsApp",
-                        systemImage: "phone.bubble.fill",
-                        subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                            ?? "Share the link to accept"
-                    ) {
-                        openWhatsApp()
-                    }
+                        VStack(spacing: 10) {
+                            ShareActionRow(
+                                title: "Text Message",
+                                systemImage: "bubble.left.and.bubble.right.fill",
+                                subtitle: gratitude.recipientPhone.map { "To \($0)" }
+                                    ?? "Opens Messages with the link"
+                            ) {
+                                openSMS()
+                            }
 
-                    ShareActionRow(
-                        title: "Send via Email",
-                        systemImage: "envelope.fill",
-                        subtitle: emailToLabel
-                    ) {
-                        openMail()
-                    }
+                            ShareActionRow(
+                                title: "WhatsApp",
+                                systemImage: "phone.bubble.fill",
+                                subtitle: gratitude.recipientPhone.map { "To \($0)" }
+                                    ?? "Share the link to accept"
+                            ) {
+                                openWhatsApp()
+                            }
 
-                    if recipientEmail != nil || gratitude.recipientId != nil {
-                        ShareActionRow(
-                            title: emailActionTitle,
-                            systemImage: emailActionIcon,
-                            subtitle: emailSubtitle(),
-                            showSpinner: emailState == .sending,
-                            disabled: emailState == .sending
-                        ) {
-                            Task { await sendEmailReminder() }
+                            ShareActionRow(
+                                title: "Email",
+                                systemImage: "envelope.fill",
+                                subtitle: emailToLabel
+                            ) {
+                                openMail()
+                            }
+
+                            if recipientEmail != nil || gratitude.recipientId != nil {
+                                ShareActionRow(
+                                    title: emailActionTitle,
+                                    systemImage: emailActionIcon,
+                                    subtitle: emailSubtitle(),
+                                    showSpinner: emailState == .sending,
+                                    disabled: emailState == .sending
+                                ) {
+                                    Task { await sendEmailReminder() }
+                                }
+                            }
                         }
                     }
                 }
@@ -128,9 +147,12 @@ struct PendingShareSheet: View {
                 Button("Done") { dismiss() }
                     .font(Theme.body(16, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 4)
-                    .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .padding(.bottom, 8)
             }
+            .readableWidth(420)
+            .frame(maxWidth: .infinity)
         }
         .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity)
@@ -148,7 +170,7 @@ struct PendingShareSheet: View {
 
     private var emailActionIcon: String {
         switch emailState {
-        case .idle, .sending: "envelope.fill"
+        case .idle, .sending: "envelope.badge.fill"
         case .sent: "checkmark"
         case .failed: "arrow.clockwise"
         }
