@@ -18,6 +18,9 @@ struct WidgetSnapshot: Codable, Equatable {
     )
 
     var hasReceived: Bool { receivedTotal > 0 || pendingToAccept > 0 }
+
+    /// Fresh appreciation waiting for you (pending accept) — not lifetime history or hearts.
+    var hasAppreciationWaiting: Bool { pendingToAccept > 0 }
 }
 
 enum WidgetSnapshotStore {
@@ -77,9 +80,6 @@ enum WidgetPromptKind: String, CaseIterable, Codable {
                     ? "Someone appreciated you."
                     : "\(n) appreciations are waiting."
             }
-            if snapshot.receivedTotal > 0 {
-                return "Someone appreciated you."
-            }
             return "Thank someone today."
         default:
             return headline
@@ -91,7 +91,7 @@ enum WidgetPromptKind: String, CaseIterable, Codable {
         case .whoHelped: return "A short note goes a long way."
         case .thankSomeone: return "Open a blank appreciation."
         case .monthlyCount: return "Keep the habit gentle."
-        case .someoneAppreciated: return "Take a moment to read it."
+        case .someoneAppreciated: return "Open OpenThanks to accept it."
         case .sendThanks: return "One tap to write."
         case .viewReceived: return "See what’s waiting."
         }
@@ -116,7 +116,9 @@ enum WidgetPromptKind: String, CaseIterable, Codable {
         let hour = Calendar.current.component(.hour, from: date)
         let day = Calendar.current.ordinality(of: .day, in: .year, for: date) ?? 0
         var pool: [WidgetPromptKind] = [.whoHelped, .thankSomeone, .monthlyCount]
-        if snapshot.hasReceived {
+        // Only tease “someone appreciated you” when something is waiting to accept —
+        // not for lifetime received history or hearts.
+        if snapshot.hasAppreciationWaiting {
             pool.append(.someoneAppreciated)
         }
         // Bias medium / large toward monthlyCount without making it the only message.

@@ -144,11 +144,24 @@ final class AuthService {
                 .from("profiles").select().eq("id", value: userId).execute().value
             if let profile = existing.first {
                 guard self.userId == userId else { return }
-                currentProfile = profile
+                var resolved = profile
+                // Backfill email from auth session (Apple/Google) when the profile row is empty.
+                let sessionEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let profileEmail = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if (profileEmail == nil || profileEmail?.isEmpty == true),
+                   let sessionEmail, !sessionEmail.isEmpty {
+                    let normalized = Self.normalizedEmail(sessionEmail)
+                    _ = try? await supabase.from("profiles")
+                        .update(["email": normalized])
+                        .eq("id", value: userId)
+                        .execute()
+                    resolved.email = normalized
+                }
+                currentProfile = resolved
                 Analytics.identify(
                     userId: userId,
-                    email: profile.email ?? email,
-                    name: profile.fullName ?? profile.displayName
+                    email: resolved.email ?? email,
+                    name: resolved.fullName ?? resolved.displayName
                 )
                 // Phone sync is non-blocking — don't hold the splash on it.
                 Task { await self.syncConfirmedPhone(userId: userId) }
@@ -325,8 +338,9 @@ final class AuthService {
     }
 
     /// Native Sign in with Apple → Supabase `signInWithIdToken`.
+    /// `email` is only present on first Apple authorization; still sync from the session JWT.
     @discardableResult
-    func signInWithApple(idToken: String, fullName: String?) async -> Bool {
+    func signInWithApple(idToken: String, fullName: String?, email: String? = nil) async -> Bool {
         errorMessage = nil
         do {
             _ = try await supabase.auth.signInWithIdToken(
@@ -350,11 +364,43 @@ final class AuthService {
                         .execute()
                 }
             }
+            await syncAppleEmailIfNeeded(credentialEmail: email)
             Analytics.capture("auth_signed_in", ["method": "apple"])
             return true
         } catch {
             errorMessage = Self.friendlyAuthError(error)
             return false
+        }
+    }
+
+    /// Persists Apple's email (or Hide My Email relay) onto `profiles.email` when missing.
+    private func syncAppleEmailIfNeeded(credentialEmail: String?) async {
+        guard let session = try? await supabase.auth.session else { return }
+        let sessionEmail = session.user.email
+        let resolved = [credentialEmail, sessionEmail]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+            .map { Self.normalizedEmail($0) }
+        guard let resolved else { return }
+
+        let userId = session.user.id
+        struct EmailRow: Decodable { let email: String? }
+        let rows: [EmailRow] = (try? await supabase.from("profiles")
+            .select("email")
+            .eq("id", value: userId)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        let existing = rows.first?.email?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let existing, !existing.isEmpty { return }
+
+        _ = try? await supabase.from("profiles")
+            .update(["email": resolved])
+            .eq("id", value: userId)
+            .execute()
+        if var profile = currentProfile, profile.id == userId {
+            profile.email = resolved
+            currentProfile = profile
         }
     }
 

@@ -164,12 +164,16 @@ struct WelcomeView: View {
                 ).trimmingCharacters(in: .whitespacesAndNewlines)
                 if !formatted.isEmpty { appleFullName = formatted }
             }
+            // Apple only returns email on the first authorization (or after revoke).
+            let appleEmail = credential.email?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             Task {
                 oauthBusy = .apple
                 defer { oauthBusy = nil }
                 _ = await auth.signInWithApple(
                     idToken: idToken,
-                    fullName: appleFullName
+                    fullName: appleFullName,
+                    email: (appleEmail?.isEmpty == false) ? appleEmail : nil
                 )
             }
         }
