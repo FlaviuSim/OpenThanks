@@ -73,3 +73,13 @@ OpenThanks/
   Views/                        ← Onboarding, Welcome, Feed, Compose,
                                    Profile, Notifications, Settings, Pending
 ```
+
+## Related repos
+
+| Repo | Purpose |
+|------|---------|
+| https://github.com/FlaviuSim/OpenThanks | This iOS / Watch / Widget app |
+| https://github.com/FlaviuSim/v0-gratitude-network | Web app + PWA (openthanks.com) |
+| https://github.com/FlaviuSim/openthanks-twa | Android TWA (Bubblewrap) for Play Store |
+
+**Android upload keystore** (`android.keystore`) is **not** in git — back it up separately or Play updates become painful.
