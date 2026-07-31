@@ -56,7 +56,7 @@ struct WatchComposeView: View {
     private enum Status: Equatable {
         case idle
         case sending
-        case success
+        case success(emailed: Bool)
         case queued(String)
         case failed(String)
     }
@@ -65,7 +65,16 @@ struct WatchComposeView: View {
         message.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var trimmedRecipient: String {
+        recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var hasMessage: Bool { !trimmedMessage.isEmpty }
+
+    /// Email in "To" → send a claim link; otherwise save to Pending Appreciations on iPhone.
+    private var willEmailFromWatch: Bool {
+        WatchRelay.looksLikeEmail(trimmedRecipient)
+    }
 
     private var canSend: Bool {
         hasMessage && status != .sending && !isPresentingInput
@@ -77,7 +86,7 @@ struct WatchComposeView: View {
                 brandRow
 
                 switch status {
-                case .success:
+                case .success(_):
                     successCard
                 default:
                     if hasMessage {
@@ -144,7 +153,7 @@ struct WatchComposeView: View {
             .accessibilityLabel("Record a thanks")
 
             Button(action: dictateRecipient) {
-                Text(recipient.isEmpty ? "Add a name (optional)" : "To: \(recipient)")
+                Text(recipient.isEmpty ? "Add name or email (optional)" : "To: \(recipient)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -164,8 +173,8 @@ struct WatchComposeView: View {
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if !recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("To \(recipient.trimmingCharacters(in: .whitespacesAndNewlines))")
+            if !trimmedRecipient.isEmpty {
+                Text("To \(trimmedRecipient)")
                     .font(.caption2)
                     .foregroundStyle(watchCoral)
             }
@@ -188,7 +197,10 @@ struct WatchComposeView: View {
                         ProgressView()
                             .tint(.white)
                     } else {
-                        Label("Send to iPhone", systemImage: "heart.fill")
+                        Label(
+                            willEmailFromWatch ? "Send" : "Save",
+                            systemImage: "heart.fill"
+                        )
                             .font(.system(.headline, design: .rounded))
                     }
                 }
@@ -200,6 +212,16 @@ struct WatchComposeView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
+
+            Text(
+                willEmailFromWatch
+                    ? "Emails them a link to accept."
+                    : "Saves to Pending Appreciations on iPhone — review and share later."
+            )
+            .font(.system(size: 11))
+            .foregroundStyle(.tertiary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 10) {
                 Button("Record again", action: dictateMessage)
@@ -217,13 +239,23 @@ struct WatchComposeView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 32))
                 .foregroundStyle(watchCoral)
-            Text("Sent — thank you")
-                .font(.system(.headline, design: .rounded))
-                .multilineTextAlignment(.center)
-            Text("That note is on its way.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            if case .success(let emailed) = status, emailed {
+                Text("Sent — thank you")
+                    .font(.system(.headline, design: .rounded))
+                    .multilineTextAlignment(.center)
+                Text("We'll email them a link to accept.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Saved — thank you")
+                    .font(.system(.headline, design: .rounded))
+                    .multilineTextAlignment(.center)
+                Text("It's in Pending Appreciations on your iPhone — review and share when you're ready.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
 
             Button("Record another") {
                 status = .idle
@@ -243,7 +275,7 @@ struct WatchComposeView: View {
     @ViewBuilder
     private var statusBanner: some View {
         switch status {
-        case .idle, .sending, .success:
+        case .idle, .sending, .success(_):
             EmptyView()
         case .queued(let note):
             Text(note)
@@ -327,15 +359,15 @@ struct WatchComposeView: View {
         if recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             recipient = draft.recipient
         }
-        // Coming back with a saved note should show Send, not a stale success screen.
-        if case .success = status, !draft.message.isEmpty {
+        // Coming back with a saved note should show Save/Send, not a stale success screen.
+        if case .success(_) = status, !draft.message.isEmpty {
             status = .idle
         }
     }
 
     private func persistComposeDraft() {
         switch status {
-        case .success, .queued:
+        case .success(_), .queued:
             WatchComposeDraftStore.clear()
         case .idle, .sending, .failed:
             WatchComposeDraftStore.save(message: message, recipient: recipient)
@@ -405,8 +437,8 @@ struct WatchComposeView: View {
         status = .sending
         let outcome = await session.sendAppreciation(message: message, recipient: recipient)
         switch outcome {
-        case .sent:
-            status = .success
+        case .sent(let emailed):
+            status = .success(emailed: emailed)
             message = ""
             recipient = ""
             WatchComposeDraftStore.clear()

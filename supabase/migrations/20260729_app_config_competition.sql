@@ -31,10 +31,10 @@ values (
     "enabled": false,
     "id": "gratitude-30-2026",
     "title": "30 Days of Thanks",
-    "subtitle": "Post gratitude 30 days in a row. Win $30.",
-    "prizeLabel": "$30",
+    "subtitle": "Post 30 days in a row. Unlock $30 to give away to a classroom.",
+    "prizeLabel": "$30 to give",
     "targetDays": 30,
-    "startsAt": "2026-08-01T00:00:00Z",
+    "startsAt": "2026-07-01T00:00:00Z",
     "endsAt": null,
     "allowedSources": ["ios", "watch"],
     "requireAccepted": true,
@@ -43,9 +43,9 @@ values (
     "rulesSummary": [
       "Must post in the OpenThanks iPhone or Apple Watch app",
       "Each day must thank a real person (accepted by someone other than you)",
-      "If you win, we will notify you in-app with how to receive your $30"
+      "Finishers unlock $30 to give away via a DonorsChoose gift card — not cash to keep"
     ],
-    "winnerNotifyBody": "You completed 30 days! Reply with your preferred transfer method to claim your $30."
+    "winnerNotifyBody": "You finished 30 days! Open this note for how to unlock your $30 DonorsChoose gift for a classroom."
   }'::jsonb,
   now()
 )

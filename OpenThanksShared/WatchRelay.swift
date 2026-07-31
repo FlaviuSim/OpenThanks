@@ -72,6 +72,19 @@ enum WatchRelay {
     /// Soft max for Watch readability; API still allows longer messages from phone.
     static let watchMessageMaxLength = 280
 
+    /// True when the Watch "To" field should trigger an email claim link (vs save-to-pending).
+    static func looksLikeEmail(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let at = trimmed.firstIndex(of: "@") else { return false }
+        let local = trimmed[..<at]
+        let domain = trimmed[trimmed.index(after: at)...]
+        return !local.isEmpty
+            && domain.contains(".")
+            && !domain.hasPrefix(".")
+            && !domain.hasSuffix(".")
+            && !domain.contains("@")
+    }
+
     static func encode<T: Encodable>(_ value: T) -> Data? {
         try? JSONEncoder().encode(value)
     }
@@ -92,7 +105,7 @@ enum WatchRelay {
     }
 }
 
-/// In-progress Watch compose note (survives interruption / app relaunch before Send).
+/// In-progress Watch compose note (survives interruption / app relaunch before Save/Send).
 enum WatchComposeDraftStore {
     private static let key = "watchComposeDraft.v1"
 

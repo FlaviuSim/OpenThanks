@@ -228,7 +228,7 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case "reply":
             return "replied to your appreciation"
         case "competition_winner":
-            return "You completed the competition — we'll follow up with how to receive your prize."
+            return "You finished the challenge — unlock $30 to give away to a classroom."
         default:
             return type.replacingOccurrences(of: "_", with: " ")
         }

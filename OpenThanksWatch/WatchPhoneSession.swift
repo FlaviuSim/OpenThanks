@@ -44,20 +44,21 @@ final class WatchPhoneSession: NSObject {
 
     var queuedCount: Int { WatchDraftQueue.all().count }
 
-    /// Send now, or queue if the phone isn't reachable.
+    /// Save to Pending Appreciations on iPhone (or email a claim link when `recipient` is an email).
     func sendAppreciation(message: String, recipient: String?) async -> SendOutcome {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .failed("Write a short note first.") }
 
         let clipped = String(trimmed.prefix(WatchRelay.watchMessageMaxLength))
         let to = recipient?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let willEmail = WatchRelay.looksLikeEmail(to ?? "")
         let draft = WatchRelay.CreateRequest(
             message: clipped,
             recipient: (to?.isEmpty == false) ? to : nil
         )
 
         guard isSignedIn else {
-            return .failed("Sign in on iPhone to send thanks.")
+            return .failed("Sign in on iPhone to save thanks.")
         }
 
         let session = WCSession.default
@@ -68,13 +69,17 @@ final class WatchPhoneSession: NSObject {
                 let reply = try await sendCreateMessage(draft)
                 if reply.ok {
                     WatchDraftQueue.remove(draft.id)
-                    return .sent
+                    return .sent(emailed: willEmail)
                 }
-                return .failed(reply.errorMessage ?? "Couldn't send. Try again.")
+                let fallback = willEmail ? "Couldn't send. Try again." : "Couldn't save. Try again."
+                return .failed(reply.errorMessage ?? fallback)
             } catch {
                 WatchDraftQueue.enqueue(draft)
                 transferCreateUserInfo(draft)
-                return .queued("iPhone is busy — we'll send when it's nearby.")
+                let note = willEmail
+                    ? "iPhone is busy — we'll send when it's nearby."
+                    : "iPhone is busy — we'll save it when it's nearby."
+                return .queued(note)
             }
         } else {
             WatchDraftQueue.enqueue(draft)
@@ -100,7 +105,7 @@ final class WatchPhoneSession: NSObject {
     }
 
     enum SendOutcome: Equatable {
-        case sent
+        case sent(emailed: Bool)
         case queued(String)
         case failed(String)
     }
@@ -123,7 +128,9 @@ final class WatchPhoneSession: NSObject {
             return .success(draftId: draft.id, gratitudeId: UUID())
         }
         let code = reply["errorCode"] as? String ?? "unknown"
-        let msg = reply["errorMessage"] as? String ?? "Couldn't send. Try again."
+        let willEmail = WatchRelay.looksLikeEmail(draft.recipient ?? "")
+        let fallback = willEmail ? "Couldn't send. Try again." : "Couldn't save. Try again."
+        let msg = reply["errorMessage"] as? String ?? fallback
         return .failure(draftId: draft.id, code: code, message: msg)
     }
 

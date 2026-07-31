@@ -223,8 +223,8 @@ function composeAlert(payload: PushRequest): {
       };
     case "competition_winner":
       return {
-        title: "You completed 30 Days of Thanks",
-        body: "Open notifications for how to receive your prize.",
+        title: "You finished 30 Days of Thanks",
+        body: "Unlock $30 to give away to a classroom — open notifications for next steps.",
         data,
       };
     default:

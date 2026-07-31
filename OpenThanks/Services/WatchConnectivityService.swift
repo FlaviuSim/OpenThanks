@@ -89,7 +89,7 @@ final class WatchConnectivityService: NSObject {
             return .failure(
                 draftId: request.id,
                 code: "notSignedIn",
-                message: "Sign in on iPhone to send thanks."
+                message: "Sign in on iPhone to save thanks."
             )
         }
 
@@ -172,7 +172,7 @@ final class WatchConnectivityService: NSObject {
         guard let raw else { return (nil, nil, nil) }
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return (nil, nil, nil) }
-        if looksLikeEmail(value) {
+        if WatchRelay.looksLikeEmail(value) {
             return (nil, AuthService.normalizedEmail(value), nil)
         }
         if value.hasPrefix("@") {
@@ -185,17 +185,6 @@ final class WatchConnectivityService: NSObject {
             return (nil, nil, e164)
         }
         return (value, nil, nil)
-    }
-
-    private static func looksLikeEmail(_ value: String) -> Bool {
-        guard let at = value.firstIndex(of: "@") else { return false }
-        let local = value[..<at]
-        let domain = value[value.index(after: at)...]
-        return !local.isEmpty
-            && domain.contains(".")
-            && !domain.hasPrefix(".")
-            && !domain.hasSuffix(".")
-            && !domain.contains("@")
     }
 }
 

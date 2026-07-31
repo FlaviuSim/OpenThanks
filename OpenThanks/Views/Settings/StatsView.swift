@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Personal gratitude stats: streak hero, activity heatmap, totals,
-/// and an optional remote competition panel.
+/// Personal gratitude stats: streak hero with accepted progress, month calendar,
+/// totals, and an optional remote competition panel.
 struct StatsView: View {
     @Environment(AuthService.self) private var auth
     @Environment(\.dismiss) private var dismiss
@@ -9,9 +9,11 @@ struct StatsView: View {
     @State private var activity: [SentActivity] = []
     @State private var profileStats = ProfileStats()
     @State private var competition = CompetitionConfig.disabled
+    @State private var pendingSentCount = 0
     @State private var loading = true
     @State private var loadError: String?
     @State private var appearReady = false
+    @State private var visibleMonth = Calendar.current.startOfMonth(for: Date())
 
     private var calendar: Calendar { .current }
 
@@ -30,8 +32,8 @@ struct StatsView: View {
         )
     }
 
-    private var postsPerDay: [Date: Int] {
-        StreakMath.postsPerDay(posts: activity, calendar: calendar)
+    private var streakAcceptance: (accepted: Int, sent: Int) {
+        StreakMath.acceptedDaysInCurrentStreak(posts: activity, calendar: calendar)
     }
 
     private var competitionProgress: Int {
@@ -42,8 +44,21 @@ struct StatsView: View {
         )
     }
 
+    private var competitionSentStreak: Int {
+        guard competition.enabled else { return 0 }
+        return min(
+            StreakMath.competitionSentStreak(posts: activity, config: competition, calendar: calendar),
+            max(competition.targetDays, 1)
+        )
+    }
+
     private var showCompetition: Bool {
         competition.enabled
+    }
+
+    private var needsAcceptanceNudge: Bool {
+        let pair = streakAcceptance
+        return pair.sent > 0 && pair.accepted < pair.sent
     }
 
     var body: some View {
@@ -64,7 +79,7 @@ struct StatsView: View {
                     if showCompetition {
                         competitionPanel
                     }
-                    heatmapSection
+                    calendarSection
                     totalsSection
                 }
             }
@@ -81,12 +96,15 @@ struct StatsView: View {
     // MARK: - Hero
 
     private var streakHero: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let accepted = streakAcceptance.accepted
+        let sent = streakAcceptance.sent
+
+        return VStack(alignment: .leading, spacing: 18) {
             Text("OpenThanks")
                 .font(Theme.body(13, weight: .semibold))
                 .foregroundStyle(Theme.coral)
 
-            HStack(alignment: .center, spacing: 20) {
+            HStack(alignment: .center, spacing: 18) {
                 ZStack {
                     Circle()
                         .stroke(Theme.hairline, lineWidth: 8)
@@ -112,9 +130,10 @@ struct StatsView: View {
                 .frame(width: 120, height: 120)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("in a row")
-                        .font(Theme.display(26, weight: .semibold))
+                    Text("sent in a row")
+                        .font(Theme.display(24, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
+
                     Text(
                         currentStreak == 0
                             ? "Share a thanks today to start a streak."
@@ -132,17 +151,110 @@ struct StatsView: View {
                 }
                 Spacer(minLength: 0)
             }
+
+            if sent > 0 {
+                acceptanceCard(accepted: accepted, sent: sent)
+            }
         }
         .opacity(appearReady ? 1 : 0)
         .offset(y: appearReady ? 0 : 8)
         .animation(.easeOut(duration: 0.45), value: appearReady)
     }
 
+    private func acceptanceCard(accepted: Int, sent: Int) -> some View {
+        let complete = accepted == sent
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(accepted)")
+                    .font(Theme.display(28, weight: .semibold))
+                    .foregroundStyle(complete ? Theme.coral : Theme.textPrimary)
+                    .contentTransition(.numericText())
+                Text("of \(sent) accepted")
+                    .font(Theme.body(15, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer(minLength: 0)
+                if complete {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Theme.coral)
+                        .font(.system(size: 20, weight: .semibold))
+                }
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Theme.surfaceRaised)
+                    Capsule()
+                        .fill(Theme.coral)
+                        .frame(
+                            width: appearReady
+                                ? geo.size.width * CGFloat(accepted) / CGFloat(max(sent, 1))
+                                : 0
+                        )
+                        .animation(.easeOut(duration: 0.8).delay(0.15), value: appearReady)
+                }
+            }
+            .frame(height: 8)
+
+            Text(
+                complete
+                    ? "Every day in your streak has been accepted — beautiful."
+                    : "Your streak counts the days you send. Unlock the classroom gift when those appreciations are accepted."
+            )
+            .font(Theme.body(13))
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            if needsAcceptanceNudge {
+                NavigationLink {
+                    PendingAppreciationsView()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "bell.badge")
+                            .font(.system(size: 14, weight: .semibold))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Nudge Pending Appreciations")
+                                .font(Theme.body(14, weight: .semibold))
+                            Text(
+                                pendingSentCount > 0
+                                    ? "\(pendingSentCount) waiting — send a reminder to accept"
+                                    : "Remind recipients so these days can count"
+                            )
+                            .font(Theme.body(12))
+                            .opacity(0.85)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .opacity(0.7)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Theme.ctaGradient)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Theme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.hairline, lineWidth: 1)
+        )
+    }
+
     private var ringProgress: CGFloat {
         if showCompetition, competition.targetDays > 0 {
             return CGFloat(competitionProgress) / CGFloat(competition.targetDays)
         }
-        // Soft personal ring: saturates around two weeks.
         return min(CGFloat(currentStreak) / 14, 1)
     }
 
@@ -166,15 +278,60 @@ struct StatsView: View {
                     .foregroundStyle(Theme.coral)
             }
 
-            ProgressView(
-                value: Double(competitionProgress),
-                total: Double(max(competition.targetDays, 1))
-            )
-            .tint(Theme.coral)
+            if !competition.isActive() {
+                if let start = competition.startsAt, start > Date() {
+                    Text("Challenge counting starts \(start.formatted(.dateTime.month(.wide).day().year())).")
+                        .font(Theme.body(12, weight: .medium))
+                        .foregroundStyle(Theme.coral)
+                }
+            }
 
-            Text("\(competitionProgress) of \(competition.targetDays) days")
-                .font(Theme.body(12, weight: .medium))
+            VStack(alignment: .leading, spacing: 10) {
+                competitionMetricRow(
+                    title: "Sent streak",
+                    value: "\(competitionSentStreak) of \(competition.targetDays)",
+                    detail: "Days in a row you posted",
+                    progress: Double(competitionSentStreak),
+                    total: Double(max(competition.targetDays, 1)),
+                    tint: Theme.coralLight
+                )
+                competitionMetricRow(
+                    title: "Accepted streak",
+                    value: "\(competitionProgress) of \(competition.targetDays)",
+                    detail: "Days that unlock the classroom gift",
+                    progress: Double(competitionProgress),
+                    total: Double(max(competition.targetDays, 1)),
+                    tint: Theme.coral
+                )
+            }
+
+            Text("Post \(competition.targetDays) days in a row. Finishers unlock $30 to give away to a classroom — once each of those days has an accepted appreciation.")
+                .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if competition.requireAccepted, competitionSentStreak > competitionProgress {
+                NavigationLink {
+                    PendingAppreciationsView()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "heart.text.clipboard")
+                        Text("Open Pending Appreciations")
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .font(Theme.body(13, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Theme.coral.opacity(0.12))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
 
             if !competition.rulesSummary.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -227,22 +384,72 @@ struct StatsView: View {
         .animation(.easeOut(duration: 0.55).delay(0.08), value: appearReady)
     }
 
-    // MARK: - Heatmap
+    private func competitionMetricRow(
+        title: String,
+        value: String,
+        detail: String,
+        progress: Double,
+        total: Double,
+        tint: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                    .font(Theme.body(12, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text(value)
+                    .font(Theme.body(13, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            ProgressView(value: progress, total: total)
+                .tint(tint)
+            Text(detail)
+                .font(Theme.body(11))
+                .foregroundStyle(Theme.textTertiary)
+        }
+    }
 
-    private var heatmapSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Your rhythm")
+    // MARK: - Calendar
+
+    private var calendarSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Your calendar")
                 .font(Theme.display(20, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Days you shared appreciation.")
+            Text("Each day you share appreciation. Solid days are accepted; soft days are still pending.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            ActivityHeatmapView(
-                postsPerDay: postsPerDay,
-                weeks: 14,
+            ActivityCalendarView(
+                posts: activity,
+                month: $visibleMonth,
                 appear: appearReady
             )
+
+            HStack(spacing: 14) {
+                legendSwatch(color: Theme.coral, label: "Accepted")
+                legendSwatch(color: Theme.coral.opacity(0.28), label: "Sent · pending", stroked: true)
+                legendSwatch(color: Theme.surfaceRaised, label: "No post")
+            }
+            .font(Theme.body(11))
+            .foregroundStyle(Theme.textTertiary)
+        }
+    }
+
+    private func legendSwatch(color: Color, label: String, stroked: Bool = false) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(color)
+                .overlay {
+                    if stroked {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(Theme.coral.opacity(0.55), lineWidth: 1)
+                    }
+                }
+                .frame(width: 12, height: 12)
+            Text(label)
         }
     }
 
@@ -291,10 +498,11 @@ struct StatsView: View {
             async let configTask = CompetitionConfigService.refresh(force: true)
             async let activityTask = GratitudeService.sentActivity(authorId: userId, since: since)
             async let statsTask = GratitudeService.stats(userId: userId)
+            async let pendingTask = GratitudeService.pendingCount(authorId: userId)
 
-            let (config, rows, stats) = try await (configTask, activityTask, statsTask)
+            let (config, rows, stats, pending) = try await (configTask, activityTask, statsTask, pendingTask)
             competition = config
-            // If competition starts earlier than 120 days, extend fetch.
+            pendingSentCount = pending
             if let start = config.startsAt, start < since {
                 activity = try await GratitudeService.sentActivity(authorId: userId, since: start)
             } else {
@@ -308,68 +516,180 @@ struct StatsView: View {
     }
 }
 
-// MARK: - Heatmap
+// MARK: - Month calendar
 
-private struct ActivityHeatmapView: View {
-    let postsPerDay: [Date: Int]
-    let weeks: Int
+private struct ActivityCalendarView: View {
+    let posts: [SentActivity]
+    @Binding var month: Date
     let appear: Bool
 
     private let calendar = Calendar.current
-    private let cell: CGFloat = 11
-    private let gap: CGFloat = 3
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
 
-    private var columns: [[Date]] {
-        let today = calendar.startOfDay(for: Date())
-        let weekday = calendar.component(.weekday, from: today) // 1=Sun
-        let daysFromWeekStart = weekday - calendar.firstWeekday
-        let adjusted = (daysFromWeekStart + 7) % 7
-        guard let endOfWeek = calendar.date(byAdding: .day, value: 6 - adjusted, to: today),
-              let start = calendar.date(byAdding: .day, value: -(weeks * 7 - 1), to: endOfWeek)
+    private var monthTitle: String {
+        month.formatted(.dateTime.month(.wide).year())
+    }
+
+    private var weekdaySymbols: [String] {
+        let symbols = calendar.veryShortWeekdaySymbols
+        let first = calendar.firstWeekday - 1
+        return Array(symbols[first...]) + Array(symbols[..<first])
+    }
+
+    private var daysInGrid: [Date?] {
+        guard let range = calendar.range(of: .day, in: .month, for: month),
+              let firstOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: month))
         else { return [] }
 
-        var result: [[Date]] = []
-        var cursor = start
-        for _ in 0..<weeks {
-            var week: [Date] = []
-            for _ in 0..<7 {
-                week.append(cursor)
-                cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? cursor
+        let weekday = calendar.component(.weekday, from: firstOfMonth)
+        let leading = (weekday - calendar.firstWeekday + 7) % 7
+        var cells: [Date?] = Array(repeating: nil, count: leading)
+        for day in range {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) {
+                cells.append(date)
             }
-            result.append(week)
         }
-        return result
+        while cells.count % 7 != 0 { cells.append(nil) }
+        return cells
+    }
+
+    private var canGoForward: Bool {
+        let thisMonth = calendar.startOfMonth(for: Date())
+        return month < thisMonth
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: gap) {
-                ForEach(Array(columns.enumerated()), id: \.offset) { weekIndex, week in
-                    VStack(spacing: gap) {
-                        ForEach(Array(week.enumerated()), id: \.offset) { _, day in
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .fill(color(for: day))
-                                .frame(width: cell, height: cell)
-                                .opacity(appear ? 1 : 0)
-                                .animation(
-                                    .easeOut(duration: 0.35).delay(Double(weekIndex) * 0.02),
-                                    value: appear
-                                )
-                        }
+        VStack(spacing: 12) {
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        month = calendar.date(byAdding: .month, value: -1, to: month) ?? month
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .background(Theme.surfaceRaised, in: Circle())
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+                Text(monthTitle)
+                    .font(Theme.display(18, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .contentTransition(.opacity)
+                Spacer()
+
+                Button {
+                    guard canGoForward else { return }
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        month = calendar.date(byAdding: .month, value: 1, to: month) ?? month
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(canGoForward ? Theme.textSecondary : Theme.textTertiary.opacity(0.35))
+                        .frame(width: 36, height: 36)
+                        .background(Theme.surfaceRaised, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!canGoForward)
+            }
+
+            LazyVGrid(columns: columns, spacing: 6) {
+                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+                    Text(symbol)
+                        .font(Theme.body(11, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, 2)
+                }
+
+                ForEach(Array(daysInGrid.enumerated()), id: \.offset) { index, day in
+                    if let day {
+                        dayCell(day, index: index)
+                    } else {
+                        Color.clear.frame(height: 40)
                     }
                 }
             }
-            .padding(.vertical, 4)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Theme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Theme.hairline, lineWidth: 1)
+        )
+    }
+
+    private func dayCell(_ day: Date, index: Int) -> some View {
+        let kind = StreakMath.activity(on: day, posts: posts, calendar: calendar)
+        let isToday = calendar.isDateInToday(day)
+        let isFuture = day > calendar.startOfDay(for: Date())
+        let number = calendar.component(.day, from: day)
+
+        return ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(fill(for: kind, isFuture: isFuture))
+                .overlay {
+                    if kind == .pending {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Theme.coral.opacity(0.45), lineWidth: 1)
+                    }
+                    if isToday {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(Theme.coral, lineWidth: 1.5)
+                    }
+                }
+
+            Text("\(number)")
+                .font(Theme.body(13, weight: isToday || kind != .empty ? .semibold : .regular))
+                .foregroundStyle(foreground(for: kind, isFuture: isFuture))
+        }
+        .frame(height: 40)
+        .opacity(appear ? (isFuture ? 0.35 : 1) : 0)
+        .scaleEffect(appear ? 1 : 0.92)
+        .animation(
+            .easeOut(duration: 0.35).delay(Double(index % 14) * 0.015),
+            value: appear
+        )
+        .accessibilityLabel(accessibilityLabel(day: day, kind: kind))
+    }
+
+    private func fill(for kind: StreakMath.DayActivity, isFuture: Bool) -> Color {
+        if isFuture { return Theme.surfaceRaised.opacity(0.4) }
+        switch kind {
+        case .empty: return Theme.surfaceRaised
+        case .pending: return Theme.coral.opacity(0.18)
+        case .accepted: return Theme.coral
         }
     }
 
-    private func color(for day: Date) -> Color {
-        let count = postsPerDay[calendar.startOfDay(for: day)] ?? 0
-        switch count {
-        case 0: return Theme.surfaceRaised
-        case 1: return Theme.coral.opacity(0.35)
-        case 2: return Theme.coral.opacity(0.6)
-        default: return Theme.coral
+    private func foreground(for kind: StreakMath.DayActivity, isFuture: Bool) -> Color {
+        if isFuture { return Theme.textTertiary }
+        switch kind {
+        case .empty: return Theme.textSecondary
+        case .pending: return Theme.coral
+        case .accepted: return .white
         }
+    }
+
+    private func accessibilityLabel(day: Date, kind: StreakMath.DayActivity) -> String {
+        let date = day.formatted(.dateTime.month(.abbreviated).day())
+        switch kind {
+        case .empty: return "\(date), no appreciation"
+        case .pending: return "\(date), sent, awaiting acceptance"
+        case .accepted: return "\(date), accepted"
+        }
+    }
+}
+
+private extension Calendar {
+    func startOfMonth(for date: Date) -> Date {
+        self.date(from: dateComponents([.year, .month], from: date)) ?? date
     }
 }

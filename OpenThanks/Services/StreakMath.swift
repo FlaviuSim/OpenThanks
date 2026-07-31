@@ -31,7 +31,7 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
         requireOtherRecipient: true,
         termsUrl: "https://openthanks.com/competition",
         rulesSummary: [],
-        winnerNotifyBody: "You completed the competition! We'll follow up with how to receive your prize."
+        winnerNotifyBody: "You finished the challenge! We'll follow up with how to unlock your $30 classroom gift."
     )
 
     var termsURL: URL? {
@@ -117,7 +117,7 @@ enum StreakMath {
         return best
     }
 
-    /// Posts that count toward the remote competition.
+    /// Posts that count toward the remote competition (accepted / payout streak).
     static func competitionEligiblePosts(
         _ posts: [SentActivity],
         config: CompetitionConfig,
@@ -129,8 +129,7 @@ enum StreakMath {
             guard let created = post.createdAt else { return false }
             if let start = config.startsAt, created < start { return false }
             if let end = config.endsAt, created >= end { return false }
-            let source = (post.source ?? "").lowercased()
-            guard allowed.contains(source) else { return false }
+            guard allowed.contains(normalizedSource(post.source)) else { return false }
             if config.requireOtherRecipient {
                 guard let recipientId = post.recipientId else { return false }
                 if let authorId = post.authorId, recipientId == authorId { return false }
@@ -140,6 +139,32 @@ enum StreakMath {
             }
             return true
         }
+    }
+
+    /// Posts that count toward the challenge *send* streak (posted in-window from an
+    /// allowed channel). Does not require acceptance or a linked recipient yet —
+    /// those gate the payout / accepted streak instead.
+    static func competitionSentPosts(
+        _ posts: [SentActivity],
+        config: CompetitionConfig,
+        now: Date = .now
+    ) -> [SentActivity] {
+        guard config.enabled else { return [] }
+        let allowed = Set(config.allowedSources.map { $0.lowercased() })
+        return posts.filter { post in
+            guard let created = post.createdAt else { return false }
+            if let start = config.startsAt, created < start { return false }
+            if let end = config.endsAt, created >= end { return false }
+            return allowed.contains(normalizedSource(post.source))
+        }
+    }
+
+    /// Legacy rows often have `source = null`; treat those as iOS when iOS is allowed.
+    static func normalizedSource(_ source: String?) -> String {
+        let trimmed = (source ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        return trimmed.isEmpty ? "ios" : trimmed
     }
 
     static func daySet(
@@ -161,6 +186,18 @@ enum StreakMath {
     ) -> Int {
         let eligible = competitionEligiblePosts(posts, config: config, now: now)
         let days = daySet(from: eligible, calendar: calendar)
+        return currentStreak(dates: Array(days), calendar: calendar, now: now)
+    }
+
+    /// Consecutive days posted toward the challenge (send streak), ignoring acceptance.
+    static func competitionSentStreak(
+        posts: [SentActivity],
+        config: CompetitionConfig,
+        calendar: Calendar = .current,
+        now: Date = .now
+    ) -> Int {
+        let sent = competitionSentPosts(posts, config: config, now: now)
+        let days = daySet(from: sent, calendar: calendar)
         return currentStreak(dates: Array(days), calendar: calendar, now: now)
     }
 
@@ -189,5 +226,94 @@ enum StreakMath {
             map[day, default: 0] += 1
         }
         return map
+    }
+
+    /// Start-of-day dates that make up the current personal streak (empty if streak is 0).
+    static func currentStreakDays(
+        dates: [Date],
+        calendar: Calendar = .current,
+        now: Date = .now
+    ) -> Set<Date> {
+        let streak = currentStreak(dates: dates, calendar: calendar, now: now)
+        guard streak > 0 else { return [] }
+
+        let days = Set(dates.map { calendar.startOfDay(for: $0) })
+        let today = calendar.startOfDay(for: now)
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else { return [] }
+
+        var cursor: Date
+        if days.contains(today) {
+            cursor = today
+        } else if days.contains(yesterday) {
+            cursor = yesterday
+        } else {
+            return []
+        }
+
+        var result = Set<Date>()
+        for _ in 0..<streak {
+            result.insert(cursor)
+            guard let prev = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = prev
+        }
+        return result
+    }
+
+    /// Days that have at least one accepted appreciation.
+    static func acceptedDaySet(
+        from posts: [SentActivity],
+        calendar: Calendar = .current
+    ) -> Set<Date> {
+        daySet(
+            from: posts.filter { $0.status == .accepted },
+            calendar: calendar
+        )
+    }
+
+    /// Days that have only pending (or rejected) sends — no accepted post yet.
+    static func pendingOnlyDaySet(
+        from posts: [SentActivity],
+        calendar: Calendar = .current
+    ) -> Set<Date> {
+        let accepted = acceptedDaySet(from: posts, calendar: calendar)
+        let all = daySet(from: posts, calendar: calendar)
+        return all.subtracting(accepted)
+    }
+
+    /// Within the current send streak, how many of those days already have an accepted post.
+    static func acceptedDaysInCurrentStreak(
+        posts: [SentActivity],
+        calendar: Calendar = .current,
+        now: Date = .now
+    ) -> (accepted: Int, sent: Int) {
+        let dates = posts.compactMap(\.createdAt)
+        let streakDays = currentStreakDays(dates: dates, calendar: calendar, now: now)
+        let accepted = acceptedDaySet(from: posts, calendar: calendar)
+        let acceptedCount = streakDays.intersection(accepted).count
+        return (acceptedCount, streakDays.count)
+    }
+
+    enum DayActivity: Equatable {
+        case empty
+        case pending
+        case accepted
+    }
+
+    /// Best status for a calendar day: accepted wins over pending.
+    static func activity(
+        on day: Date,
+        posts: [SentActivity],
+        calendar: Calendar = .current
+    ) -> DayActivity {
+        let start = calendar.startOfDay(for: day)
+        var sawPending = false
+        for post in posts {
+            guard let created = post.createdAt,
+                  calendar.isDate(created, inSameDayAs: start)
+            else { continue }
+            if post.status == .accepted { return .accepted }
+            if post.status == .pending { sawPending = true }
+        }
+        return sawPending ? .pending : .empty
     }
 }
