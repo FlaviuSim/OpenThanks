@@ -79,7 +79,6 @@ Social / Lifestyle (pick the closest Play categories, e.g. **Social** primary)
 - Graphic for TV / Wear (only if you target those)
 
 ## Notes
-- Phone screenshots are adapted from the iOS App Store set to Play’s 9:16 limit (iPhone shots were taller than 2:1).
-- Tablet screenshots use the same scenes composited for 7" (1200×1920) and 10" (1600×2560) slots.
+- Phone and tablet shots are rebuilt from the **live OpenThanks web UI** (landing, sign-in) plus product screens that match site colors/typography (feed, compose, accept).
 - Icon is a full square — do **not** add your own rounded corners or drop shadow.
 - After first AAB upload, complete **Data safety** using the same disclosures as the privacy policy.
