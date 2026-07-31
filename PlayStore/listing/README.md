@@ -11,6 +11,8 @@ Folder: `PlayStore/listing/`
 | **App icon** | `hi-res-icon-512.png` | 512×512 PNG, square (Play rounds corners) |
 | **Feature graphic** | `feature-graphic-1024x500.png` | 1024×500 PNG, no transparency |
 | **Phone screenshots** | `phone-screenshots/01` … `05` | 1080×1920 PNG, ≥2 required (upload all 5) |
+| **7-inch tablet** | `tablet-7-inch/01` … `05` | 1200×1920 PNG |
+| **10-inch tablet** | `tablet-10-inch/01` … `05` | 1600×2560 PNG |
 
 Paths on this Mac:
 
@@ -18,6 +20,8 @@ Paths on this Mac:
 /Users/simihaian/Downloads/OpenThanks/PlayStore/listing/hi-res-icon-512.png
 /Users/simihaian/Downloads/OpenThanks/PlayStore/listing/feature-graphic-1024x500.png
 /Users/simihaian/Downloads/OpenThanks/PlayStore/listing/phone-screenshots/
+/Users/simihaian/Downloads/OpenThanks/PlayStore/listing/tablet-7-inch/
+/Users/simihaian/Downloads/OpenThanks/PlayStore/listing/tablet-10-inch/
 ```
 
 Open the folder:
@@ -71,11 +75,11 @@ Social / Lifestyle (pick the closest Play categories, e.g. **Social** primary)
 | Website | https://openthanks.com |
 
 ## Optional (not required for internal testing)
-- Tablet screenshots (7" / 10")
 - Promo video (YouTube)
 - Graphic for TV / Wear (only if you target those)
 
 ## Notes
-- Screenshots are adapted from the iOS App Store set to Play’s 9:16 limit (iPhone shots were taller than 2:1).
+- Phone screenshots are adapted from the iOS App Store set to Play’s 9:16 limit (iPhone shots were taller than 2:1).
+- Tablet screenshots use the same scenes composited for 7" (1200×1920) and 10" (1600×2560) slots.
 - Icon is a full square — do **not** add your own rounded corners or drop shadow.
 - After first AAB upload, complete **Data safety** using the same disclosures as the privacy policy.
