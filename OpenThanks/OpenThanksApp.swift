@@ -26,26 +26,34 @@ struct OpenThanksApp: App {
                 .syncAppAppearance()
                 .tint(Theme.coral)
                 .onOpenURL { url in
-                    if url.scheme?.lowercased() == "openthanks" {
-                        if WidgetDeepLink.isAuthCallback(url) {
-                            auth.handleDeepLink(url)
-                        } else if let destination = WidgetDeepLink.parse(url) {
-                            switch destination {
-                            case .compose:
-                                ComposeShareHandoff.queuePendingShareOrBlank()
-                            case .received:
-                                TabLaunchBridge.shared.queue(.received)
-                            case .home:
-                                TabLaunchBridge.shared.queue(.home)
-                            }
-                        } else {
-                            // Unknown custom-scheme URLs — try auth (Supabase variants).
-                            auth.handleDeepLink(url)
-                        }
-                    } else {
-                        _ = deepLinks.handle(url)
-                    }
+                    handleIncomingURL(url)
                 }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    guard let url = activity.webpageURL else { return }
+                    handleIncomingURL(url)
+                }
+        }
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        if url.scheme?.lowercased() == "openthanks" {
+            if WidgetDeepLink.isAuthCallback(url) {
+                auth.handleDeepLink(url)
+            } else if let destination = WidgetDeepLink.parse(url) {
+                switch destination {
+                case .compose:
+                    ComposeShareHandoff.queuePendingShareOrBlank()
+                case .received:
+                    TabLaunchBridge.shared.queue(.received)
+                case .home:
+                    TabLaunchBridge.shared.queue(.home)
+                }
+            } else {
+                // Unknown custom-scheme URLs — try auth (Supabase variants).
+                auth.handleDeepLink(url)
+            }
+        } else {
+            _ = deepLinks.handle(url)
         }
     }
 }

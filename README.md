@@ -46,10 +46,20 @@ The design can use Fraunces (display) and DM Sans (body), but the font files are
 
 ## Not built (deliberately)
 
-- Push notifications: the app can request notification permission, register APNs tokens in `device_push_tokens`, and schedule the local Friday gratitude reminder. Server-side APNs sending from the web/backend is still a separate work item.
-- Video attachments: schema supports `media_type`, UI ships photo-only.
+- Video attachments: schema supports `media_type`; UI supports photo + video upload.
 - Universal Links require Associated Domains enabled on App ID `com.openthanks.app` in the Apple Developer portal (entitlements already include `applinks:openthanks.com` + www). After a TestFlight/App Store install, long-press a share link in Notes — you should see “Open in OpenThanks”.
 - Realtime feed updates: pull-to-refresh only in v1.
+
+## Push notifications (APNs via Supabase)
+
+**App (ready):** requests permission, registers the device token, upserts into `device_push_tokens` with `environment` = `sandbox` (DEBUG) or `production` (Release / TestFlight).
+
+**Server (ready to wire):** Edge Function `supabase/functions/send-apns` talks to APNs with a `.p8` key. It does **not** auto-fire until you set secrets and deploy it.
+
+1. Apply migration `supabase/migrations/20260731_device_push_tokens_apns.sql` (if not already).
+2. Create an APNs Auth Key in Apple Developer; enable Push on `com.openthanks.app`.
+3. Set secrets and deploy — see [`supabase/functions/send-apns/README.md`](supabase/functions/send-apns/README.md).
+4. Later: Database Webhook on `notifications` INSERT, or call the function from Next.js/cron with the service role key.
 
 ## Structure
 

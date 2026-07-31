@@ -46,9 +46,15 @@ final class DeepLinkRouter {
 
     @discardableResult
     func handle(_ url: URL) -> Bool {
-        guard Self.isUniversalLink(url),
-              let parsed = Self.parse(url)
-        else { return false }
+        guard Self.isUniversalLink(url) else { return false }
+
+        // Same destination as web `/gratitude/new` (Friday email, share CTAs, etc.).
+        if Self.isComposePath(url) {
+            Self.queueCompose(from: url)
+            return true
+        }
+
+        guard let parsed = Self.parse(url) else { return false }
         destination = parsed
         return true
     }
@@ -57,10 +63,32 @@ final class DeepLinkRouter {
         destination = nil
     }
 
+    /// `/gratitude/new` opens the create-appreciation sheet (not a detail cover).
+    static func isComposePath(_ url: URL) -> Bool {
+        let parts = pathParts(url)
+        guard parts.count >= 2 else { return false }
+        return parts[0].lowercased() == "gratitude" && parts[1].lowercased() == "new"
+    }
+
+    static func queueCompose(from url: URL) {
+        let source = queryValue(url, name: "source")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let recipient = queryValue(url, name: "for")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let analyticsSource: String
+        if let source, !source.isEmpty {
+            analyticsSource = source
+        } else {
+            analyticsSource = "universal_link_compose"
+        }
+        ComposeLaunchBridge.shared.queue(
+            recipientName: (recipient?.isEmpty == false) ? recipient : nil,
+            analyticsSource: analyticsSource
+        )
+    }
+
     static func parse(_ url: URL) -> Destination? {
-        let parts = url.pathComponents
-            .filter { $0 != "/" }
-            .map { $0.removingPercentEncoding ?? $0 }
+        let parts = pathParts(url)
         guard let first = parts.first?.lowercased() else { return nil }
 
         switch first {
@@ -70,6 +98,7 @@ final class DeepLinkRouter {
         case "gratitude":
             guard parts.count >= 2 else { return nil }
             let idPart = parts[1].lowercased()
+            // Handled separately via `isComposePath` → ComposeLaunchBridge.
             if idPart == "new" { return nil }
             guard let id = UUID(uuidString: parts[1]) else { return nil }
             return .gratitude(id: id)
@@ -89,6 +118,12 @@ final class DeepLinkRouter {
             else { return nil }
             return .profile(username: parts[0].lowercased())
         }
+    }
+
+    private static func pathParts(_ url: URL) -> [String] {
+        url.pathComponents
+            .filter { $0 != "/" }
+            .map { $0.removingPercentEncoding ?? $0 }
     }
 
     private static func queryValue(_ url: URL, name: String) -> String? {

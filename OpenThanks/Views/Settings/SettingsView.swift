@@ -52,7 +52,7 @@ struct SettingsView: View {
     private var feedbackMailURL: URL {
         var components = URLComponents()
         components.scheme = "mailto"
-        components.path = "flaviu@openthanks.com"
+        components.path = "founders@openthanks.com"
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
         components.queryItems = [
@@ -62,7 +62,7 @@ struct SettingsView: View {
                 value: "\n\n—\nApp version \(version) (\(build))"
             ),
         ]
-        return components.url ?? URL(string: "mailto:flaviu@openthanks.com")!
+        return components.url ?? URL(string: "mailto:founders@openthanks.com")!
     }
 
     var body: some View {
@@ -197,7 +197,7 @@ struct SettingsView: View {
                     Link(destination: feedbackMailURL) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Send Feedback")
-                            Text("Email us at flaviu@openthanks.com")
+                            Text("Email us at founders@openthanks.com")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
                         }

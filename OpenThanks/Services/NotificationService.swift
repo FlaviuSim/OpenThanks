@@ -14,11 +14,13 @@ enum NotificationService {
         let userId: UUID
         let token: String
         let platform: String
+        let environment: String
 
         enum CodingKeys: String, CodingKey {
             case userId = "user_id"
             case token
             case platform
+            case environment
         }
     }
 
@@ -281,7 +283,18 @@ enum NotificationService {
     }
 
     static func uploadDeviceToken(_ token: String, userId: UUID) async {
-        let row = DevicePushToken(userId: userId, token: token, platform: "ios")
+        // DEBUG → APNs sandbox; Release / TestFlight / App Store → production.
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        let row = DevicePushToken(
+            userId: userId,
+            token: token,
+            platform: "ios",
+            environment: environment
+        )
         do {
             try await supabase.from("device_push_tokens")
                 .upsert(row, onConflict: "token", returning: .minimal)
