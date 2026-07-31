@@ -13,9 +13,14 @@ struct StatsView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var appearReady = false
-    @State private var visibleMonth = Calendar.current.startOfMonth(for: Date())
+    /// End date of the rolling calendar window (inclusive). Defaults to today.
+    @State private var rollingWindowEnd = Calendar.current.startOfDay(for: Date())
 
     private var calendar: Calendar { .current }
+
+    private var rollingWindowDays: Int {
+        max(showCompetition ? competition.targetDays : 30, 7)
+    }
 
     private var personalDayDates: [Date] {
         activity.compactMap(\.createdAt)
@@ -279,11 +284,9 @@ struct StatsView: View {
             }
 
             if !competition.isActive() {
-                if let start = competition.startsAt, start > Date() {
-                    Text("Challenge counting starts \(start.formatted(.dateTime.month(.wide).day().year())).")
-                        .font(Theme.body(12, weight: .medium))
-                        .foregroundStyle(Theme.coral)
-                }
+                Text("This challenge isn’t active right now.")
+                    .font(Theme.body(12, weight: .medium))
+                    .foregroundStyle(Theme.coral)
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -305,7 +308,7 @@ struct StatsView: View {
                 )
             }
 
-            Text("Post \(competition.targetDays) days in a row. Finishers unlock $30 to give away to a classroom — once each of those days has an accepted appreciation.")
+            Text("Start anytime. Build any rolling streak of \(competition.targetDays) days in a row — not tied to a calendar month. Finishers unlock $30 to give away to a classroom once each of those days has an accepted appreciation.")
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -414,17 +417,22 @@ struct StatsView: View {
 
     private var calendarSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Your calendar")
+            Text(showCompetition ? "Rolling \(rollingWindowDays) days" : "Your rhythm")
                 .font(Theme.display(20, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Each day you share appreciation. Solid days are accepted; soft days are still pending.")
-                .font(Theme.body(13))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                showCompetition
+                    ? "A moving \(rollingWindowDays)-day window — not a calendar month. Solid days are accepted; soft days are still pending."
+                    : "Each day you share appreciation. Solid days are accepted; soft days are still pending."
+            )
+            .font(Theme.body(13))
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
 
             ActivityCalendarView(
                 posts: activity,
-                month: $visibleMonth,
+                windowDays: rollingWindowDays,
+                windowEnd: $rollingWindowEnd,
                 appear: appearReady
             )
 
@@ -503,8 +511,11 @@ struct StatsView: View {
             let (config, rows, stats, pending) = try await (configTask, activityTask, statsTask, pendingTask)
             competition = config
             pendingSentCount = pending
-            if let start = config.startsAt, start < since {
-                activity = try await GratitudeService.sentActivity(authorId: userId, since: start)
+            // Rolling challenge: load enough history for a long streak (ignore month windows).
+            let lookbackDays = max(config.targetDays * 3, 120)
+            let rollingSince = calendar.date(byAdding: .day, value: -lookbackDays, to: Date()) ?? since
+            if rollingSince < since {
+                activity = try await GratitudeService.sentActivity(authorId: userId, since: rollingSince)
             } else {
                 activity = rows
             }
@@ -516,18 +527,30 @@ struct StatsView: View {
     }
 }
 
-// MARK: - Month calendar
+// MARK: - Rolling calendar window
 
 private struct ActivityCalendarView: View {
     let posts: [SentActivity]
-    @Binding var month: Date
+    let windowDays: Int
+    @Binding var windowEnd: Date
     let appear: Bool
 
     private let calendar = Calendar.current
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
 
-    private var monthTitle: String {
-        month.formatted(.dateTime.month(.wide).year())
+    private var today: Date { calendar.startOfDay(for: Date()) }
+
+    private var windowStart: Date {
+        calendar.date(byAdding: .day, value: -(max(windowDays, 1) - 1), to: windowEnd) ?? windowEnd
+    }
+
+    private var windowTitle: String {
+        let startLabel = windowStart.formatted(.dateTime.month(.abbreviated).day())
+        let endLabel = windowEnd.formatted(.dateTime.month(.abbreviated).day())
+        if calendar.isDate(windowEnd, inSameDayAs: today) {
+            return "Last \(windowDays) days"
+        }
+        return "\(startLabel) – \(endLabel)"
     }
 
     private var weekdaySymbols: [String] {
@@ -537,15 +560,11 @@ private struct ActivityCalendarView: View {
     }
 
     private var daysInGrid: [Date?] {
-        guard let range = calendar.range(of: .day, in: .month, for: month),
-              let firstOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: month))
-        else { return [] }
-
-        let weekday = calendar.component(.weekday, from: firstOfMonth)
+        let weekday = calendar.component(.weekday, from: windowStart)
         let leading = (weekday - calendar.firstWeekday + 7) % 7
         var cells: [Date?] = Array(repeating: nil, count: leading)
-        for day in range {
-            if let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) {
+        for offset in 0..<max(windowDays, 1) {
+            if let date = calendar.date(byAdding: .day, value: offset, to: windowStart) {
                 cells.append(date)
             }
         }
@@ -554,8 +573,7 @@ private struct ActivityCalendarView: View {
     }
 
     private var canGoForward: Bool {
-        let thisMonth = calendar.startOfMonth(for: Date())
-        return month < thisMonth
+        windowEnd < today
     }
 
     var body: some View {
@@ -563,7 +581,7 @@ private struct ActivityCalendarView: View {
             HStack {
                 Button {
                     withAnimation(.easeInOut(duration: 0.25)) {
-                        month = calendar.date(byAdding: .month, value: -1, to: month) ?? month
+                        windowEnd = calendar.date(byAdding: .day, value: -windowDays, to: windowEnd) ?? windowEnd
                     }
                 } label: {
                     Image(systemName: "chevron.left")
@@ -573,9 +591,10 @@ private struct ActivityCalendarView: View {
                         .background(Theme.surfaceRaised, in: Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Earlier \(windowDays) days")
 
                 Spacer()
-                Text(monthTitle)
+                Text(windowTitle)
                     .font(Theme.display(18, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .contentTransition(.opacity)
@@ -584,7 +603,8 @@ private struct ActivityCalendarView: View {
                 Button {
                     guard canGoForward else { return }
                     withAnimation(.easeInOut(duration: 0.25)) {
-                        month = calendar.date(byAdding: .month, value: 1, to: month) ?? month
+                        let next = calendar.date(byAdding: .day, value: windowDays, to: windowEnd) ?? windowEnd
+                        windowEnd = min(next, today)
                     }
                 } label: {
                     Image(systemName: "chevron.right")
@@ -595,6 +615,7 @@ private struct ActivityCalendarView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!canGoForward)
+                .accessibilityLabel("Later \(windowDays) days")
             }
 
             LazyVGrid(columns: columns, spacing: 6) {
@@ -629,7 +650,7 @@ private struct ActivityCalendarView: View {
     private func dayCell(_ day: Date, index: Int) -> some View {
         let kind = StreakMath.activity(on: day, posts: posts, calendar: calendar)
         let isToday = calendar.isDateInToday(day)
-        let isFuture = day > calendar.startOfDay(for: Date())
+        let isFuture = day > today
         let number = calendar.component(.day, from: day)
 
         return ZStack {
@@ -685,11 +706,5 @@ private struct ActivityCalendarView: View {
         case .pending: return "\(date), sent, awaiting acceptance"
         case .accepted: return "\(date), accepted"
         }
-    }
-}
-
-private extension Calendar {
-    func startOfMonth(for date: Date) -> Date {
-        self.date(from: dateComponents([.year, .month], from: date)) ?? date
     }
 }

@@ -8,6 +8,8 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
     var subtitle: String
     var prizeLabel: String
     var targetDays: Int
+    /// Optional bounds for a limited campaign. For the rolling 30-day challenge,
+    /// leave both `nil` so streaks can start anytime while the challenge is enabled.
     var startsAt: Date?
     var endsAt: Date?
     var allowedSources: [String]
