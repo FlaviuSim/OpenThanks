@@ -29,6 +29,14 @@ Issued by Google Inc. / Android · valid **2026-07-31 → 2056-07-31**.
 - **SHA-1:** `20:13:1C:DB:DA:3E:89:79:81:48:12:91:8B:AB:2B:0E:55:02:27:7A`
 - **SHA-256:** `8D:BC:E4:03:B9:3C:85:F0:47:4F:BB:55:C1:B9:86:6E:0D:9F:1A:E9:73:D9:98:80:6A:FE:89:15:29:BE:E2:84`
 
+### Upload key (local / emulator / sideload builds)
+
+From `android.keystore` used by Bubblewrap (also signs `app-release-signed.apk`):
+
+- **SHA-256:** `06:22:56:52:D4:BB:99:E5:06:B9:D4:E9:A1:EC:8E:5E:74:4F:24:E8:B6:8E:98:90:3A:64:C3:A0:5F:87:92:A0`
+
+Package id: `com.openthanks.myapp`. All four SHA-256 values must appear in `https://openthanks.com/.well-known/assetlinks.json` or the TWA shows a browser bar (“Digital assets verification failed”) on sideloaded builds.
+
 Use these SHA-256 values in `assetlinks.json` for Android App Links (TWA package id is currently `com.openthanks.myapp`), and all SHA-1/SHA-256 values in Firebase / Google Cloud OAuth client config.
 
 TWA project (Bubblewrap source, no private keystore): https://github.com/FlaviuSim/openthanks-twa
