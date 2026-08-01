@@ -57,15 +57,18 @@ targets:
         # Full-size launch screen (without it iOS letterboxes the app).
         UILaunchScreen:
           UIColorName: LaunchBackground
-        # Deep-link scheme for the Supabase OAuth redirect (openthanks://auth-callback).
+        # Deep-link schemes: Supabase OAuth + Google Calendar iOS OAuth (reversed client ID).
         CFBundleURLTypes:
           - CFBundleURLName: com.openthanks.app
             CFBundleURLSchemes: [openthanks]
+          - CFBundleURLName: com.openthanks.app.google-calendar
+            CFBundleURLSchemes:
+              - com.googleusercontent.apps.55218854228-c40e4qrr04u042rbaoeaq4dhdpq53jgu
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryUsageDescription: Attach a photo to your appreciation.
         NSSiriUsageDescription: OpenThanks uses Siri to help you thank someone or start an appreciation.
-        NSCalendarsUsageDescription: OpenThanks reads today’s meetings to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.
-        NSCalendarsFullAccessUsageDescription: OpenThanks reads today’s meetings and attendees to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.
+        NSCalendarsUsageDescription: OpenThanks reads today’s Apple Calendar meetings to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.
+        NSCalendarsFullAccessUsageDescription: OpenThanks reads today’s Apple Calendar meetings and attendees to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.
         UIBackgroundModes:
           - fetch
         BGTaskSchedulerPermittedIdentifiers:

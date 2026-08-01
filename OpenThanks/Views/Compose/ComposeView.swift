@@ -1512,8 +1512,18 @@ struct SuccessView: View {
             + shareURL.absoluteString
     }
 
+    private var hasDeliverableRecipient: Bool {
+        gratitude.recipientId != nil || recipientEmail != nil
+    }
+
+    private var headline: String {
+        hasDeliverableRecipient
+            ? "Your appreciation has been shared!"
+            : "Your appreciation has been created!"
+    }
+
     private var subtitle: String {
-        if gratitude.recipientId != nil || recipientEmail != nil {
+        if hasDeliverableRecipient {
             return "We notified them when we could. You can also share the link yourself."
         }
         return "Share the link so they can open and accept your appreciation."
@@ -1604,7 +1614,7 @@ struct SuccessView: View {
                 .padding(.top, 20)
 
             VStack(spacing: 10) {
-                Text("Your appreciation has been shared!")
+                Text(headline)
                     .font(Theme.display(26, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)

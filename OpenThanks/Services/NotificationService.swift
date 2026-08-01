@@ -143,7 +143,7 @@ enum NotificationService {
             await disableCalendarGratitudeNudge()
             return
         }
-        guard CalendarMeetingService.hasFullAccess else {
+        guard CalendarMeetingAggregator.hasAnyConnectedSource else {
             await disableCalendarGratitudeNudge()
             return
         }
@@ -227,26 +227,38 @@ enum NotificationService {
         }
     }
 
-    /// Enables the evening nudge: notification permission + calendar access, then schedule.
+    /// Enables the evening nudge: notification permission + any calendar source, then schedule.
     /// Returns nil on success. Preference can stay on even when there’s no candidate tonight.
+    /// - Parameter requestAppleIfNeeded: When true and no source is connected, prompts EventKit.
     static func enableCalendarGratitudeNudge(
         authorId: UUID?,
-        selfEmails: Set<String>
+        selfEmails: Set<String>,
+        requestAppleIfNeeded: Bool = true
     ) async -> ReminderEnableFailure? {
         guard await requestAuthorizationAndRegisterForPushes() else {
             return .notificationsDenied
         }
-        // Don't re-prompt when the system already denied — Settings must flip it.
-        switch CalendarMeetingService.accessState {
-        case .fullAccess:
-            break
-        case .notDetermined:
-            guard await CalendarMeetingService.requestAccess() else {
+
+        if !CalendarMeetingAggregator.hasAnyConnectedSource {
+            guard requestAppleIfNeeded else {
                 return .calendarDenied
             }
-        case .denied, .restricted, .writeOnly:
+            switch CalendarMeetingService.accessState {
+            case .fullAccess:
+                break
+            case .notDetermined:
+                guard await CalendarMeetingService.requestAccess() else {
+                    return .calendarDenied
+                }
+            case .denied, .restricted, .writeOnly:
+                return .calendarDenied
+            }
+        }
+
+        guard CalendarMeetingAggregator.hasAnyConnectedSource else {
             return .calendarDenied
         }
+
         await refreshCalendarGratitudeNudgeIfEnabled(
             true,
             authorId: authorId,

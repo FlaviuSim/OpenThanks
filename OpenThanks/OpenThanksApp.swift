@@ -280,8 +280,8 @@ struct RootView: View {
         }
 
         if !hasCompletedCalendarPrompt {
-            if CalendarMeetingService.hasFullAccess {
-                // Already granted (e.g. reinstall) — keep nudge on and schedule.
+            if CalendarMeetingAggregator.hasAnyConnectedSource {
+                // Already connected (Apple and/or Google) — keep nudge on and schedule.
                 calendarNudgeEnabled = true
                 var emails = Set<String>()
                 if let email = auth.currentProfile?.email?.lowercased() {
@@ -294,13 +294,9 @@ struct RootView: View {
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
                 hasCompletedCalendarPrompt = true
-            } else if CalendarMeetingService.accessState == .notDetermined {
+            } else {
                 homeGate = .needsCalendar
                 return
-            } else {
-                // Denied / restricted / write-only — don't keep prompting.
-                calendarNudgeEnabled = false
-                hasCompletedCalendarPrompt = true
             }
         }
 

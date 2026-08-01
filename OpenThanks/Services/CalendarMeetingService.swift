@@ -36,8 +36,9 @@ struct CalendarMeeting: Identifiable, Hashable, Sendable {
     }
 }
 
-/// Reads today’s events via EventKit. All processing stays on-device.
+/// Apple Calendar via EventKit. All processing stays on-device.
 enum CalendarMeetingService {
+    static let sourceId = "apple"
     private static let store = EKEventStore()
 
     enum AccessState: Equatable {

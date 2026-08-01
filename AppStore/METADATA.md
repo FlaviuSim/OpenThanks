@@ -103,6 +103,8 @@ Match the Privacy Manifest where possible:
 - Used for tracking: **No**  
 - Purpose: App Functionality  
 
+**Calendar** (if not already disclosed): used for Product Interaction / App Functionality when the user connects Apple Calendar (on-device EventKit) and/or Google Calendar (readonly API for today’s events to build the evening thank-you suggestion). Calendar events are not stored on OpenThanks servers; Google tokens stay in the on-device Keychain. Public disclosures: https://openthanks.com/privacy#google-user-data
+
 Tracking: **No**
 
 ## Checklist before Submit

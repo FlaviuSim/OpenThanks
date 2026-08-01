@@ -40,6 +40,24 @@ If the project file ever fails to open on a newer Xcode, regenerate it: `brew in
    The Welcome screen offers Apple, Google, LinkedIn, email OTP, and phone OTP.
 4. **Hearts uniqueness:** the toggle assumes one heart per (user, gratitude). Add a unique index if one doesn't exist.
 
+## Google Calendar (evening thank-you nudge)
+
+Separate from Supabase “Sign in with Google”. Tokens stay in the device Keychain; events are not uploaded to OpenThanks.
+
+**Use an iOS OAuth client** — Google Web clients only accept `https://` redirects, not app URL schemes.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create (or reuse) a project and enable **Google Calendar API**.
+2. **Credentials → Create credentials → OAuth client ID → Application type: iOS**
+   - Bundle ID: `com.openthanks.app`
+   - Google does **not** ask you to paste a redirect URI for iOS; it uses the reversed client ID automatically.
+3. Put the Client ID in `AppConfig.googleCalendarClientID`.
+4. Register the **reversed client ID** as a URL scheme in `Info.plist` / `project.yml`  
+   (e.g. client `123-abc.apps.googleusercontent.com` → scheme `com.googleusercontent.apps.123-abc`).  
+   The app redirects to `{reversed-client-id}:/oauthredirect`.
+5. OAuth consent screen: add scope `https://www.googleapis.com/auth/calendar.readonly` (and add test users while the app is in Testing).
+
+v1 reads the **primary** calendar only. Apple Calendar (EventKit) can be connected at the same time; the ranker merges both.
+
 ## Fonts
 
 The design can use Fraunces (display) and DM Sans (body), but the font files are not bundled by default. Without them the app falls back to the system serif/SF.

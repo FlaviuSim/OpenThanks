@@ -6,43 +6,18 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var pendingCount = 0
     @State private var showEditProfile = false
-    @State private var notificationError: String?
-    @State private var showOpenSystemSettings = false
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
-    @State private var calendarAccessTick = 0
-    /// Serializes toggle work so rapid taps can't leave AppStorage fighting the Toggle.
-    @State private var fridayToggleTask: Task<Void, Never>?
-    @State private var calendarToggleTask: Task<Void, Never>?
-    @State private var fridayToggleEpoch = 0
-    @State private var calendarToggleEpoch = 0
-
-    private var calendarAccessLabel: String {
-        _ = calendarAccessTick
-        switch CalendarMeetingService.accessState {
-        case .fullAccess: return "Allowed"
-        case .writeOnly: return "Write only — needs full access"
-        case .denied, .restricted: return "Off"
-        case .notDetermined: return "Not set"
-        }
-    }
 
     private var appearanceSubtitle: String {
         (AppAppearance(rawValue: appearance) ?? .dark).title
     }
 
-    private var fridayReminderBinding: Binding<Bool> {
-        Binding(
-            get: { fridayReminderEnabled },
-            set: { setFridayReminderEnabled($0) }
-        )
-    }
-
-    private var calendarNudgeBinding: Binding<Bool> {
-        Binding(
-            get: { calendarNudgeEnabled },
-            set: { setCalendarNudgeEnabled($0) }
+    private var notificationsSubtitle: String {
+        NotificationsSettingsView.summarySubtitle(
+            fridayOn: fridayReminderEnabled,
+            eveningOn: calendarNudgeEnabled
         )
     }
 
@@ -87,78 +62,33 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    Link(destination: URL(string: "https://openthanks.com/privacy")!) {
-                        rowLabel("Privacy")
+                    HStack(spacing: 6) {
+                        Link("Privacy", destination: URL(string: "https://openthanks.com/privacy")!)
+                        Text("·")
+                            .foregroundStyle(Theme.textTertiary)
+                        Link("Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
+                        Spacer()
                     }
-                    Link(destination: URL(string: "https://openthanks.com/terms")!) {
-                        rowLabel("Terms of Service")
-                    }
+                    .font(Theme.body(16))
+                    .foregroundStyle(Theme.textPrimary)
                 }
                 .listRowBackground(Theme.surface)
 
-                Section("Notifications") {
-                    Toggle(isOn: fridayReminderBinding) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Friday Gratitude Reminder")
-                            Text("Every Friday at 9:00 AM — a gentle prompt.")
-                                .font(Theme.body(12))
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                    }
-                    .tint(Theme.coral)
-
-                    Toggle(isOn: calendarNudgeBinding) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Evening Thank-You Nudge")
-                            Text("Weekdays at 8:00 PM when your Calendar suggests someone to thank. 100% private—your calendar data never leaves your device.")
-                                .font(Theme.body(12))
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                    }
-                    .tint(Theme.coral)
-
-                    if calendarNudgeEnabled {
+                Section {
+                    NavigationLink {
+                        NotificationsSettingsView()
+                    } label: {
                         HStack {
-                            Text("Calendar access")
-                                .foregroundStyle(Theme.textPrimary)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Notifications")
+                                Text("Reminders and calendar suggestions")
+                                    .font(Theme.body(12))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
                             Spacer()
-                            Text(calendarAccessLabel)
+                            Text(notificationsSubtitle)
                                 .font(Theme.body(13))
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-
-                        if CalendarMeetingService.accessState != .fullAccess {
-                            Button("Allow Calendar") {
-                                Task {
-                                    let granted = await CalendarMeetingService.requestAccess()
-                                    calendarAccessTick += 1
-                                    if granted {
-                                        await refreshCalendarNudge()
-                                        notificationError = nil
-                                        showOpenSystemSettings = false
-                                    } else {
-                                        notificationError = "Calendar access is required for evening thank-you nudges. Enable it in iPhone Settings → OpenThanks."
-                                        showOpenSystemSettings = true
-                                    }
-                                }
-                            }
-                            .foregroundStyle(Theme.coral)
-                        }
-                    }
-
-                    if let notificationError {
-                        Text(notificationError)
-                            .font(Theme.body(12))
-                            .foregroundStyle(.red)
-
-                        if showOpenSystemSettings {
-                            Button("Open iPhone Settings") {
-                                if let url = URL(string: UIApplication.openSettingsURLString) {
-                                    UIApplication.shared.open(url)
-                                }
-                            }
-                            .font(Theme.body(13, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                                .foregroundStyle(Theme.textTertiary)
                         }
                     }
                 }
@@ -240,111 +170,7 @@ struct SettingsView: View {
             .task {
                 guard let userId = auth.userId else { return }
                 pendingCount = (try? await GratitudeService.pendingCount(authorId: userId)) ?? 0
-                calendarAccessTick += 1
             }
-            .onDisappear {
-                fridayToggleTask?.cancel()
-                calendarToggleTask?.cancel()
-            }
-        }
-    }
-
-    private var selfEmails: Set<String> {
-        var emails = Set<String>()
-        if let email = auth.currentProfile?.email?.lowercased() {
-            emails.insert(email)
-        }
-        return emails
-    }
-
-    private func setFridayReminderEnabled(_ enabled: Bool) {
-        fridayToggleTask?.cancel()
-        fridayToggleEpoch += 1
-        let epoch = fridayToggleEpoch
-        notificationError = nil
-        showOpenSystemSettings = false
-        fridayReminderEnabled = enabled
-
-        fridayToggleTask = Task {
-            if enabled {
-                let failure = await NotificationService.enableFridayReminder()
-                guard !Task.isCancelled, epoch == fridayToggleEpoch else { return }
-                await MainActor.run {
-                    if let failure {
-                        notificationError = message(for: failure, feature: "Friday reminders")
-                        showOpenSystemSettings = failure == .notificationsDenied
-                        // Let the Toggle finish its on animation before reverting —
-                        // reverting inside the same turn can leave the control stuck off.
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(50))
-                            guard epoch == fridayToggleEpoch else { return }
-                            fridayReminderEnabled = false
-                        }
-                    }
-                }
-            } else {
-                await NotificationService.disableFridayReminder()
-            }
-        }
-    }
-
-    private func setCalendarNudgeEnabled(_ enabled: Bool) {
-        calendarToggleTask?.cancel()
-        calendarToggleEpoch += 1
-        let epoch = calendarToggleEpoch
-        notificationError = nil
-        showOpenSystemSettings = false
-        calendarNudgeEnabled = enabled
-
-        calendarToggleTask = Task {
-            if enabled {
-                let failure = await NotificationService.enableCalendarGratitudeNudge(
-                    authorId: auth.userId,
-                    selfEmails: selfEmails
-                )
-                guard !Task.isCancelled, epoch == calendarToggleEpoch else { return }
-                await MainActor.run {
-                    calendarAccessTick += 1
-                    if let failure {
-                        notificationError = message(for: failure, feature: "evening thank-you nudges")
-                        showOpenSystemSettings = true
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(50))
-                            guard epoch == calendarToggleEpoch else { return }
-                            calendarNudgeEnabled = false
-                        }
-                    } else {
-                        CalendarGratitudeBackgroundRefresh.schedule()
-                    }
-                }
-            } else {
-                await NotificationService.disableCalendarGratitudeNudge()
-            }
-        }
-    }
-
-    private func message(
-        for failure: NotificationService.ReminderEnableFailure,
-        feature: String
-    ) -> String {
-        switch failure {
-        case .notificationsDenied:
-            return "Notifications are off. Enable them in iPhone Settings to get \(feature)."
-        case .calendarDenied:
-            return "Calendar access is required for evening thank-you nudges. Enable it in iPhone Settings → OpenThanks."
-        case .schedulingFailed:
-            return "Couldn't schedule \(feature). Try again in a moment."
-        }
-    }
-
-    private func refreshCalendarNudge() async {
-        await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
-            calendarNudgeEnabled,
-            authorId: auth.userId,
-            selfEmails: selfEmails
-        )
-        if calendarNudgeEnabled {
-            CalendarGratitudeBackgroundRefresh.schedule()
         }
     }
 

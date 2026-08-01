@@ -28,6 +28,28 @@ enum AppConfig {
     /// Must be listed in Supabase Redirect URLs: https://openthanks.com/auth/mobile
     static let oauthRedirectURL = URL(string: "https://openthanks.com/auth/mobile")!
 
+    /// Google Cloud **iOS** OAuth client ID for Calendar readonly (separate from Supabase Google login).
+    /// Create Credentials → OAuth client ID → Application type **iOS**, bundle ID `com.openthanks.app`.
+    /// Web clients cannot use custom-scheme redirects; see README.
+    static let googleCalendarClientID = "55218854228-c40e4qrr04u042rbaoeaq4dhdpq53jgu.apps.googleusercontent.com"
+
+    /// Google’s iOS redirect: `{reversed-client-id}:/oauthredirect`.
+    /// Also register the reversed client ID as a URL scheme in Info.plist / project.yml.
+    static var googleCalendarRedirectURL: URL {
+        URL(string: "\(googleCalendarReversedClientID):/oauthredirect")!
+    }
+
+    /// Scheme ASWebAuthenticationSession listens for (reversed client ID).
+    static var googleCalendarURLScheme: String { googleCalendarReversedClientID }
+
+    /// `123-abc.apps.googleusercontent.com` → `com.googleusercontent.apps.123-abc`
+    static var googleCalendarReversedClientID: String {
+        let suffix = ".apps.googleusercontent.com"
+        let id = googleCalendarClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefix = id.hasSuffix(suffix) ? String(id.dropLast(suffix.count)) : id
+        return "com.googleusercontent.apps.\(prefix)"
+    }
+
     /// Optional legacy endpoint — unused; compose uses on-device Apple Intelligence.
     static let polishEndpoint: URL? = nil
 

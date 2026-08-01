@@ -32,6 +32,14 @@
 				<string>openthanks</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.openthanks.app.google-calendar</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.55218854228-c40e4qrr04u042rbaoeaq4dhdpq53jgu</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -80,9 +88,9 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>OpenThanks reads today’s meetings and attendees to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.</string>
+	<string>OpenThanks reads today’s Apple Calendar meetings and attendees to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>OpenThanks reads today’s meetings to suggest one person you might want to thank each evening. Events only stay on your device and never seen by anyone.</string>
+	<string>OpenThanks reads today’s Apple Calendar meetings to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Attach a photo to your appreciation.</string>
 	<key>NSSiriUsageDescription</key>

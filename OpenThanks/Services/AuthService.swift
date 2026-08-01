@@ -426,7 +426,7 @@ final class AuthService {
 }
 
 /// Keeps a presentation anchor alive for `ASWebAuthenticationSession`.
-private final class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
+final class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         if let key = scenes.flatMap(\.windows).first(where: \.isKeyWindow) {

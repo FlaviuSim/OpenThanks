@@ -49,14 +49,9 @@ enum GratitudeOpportunityRanker {
         // 1 = Sunday, 7 = Saturday
         if weekday == 1 || weekday == 7 { return nil }
 
-        guard CalendarMeetingService.hasFullAccess else { return nil }
+        guard CalendarMeetingAggregator.hasAnyConnectedSource else { return nil }
 
-        let meetings: [CalendarMeeting]
-        do {
-            meetings = try CalendarMeetingService.meetings(on: day)
-        } catch {
-            return nil
-        }
+        let meetings = await CalendarMeetingAggregator.meetings(on: day)
 
         let eightPM = cal.date(
             bySettingHour: 20, minute: 0, second: 0, of: day
