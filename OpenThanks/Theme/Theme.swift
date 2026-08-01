@@ -1,13 +1,27 @@
 import SwiftUI
 import UIKit
 
-enum AppAppearance: String {
-    case dark, light
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case light
+    case dark
+    case system
 
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .light: "Light"
+        case .dark: "Dark"
+        case .system: "Auto"
+        }
+    }
+
+    /// `nil` follows the system appearance.
     var colorScheme: ColorScheme? {
         switch self {
         case .dark: .dark
         case .light: .light
+        case .system: nil
         }
     }
 }
@@ -100,8 +114,8 @@ extension Color {
 private struct SyncAppAppearanceModifier: ViewModifier {
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
 
-    private var colorScheme: ColorScheme {
-        AppAppearance(rawValue: appearance)?.colorScheme ?? .dark
+    private var colorScheme: ColorScheme? {
+        AppAppearance(rawValue: appearance)?.colorScheme
     }
 
     func body(content: Content) -> some View {
@@ -112,7 +126,7 @@ private struct SyncAppAppearanceModifier: ViewModifier {
 }
 
 extension View {
-    /// Applies the user's light/dark preference and re-renders when it changes.
+    /// Applies the user's Light / Dark / Auto preference.
     func syncAppAppearance() -> some View {
         modifier(SyncAppAppearanceModifier())
     }

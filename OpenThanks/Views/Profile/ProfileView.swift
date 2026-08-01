@@ -54,7 +54,14 @@ struct UserProfileView: View {
     @State private var fullScreenAvatarURL: URL?
     @State private var showCompose = false
 
-    private var shownProfile: Profile { freshProfile ?? profile }
+    private var shownProfile: Profile {
+        // Own profile must track live auth state — local `freshProfile` would
+        // otherwise keep the pre-edit avatar until pull-to-refresh.
+        if isOwnProfile, let current = auth.currentProfile {
+            return current
+        }
+        return freshProfile ?? profile
+    }
     private var isOwnProfile: Bool { auth.userId == profile.id }
 
     var body: some View {
@@ -75,9 +82,19 @@ struct UserProfileView: View {
         .task(id: profile.id) { await load() }
         .refreshable { await load() }
         .animation(.easeInOut(duration: 0.2), value: section)
+        .onChange(of: auth.currentProfile) { _, newValue in
+            guard isOwnProfile, let newValue else { return }
+            freshProfile = newValue
+            applyProfileUpdate(newValue)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
             guard let gratitude = note.object as? Gratitude else { return }
             applyAccepted(gratitude)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .profileDidUpdate)) { note in
+            guard let updated = note.object as? Profile, updated.id == profile.id else { return }
+            freshProfile = updated
+            applyProfileUpdate(updated)
         }
         .fullScreenCover(item: $fullScreenAvatarURL) { url in
             FullScreenImageView(url: url)
@@ -87,6 +104,20 @@ struct UserProfileView: View {
                 initialRecipientProfile: shownProfile,
                 analyticsSource: "profile_thank"
             )
+        }
+    }
+
+    /// Patch embedded author/recipient avatars after a profile photo/name edit.
+    private func applyProfileUpdate(_ updated: Profile) {
+        for i in sent.indices where sent[i].authorId == updated.id {
+            sent[i].author = updated
+        }
+        for i in received.indices {
+            if received[i].authorId == updated.id { received[i].author = updated }
+            if received[i].recipientId == updated.id { received[i].recipient = updated }
+        }
+        for i in inspirations.indices where inspirations[i].user?.id == updated.id {
+            inspirations[i].user = updated
         }
     }
 

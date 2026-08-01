@@ -492,6 +492,7 @@ struct EditProfileSheet: View {
             }
             let updated = try await GratitudeService.updateProfile(userId: userId, update: update)
             auth.currentProfile = updated
+            NotificationCenter.default.post(name: .profileDidUpdate, object: updated)
             if !required { dismiss() }
         } catch {
             errorMessage = error.localizedDescription.localizedCaseInsensitiveContains("duplicate")

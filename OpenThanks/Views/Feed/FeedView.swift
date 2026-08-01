@@ -120,6 +120,10 @@ struct FeedView: View {
                 guard let gratitude = note.object as? Gratitude else { return }
                 applyAcceptedPending(gratitude)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .profileDidUpdate)) { note in
+                guard let updated = note.object as? Profile else { return }
+                applyProfileUpdate(updated)
+            }
             .syncAppAppearance()
         }
     }
@@ -362,6 +366,17 @@ struct FeedView: View {
             items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
         }
         Task { await refreshWidgetSnapshot() }
+    }
+
+    private func applyProfileUpdate(_ updated: Profile) {
+        for i in items.indices {
+            if items[i].authorId == updated.id { items[i].author = updated }
+            if items[i].recipientId == updated.id { items[i].recipient = updated }
+        }
+        for i in pendingToAccept.indices {
+            if pendingToAccept[i].authorId == updated.id { pendingToAccept[i].author = updated }
+            if pendingToAccept[i].recipientId == updated.id { pendingToAccept[i].recipient = updated }
+        }
     }
 
     private func presentPayItForward(from gratitude: Gratitude) {

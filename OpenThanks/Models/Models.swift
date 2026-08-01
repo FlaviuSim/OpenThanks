@@ -5,6 +5,8 @@ import Foundation
 extension Notification.Name {
     /// Posted with a `Gratitude` object after the recipient accepts.
     static let gratitudeAccepted = Notification.Name("openthanks.gratitudeAccepted")
+    /// Posted with a `Profile` object after the signed-in user saves profile edits.
+    static let profileDidUpdate = Notification.Name("openthanks.profileDidUpdate")
 }
 
 struct Profile: Codable, Identifiable, Hashable {

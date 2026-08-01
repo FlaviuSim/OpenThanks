@@ -70,6 +70,24 @@ targets:
           - fetch
         BGTaskSchedulerPermittedIdentifiers:
           - com.openthanks.app.calendar-gratitude-refresh
+        CFBundleIcons:
+          CFBundlePrimaryIcon:
+            CFBundleIconFiles:
+              - AppIcon
+            CFBundleIconName: AppIcon
+          CFBundleAlternateIcons:
+            AppIcon-Ember:
+              CFBundleIconFiles:
+                - AppIcon-Ember
+              UIPrerenderedIcon: false
+            AppIcon-Dawn:
+              CFBundleIconFiles:
+                - AppIcon-Dawn
+              UIPrerenderedIcon: false
+            AppIcon-Night:
+              CFBundleIconFiles:
+                - AppIcon-Night
+              UIPrerenderedIcon: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

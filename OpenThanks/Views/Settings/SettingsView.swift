@@ -28,11 +28,8 @@ struct SettingsView: View {
         }
     }
 
-    private var lightModeEnabled: Binding<Bool> {
-        Binding(
-            get: { appearance == AppAppearance.light.rawValue },
-            set: { appearance = $0 ? AppAppearance.light.rawValue : AppAppearance.dark.rawValue }
-        )
+    private var appearanceSubtitle: String {
+        (AppAppearance(rawValue: appearance) ?? .dark).title
     }
 
     private var fridayReminderBinding: Binding<Bool> {
@@ -184,15 +181,22 @@ struct SettingsView: View {
                 .listRowBackground(Theme.surface)
 
                 Section("App") {
-                    Toggle(isOn: lightModeEnabled) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Light Mode")
-                            Text("Use a brighter appearance across the app.")
-                                .font(Theme.body(12))
-                                .foregroundStyle(Theme.textSecondary)
+                    NavigationLink {
+                        AppearanceView()
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Appearance")
+                                Text("Theme and app icon")
+                                    .font(Theme.body(12))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            Spacer()
+                            Text(appearanceSubtitle)
+                                .font(Theme.body(13))
+                                .foregroundStyle(Theme.textTertiary)
                         }
                     }
-                    .tint(Theme.coral)
 
                     Link(destination: feedbackMailURL) {
                         VStack(alignment: .leading, spacing: 3) {
