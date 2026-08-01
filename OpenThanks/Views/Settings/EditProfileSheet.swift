@@ -20,16 +20,6 @@ struct EditProfileSheet: View {
     @State private var saving = false
     @State private var errorMessage: String?
 
-    // Phone (auth-confirmed) — add / change / remove mirrors web edit profile.
-    @State private var verifiedPhone: String?
-    @State private var accountEmail: String?
-    @State private var phoneInput = ""
-    @State private var phoneCode = ""
-    @State private var phoneCodeSent = false
-    @State private var phoneBusy = false
-    @State private var phoneError: String?
-    @State private var phoneSuccess: String?
-
     private var cleanUsername: String {
         username.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
     }
@@ -40,10 +30,6 @@ struct EditProfileSheet: View {
 
     private var hasAvatar: Bool {
         photoData != nil || auth.currentProfile?.avatarURL != nil
-    }
-
-    private var phoneChanged: Bool {
-        AuthService.normalizedPhone(phoneInput) != verifiedPhone
     }
 
     var body: some View {
@@ -66,7 +52,6 @@ struct EditProfileSheet: View {
 
                 if !required {
                     nonprofitSection
-                    phoneSection
                 }
 
                 if let errorMessage {
@@ -112,7 +97,6 @@ struct EditProfileSheet: View {
                 nonprofitName = p?.favoriteNonprofitName
                 nonprofitWebsite = p?.favoriteNonprofitWebsite
                 nonprofitWhy = p?.favoriteNonprofitHeadline ?? ""
-                Task { await loadPhoneState() }
             }
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
@@ -250,108 +234,6 @@ struct EditProfileSheet: View {
         .listRowBackground(Theme.surface)
     }
 
-    @ViewBuilder
-    private var phoneSection: some View {
-        Section {
-            if phoneCodeSent {
-                Text(phoneInput)
-                    .font(Theme.body(15, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                OneTimeCodeField(text: $phoneCode, isFocused: true)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 36)
-                    .onChange(of: phoneCode) { _, newValue in
-                        let digits = String(newValue.filter(\.isNumber).prefix(6))
-                        if digits != newValue { phoneCode = digits }
-                        guard digits.count == 6, !phoneBusy else { return }
-                        Task { await verifyPhone() }
-                    }
-                if phoneBusy {
-                    ProgressView().tint(Theme.coral)
-                } else {
-                    Button("Verify code") { Task { await verifyPhone() } }
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                        .disabled(phoneCode.count < 6)
-                    Button("Cancel") { cancelPhoneChange() }
-                        .font(Theme.body(14))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-            } else if let verifiedPhone {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(verifiedPhone)
-                            .font(Theme.body(15, weight: .semibold))
-                        Text("Verified — you can sign in with this number")
-                            .font(Theme.body(12))
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(Theme.coral)
-                }
-                TextField("New phone number", text: $phoneInput)
-                    .keyboardType(.phonePad)
-                    .textContentType(.telephoneNumber)
-                Button {
-                    Task { await sendPhoneCode() }
-                } label: {
-                    Text(phoneBusy ? "Sending…" : "Send verification code")
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                }
-                .disabled(phoneBusy || !phoneChanged)
-                if accountEmail != nil {
-                    Button(role: .destructive) {
-                        Task { await removePhone() }
-                    } label: {
-                        Text(phoneBusy ? "Removing…" : "Remove phone number")
-                            .font(Theme.body(14, weight: .semibold))
-                    }
-                    .disabled(phoneBusy)
-                } else {
-                    Text("Add an email sign-in before removing your phone, so you aren't locked out.")
-                        .font(Theme.body(12))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-            } else {
-                Text("Add a phone number to sign in with SMS.")
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.textSecondary)
-                TextField("+1 555 123 4567", text: $phoneInput)
-                    .keyboardType(.phonePad)
-                    .textContentType(.telephoneNumber)
-                Button {
-                    Task { await sendPhoneCode() }
-                } label: {
-                    Text(phoneBusy ? "Sending…" : "Send verification code")
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                }
-                .disabled(
-                    phoneBusy
-                        || phoneInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                )
-            }
-
-            if let phoneError {
-                Text(phoneError)
-                    .font(Theme.body(12))
-                    .foregroundStyle(.red)
-            }
-            if let phoneSuccess {
-                Text(phoneSuccess)
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.coral)
-            }
-        } header: {
-            Text("Phone number")
-        } footer: {
-            Text("Used to sign in and to match appreciations sent to your number.")
-        }
-        .listRowBackground(Theme.surface)
-    }
-
     private func normalizeNonprofitWebsite() {
         let trimmed = (nonprofitWebsite ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -362,76 +244,6 @@ struct EditProfileSheet: View {
             nonprofitWebsite = trimmed
         } else {
             nonprofitWebsite = "https://\(trimmed)"
-        }
-    }
-
-    private func loadPhoneState() async {
-        accountEmail = await auth.currentAccountEmail()
-        let phone = await auth.currentConfirmedPhone()
-        verifiedPhone = phone
-        if !phoneCodeSent {
-            phoneInput = phone ?? ""
-        }
-    }
-
-    private func sendPhoneCode() async {
-        phoneError = nil
-        phoneSuccess = nil
-        guard let normalized = AuthService.normalizedPhone(phoneInput) else {
-            phoneError = "Enter a valid phone number (include country code, e.g. +1 415 555 1234)."
-            return
-        }
-        phoneBusy = true
-        phoneInput = normalized
-        let ok = await auth.sendPhoneChangeCode(to: normalized)
-        phoneBusy = false
-        if ok {
-            phoneCodeSent = true
-            phoneCode = ""
-            phoneSuccess = "We sent a 6-digit code to \(normalized)."
-        } else {
-            phoneError = auth.errorMessage
-        }
-    }
-
-    private func verifyPhone() async {
-        phoneError = nil
-        phoneSuccess = nil
-        phoneBusy = true
-        let ok = await auth.verifyPhoneChange(phone: phoneInput, code: phoneCode)
-        phoneBusy = false
-        if ok {
-            verifiedPhone = phoneInput
-            phoneCodeSent = false
-            phoneCode = ""
-            phoneSuccess = "Phone number verified and saved."
-        } else {
-            phoneError = auth.errorMessage ?? "That code was incorrect or expired."
-        }
-    }
-
-    private func cancelPhoneChange() {
-        phoneCodeSent = false
-        phoneCode = ""
-        phoneError = nil
-        phoneSuccess = nil
-        phoneInput = verifiedPhone ?? ""
-    }
-
-    private func removePhone() async {
-        phoneError = nil
-        phoneSuccess = nil
-        phoneBusy = true
-        let ok = await auth.removePhone()
-        phoneBusy = false
-        if ok {
-            verifiedPhone = nil
-            phoneInput = ""
-            phoneCodeSent = false
-            phoneCode = ""
-            phoneSuccess = "Phone number removed."
-        } else {
-            phoneError = auth.errorMessage ?? "Couldn't remove phone number."
         }
     }
 

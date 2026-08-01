@@ -564,7 +564,7 @@ extension AuthService {
         }
     }
 
-    /// Removes verified phone via web API (service-role clear). Requires an email on the account.
+    /// Removes verified phone via web API (service-role clear). Requires another sign-in method.
     func removePhone() async -> Bool {
         errorMessage = nil
         do {
@@ -572,8 +572,8 @@ extension AuthService {
                 errorMessage = "Not signed in."
                 return false
             }
-            if session.user.email == nil || session.user.email?.isEmpty == true {
-                errorMessage = "Phone is your only sign-in method and cannot be removed. Add an email first."
+            if await signInMethodCount(excludingPhone: true) < 1 {
+                errorMessage = "Phone is your only sign-in method and cannot be removed. Add an email or Google first."
                 return false
             }
 
@@ -608,6 +608,134 @@ extension AuthService {
                     currentProfile = refreshed
                 }
             }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    // MARK: Linked sign-in methods (identities)
+
+    /// Auth identities linked to the current user (email, Google, Apple, phone, …).
+    func fetchLinkedIdentities() async -> [UserIdentity] {
+        (try? await supabase.auth.userIdentities()) ?? []
+    }
+
+    /// How many distinct ways the user can still sign in after optional exclusions.
+    func signInMethodCount(
+        excludingIdentityId: UUID? = nil,
+        excludingPhone: Bool = false
+    ) async -> Int {
+        var identities = await fetchLinkedIdentities()
+        if let excludingIdentityId {
+            identities.removeAll { $0.identityId == excludingIdentityId }
+        }
+        var providers = Set(identities.map { $0.provider.lowercased() })
+        if excludingPhone {
+            providers.remove("phone")
+        }
+        if !excludingPhone, await currentConfirmedPhone() != nil {
+            providers.insert("phone")
+        }
+        if let email = await currentAccountEmail(), !email.isEmpty {
+            providers.insert("email")
+        }
+        return providers.count
+    }
+
+    /// Display label for an identity (email preferred).
+    static func identityLabel(for identity: UserIdentity) -> String {
+        if let email = identity.identityData?["email"]?.stringValue,
+           !email.isEmpty {
+            return email
+        }
+        if let phone = identity.identityData?["phone"]?.stringValue,
+           !phone.isEmpty {
+            return phone
+        }
+        return identity.provider.capitalized
+    }
+
+    /// Link Google to the signed-in account (separate from Calendar OAuth).
+    @discardableResult
+    func linkGoogleIdentity() async -> Bool {
+        errorMessage = nil
+        do {
+            let response = try await supabase.auth.getLinkIdentityURL(
+                provider: .google,
+                redirectTo: AppConfig.oauthRedirectURL
+            )
+            let callback = try await Self.presentOAuthSession(url: response.url)
+            _ = try await supabase.auth.session(from: callback)
+            return true
+        } catch {
+            if Self.isOAuthCancellation(error) { return false }
+            let message = error.localizedDescription
+            errorMessage = message.range(of: #"already|registered|exists|Identity"#, options: .regularExpression) != nil
+                ? "That Google account is already linked to another OpenThanks user."
+                : message
+            return false
+        }
+    }
+
+    /// Unlink a provider identity. Refuses if it would leave zero sign-in methods.
+    @discardableResult
+    func unlinkIdentity(_ identity: UserIdentity) async -> Bool {
+        errorMessage = nil
+        if await signInMethodCount(excludingIdentityId: identity.identityId) < 1 {
+            errorMessage = "Keep at least one way to sign in."
+            return false
+        }
+        do {
+            try await supabase.auth.unlinkIdentity(identity)
+            _ = try? await supabase.auth.refreshSession()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Start adding/changing account email — sends a confirmation code to the new address.
+    @discardableResult
+    func sendEmailLinkCode(to email: String) async -> Bool {
+        errorMessage = nil
+        let email = Self.normalizedEmail(email)
+        guard email.contains("@"), email.contains(".") else {
+            errorMessage = "Enter a valid email address."
+            return false
+        }
+        do {
+            _ = try await supabase.auth.update(user: UserAttributes(email: email))
+            return true
+        } catch {
+            let message = error.localizedDescription
+            errorMessage = message.range(of: #"already|registered|exists"#, options: .regularExpression) != nil
+                ? "That email is already linked to another account."
+                : message
+            return false
+        }
+    }
+
+    /// Confirm the email-change OTP and sync `profiles.email`.
+    @discardableResult
+    func verifyEmailLinkCode(email: String, code: String) async -> Bool {
+        errorMessage = nil
+        let email = Self.normalizedEmail(email)
+        do {
+            try await supabase.auth.verifyOTP(email: email, token: code, type: .emailChange)
+            if let userId {
+                _ = try? await supabase.from("profiles")
+                    .update(["email": email])
+                    .eq("id", value: userId)
+                    .execute()
+                if var profile = currentProfile {
+                    profile.email = email
+                    currentProfile = profile
+                }
+            }
+            _ = try? await supabase.auth.refreshSession()
             return true
         } catch {
             errorMessage = error.localizedDescription

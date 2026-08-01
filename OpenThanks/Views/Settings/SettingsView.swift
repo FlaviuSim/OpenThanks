@@ -21,6 +21,15 @@ struct SettingsView: View {
         )
     }
 
+    private var accountSectionTitle: String {
+        let email = auth.currentProfile?.email?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let email, !email.isEmpty {
+            return "Account (\(email))"
+        }
+        return "Account"
+    }
+
     private var feedbackMailURL: URL {
         var components = URLComponents()
         components.scheme = "mailto"
@@ -40,12 +49,17 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Account") {
+                Section(accountSectionTitle) {
                     Button { showEditProfile = true } label: { rowLabel("Edit Profile") }
                     NavigationLink {
-                        StatsView()
+                        LoggingInView()
                     } label: {
-                        rowLabel("Your Stats")
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Logging In")
+                            Text("Email, Google, and phone for this account")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
                     }
                     NavigationLink {
                         PendingAppreciationsView()
@@ -62,10 +76,15 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    NavigationLink {
+                        StatsView()
+                    } label: {
+                        rowLabel("Your Stats")
+                    }
                 }
                 .listRowBackground(Theme.surface)
 
-                Section {
+                Section("App") {
                     NavigationLink {
                         NotificationsSettingsView()
                     } label: {
@@ -82,10 +101,7 @@ struct SettingsView: View {
                                 .foregroundStyle(Theme.textTertiary)
                         }
                     }
-                }
-                .listRowBackground(Theme.surface)
 
-                Section("App") {
                     NavigationLink {
                         AppearanceView()
                     } label: {
