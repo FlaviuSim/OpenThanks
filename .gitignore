@@ -1,3 +1,6 @@
 
 # Xcode user state
 **/xcuserdata/
+
+# Local Python venv for scripts/ (recreated by the Cloud update script)
+.venv/
