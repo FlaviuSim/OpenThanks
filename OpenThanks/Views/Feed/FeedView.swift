@@ -78,6 +78,7 @@ struct FeedView: View {
             // so Back works (especially important on iPad two-pane).
             .toolbar(path.isEmpty ? .hidden : .automatic, for: .navigationBar)
             .appDestinations()
+            .environment(\.openProfile) { path.append($0) }
             .composeCover(isPresented: $showCompose) {
                 ComposeView(
                     initialRecipient: composeRecipient,
@@ -515,31 +516,49 @@ struct GratitudeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
                 ProfileAvatarLink(
                     profile: gratitude.author,
                     size: 38,
                     onOpen: onOpenProfile
                 )
-                openControl {
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            (Text(gratitude.author?.displayName ?? "Someone")
-                                .font(Theme.body(15, weight: .semibold))
-                                .foregroundStyle(Theme.textPrimary)
-                             + Text(" thanked ").font(Theme.body(15)).foregroundStyle(Theme.textSecondary)
-                             + Text(gratitude.recipientDisplayName)
-                                .font(Theme.body(15, weight: .semibold))
-                                .foregroundStyle(Theme.textPrimary))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
+                VStack(alignment: .leading, spacing: 1) {
+                    // Names → profile; “thanked” → post (same as tapping the message).
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        profileNameControl(
+                            profile: gratitude.author,
+                            label: gratitude.author?.displayName ?? "Someone"
+                        )
+                        openControl {
+                            Text(" thanked ")
+                                .font(Theme.body(15))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        if let recipient = gratitude.recipient {
+                            profileNameControl(
+                                profile: recipient,
+                                label: recipient.displayName
+                            )
+                        } else {
+                            openControl {
+                                Text(gratitude.recipientDisplayName)
+                                    .font(Theme.body(15, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    openControl {
+                        Group {
                             if let date = gratitude.displayDate {
                                 Text(date, format: .relative(presentation: .named))
                                     .font(Theme.body(12))
                                     .foregroundStyle(Theme.textTertiary)
                             }
                         }
-                        Spacer()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
                 }
             }
@@ -579,7 +598,11 @@ struct GratitudeCard: View {
                 }
                 .accessibilityLabel(isHearted ? "Remove heart" : "Heart")
 
-                HeartedByView(gratitudeId: gratitude.id, heartCount: gratitude.heartCount)
+                HeartedByView(
+                    gratitudeId: gratitude.id,
+                    heartCount: gratitude.heartCount,
+                    onOpenProfile: onOpenProfile
+                )
 
                 Spacer(minLength: 0)
                 if gratitude.visibility == .private {
@@ -610,6 +633,36 @@ struct GratitudeCard: View {
         } else {
             NavigationLink(value: gratitude, label: content)
                 .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func profileNameControl(profile: Profile?, label: String) -> some View {
+        if let profile {
+            if let onOpenProfile {
+                Button {
+                    onOpenProfile(profile)
+                } label: {
+                    Text(label)
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("View \(profile.displayName)'s profile")
+            } else {
+                NavigationLink(value: profile) {
+                    Text(label)
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .buttonStyle(.plain)
+            }
+        } else {
+            openControl {
+                Text(label)
+                    .font(Theme.body(15, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+            }
         }
     }
 }

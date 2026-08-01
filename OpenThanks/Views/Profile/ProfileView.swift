@@ -28,6 +28,7 @@ struct ProfileView: View {
                 }
             }
             .appDestinations()
+            .environment(\.openProfile) { path.append($0) }
             .syncAppAppearance()
         }
     }

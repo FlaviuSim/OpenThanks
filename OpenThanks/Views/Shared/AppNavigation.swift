@@ -6,6 +6,18 @@ struct GratitudeIdRoute: Hashable, Identifiable { let id: UUID }
 /// Pending list pushed from Home / Notifications banners.
 struct PendingAppreciationsRoute: Hashable {}
 
+/// Opens a profile on the host tab’s NavigationPath (e.g. after dismissing a sheet).
+private struct OpenProfileKey: EnvironmentKey {
+    static let defaultValue: ((Profile) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var openProfile: ((Profile) -> Void)? {
+        get { self[OpenProfileKey.self] }
+        set { self[OpenProfileKey.self] = newValue }
+    }
+}
+
 extension View {
     /// Registers the app-wide push destinations. Apply once at the root of
     /// every NavigationStack so profiles and posts can be pushed from anywhere.

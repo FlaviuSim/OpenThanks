@@ -67,7 +67,7 @@ struct ComposeView: View {
     @State private var aiAvailable = false
 
     private let maxLength = 1500
-    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨", "🌟", "💐"]
+    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨", "💐"]
     private var editingTarget: Gratitude? { activeEditing ?? editing }
     private var isEditing: Bool { editingTarget != nil }
 
@@ -493,7 +493,7 @@ struct ComposeView: View {
                     .frame(minHeight: 160)
 
                     if message.isEmpty {
-                        Text("Jonny, thank you for...")
+                        Text("Thank you for...")
                             .font(Theme.body(16))
                             .foregroundStyle(Theme.textTertiary)
                             .padding(.top, 18)
@@ -1500,7 +1500,7 @@ struct SuccessView: View {
         if recipientEmail != nil {
             return "To their email"
         }
-        return "Choose an address"
+        return "Opens Email client with the link"
     }
 
     private var shareMessage: String {

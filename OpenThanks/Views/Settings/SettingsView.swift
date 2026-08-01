@@ -62,15 +62,6 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    HStack(spacing: 6) {
-                        Link("Privacy", destination: URL(string: "https://openthanks.com/privacy")!)
-                        Text("·")
-                            .foregroundStyle(Theme.textTertiary)
-                        Link("Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
-                        Spacer()
-                    }
-                    .font(Theme.body(16))
-                    .foregroundStyle(Theme.textPrimary)
                 }
                 .listRowBackground(Theme.surface)
 
@@ -94,22 +85,6 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.surface)
 
-                Section("Support OpenThanks") {
-                    Link(destination: URL(string: "https://buy.stripe.com/3cIcN67Z6cYO3erfyJcZa00")!) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Support OpenThanks")
-                                Text("Subscribe and help keep OpenThanks ad-free and growing.")
-                                    .font(Theme.body(12))
-                                    .foregroundStyle(Theme.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: "heart.fill").foregroundStyle(Theme.coral)
-                        }
-                    }
-                }
-                .listRowBackground(Theme.surface)
-
                 Section("App") {
                     NavigationLink {
                         AppearanceView()
@@ -128,12 +103,35 @@ struct SettingsView: View {
                         }
                     }
 
+                    HStack(spacing: 6) {
+                        Link("Privacy", destination: URL(string: "https://openthanks.com/privacy")!)
+                        Text("·")
+                            .foregroundStyle(Theme.textTertiary)
+                        Link("Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
+                        Spacer()
+                    }
+                    .font(Theme.body(16))
+                    .foregroundStyle(Theme.textPrimary)
+
                     Link(destination: feedbackMailURL) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Send Feedback")
                             Text("Email us at founders@openthanks.com")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+
+                    Link(destination: URL(string: "https://buy.stripe.com/3cIcN67Z6cYO3erfyJcZa00")!) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Support OpenThanks")
+                                Text("Subscribe and help keep OpenThanks ad-free and growing.")
+                                    .font(Theme.body(12))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "heart.fill").foregroundStyle(Theme.coral)
                         }
                     }
 

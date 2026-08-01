@@ -5,11 +5,20 @@ import SwiftUI
 struct HeartedByView: View {
     let gratitudeId: UUID
     var heartCount: Int
+    /// Opens the profile on the host navigation stack (same as Home search).
+    var onOpenProfile: ((Profile) -> Void)? = nil
 
+    @Environment(\.openProfile) private var openProfileEnv
     @State private var hearters: [Profile] = []
     @State private var resolvedCount = 0
     @State private var loaded = false
     @State private var showList = false
+    /// Selected in the sheet; opened after dismiss so we don’t nest inside it.
+    @State private var pendingProfile: Profile?
+
+    private var resolveOpenProfile: ((Profile) -> Void)? {
+        onOpenProfile ?? openProfileEnv
+    }
 
     private var displayCount: Int { max(heartCount, resolvedCount) }
 
@@ -39,7 +48,7 @@ struct HeartedByView: View {
         .task(id: "\(gratitudeId.uuidString)-\(heartCount)") {
             await load()
         }
-        .sheet(isPresented: $showList) {
+        .sheet(isPresented: $showList, onDismiss: openPendingProfileIfNeeded) {
             heartersSheet
         }
     }
@@ -112,7 +121,9 @@ struct HeartedByView: View {
                     ScrollView {
                         LazyVStack(spacing: 0) {
                             ForEach(hearters) { person in
-                                NavigationLink(value: person) {
+                                Button {
+                                    selectProfile(person)
+                                } label: {
                                     HStack(spacing: 12) {
                                         AvatarView(profile: person, size: 44)
                                         VStack(alignment: .leading, spacing: 2) {
@@ -137,6 +148,7 @@ struct HeartedByView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityLabel("View \(person.displayName)'s profile")
 
                                 Rectangle()
                                     .fill(Theme.hairline)
@@ -174,7 +186,6 @@ struct HeartedByView: View {
                         .foregroundStyle(Theme.coral)
                 }
             }
-            .appDestinations()
             .task { await load(force: true) }
         }
         .presentationDetents([.medium, .large])
@@ -185,6 +196,22 @@ struct HeartedByView: View {
     private var sheetTitle: String {
         let n = displayCount
         return n == 1 ? "1 heart" : "\(n) hearts"
+    }
+
+    private func selectProfile(_ person: Profile) {
+        if resolveOpenProfile != nil {
+            pendingProfile = person
+            showList = false
+        } else {
+            showList = false
+        }
+    }
+
+    private func openPendingProfileIfNeeded() {
+        guard let pendingProfile else { return }
+        let profile = pendingProfile
+        self.pendingProfile = nil
+        resolveOpenProfile?(profile)
     }
 
     // MARK: Data

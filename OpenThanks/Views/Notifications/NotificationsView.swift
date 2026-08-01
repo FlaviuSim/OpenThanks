@@ -65,6 +65,7 @@ struct NotificationsView: View {
             }
             .refreshable { await load() }
             .appDestinations()
+            .environment(\.openProfile) { path.append($0) }
         }
     }
 

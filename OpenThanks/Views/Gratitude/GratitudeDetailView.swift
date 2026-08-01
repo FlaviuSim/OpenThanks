@@ -106,7 +106,11 @@ struct GratitudeDetailView: View {
                 }
                 .accessibilityLabel(isHearted ? "Remove heart" : "Heart")
 
-                HeartedByView(gratitudeId: gratitude.id, heartCount: gratitude.heartCount)
+                HeartedByView(
+                    gratitudeId: gratitude.id,
+                    heartCount: gratitude.heartCount,
+                    onOpenProfile: onOpenProfile
+                )
 
                 Spacer(minLength: 0)
                 if gratitude.visibility == .private {
