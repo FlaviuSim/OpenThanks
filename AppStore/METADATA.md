@@ -106,6 +106,7 @@ For highest conversion, replace these with real device captures from TestFlight 
   - iPhone: `AppIcon-{Ember,Dawn,Night}@2x.png` (120) / `@3x.png` (180)
   - iPad (TMS-90892): `@2x~ipad.png` (152) / `@3x~ipad.png` (167), RGB PNG, no alpha
   - Declared in `Info.plist` under both `CFBundleIcons` and `CFBundleIcons~ipad`
+  - After adding/changing icon files, run `xcodegen` so they are copied into the app bundle (Copy Bundle Resources). Verify in the built `.app` that `AppIcon-*@2x~ipad.png` exist at 152×152.
 
 ## Privacy Nutrition Labels (App Store Connect)
 
