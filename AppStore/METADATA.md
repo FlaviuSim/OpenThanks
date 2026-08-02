@@ -67,15 +67,24 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 ```
 Sign in with email OTP (or phone SMS) using a test account you create before review.
+Sign in with Apple is also available on the welcome screen.
 
 To demo the core flow:
 1. Create an appreciation to a second email you control
 2. Open the link to accept from the Home “waiting for you” card
 3. Confirm it appears under Profile → Received
 
-Universal Links: openthanks.com claim/for/profile routes open in-app when installed.
+Account deletion (Guideline 5.1.1v): Settings → Delete Account (below Log Out).
+This permanently deletes the profile and associated data via our API — no email required.
 
-Photo library permission is only used when attaching a photo to an appreciation or setting a profile photo.
+Optional permissions (decline does not block core use):
+• Photo Library — attach a photo to an appreciation or set a profile photo
+• Notifications — Friday reminders and evening thank-you nudges
+• Apple Calendar / Google Calendar — evening thank-you suggestions only; calendar data stays on device (Google: readonly today’s events; tokens in Keychain). See https://openthanks.com/privacy#google-user-data
+• Siri — App Shortcuts to start an appreciation
+
+Universal Links: openthanks.com claim/for/profile routes open in-app when installed.
+Export compliance: ITSAppUsesNonExemptEncryption = false (HTTPS only).
 ```
 
 ## Screenshots
@@ -93,6 +102,10 @@ For highest conversion, replace these with real device captures from TestFlight 
 
 - Xcode asset catalog: `OpenThanks/Assets.xcassets/AppIcon.appiconset/` (light / dark / tinted, 1024×1024, **no alpha**)
 - Standalone upload copy: `AppStore/Icons/AppStore-Icon-1024.png`
+- Alternate icons (Appearance settings): `OpenThanks/AlternateIcons/`
+  - iPhone: `AppIcon-{Ember,Dawn,Night}@2x.png` (120) / `@3x.png` (180)
+  - iPad (TMS-90892): `@2x~ipad.png` (152) / `@3x~ipad.png` (167), RGB PNG, no alpha
+  - Declared in `Info.plist` under both `CFBundleIcons` and `CFBundleIcons~ipad`
 
 ## Privacy Nutrition Labels (App Store Connect)
 
@@ -111,9 +124,11 @@ Tracking: **No**
 
 - [ ] Archive a Release build in Xcode (Product → Archive)
 - [ ] Upload via Organizer / Transporter
-- [ ] Screenshots attached for 6.7" (and 6.5" if prompted)
-- [ ] Privacy Policy URL live
-- [ ] App Privacy questionnaire completed
+- [ ] Confirm no TMS-90892 (alternate iPad 152/167 icons present in archive)
+- [ ] Screenshots attached for 6.7" (and 6.5" if prompted); add iPad if Connect requires
+- [ ] Privacy Policy URL live (`https://openthanks.com/privacy`)
+- [ ] App Privacy questionnaire completed (include Calendar Events; no tracking)
 - [ ] Export compliance: uses only exempt encryption (already `ITSAppUsesNonExemptEncryption = false`)
-- [ ] TestFlight internal smoke test (sign-in, compose, accept, profile)
-- [ ] Reviewer demo account ready
+- [ ] TestFlight: sign-in (Apple + email), compose, accept, alternate icon, **Delete Account**
+- [ ] Reviewer demo account ready (do not delete the demo account before review finishes)
+- [ ] Sign in with Apple works if other third-party login is offered (Google)

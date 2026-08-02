@@ -91,6 +91,25 @@ targets:
               CFBundleIconFiles:
                 - AppIcon-Night
               UIPrerenderedIcon: false
+        # iPad alternate icons must be declared separately (TMS-90892: 152×152 / 167×167 PNGs).
+        "CFBundleIcons~ipad":
+          CFBundlePrimaryIcon:
+            CFBundleIconFiles:
+              - AppIcon
+            CFBundleIconName: AppIcon
+          CFBundleAlternateIcons:
+            AppIcon-Ember:
+              CFBundleIconFiles:
+                - AppIcon-Ember
+              UIPrerenderedIcon: false
+            AppIcon-Dawn:
+              CFBundleIconFiles:
+                - AppIcon-Dawn
+              UIPrerenderedIcon: false
+            AppIcon-Night:
+              CFBundleIconFiles:
+                - AppIcon-Night
+              UIPrerenderedIcon: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

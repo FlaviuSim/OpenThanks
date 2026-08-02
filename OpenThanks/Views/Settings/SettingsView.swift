@@ -6,6 +6,9 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var pendingCount = 0
     @State private var showEditProfile = false
+    @State private var showDeleteAccountConfirm = false
+    @State private var deletingAccount = false
+    @State private var deleteAccountError: String?
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
@@ -210,6 +213,26 @@ struct SettingsView: View {
                     } label: {
                         Text("Log Out").foregroundStyle(.red)
                     }
+
+                    Button(role: .destructive) {
+                        deleteAccountError = nil
+                        showDeleteAccountConfirm = true
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(deletingAccount ? "Deleting Account…" : "Delete Account")
+                                .foregroundStyle(.red)
+                            Text("Permanently deletes your profile and appreciations")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .disabled(deletingAccount)
+
+                    if let deleteAccountError {
+                        Text(deleteAccountError)
+                            .font(Theme.body(13))
+                            .foregroundStyle(.red)
+                    }
                 }
                 .listRowBackground(Theme.surface)
             }
@@ -227,11 +250,36 @@ struct SettingsView: View {
                 EditProfileSheet()
                     .syncAppAppearance()
             }
+            .confirmationDialog(
+                "Delete your OpenThanks account?",
+                isPresented: $showDeleteAccountConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Account", role: .destructive) {
+                    Task { await performDeleteAccount() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your account, profile, and appreciations. This can’t be undone.")
+            }
             .syncAppAppearance()
             .task {
                 guard let userId = auth.userId else { return }
                 pendingCount = (try? await GratitudeService.pendingCount(authorId: userId)) ?? 0
             }
+        }
+    }
+
+    private func performDeleteAccount() async {
+        deletingAccount = true
+        deleteAccountError = nil
+        let ok = await auth.deleteAccount()
+        deletingAccount = false
+        if ok {
+            dismiss()
+        } else {
+            deleteAccountError = auth.errorMessage
+                ?? "Couldn't delete your account. Please try again or email founders@openthanks.com."
         }
     }
 

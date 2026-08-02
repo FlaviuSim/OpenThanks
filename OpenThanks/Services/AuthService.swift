@@ -773,4 +773,34 @@ extension AuthService {
         Analytics.reset()
         try? await supabase.auth.signOut(scope: .local)
     }
+
+    /// Permanently deletes the signed-in account via the web API (same path as
+    /// openthanks.com Edit Profile). Required for App Store Guideline 5.1.1(v).
+    func deleteAccount() async -> Bool {
+        errorMessage = nil
+        guard let session = try? await supabase.auth.session else {
+            errorMessage = "You’re not signed in."
+            return false
+        }
+
+        var request = URLRequest(url: AppConfig.webAppURL.appending(path: "api/profile"))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200...299).contains(status) else {
+                let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
+                errorMessage = message ?? "Couldn't delete your account. Please try again or email founders@openthanks.com."
+                return false
+            }
+            await GoogleCalendarAuth.disconnect()
+            await signOut()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
 }
