@@ -54,6 +54,12 @@ final class DeepLinkRouter {
             return true
         }
 
+        // Sunday hearts digest + other email CTAs → Notifications tab.
+        if Self.isNotificationsPath(url) {
+            TabLaunchBridge.shared.queue(.notifications)
+            return true
+        }
+
         guard let parsed = Self.parse(url) else { return false }
         destination = parsed
         return true
@@ -68,6 +74,13 @@ final class DeepLinkRouter {
         let parts = pathParts(url)
         guard parts.count >= 2 else { return false }
         return parts[0].lowercased() == "gratitude" && parts[1].lowercased() == "new"
+    }
+
+    /// `/notifications` opens the in-app Notifications tab.
+    static func isNotificationsPath(_ url: URL) -> Bool {
+        let parts = pathParts(url)
+        guard let first = parts.first?.lowercased() else { return false }
+        return first == "notifications"
     }
 
     static func queueCompose(from url: URL) {

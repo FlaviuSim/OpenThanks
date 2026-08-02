@@ -301,6 +301,9 @@ struct MainTabView: View {
             if destination == .received {
                 NotificationCenter.default.post(name: .focusReceivedThanks, object: nil)
             }
+        case .notifications:
+            notificationsPath = NavigationPath()
+            withAnimation(.easeInOut(duration: 0.18)) { tab = .notifications }
         }
     }
 

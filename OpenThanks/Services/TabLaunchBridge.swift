@@ -15,6 +15,7 @@ final class TabLaunchBridge {
         case feed
         case received
         case home
+        case notifications
     }
 
     private(set) var pending: Destination?

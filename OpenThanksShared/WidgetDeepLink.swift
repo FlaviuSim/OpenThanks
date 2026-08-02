@@ -21,6 +21,7 @@ enum WidgetDeepLink {
         case compose
         case received
         case home
+        case notifications
     }
 
     static func parse(_ url: URL) -> Destination? {
@@ -38,13 +39,17 @@ enum WidgetDeepLink {
             return .compose
         case "received", "inbox":
             return .received
+        case "notifications":
+            return .notifications
         case "home", "":
             if path == "compose" || path == "thank" { return .compose }
             if path == "received" || path == "inbox" { return .received }
+            if path == "notifications" { return .notifications }
             return .home
         default:
             if path == "compose" { return .compose }
             if path == "received" { return .received }
+            if path == "notifications" { return .notifications }
             return nil
         }
     }

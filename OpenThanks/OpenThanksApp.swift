@@ -47,6 +47,8 @@ struct OpenThanksApp: App {
                     TabLaunchBridge.shared.queue(.received)
                 case .home:
                     TabLaunchBridge.shared.queue(.home)
+                case .notifications:
+                    TabLaunchBridge.shared.queue(.notifications)
                 }
             } else {
                 // Unknown custom-scheme URLs — try auth (Supabase variants).
