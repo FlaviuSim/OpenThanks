@@ -58,14 +58,22 @@ extension UIImage {
 
 /// Pinch-zoom cropper. Scroll view is clipped to the crop window so pinching
 /// does not scale the surrounding chrome. Aspect follows the source image
-/// (tall and wide photos keep their shape).
+/// unless `cropAspectRatio` is set (e.g. `1` for square profile photos).
 struct ImageCropperView: UIViewControllerRepresentable {
     let image: UIImage
+    /// When set, forces the crop window aspect (width / height). `nil` keeps the photo’s shape.
+    var cropAspectRatio: CGFloat? = nil
+    /// Draws a circular guide inside the crop window (profile avatars).
+    var circularGuide = false
     var onCancel: () -> Void
     var onCrop: (UIImage) -> Void
 
     func makeUIViewController(context: Context) -> UINavigationController {
-        let crop = ImageCropViewController(image: image)
+        let crop = ImageCropViewController(
+            image: image,
+            cropAspectRatio: cropAspectRatio,
+            circularGuide: circularGuide
+        )
         crop.onCancel = onCancel
         crop.onCrop = onCrop
         let nav = UINavigationController(rootViewController: crop)
@@ -88,6 +96,7 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
 
     private let image: UIImage
     private let aspectRatio: CGFloat
+    private let circularGuide: Bool
     private let scrollView = UIScrollView()
     private let imageView = UIImageView()
     private let dimView = UIView()
@@ -95,10 +104,15 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
     private var cropFrame = CGRect.zero
     private var didLayoutImage = false
 
-    init(image: UIImage) {
+    init(image: UIImage, cropAspectRatio: CGFloat? = nil, circularGuide: Bool = false) {
         self.image = image
+        self.circularGuide = circularGuide
         let size = image.size
-        self.aspectRatio = size.height > 0 ? size.width / size.height : 1
+        if let cropAspectRatio, cropAspectRatio > 0 {
+            self.aspectRatio = cropAspectRatio
+        } else {
+            self.aspectRatio = size.height > 0 ? size.width / size.height : 1
+        }
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -156,6 +170,8 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
         updateCropFrame()
         scrollView.frame = cropFrame
         cropBorder.frame = cropFrame
+        cropBorder.layer.cornerRadius = circularGuide ? min(cropFrame.width, cropFrame.height) / 2 : 0
+        cropBorder.clipsToBounds = circularGuide
         if !didLayoutImage {
             layoutImage()
             didLayoutImage = true
@@ -219,7 +235,11 @@ final class ImageCropViewController: UIViewController, UIScrollViewDelegate {
         dimView.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
 
         let path = UIBezierPath(rect: dimView.bounds)
-        path.append(UIBezierPath(rect: cropFrame))
+        if circularGuide {
+            path.append(UIBezierPath(ovalIn: cropFrame))
+        } else {
+            path.append(UIBezierPath(rect: cropFrame))
+        }
         path.usesEvenOddFillRule = true
 
         let fill = CAShapeLayer()

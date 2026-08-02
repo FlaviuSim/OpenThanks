@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 struct EditProfileSheet: View {
     @Environment(AuthService.self) private var auth
@@ -10,6 +11,10 @@ struct EditProfileSheet: View {
     @State private var headline = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var photoData: Data?
+    /// Full image kept so the cropper can be reopened after picking.
+    @State private var editableSourceImage: UIImage?
+    @State private var cropItem: CropItem?
+    @State private var loadingPhoto = false
     @State private var nonprofitEin: String?
     @State private var nonprofitName: String?
     @State private var nonprofitWebsite: String?
@@ -19,6 +24,11 @@ struct EditProfileSheet: View {
     @State private var searching = false
     @State private var saving = false
     @State private var errorMessage: String?
+
+    private struct CropItem: Identifiable {
+        let id = UUID()
+        let image: UIImage
+    }
 
     private var cleanUsername: String {
         username.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
@@ -84,7 +94,7 @@ struct EditProfileSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(required ? "Continue" : "Save") { Task { await save() } }
-                        .disabled(saving || cleanUsername.isEmpty || cleanFullName.isEmpty)
+                        .disabled(saving || loadingPhoto || cleanUsername.isEmpty || cleanFullName.isEmpty)
                         .foregroundStyle(Theme.coral)
                 }
             }
@@ -100,9 +110,24 @@ struct EditProfileSheet: View {
             }
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
-                Task {
-                    photoData = try? await item.loadTransferable(type: Data.self)
-                }
+                Task { await handlePickedPhoto(item) }
+            }
+            .fullScreenCover(item: $cropItem) { item in
+                ImageCropperView(
+                    image: item.image,
+                    cropAspectRatio: 1,
+                    circularGuide: true,
+                    onCancel: {
+                        cropItem = nil
+                        photoItem = nil
+                    },
+                    onCrop: { cropped in
+                        applyCroppedAvatar(cropped, source: item.image)
+                        cropItem = nil
+                        photoItem = nil
+                    }
+                )
+                .ignoresSafeArea()
             }
         }
     }
@@ -128,12 +153,31 @@ struct EditProfileSheet: View {
             .clipShape(Circle())
             .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
             .frame(maxWidth: .infinity)
+            .opacity(loadingPhoto ? 0.55 : 1)
+
+            if loadingPhoto {
+                ProgressView()
+                    .tint(Theme.coral)
+            }
 
             PhotosPicker(selection: $photoItem, matching: .images) {
                 Text(hasAvatar ? "Change Profile Photo" : "Add Profile Photo (optional)")
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.coral)
                     .frame(maxWidth: .infinity)
+            }
+            .disabled(loadingPhoto)
+
+            if hasAvatar {
+                Button {
+                    openCropEditor()
+                } label: {
+                    Label("Adjust photo", systemImage: "crop")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                .disabled(loadingPhoto)
+                .accessibilityLabel("Adjust profile photo crop")
             }
         }
         .padding(.vertical, 8)
@@ -232,6 +276,68 @@ struct EditProfileSheet: View {
             }
         }
         .listRowBackground(Theme.surface)
+    }
+
+    // MARK: Photo crop
+
+    private func handlePickedPhoto(_ item: PhotosPickerItem) async {
+        loadingPhoto = true
+        errorMessage = nil
+        defer { loadingPhoto = false }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                errorMessage = "Couldn't load that photo. Try another one."
+                photoItem = nil
+                return
+            }
+            guard let prepared = await ImageProcessing.prepareForEditing(data) else {
+                errorMessage = "That image couldn't be opened. Try a different photo."
+                photoItem = nil
+                return
+            }
+            editableSourceImage = prepared
+            cropItem = CropItem(image: prepared)
+        } catch {
+            errorMessage = "Couldn't load that photo. Try another one."
+            photoItem = nil
+        }
+    }
+
+    private func applyCroppedAvatar(_ image: UIImage, source: UIImage) {
+        editableSourceImage = source
+        if let jpeg = ImageProcessing.jpegForAvatar(image) {
+            photoData = jpeg
+        } else if let jpeg = image.downsampled(maxDimension: ImageProcessing.avatarMaxDimension)
+            .jpegData(compressionQuality: ImageProcessing.avatarJPEGQuality) {
+            photoData = jpeg
+        }
+        errorMessage = nil
+    }
+
+    private func openCropEditor() {
+        if let source = editableSourceImage {
+            cropItem = CropItem(image: source)
+            return
+        }
+        if let photoData, let image = UIImage(data: photoData)?.normalizedOrientation() {
+            editableSourceImage = image
+            cropItem = CropItem(image: image)
+            return
+        }
+        // Existing remote avatar — load, then crop.
+        guard let url = auth.currentProfile?.avatarURL else { return }
+        loadingPhoto = true
+        Task {
+            defer { loadingPhoto = false }
+            guard let (data, _) = try? await URLSession.shared.data(from: url),
+                  let prepared = await ImageProcessing.prepareForEditing(data)
+            else {
+                errorMessage = "Couldn't load your current photo to adjust."
+                return
+            }
+            editableSourceImage = prepared
+            cropItem = CropItem(image: prepared)
+        }
     }
 
     private func normalizeNonprofitWebsite() {
