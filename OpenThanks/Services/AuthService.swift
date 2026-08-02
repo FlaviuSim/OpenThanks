@@ -671,10 +671,7 @@ extension AuthService {
             return true
         } catch {
             if Self.isOAuthCancellation(error) { return false }
-            let message = error.localizedDescription
-            errorMessage = message.range(of: #"already|registered|exists|Identity"#, options: .regularExpression) != nil
-                ? "That Google account is already linked to another OpenThanks user."
-                : message
+            errorMessage = Self.friendlyIdentityError(error.localizedDescription)
             return false
         }
     }
@@ -692,14 +689,27 @@ extension AuthService {
             _ = try? await supabase.auth.refreshSession()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.friendlyIdentityError(error.localizedDescription)
             return false
         }
     }
 
-    /// Start adding/changing account email — sends a confirmation code to the new address.
+    /// Clearer copy for common Supabase identity-linking errors.
+    private static func friendlyIdentityError(_ message: String) -> String {
+        let lower = message.lowercased()
+        if lower.contains("manual") && lower.contains("link") {
+            return "Manual linking is off for this Supabase project. In Dashboard → Authentication → Providers, turn on “Allow manual linking”, save, then try again."
+        }
+        if lower.range(of: #"already|registered|exists|identity"#, options: .regularExpression) != nil {
+            return "That sign-in method is already linked to another OpenThanks account."
+        }
+        return message
+    }
+
+    /// Start adding/changing account email — Supabase emails a confirmation *link*
+    /// (not a 6-digit OTP) to the new address.
     @discardableResult
-    func sendEmailLinkCode(to email: String) async -> Bool {
+    func sendEmailChangeConfirmation(to email: String) async -> Bool {
         errorMessage = nil
         let email = Self.normalizedEmail(email)
         guard email.contains("@"), email.contains(".") else {
@@ -718,24 +728,30 @@ extension AuthService {
         }
     }
 
-    /// Confirm the email-change OTP and sync `profiles.email`.
+    /// After the user opens the change-email confirmation link, refresh auth and sync `profiles.email`.
+    /// Returns `true` when the session email matches `expectedEmail`.
     @discardableResult
-    func verifyEmailLinkCode(email: String, code: String) async -> Bool {
+    func refreshAfterEmailChangeConfirmation(expectedEmail: String) async -> Bool {
         errorMessage = nil
-        let email = Self.normalizedEmail(email)
+        let expected = Self.normalizedEmail(expectedEmail)
         do {
-            try await supabase.auth.verifyOTP(email: email, token: code, type: .emailChange)
+            _ = try? await supabase.auth.refreshSession()
+            let session = try await supabase.auth.session
+            let current = session.user.email.map(Self.normalizedEmail)
+            guard current == expected else {
+                errorMessage = "That email isn’t confirmed yet. Open the link we sent to \(expected), then try again."
+                return false
+            }
             if let userId {
                 _ = try? await supabase.from("profiles")
-                    .update(["email": email])
+                    .update(["email": expected])
                     .eq("id", value: userId)
                     .execute()
                 if var profile = currentProfile {
-                    profile.email = email
+                    profile.email = expected
                     currentProfile = profile
                 }
             }
-            _ = try? await supabase.auth.refreshSession()
             return true
         } catch {
             errorMessage = error.localizedDescription

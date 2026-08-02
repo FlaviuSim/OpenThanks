@@ -154,6 +154,13 @@ struct FeedView: View {
     private var feedChrome: some View {
         VStack(spacing: 0) {
             header
+            if pendingSentCount > 0 {
+                PendingAppreciationsBanner(count: pendingSentCount)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
+                    .readableWidth()
+            }
             HomeProfileSearch(
                 focused: $searchFocused,
                 onSelect: { profile in
@@ -168,17 +175,11 @@ struct FeedView: View {
                 }
             )
             .padding(.horizontal, 20)
-            .padding(.top, 10)
+            .padding(.top, pendingSentCount > 0 ? 6 : 10)
             .padding(.bottom, 2)
             .zIndex(2)
 
             picker
-            if pendingSentCount > 0 {
-                PendingAppreciationsBanner(count: pendingSentCount)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-                    .readableWidth()
-            }
             content
         }
     }
@@ -522,32 +523,19 @@ struct GratitudeCard: View {
                     size: 38,
                     onOpen: onOpenProfile
                 )
-                VStack(alignment: .leading, spacing: 1) {
-                    // Names → profile; “thanked” → post (same as tapping the message).
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        profileNameControl(
-                            profile: gratitude.author,
-                            label: gratitude.author?.displayName ?? "Someone"
-                        )
-                        openControl {
-                            Text(" thanked ")
-                                .font(Theme.body(15))
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                        if let recipient = gratitude.recipient {
-                            profileNameControl(
-                                profile: recipient,
-                                label: recipient.displayName
-                            )
-                        } else {
-                            openControl {
-                                Text(gratitude.recipientDisplayName)
-                                    .font(Theme.body(15, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                            }
-                        }
+                VStack(alignment: .leading, spacing: 2) {
+                    // Single flowing sentence so long names wrap naturally.
+                    // Profile names are links; “thanked” / unknown recipient open the post.
+                    openControl {
+                        Text(thankedHeadline)
+                            .multilineTextAlignment(.leading)
+                            .lineSpacing(1)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .tint(Theme.textPrimary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .environment(\.openURL, OpenURLAction(handler: handleThankedHeadlineURL))
 
                     openControl {
                         Group {
@@ -636,34 +624,48 @@ struct GratitudeCard: View {
         }
     }
 
-    @ViewBuilder
-    private func profileNameControl(profile: Profile?, label: String) -> some View {
-        if let profile {
-            if let onOpenProfile {
-                Button {
-                    onOpenProfile(profile)
-                } label: {
-                    Text(label)
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("View \(profile.displayName)'s profile")
-            } else {
-                NavigationLink(value: profile) {
-                    Text(label)
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                }
-                .buttonStyle(.plain)
-            }
-        } else {
-            openControl {
-                Text(label)
-                    .font(Theme.body(15, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-            }
+    /// “Alex thanked Jordan” as one wrapping Text — avoids HStack gaps when names break.
+    private var thankedHeadline: AttributedString {
+        var author = AttributedString(gratitude.author?.displayName ?? "Someone")
+        author.font = Theme.body(15, weight: .semibold)
+        author.foregroundColor = Theme.textPrimary
+        author.underlineStyle = []
+        if gratitude.author != nil {
+            author.link = URL(string: "openthanks-card://author")
         }
+
+        var thanked = AttributedString(" thanked ")
+        thanked.font = Theme.body(15)
+        thanked.foregroundColor = Theme.textSecondary
+        thanked.underlineStyle = []
+
+        var recipient = AttributedString(gratitude.recipientDisplayName)
+        recipient.font = Theme.body(15, weight: .semibold)
+        recipient.foregroundColor = Theme.textPrimary
+        recipient.underlineStyle = []
+        if gratitude.recipient != nil {
+            recipient.link = URL(string: "openthanks-card://recipient")
+        }
+
+        return author + thanked + recipient
+    }
+
+    private func handleThankedHeadlineURL(_ url: URL) -> OpenURLAction.Result {
+        switch url.host {
+        case "author":
+            if let profile = gratitude.author {
+                onOpenProfile?(profile)
+                return .handled
+            }
+        case "recipient":
+            if let profile = gratitude.recipient {
+                onOpenProfile?(profile)
+                return .handled
+            }
+        default:
+            break
+        }
+        return .discarded
     }
 }
 

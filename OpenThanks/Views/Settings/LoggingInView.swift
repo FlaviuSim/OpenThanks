@@ -1,7 +1,7 @@
 import SwiftUI
 import Supabase
 
-/// Sign-in methods for the current account: emails, Google, phone.
+/// Sign-in methods for the current account: email, Google, phone.
 struct LoggingInView: View {
     @Environment(AuthService.self) private var auth
 
@@ -13,17 +13,10 @@ struct LoggingInView: View {
     @State private var errorMessage: String?
     @State private var successMessage: String?
 
-    // Email add / verify
-    @State private var emailInput = ""
-    @State private var emailCode = ""
-    @State private var emailCodeSent = false
-
     // Phone add / change / verify
     @State private var phoneInput = ""
     @State private var phoneCode = ""
     @State private var phoneCodeSent = false
-
-    @State private var identityToUnlink: UserIdentity?
 
     private var phoneChanged: Bool {
         AuthService.normalizedPhone(phoneInput) != verifiedPhone
@@ -46,13 +39,6 @@ struct LoggingInView: View {
 
     var body: some View {
         List {
-            Section {
-                Text("These are the ways you can sign in to this OpenThanks account. Link more so a work email, personal email, or Google all open the same profile.")
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.textSecondary)
-                    .listRowBackground(Theme.surface)
-            }
-
             if let errorMessage {
                 Section {
                     Text(errorMessage)
@@ -88,25 +74,6 @@ struct LoggingInView: View {
         .disabled(busy)
         .task { await reload() }
         .refreshable { await reload() }
-        .confirmationDialog(
-            "Disconnect this sign-in method?",
-            isPresented: Binding(
-                get: { identityToUnlink != nil },
-                set: { if !$0 { identityToUnlink = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("Disconnect", role: .destructive) {
-                if let identityToUnlink {
-                    Task { await unlink(identityToUnlink) }
-                }
-            }
-            Button("Cancel", role: .cancel) { identityToUnlink = nil }
-        } message: {
-            if let identity = identityToUnlink {
-                Text("You won’t be able to sign in with \(AuthService.identityLabel(for: identity)) until you link it again.")
-            }
-        }
         .syncAppAppearance()
     }
 
@@ -128,57 +95,11 @@ struct LoggingInView: View {
                     title: AuthService.identityLabel(for: identity),
                     subtitle: "Email · verified",
                     systemImage: "envelope.fill",
-                    canDisconnect: true
-                ) {
-                    identityToUnlink = identity
-                }
-            }
-
-            if emailCodeSent {
-                Text(emailInput)
-                    .font(Theme.body(15, weight: .semibold))
-                OneTimeCodeField(text: $emailCode, isFocused: true)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 36)
-                    .onChange(of: emailCode) { _, newValue in
-                        let digits = String(newValue.filter(\.isNumber).prefix(6))
-                        if digits != newValue { emailCode = digits }
-                        guard digits.count == 6, !busy else { return }
-                        Task { await verifyEmail() }
-                    }
-                if busy {
-                    ProgressView().tint(Theme.coral)
-                } else {
-                    Button("Verify email code") { Task { await verifyEmail() } }
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                        .disabled(emailCode.count < 6)
-                    Button("Cancel") { cancelEmailChange() }
-                        .font(Theme.body(14))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-            } else {
-                TextField("Add another email", text: $emailInput)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
-                    .autocorrectionDisabled()
-                Button {
-                    Task { await sendEmailCode() }
-                } label: {
-                    Text(busy ? "Sending…" : "Send verification code")
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                }
-                .disabled(
-                    busy
-                        || emailInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    canDisconnect: false
                 )
             }
         } header: {
             Text("Email")
-        } footer: {
-            Text("We’ll email a code to confirm. After it’s verified, you can sign in with that address on this account.")
         }
         .listRowBackground(Theme.surface)
     }
@@ -195,7 +116,7 @@ struct LoggingInView: View {
                         ? "g.circle.fill" : "person.crop.circle.fill",
                     canDisconnect: true
                 ) {
-                    identityToUnlink = identity
+                    Task { await unlink(identity) }
                 }
             }
 
@@ -302,8 +223,6 @@ struct LoggingInView: View {
             }
         } header: {
             Text("Phone")
-        } footer: {
-            Text("Used to sign in and to match appreciations sent to your number.")
         }
         .listRowBackground(Theme.surface)
     }
@@ -317,29 +236,13 @@ struct LoggingInView: View {
         canDisconnect: Bool,
         onDisconnect: (() -> Void)? = nil
     ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Theme.coral)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(Theme.body(15, weight: .semibold))
-                    .lineLimit(2)
-                Text(subtitle)
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            Spacer(minLength: 8)
-            if canDisconnect, let onDisconnect {
-                Button("Disconnect", action: onDisconnect)
-                    .font(Theme.body(13, weight: .semibold))
-                    .foregroundStyle(.red.opacity(0.9))
-            } else {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(Theme.coral)
-            }
-        }
+        IdentityRow(
+            title: title,
+            subtitle: subtitle,
+            systemImage: systemImage,
+            canDisconnect: canDisconnect,
+            onDisconnect: onDisconnect
+        )
     }
 
     // MARK: - Actions
@@ -360,43 +263,6 @@ struct LoggingInView: View {
         successMessage = nil
     }
 
-    private func sendEmailCode() async {
-        clearBanners()
-        busy = true
-        let ok = await auth.sendEmailLinkCode(to: emailInput)
-        busy = false
-        if ok {
-            emailInput = AuthService.normalizedEmail(emailInput)
-            emailCodeSent = true
-            emailCode = ""
-            successMessage = "We sent a code to \(emailInput)."
-        } else {
-            errorMessage = auth.errorMessage
-        }
-    }
-
-    private func verifyEmail() async {
-        clearBanners()
-        busy = true
-        let ok = await auth.verifyEmailLinkCode(email: emailInput, code: emailCode)
-        busy = false
-        if ok {
-            emailCodeSent = false
-            emailCode = ""
-            emailInput = ""
-            successMessage = "Email verified. You can sign in with it on this account."
-            await reload()
-        } else {
-            errorMessage = auth.errorMessage ?? "That code was incorrect or expired."
-        }
-    }
-
-    private func cancelEmailChange() {
-        emailCodeSent = false
-        emailCode = ""
-        clearBanners()
-    }
-
     private func linkGoogle() async {
         clearBanners()
         busy = true
@@ -412,7 +278,6 @@ struct LoggingInView: View {
 
     private func unlink(_ identity: UserIdentity) async {
         clearBanners()
-        identityToUnlink = nil
         busy = true
         let ok = await auth.unlinkIdentity(identity)
         busy = false
@@ -480,6 +345,55 @@ struct LoggingInView: View {
             await reload()
         } else {
             errorMessage = auth.errorMessage ?? "Couldn't remove phone number."
+        }
+    }
+}
+
+/// Keeps the confirmation dialog anchored to the Disconnect control (avoids popover at the top of the screen).
+private struct IdentityRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let canDisconnect: Bool
+    let onDisconnect: (() -> Void)?
+
+    @State private var confirmDisconnect = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.body(15, weight: .semibold))
+                    .lineLimit(2)
+                Text(subtitle)
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 8)
+            if canDisconnect, onDisconnect != nil {
+                Button("Disconnect") { confirmDisconnect = true }
+                    .font(Theme.body(13, weight: .semibold))
+                    .foregroundStyle(.red.opacity(0.9))
+                    .confirmationDialog(
+                        "Disconnect this sign-in method?",
+                        isPresented: $confirmDisconnect,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Disconnect", role: .destructive) {
+                            onDisconnect?()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("You won’t be able to sign in with \(title) until you link it again.")
+                    }
+            } else {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundStyle(Theme.coral)
+            }
         }
     }
 }

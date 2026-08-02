@@ -34,16 +34,63 @@ struct SettingsView: View {
         var components = URLComponents()
         components.scheme = "mailto"
         components.path = "founders@openthanks.com"
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
         components.queryItems = [
             URLQueryItem(name: "subject", value: "OpenThanks feedback"),
-            URLQueryItem(
-                name: "body",
-                value: "\n\n—\nApp version \(version) (\(build))"
-            ),
+            URLQueryItem(name: "body", value: feedbackMailBody),
         ]
         return components.url ?? URL(string: "mailto:founders@openthanks.com")!
+    }
+
+    /// Pre-filled draft: blank space for the note, then diagnostics for support.
+    private var feedbackMailBody: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        let bundleId = Bundle.main.bundleIdentifier ?? "unknown"
+        let device = UIDevice.current
+        let system = "\(device.systemName) \(device.systemVersion)"
+        let model = deviceModelIdentifier
+        let appearanceTitle = (AppAppearance(rawValue: appearance) ?? .dark).title
+        let locale = Locale.current.identifier
+        let email = auth.currentProfile?.email?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let handle = auth.currentProfile?.username
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let userId = auth.userId?.uuidString
+
+        var lines: [String] = [
+            "",
+            "",
+            "—",
+            "Please keep this info — it helps us debug:",
+            "App: OpenThanks \(version) (\(build))",
+            "Bundle: \(bundleId)",
+            "Device: \(model)",
+            "System: \(system)",
+            "Appearance: \(appearanceTitle)",
+            "Locale: \(locale)",
+        ]
+        if let handle, !handle.isEmpty {
+            lines.append("Handle: @\(handle)")
+        }
+        if let email, !email.isEmpty {
+            lines.append("Account email: \(email)")
+        }
+        if let userId {
+            lines.append("User ID: \(userId)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Hardware identifier (e.g. iPhone15,2) — more useful than the marketing name.
+    private var deviceModelIdentifier: String {
+        var info = utsname()
+        uname(&info)
+        let mirror = Mirror(reflecting: info.machine)
+        let identifier = mirror.children.reduce(into: "") { result, element in
+            guard let value = element.value as? Int8, value != 0 else { return }
+            result.append(Character(UnicodeScalar(UInt8(value))))
+        }
+        return identifier.isEmpty ? UIDevice.current.model : identifier
     }
 
     var body: some View {
@@ -51,16 +98,6 @@ struct SettingsView: View {
             List {
                 Section(accountSectionTitle) {
                     Button { showEditProfile = true } label: { rowLabel("Edit Profile") }
-                    NavigationLink {
-                        LoggingInView()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Logging In")
-                            Text("Email, Google, and phone for this account")
-                                .font(Theme.body(12))
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                    }
                     NavigationLink {
                         PendingAppreciationsView()
                     } label: {
@@ -80,6 +117,16 @@ struct SettingsView: View {
                         StatsView()
                     } label: {
                         rowLabel("Your Stats")
+                    }
+                    NavigationLink {
+                        LoggingInView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Logging In")
+                            Text("Email, Google, and phone for this account")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
                     }
                 }
                 .listRowBackground(Theme.surface)
@@ -119,26 +166,22 @@ struct SettingsView: View {
                         }
                     }
 
-                    HStack(spacing: 6) {
-                        Link("Privacy", destination: URL(string: "https://openthanks.com/privacy")!)
-                        Text("·")
-                            .foregroundStyle(Theme.textTertiary)
-                        Link("Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
-                        Spacer()
-                    }
-                    .font(Theme.body(16))
-                    .foregroundStyle(Theme.textPrimary)
-
                     Link(destination: feedbackMailURL) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Send Feedback")
-                            Text("Email us at founders@openthanks.com")
-                                .font(Theme.body(12))
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Send Feedback")
+                                Text("Email us at founders@openthanks.com")
+                                    .font(Theme.body(12))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            Spacer()
+                            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
+                                .font(Theme.body(13))
                                 .foregroundStyle(Theme.textSecondary)
                         }
                     }
 
-                    Link(destination: URL(string: "https://buy.stripe.com/3cIcN67Z6cYO3erfyJcZa00")!) {
+                    Link(destination: URL(string: "https://buy.stripe.com/aFadR826I06Ea0i14l1ZS00")!) {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("Support OpenThanks")
@@ -151,12 +194,16 @@ struct SettingsView: View {
                         }
                     }
 
-                    HStack {
-                        Text("About OpenThanks")
+                    HStack(spacing: 6) {
+                        Link("Privacy", destination: URL(string: "https://openthanks.com/privacy")!)
+                        Text("·")
+                            .foregroundStyle(Theme.textTertiary)
+                        Link("Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
                         Spacer()
-                        Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
-                            .foregroundStyle(Theme.textSecondary)
                     }
+                    .font(Theme.body(16))
+                    .foregroundStyle(Theme.textPrimary)
+
                     Button(role: .destructive) {
                         dismiss()
                         Task { await auth.signOut() }

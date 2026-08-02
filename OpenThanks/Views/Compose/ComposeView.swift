@@ -254,7 +254,7 @@ struct ComposeView: View {
                     .foregroundStyle(Theme.textTertiary)
             }
 
-            Text("If you put in an email or username, we'll notify the recipient. Either way, you will get a link to share with the recipient so they can accept the appreciation.")
+            Text("If you put in an email, we'll notify the recipient. Either way, you will get a link to share with the recipient so they can accept the appreciation.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -285,7 +285,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Email, Username, or leave blank", text: $recipient)
+                TextField("Email, OpenThanks Handle, or leave blank", text: $recipient)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.default)
@@ -1483,26 +1483,6 @@ struct SuccessView: View {
         return (value?.isEmpty == false) ? value : nil
     }
 
-    /// Shown on share rows — prefer @username / name; blank To is fine.
-    private var emailToLabel: String {
-        if let username = gratitude.recipient?.username.trimmingCharacters(in: .whitespacesAndNewlines),
-           !username.isEmpty {
-            return "To @\(username)"
-        }
-        if let name = gratitude.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !name.isEmpty {
-            return "To \(name)"
-        }
-        if let display = gratitude.recipient?.displayName.trimmingCharacters(in: .whitespacesAndNewlines),
-           !display.isEmpty {
-            return "To \(display)"
-        }
-        if recipientEmail != nil {
-            return "To their email"
-        }
-        return "Opens Email client with the link"
-    }
-
     private var shareMessage: String {
         let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
             ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
@@ -1524,7 +1504,7 @@ struct SuccessView: View {
 
     private var subtitle: String {
         if hasDeliverableRecipient {
-            return "We notified them when we could. You can also share the link yourself."
+            return "Send your own personalized note below so they can accept your appreciation."
         }
         return "Share the link so they can open and accept your appreciation."
     }
@@ -1569,7 +1549,7 @@ struct SuccessView: View {
                             ShareActionRow(
                                 title: "Email",
                                 systemImage: "envelope.fill",
-                                subtitle: emailToLabel
+                                subtitle: "Opens Email client with the link"
                             ) {
                                 openMail()
                             }

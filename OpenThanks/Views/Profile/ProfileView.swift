@@ -54,6 +54,7 @@ struct UserProfileView: View {
     @State private var loaded = false
     @State private var fullScreenAvatarURL: URL?
     @State private var showCompose = false
+    @State private var pendingSentCount = 0
 
     private var shownProfile: Profile {
         // Own profile must track live auth state — local `freshProfile` would
@@ -71,6 +72,9 @@ struct UserProfileView: View {
                 header
                 if shownProfile.favoriteNonprofitName != nil { nonprofitCard }
                 sectionSwitcher
+                if isOwnProfile, pendingSentCount > 0 {
+                    PendingAppreciationsBanner(count: pendingSentCount)
+                }
                 sectionContent
             }
             .padding(.horizontal, 20)
@@ -138,6 +142,9 @@ struct UserProfileView: View {
                 sent.insert(gratitude, at: 0)
                 sent.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
                 stats.sent += 1
+                if isOwnProfile {
+                    pendingSentCount = max(0, pendingSentCount - 1)
+                }
             }
         }
     }
@@ -500,11 +507,16 @@ struct UserProfileView: View {
 
             let (sentResult, receivedResult, inspiredResult, statsResult) =
                 try await (sentList, receivedList, inspiredList, statsTask)
+            var pendingResult = 0
+            if isOwnProfile, let userId = auth.userId {
+                pendingResult = (try? await GratitudeService.pendingCount(authorId: userId)) ?? pendingSentCount
+            }
             withAnimation(.easeInOut(duration: 0.2)) {
                 sent = sentResult
                 received = receivedResult
                 inspirations = inspiredResult
                 stats = statsResult
+                if isOwnProfile { pendingSentCount = pendingResult }
             }
             if isOwnProfile, let userId = auth.userId {
                 await WidgetSnapshotRefresher.refresh(

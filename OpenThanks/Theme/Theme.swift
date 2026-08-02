@@ -428,7 +428,7 @@ struct AppreciationVisibilityNote: View {
     }
 }
 
-/// Banner linking to Pending Appreciations — Home + Notifications.
+/// Banner linking to Pending Appreciations — Home, Profile, Notifications.
 struct PendingAppreciationsBanner: View {
     let count: Int
 
