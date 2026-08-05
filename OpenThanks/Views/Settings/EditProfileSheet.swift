@@ -167,18 +167,6 @@ struct EditProfileSheet: View {
                     .frame(maxWidth: .infinity)
             }
             .disabled(loadingPhoto)
-
-            if hasAvatar {
-                Button {
-                    openCropEditor()
-                } label: {
-                    Label("Adjust photo", systemImage: "crop")
-                        .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                .disabled(loadingPhoto)
-                .accessibilityLabel("Adjust profile photo crop")
-            }
         }
         .padding(.vertical, 8)
     }
@@ -312,32 +300,6 @@ struct EditProfileSheet: View {
             photoData = jpeg
         }
         errorMessage = nil
-    }
-
-    private func openCropEditor() {
-        if let source = editableSourceImage {
-            cropItem = CropItem(image: source)
-            return
-        }
-        if let photoData, let image = UIImage(data: photoData)?.normalizedOrientation() {
-            editableSourceImage = image
-            cropItem = CropItem(image: image)
-            return
-        }
-        // Existing remote avatar — load, then crop.
-        guard let url = auth.currentProfile?.avatarURL else { return }
-        loadingPhoto = true
-        Task {
-            defer { loadingPhoto = false }
-            guard let (data, _) = try? await URLSession.shared.data(from: url),
-                  let prepared = await ImageProcessing.prepareForEditing(data)
-            else {
-                errorMessage = "Couldn't load your current photo to adjust."
-                return
-            }
-            editableSourceImage = prepared
-            cropItem = CropItem(image: prepared)
-        }
     }
 
     private func normalizeNonprofitWebsite() {

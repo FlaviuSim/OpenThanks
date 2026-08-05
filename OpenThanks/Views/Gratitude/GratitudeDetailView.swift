@@ -1,5 +1,11 @@
 import SwiftUI
 
+/// Holds activity items for the system share sheet so presentation can’t race an empty array.
+private struct SystemSharePayload: Identifiable {
+    let id = UUID()
+    let items: [Any]
+}
+
 /// Single-post screen: the full appreciation plus share actions,
 /// mirroring the web post page (openthanks.com/for/{slug}).
 struct GratitudeDetailView: View {
@@ -12,6 +18,15 @@ struct GratitudeDetailView: View {
     @State private var isHearted = false
     @State private var fullScreenImageURL: URL?
     @State private var linkCopied = false
+    @State private var shareHint: String?
+    @State private var shareCardImage: UIImage?
+    @State private var linkStickerImage: UIImage?
+    @State private var preparingShare = false
+    @State private var systemSharePayload: SystemSharePayload?
+
+    private var shareContent: AppreciationShareContent {
+        AppreciationShareContent(gratitude: gratitude)
+    }
 
     var body: some View {
         ScrollView {
@@ -31,6 +46,10 @@ struct GratitudeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
+        }
+        .sheet(item: $systemSharePayload) { payload in
+            ActivityShareView(items: payload.items)
+                .presentationDetents([.medium, .large])
         }
         .task {
             await loadHearted()
@@ -127,76 +146,190 @@ struct GratitudeDetailView: View {
     // MARK: Share
 
     private var shareCard: some View {
-        VStack(spacing: 14) {
-            Text("Spread the positivity")
-                .font(Theme.body(14, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Spread the positivity")
+                    .font(Theme.body(16, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Share with a clear OpenThanks link people can tap.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+            }
 
             HStack(spacing: 10) {
-                shareButton(monogram: "IG", name: "Instagram") { shareToInstagram() }
-                shareButton(monogram: "f", name: "Facebook") {
-                    share(via: "https://www.facebook.com/sharer/sharer.php?u=")
+                shareButton(
+                    title: "Instagram",
+                    subtitle: "Stories",
+                    systemImage: "camera.filters"
+                ) {
+                    Task { await share(.instagramStories) }
                 }
-                shareButton(monogram: "in", name: "LinkedIn") {
-                    share(via: "https://www.linkedin.com/sharing/share-offsite/?url=")
+                shareButton(
+                    title: "LinkedIn",
+                    subtitle: "Link",
+                    systemImage: "briefcase.fill"
+                ) {
+                    Task { await share(.linkedIn) }
+                }
+                shareButton(
+                    title: "X",
+                    subtitle: "Post",
+                    systemImage: "bird.fill"
+                ) {
+                    Task { await share(.x) }
                 }
             }
 
+            ShareActionRow(
+                title: "Share photo & link",
+                systemImage: "square.and.arrow.up",
+                subtitle: "Messages, Mail, Instagram, and any other app"
+            ) {
+                Task { await presentSystemShare() }
+            }
+
             Button {
-                UIPasteboard.general.url = gratitude.webURL
+                UIPasteboard.general.string = shareContent.caption
                 withAnimation { linkCopied = true }
+                flashHint("Caption & link copied")
                 Task {
                     try? await Task.sleep(for: .seconds(2.5))
                     withAnimation { linkCopied = false }
                 }
             } label: {
-                Label(linkCopied ? "Link copied" : "Copy link",
-                      systemImage: linkCopied ? "checkmark" : "link")
-                    .font(Theme.body(14, weight: .medium))
-                    .foregroundStyle(linkCopied ? Theme.coral : Theme.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.surfaceRaised, in: Capsule())
+                Label(
+                    linkCopied ? "Caption copied" : "Copy caption & link",
+                    systemImage: linkCopied ? "checkmark" : "link"
+                )
+                .font(Theme.body(14, weight: .medium))
+                .foregroundStyle(linkCopied ? Theme.coral : Theme.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Theme.surfaceRaised, in: Capsule())
+            }
+
+            if let shareHint {
+                Text(shareHint)
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.coral)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
             }
         }
         .padding(18)
         .card()
     }
 
-    private func shareButton(monogram: String, name: String, action: @escaping () -> Void) -> some View {
+    private func shareButton(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: 8) {
-                Text(monogram)
-                    .font(Theme.display(15, weight: .bold))
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Theme.coralLight)
                     .frame(width: 42, height: 42)
                     .background(Theme.coral.opacity(0.12), in: Circle())
                     .overlay(Circle().strokeBorder(Theme.coral.opacity(0.25)))
-                Text(name)
-                    .font(Theme.body(12, weight: .medium))
-                    .foregroundStyle(Theme.textSecondary)
+                Text(title)
+                    .font(Theme.body(12, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(subtitle)
+                    .font(Theme.body(11))
+                    .foregroundStyle(Theme.textTertiary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Theme.hairline))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Theme.hairline)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(preparingShare)
+    }
+
+    // MARK: Share actions
+
+    private func prepareShareCardIfNeeded() async {
+        guard shareCardImage == nil || linkStickerImage == nil else { return }
+        preparingShare = true
+        defer { preparingShare = false }
+        let content = shareContent
+        if shareCardImage == nil {
+            shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
+        }
+        if linkStickerImage == nil {
+            linkStickerImage = AppreciationShareRenderer.linkSticker(for: content)
         }
     }
 
-    private func share(via prefix: String) {
-        let encoded = gratitude.webURL.absoluteString
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        if let url = URL(string: prefix + encoded) { openURL(url) }
+    private func share(_ destination: SocialShare.Destination) async {
+        await prepareShareCardIfNeeded()
+        let outcome = await SocialShare.share(
+            destination,
+            content: shareContent,
+            cardImage: shareCardImage,
+            linkSticker: linkStickerImage,
+            openURL: openURL
+        )
+        switch outcome {
+        case .opened(let hint):
+            flashHint(hint)
+        }
+        Analytics.capture("appreciation_shared", [
+            "channel": destination.rawValue,
+            "has_card": shareCardImage != nil,
+        ])
     }
 
-    /// Instagram has no web share intent — same as the web app, copy the
-    /// link and hand off to Instagram so it can be pasted in a story or DM.
-    private func shareToInstagram() {
-        UIPasteboard.general.url = gratitude.webURL
-        withAnimation { linkCopied = true }
-        openURL(URL(string: "instagram://app")!) { accepted in
-            if !accepted { openURL(URL(string: "https://www.instagram.com")!) }
+    private func presentSystemShare() async {
+        preparingShare = true
+        defer { preparingShare = false }
+        let content = shareContent
+        var postPhoto: UIImage?
+        if let url = content.sharePhotoURL {
+            postPhoto = await RemoteImageCache.load(url, maxPixelSize: 1_600)
+        }
+        if postPhoto == nil {
+            if shareCardImage == nil {
+                shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
+            }
+            // ImageRenderer can return nil on a cold first pass — yield and retry once.
+            if shareCardImage == nil {
+                await Task.yield()
+                shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
+            }
+        }
+        let items = SocialShare.systemShareItems(
+            content: content,
+            postPhoto: postPhoto,
+            cardImage: shareCardImage
+        )
+        // Present via Identifiable payload so the sheet is created with items already set.
+        // Splitting `items` + `isPresented` races and yields a blank UIActivityViewController.
+        systemSharePayload = SystemSharePayload(items: items)
+        Analytics.capture("appreciation_shared", [
+            "channel": "system_sheet",
+            "has_photo": postPhoto != nil,
+            "has_card": postPhoto == nil && shareCardImage != nil,
+        ])
+    }
+
+    private func flashHint(_ message: String?) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            shareHint = message
+        }
+        guard message != nil else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            withAnimation(.easeInOut(duration: 0.2)) {
+                if shareHint == message { shareHint = nil }
+            }
         }
     }
 

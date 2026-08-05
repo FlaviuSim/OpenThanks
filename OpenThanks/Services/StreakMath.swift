@@ -69,6 +69,37 @@ struct SentActivity: Codable, Equatable, Sendable, Identifiable {
 
 /// Pure calendar-day streak helpers (local timezone by default).
 enum StreakMath {
+    /// Whether today's send is already in, and when the streak resets if it isn't.
+    ///
+    /// Streaks are calendar-day based with a one-day grace: posting yesterday still
+    /// keeps the streak alive until **local midnight tonight**. After that, it resets.
+    struct KeepStatus: Equatable, Sendable {
+        let streak: Int
+        let postedToday: Bool
+        /// Start of tomorrow in `calendar` — the moment an unposted streak becomes 0.
+        let deadline: Date
+
+        var isActive: Bool { streak > 0 }
+        /// On a streak but haven't sent yet today — must post before `deadline`.
+        var needsPostToday: Bool { streak > 0 && !postedToday }
+        /// On a streak and already sent today — safe until tomorrow.
+        var isSafeToday: Bool { streak > 0 && postedToday }
+    }
+
+    /// Snapshot of streak keep-alive state for UI (countdown, copy).
+    static func keepStatus(
+        dates: [Date],
+        calendar: Calendar = .current,
+        now: Date = .now
+    ) -> KeepStatus {
+        let streak = currentStreak(dates: dates, calendar: calendar, now: now)
+        let today = calendar.startOfDay(for: now)
+        let days = Set(dates.map { calendar.startOfDay(for: $0) })
+        let postedToday = days.contains(today)
+        let deadline = calendar.date(byAdding: .day, value: 1, to: today) ?? now
+        return KeepStatus(streak: streak, postedToday: postedToday, deadline: deadline)
+    }
+
     /// Consecutive calendar days ending today or yesterday with ≥1 post.
     static func currentStreak(
         dates: [Date],

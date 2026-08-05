@@ -40,6 +40,8 @@
 		4021724FC307B51712A5E085 /* AppIcon-Dawn@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = F2F9C5D2E49314B2E04B5E8A /* AppIcon-Dawn@2x~ipad.png */; };
 		42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */; };
 		472E06539772B7665712C59E /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
+		474DDEA20ECB5BCF2BC75529 /* StreakLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */; };
+		4798A548394575A109C3A749 /* StreakLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1A67A77A55D99DD8040136 /* StreakLiveActivityAttributes.swift */; };
 		4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */; };
 		4B8AA8E545E56B4034B9801E /* LoggingInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDCF02D5DBBDC8B993DFEE74 /* LoggingInView.swift */; };
 		4DB57AC6BE2F0C7305871D75 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
@@ -52,6 +54,8 @@
 		5D96E57F357F06A1E3655D6E /* AppIcon-Night-Preview.png in Resources */ = {isa = PBXBuildFile; fileRef = C876538C4A1AB43A22C08A49 /* AppIcon-Night-Preview.png */; };
 		5E12B5E893379788A18B6EBD /* AppIcon-Default-Preview.png in Resources */ = {isa = PBXBuildFile; fileRef = 98564619904D3EFBA8214A72 /* AppIcon-Default-Preview.png */; };
 		5FFBE5EF70EF711928166478 /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
+		60EDE6F10A714F46F0AAA4C6 /* StreakLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1A67A77A55D99DD8040136 /* StreakLiveActivityAttributes.swift */; };
+		615BF97EA9A221E7697366CB /* StreakLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE9CA5E2BE144C4DFCC2F38 /* StreakLiveActivityWidget.swift */; };
 		63E69EA329C6E4FBDD18277C /* StreakMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45105695C56A05D8C6192577 /* StreakMath.swift */; };
 		652CB389E2FF994DB08D335E /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
 		69B4F6E0C080880220BFF632 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA066FE29E589A34FD32C5E /* StatsView.swift */; };
@@ -128,6 +132,7 @@
 		F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F41CEF2962FB940913427807 /* FeedView.swift */; };
 		F36A70064AEDC80974EFB95D /* AppIcon-Default@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A3A63267707F904BE79C2365 /* AppIcon-Default@2x.png */; };
 		F4825D43527A7E5A9EAA100A /* AppIcon-Dawn@3x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = E2A9BEF3F82CD8A4E723CE2D /* AppIcon-Dawn@3x~ipad.png */; };
+		F879B767EAE9FED2200BFD1B /* AppreciationShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3503FCA888C8E244D2C73F4F /* AppreciationShare.swift */; };
 		FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */; };
 		FD4FD5B91A8E1714D55933F0 /* OpenThanksWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C1A1612FD16ABCA6168C5A99 /* OpenThanksWatch.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FDD318014FDE724E16267431 /* WatchConnectivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */; };
@@ -224,14 +229,17 @@
 		2792E4F9223E315B237FEE3E /* AppIcon-Dawn@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@2x.png"; sourceTree = "<group>"; };
 		27F0BE629D251F856F14F577 /* PostMediaViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostMediaViews.swift; sourceTree = "<group>"; };
 		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
+		2C1A67A77A55D99DD8040136 /* StreakLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
 		306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionConfigService.swift; sourceTree = "<group>"; };
 		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
 		34C1B132702899893D08B37C /* VideoProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessing.swift; sourceTree = "<group>"; };
+		3503FCA888C8E244D2C73F4F /* AppreciationShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationShare.swift; sourceTree = "<group>"; };
 		39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		3BBB847CC3698D40E17D709A /* CalendarPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPermissionView.swift; sourceTree = "<group>"; };
 		3BE658B352B3D0555586BCD7 /* AppIcon-Dawn-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn-Preview.png"; sourceTree = "<group>"; };
 		3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPalette.swift; sourceTree = "<group>"; };
+		3CE9CA5E2BE144C4DFCC2F38 /* StreakLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityWidget.swift; sourceTree = "<group>"; };
 		3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppGroup+Files.swift"; sourceTree = "<group>"; };
 		432D87DB1FBDF467DB01585D /* SiriIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntroView.swift; sourceTree = "<group>"; };
 		446585D437E05A38AD0D2F0E /* MessageEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageEditor.swift; sourceTree = "<group>"; };
@@ -245,6 +253,7 @@
 		5AA066FE29E589A34FD32C5E /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		5ED8265E3321D2A5A0E4170D /* AppIcon-Ember@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x.png"; sourceTree = "<group>"; };
 		610609351AABD36808642608 /* AppearanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceView.swift; sourceTree = "<group>"; };
+		6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityController.swift; sourceTree = "<group>"; };
 		619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6386C42954F7E470B63181A1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeOpportunityRanker.swift; sourceTree = "<group>"; };
@@ -389,6 +398,7 @@
 				7C91C4B36B035A0262E9EDC1 /* KeychainStore.swift */,
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
+				6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */,
 				45105695C56A05D8C6192577 /* StreakMath.swift */,
 				B863B534795C67594B79C1DC /* TabLaunchBridge.swift */,
 				34C1B132702899893D08B37C /* VideoProcessing.swift */,
@@ -452,6 +462,7 @@
 				C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */,
 				3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */,
 				EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */,
+				2C1A67A77A55D99DD8040136 /* StreakLiveActivityAttributes.swift */,
 				F3F96BC2DE837FAC91410810 /* WatchRelay.swift */,
 				8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */,
 				39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */,
@@ -517,6 +528,7 @@
 			isa = PBXGroup;
 			children = (
 				96F3FD90C322331B012FD48F /* AppNavigation.swift */,
+				3503FCA888C8E244D2C73F4F /* AppreciationShare.swift */,
 				1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */,
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
@@ -577,6 +589,7 @@
 				A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */,
 				3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */,
 				C41B032022447488A7BF2766 /* OpenThanksWidgetBundle.swift */,
+				3CE9CA5E2BE144C4DFCC2F38 /* StreakLiveActivityWidget.swift */,
 				3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */,
 			);
 			path = OpenThanksWidget;
@@ -899,6 +912,7 @@
 				6CE1E3F87BC0DA2F0FF4D845 /* AppStoreReviewPrompt.swift in Sources */,
 				815D16B613D154A9092DA748 /* AppearanceView.swift in Sources */,
 				13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */,
+				F879B767EAE9FED2200BFD1B /* AppreciationShare.swift in Sources */,
 				BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */,
 				7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */,
 				C84278A64A98CA238E9303C3 /* CalendarGratitudeBackgroundRefresh.swift in Sources */,
@@ -946,6 +960,8 @@
 				985D66E76E069167F1534690 /* SettingsView.swift in Sources */,
 				108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */,
 				69B4F6E0C080880220BFF632 /* StatsView.swift in Sources */,
+				60EDE6F10A714F46F0AAA4C6 /* StreakLiveActivityAttributes.swift in Sources */,
+				474DDEA20ECB5BCF2BC75529 /* StreakLiveActivityController.swift in Sources */,
 				63E69EA329C6E4FBDD18277C /* StreakMath.swift in Sources */,
 				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,
@@ -996,6 +1012,8 @@
 				B4DE495973DD611F929B0A40 /* GratitudePromptWidget.swift in Sources */,
 				42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */,
 				FEB2414FA2688F0D2F142C26 /* OpenThanksWidgetBundle.swift in Sources */,
+				4798A548394575A109C3A749 /* StreakLiveActivityAttributes.swift in Sources */,
+				615BF97EA9A221E7697366CB /* StreakLiveActivityWidget.swift in Sources */,
 				7C13BB5EF1BBAB56E55F6164 /* WidgetDeepLink.swift in Sources */,
 				F06C4E890841A820B0D76D81 /* WidgetPalette.swift in Sources */,
 				2CAECB510E8C778E393B0216 /* WidgetSnapshot.swift in Sources */,

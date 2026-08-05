@@ -26,9 +26,11 @@ struct StatsView: View {
         activity.compactMap(\.createdAt)
     }
 
-    private var currentStreak: Int {
-        StreakMath.currentStreak(dates: personalDayDates, calendar: calendar)
+    private var streakKeep: StreakMath.KeepStatus {
+        StreakMath.keepStatus(dates: personalDayDates, calendar: calendar)
     }
+
+    private var currentStreak: Int { streakKeep.streak }
 
     private var longestStreak: Int {
         StreakMath.longestStreak(
@@ -103,6 +105,7 @@ struct StatsView: View {
     private var streakHero: some View {
         let accepted = streakAcceptance.accepted
         let sent = streakAcceptance.sent
+        let keep = streakKeep
 
         return VStack(alignment: .leading, spacing: 18) {
             Text("OpenThanks")
@@ -135,18 +138,14 @@ struct StatsView: View {
                 .frame(width: 120, height: 120)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("sent in a row")
+                    Text(keep.isActive ? "day streak" : "no streak yet")
                         .font(Theme.display(24, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
 
-                    Text(
-                        currentStreak == 0
-                            ? "Share a thanks today to start a streak."
-                            : "Keep showing up — a short note is enough."
-                    )
-                    .font(Theme.body(14))
-                    .foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(streakHeadline(for: keep))
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if longestStreak > currentStreak {
                         Text("Best streak: \(longestStreak) days")
@@ -157,6 +156,8 @@ struct StatsView: View {
                 Spacer(minLength: 0)
             }
 
+            streakKeepBanner(for: keep)
+
             if sent > 0 {
                 acceptanceCard(accepted: accepted, sent: sent)
             }
@@ -164,6 +165,109 @@ struct StatsView: View {
         .opacity(appearReady ? 1 : 0)
         .offset(y: appearReady ? 0 : 8)
         .animation(.easeOut(duration: 0.45), value: appearReady)
+    }
+
+    private func streakHeadline(for keep: StreakMath.KeepStatus) -> String {
+        if keep.needsPostToday {
+            return "Post once more today to keep your streak going."
+        }
+        if keep.isSafeToday {
+            return "You're set for today — a short note each day keeps it alive."
+        }
+        return "Share a thanks today to start a streak."
+    }
+
+    @ViewBuilder
+    private func streakKeepBanner(for keep: StreakMath.KeepStatus) -> some View {
+        if keep.needsPostToday {
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                let remaining = keep.deadline.timeIntervalSince(context.date)
+                streakStatusStrip(
+                    icon: remaining <= 3 * 3600 ? "flame.fill" : "clock.fill",
+                    title: remaining > 0
+                        ? "\(StreakDeadlineFormatting.remaining(remaining)) left to keep it"
+                        : "Streak ends at midnight — post now",
+                    detail: "Send any appreciation before midnight (\(StreakDeadlineFormatting.midnightLabel(keep.deadline))).",
+                    emphasizesUrgency: remaining > 0 && remaining <= 3 * 3600,
+                    showCompose: true
+                )
+            }
+        } else if keep.isSafeToday {
+            streakStatusStrip(
+                icon: "checkmark.circle.fill",
+                title: "Posted today — streak locked in",
+                detail: "Send another thanks tomorrow before midnight to keep it going.",
+                emphasizesUrgency: false,
+                showCompose: false
+            )
+        } else {
+            streakStatusStrip(
+                icon: "sparkles",
+                title: "Start a streak today",
+                detail: "Post before midnight to begin counting consecutive days.",
+                emphasizesUrgency: false,
+                showCompose: true
+            )
+        }
+    }
+
+    private func streakStatusStrip(
+        icon: String,
+        title: String,
+        detail: String,
+        emphasizesUrgency: Bool,
+        showCompose: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(emphasizesUrgency ? Theme.coral : Theme.coralLight)
+                    .frame(width: 22, alignment: .center)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .contentTransition(.opacity)
+                    Text(detail)
+                        .font(Theme.body(13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+
+            if showCompose {
+                Button {
+                    ComposeLaunchBridge.shared.queue(analyticsSource: "stats_streak_keep")
+                    dismiss()
+                } label: {
+                    Text(emphasizesUrgency || streakKeep.needsPostToday ? "Share a thanks now" : "Share a thanks")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Theme.ctaGradient, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(emphasizesUrgency ? Theme.coral.opacity(0.12) : Theme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(
+                    emphasizesUrgency ? Theme.coral.opacity(0.35) : Theme.hairline,
+                    lineWidth: 1
+                )
+        )
+        .accessibilityElement(children: .combine)
     }
 
     private func acceptanceCard(accepted: Int, sent: Int) -> some View {
@@ -706,5 +810,28 @@ private struct ActivityCalendarView: View {
         case .pending: return "\(date), sent, awaiting acceptance"
         case .accepted: return "\(date), accepted"
         }
+    }
+}
+
+// MARK: - Streak deadline copy
+
+private enum StreakDeadlineFormatting {
+    /// Human remaining time until local midnight (e.g. "6h 42m", "45m", "under a minute").
+    static func remaining(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval.rounded(.down)))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        if hours >= 1 {
+            return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
+        }
+        if minutes >= 1 {
+            return "\(minutes)m"
+        }
+        return "under a minute"
+    }
+
+    /// Local midnight label for the streak deadline (start of tomorrow).
+    static func midnightLabel(_ deadline: Date) -> String {
+        deadline.formatted(date: .omitted, time: .shortened)
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Lightweight palette for the widget extension (no UIKit Theme dependency).
 enum WidgetPalette {

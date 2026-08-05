@@ -80,6 +80,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             WatchConnectivityService.shared.activate(auth: auth)
             WatchConnectivityService.shared.pushAuthContext()
         }
+        Task { @MainActor in
+            await StreakLiveActivityController.sync(userId: auth?.userId)
+        }
     }
 
     func application(
@@ -101,7 +104,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound, .badge]
+        let info = notification.request.content.userInfo
+        if let type = info[NotificationService.thankReminderTypeKey] as? String,
+           type == NotificationService.streakLiveActivityWakeTypeValue {
+            await StreakLiveActivityController.handleWakeNotification(userId: auth?.userId)
+        }
+        return [.banner, .sound, .badge]
     }
 
     func userNotificationCenter(
@@ -142,6 +150,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                     message: message,
                     analyticsSource: "calendar_evening_nudge"
                 )
+            }
+        case NotificationService.streakLiveActivityWakeTypeValue:
+            await StreakLiveActivityController.handleWakeNotification(userId: auth?.userId)
+            await MainActor.run {
+                ComposeLaunchBridge.shared.queue(analyticsSource: "streak_live_activity_wake")
             }
         default:
             break

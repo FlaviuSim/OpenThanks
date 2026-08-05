@@ -294,6 +294,57 @@ enum NotificationService {
         try await UNUserNotificationCenter.current().add(request)
     }
 
+    /// Local wake so we can start the streak Live Activity on the grace day.
+    private static let streakLiveActivityWakeId = "streak-live-activity-wake"
+    static let streakLiveActivityWakeTypeValue = "streak_live_activity_wake"
+
+    /// Fires at 8:00 AM local on `day` (start-of-day input). Starts Live Activity on open/tap.
+    static func scheduleStreakLiveActivityWake(on day: Date) async {
+        await cancelStreakLiveActivityWake()
+
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: day)
+        guard let fireDate = cal.date(bySettingHour: 8, minute: 0, second: 0, of: start) else { return }
+
+        // If 8am already passed on that day, fire a minute from now (still same grace day).
+        let effectiveFire: Date
+        if fireDate <= Date() {
+            guard cal.isDateInToday(start) else { return }
+            effectiveFire = Date().addingTimeInterval(60)
+        } else {
+            effectiveFire = fireDate
+        }
+
+        guard await isAuthorized() else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Keep your streak going"
+        content.body = "You have today to share a thanks before midnight."
+        content.sound = .default
+        content.userInfo = [
+            thankReminderTypeKey: streakLiveActivityWakeTypeValue,
+        ]
+
+        let components = cal.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: effectiveFire
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: streakLiveActivityWakeId,
+            content: content,
+            trigger: trigger
+        )
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    static func cancelStreakLiveActivityWake() async {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [streakLiveActivityWakeId])
+        UNUserNotificationCenter.current()
+            .removeDeliveredNotifications(withIdentifiers: [streakLiveActivityWakeId])
+    }
+
     static func uploadDeviceToken(_ token: String, userId: UUID) async {
         // DEBUG → APNs sandbox; Release / TestFlight / App Store → production.
         #if DEBUG

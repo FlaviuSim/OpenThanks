@@ -1356,6 +1356,9 @@ struct ComposeView: View {
                 )
                 sent = true
                 await refreshWidgetAfterSend()
+                if let userId = auth.userId {
+                    await StreakLiveActivityController.appreciationDidSend(userId: userId)
+                }
             }
         } catch {
             self.error = error.localizedDescription

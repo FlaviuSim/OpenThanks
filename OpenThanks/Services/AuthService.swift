@@ -770,6 +770,8 @@ extension AuthService {
         state = .signedOut
         Self.clearCachedProfile()
         WidgetSnapshotRefresher.clear()
+        StreakLiveActivityStore.clear()
+        Task { await StreakLiveActivityController.sync(userId: nil) }
         Analytics.reset()
         try? await supabase.auth.signOut(scope: .local)
     }

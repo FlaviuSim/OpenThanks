@@ -132,6 +132,7 @@ final class WatchConnectivityService: NSObject {
                 email: auth.currentProfile?.email,
                 phone: auth.currentProfile?.phone
             )
+            await StreakLiveActivityController.appreciationDidSend(userId: userId)
             let reply = WatchRelay.CreateReply.success(draftId: request.id, gratitudeId: created.id)
             publishCreateResult(reply)
             return reply
