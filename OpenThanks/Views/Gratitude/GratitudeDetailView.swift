@@ -22,10 +22,15 @@ struct GratitudeDetailView: View {
     @State private var shareCardImage: UIImage?
     @State private var linkStickerImage: UIImage?
     @State private var preparingShare = false
+    @State private var preparingPreview = false
     @State private var systemSharePayload: SystemSharePayload?
 
+    private var shareVoice: AppreciationShareVoice {
+        AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
+    }
+
     private var shareContent: AppreciationShareContent {
-        AppreciationShareContent(gratitude: gratitude)
+        AppreciationShareContent(gratitude: gratitude, voice: shareVoice)
     }
 
     var body: some View {
@@ -49,13 +54,16 @@ struct GratitudeDetailView: View {
         }
         .sheet(item: $systemSharePayload) { payload in
             ActivityShareView(items: payload.items)
-                .presentationDetents([.medium, .large])
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
+            systemSharePayload = nil
         }
         .task {
             await loadHearted()
             if auth.userId == gratitude.recipientId {
                 WarmHaptics.received()
             }
+            await prepareSharePreviewIfNeeded()
         }
     }
 
@@ -148,13 +156,15 @@ struct GratitudeDetailView: View {
     private var shareCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Spread the positivity")
+                Text(shareSectionTitle)
                     .font(Theme.body(16, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Share with a clear OpenThanks link people can tap.")
+                Text("A photo (or poster), the beginning of the note, and a link people can tap.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
             }
+
+            sharePreview
 
             HStack(spacing: 10) {
                 shareButton(
@@ -166,7 +176,7 @@ struct GratitudeDetailView: View {
                 }
                 shareButton(
                     title: "LinkedIn",
-                    subtitle: "Link",
+                    subtitle: "Post",
                     systemImage: "briefcase.fill"
                 ) {
                     Task { await share(.linkedIn) }
@@ -181,15 +191,17 @@ struct GratitudeDetailView: View {
             }
 
             ShareActionRow(
-                title: "Share photo & link",
+                title: "Share",
                 systemImage: "square.and.arrow.up",
-                subtitle: "Messages, Mail, Instagram, and any other app"
+                subtitle: "Photo or poster, caption, and link — Messages, Mail, and more",
+                showSpinner: preparingShare && systemSharePayload == nil
             ) {
                 Task { await presentSystemShare() }
             }
+            .disabled(preparingShare)
 
             Button {
-                UIPasteboard.general.string = shareContent.caption
+                UIPasteboard.general.string = shareContent.socialCaption
                 withAnimation { linkCopied = true }
                 flashHint("Caption & link copied")
                 Task {
@@ -199,7 +211,7 @@ struct GratitudeDetailView: View {
             } label: {
                 Label(
                     linkCopied ? "Caption copied" : "Copy caption & link",
-                    systemImage: linkCopied ? "checkmark" : "link"
+                    systemImage: linkCopied ? "checkmark" : "doc.on.doc"
                 )
                 .font(Theme.body(14, weight: .medium))
                 .foregroundStyle(linkCopied ? Theme.coral : Theme.textSecondary)
@@ -218,6 +230,47 @@ struct GratitudeDetailView: View {
         }
         .padding(18)
         .card()
+    }
+
+    private var shareSectionTitle: String {
+        switch shareVoice {
+        case .author: return "Share your appreciation"
+        case .recipient: return "Share this appreciation"
+        case .viewer: return "Share this moment"
+        }
+    }
+
+    @ViewBuilder
+    private var sharePreview: some View {
+        HStack {
+            Spacer(minLength: 0)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Theme.surfaceRaised)
+
+                if let shareCardImage {
+                    Image(uiImage: shareCardImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else if preparingPreview {
+                    ProgressView()
+                        .tint(Theme.coral)
+                } else {
+                    Image(systemName: "photo")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .frame(width: 148, height: 264)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Theme.hairline)
+            )
+            .accessibilityLabel("Share preview")
+            Spacer(minLength: 0)
+        }
     }
 
     private func shareButton(
@@ -255,21 +308,35 @@ struct GratitudeDetailView: View {
 
     // MARK: Share actions
 
-    private func prepareShareCardIfNeeded() async {
-        guard shareCardImage == nil || linkStickerImage == nil else { return }
-        preparingShare = true
-        defer { preparingShare = false }
+    /// Loads the composed visual for the live preview (and system / Stories share).
+    private func prepareSharePreviewIfNeeded() async {
+        guard shareCardImage == nil, !preparingPreview else { return }
+        preparingPreview = true
+        defer { preparingPreview = false }
         let content = shareContent
+        shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
         if shareCardImage == nil {
+            await Task.yield()
             shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
         }
+    }
+
+    /// Stories needs the sticker; LinkedIn / X only need copy.
+    private func prepareStoriesAssetsIfNeeded() async {
+        await prepareSharePreviewIfNeeded()
         if linkStickerImage == nil {
-            linkStickerImage = AppreciationShareRenderer.linkSticker(for: content)
+            linkStickerImage = AppreciationShareRenderer.linkSticker(for: shareContent)
         }
     }
 
     private func share(_ destination: SocialShare.Destination) async {
-        await prepareShareCardIfNeeded()
+        preparingShare = true
+        defer { preparingShare = false }
+
+        if destination == .instagramStories {
+            await prepareStoriesAssetsIfNeeded()
+        }
+
         let outcome = await SocialShare.share(
             destination,
             content: shareContent,
@@ -283,6 +350,8 @@ struct GratitudeDetailView: View {
         }
         Analytics.capture("appreciation_shared", [
             "channel": destination.rawValue,
+            "voice": shareVoice.rawValue,
+            "has_photo": shareContent.sharePhotoURL != nil,
             "has_card": shareCardImage != nil,
         ])
     }
@@ -290,33 +359,19 @@ struct GratitudeDetailView: View {
     private func presentSystemShare() async {
         preparingShare = true
         defer { preparingShare = false }
+        await prepareSharePreviewIfNeeded()
         let content = shareContent
-        var postPhoto: UIImage?
-        if let url = content.sharePhotoURL {
-            postPhoto = await RemoteImageCache.load(url, maxPixelSize: 1_600)
-        }
-        if postPhoto == nil {
-            if shareCardImage == nil {
-                shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
-            }
-            // ImageRenderer can return nil on a cold first pass — yield and retry once.
-            if shareCardImage == nil {
-                await Task.yield()
-                shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
-            }
-        }
         let items = SocialShare.systemShareItems(
             content: content,
-            postPhoto: postPhoto,
             cardImage: shareCardImage
         )
         // Present via Identifiable payload so the sheet is created with items already set.
-        // Splitting `items` + `isPresented` races and yields a blank UIActivityViewController.
         systemSharePayload = SystemSharePayload(items: items)
         Analytics.capture("appreciation_shared", [
             "channel": "system_sheet",
-            "has_photo": postPhoto != nil,
-            "has_card": postPhoto == nil && shareCardImage != nil,
+            "voice": shareVoice.rawValue,
+            "has_photo": content.sharePhotoURL != nil,
+            "has_card": shareCardImage != nil,
         ])
     }
 

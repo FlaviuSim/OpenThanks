@@ -174,6 +174,15 @@ struct NotificationsView: View {
                         rowContent(note, linksToPost: true)
                     }
                     .buttonStyle(.plain)
+                } else if note.type == "email_bounced" {
+                    // Author needs to fix/share the claim link — open Pending, not the post.
+                    NavigationLink(value: PendingAppreciationsRoute(highlightId: note.gratitudeId)) {
+                        rowContent(note, linksToPost: true)
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        Task { await markRead(note) }
+                    })
                 } else if let gratitudeId = note.gratitudeId {
                     if usesSplitDetail {
                         Button {
@@ -241,7 +250,8 @@ struct NotificationsView: View {
         if let name = note.fromUser?.displayName { return name }
         if note.type == "gratitude_friday"
             || note.type == "pay_it_forward_reminder"
-            || note.type == "competition_winner" {
+            || note.type == "competition_winner"
+            || note.type == "email_bounced" {
             return "OpenThanks"
         }
         return "Someone"

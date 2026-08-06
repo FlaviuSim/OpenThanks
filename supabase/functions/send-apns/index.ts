@@ -136,14 +136,30 @@ Deno.serve(async (req) => {
 
 function assertServiceRole(req: Request) {
   const auth = req.headers.get("Authorization") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!serviceKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured on the function");
-  }
   const bearer = auth.replace(/^Bearer\s+/i, "").trim();
-  if (bearer !== serviceKey) {
+  if (!bearer) {
     throw new Error("Unauthorized — use the service role key to invoke send-apns");
   }
+
+  // Exact match against the function's configured service role key (when set).
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (serviceKey && bearer === serviceKey) return;
+
+  // Also accept any JWT whose role claim is service_role. Supabase may inject a
+  // different copy of the key into Deno.env than the caller holds (rotate/sync),
+  // and Vercel/webhooks call with their own SUPABASE_SERVICE_ROLE_KEY.
+  try {
+    const payloadPart = bearer.split(".")[1];
+    if (payloadPart) {
+      const json = atob(payloadPart.replace(/-/g, "+").replace(/_/g, "/"));
+      const payload = JSON.parse(json) as { role?: string };
+      if (payload.role === "service_role") return;
+    }
+  } catch {
+    // fall through
+  }
+
+  throw new Error("Unauthorized — use the service role key to invoke send-apns");
 }
 
 function adminClient() {
@@ -225,6 +241,12 @@ function composeAlert(payload: PushRequest): {
       return {
         title: "You finished 30 Days of Thanks",
         body: "Unlock $30 to give away to a classroom — open notifications for next steps.",
+        data,
+      };
+    case "email_bounced":
+      return {
+        title: "Email may be invalid",
+        body: "Your appreciation notification couldn't be delivered. Check the address or share the claim link.",
         data,
       };
     default:

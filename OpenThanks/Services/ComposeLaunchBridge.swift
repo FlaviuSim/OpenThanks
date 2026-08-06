@@ -4,6 +4,8 @@ import Observation
 extension Notification.Name {
     static let composeLaunchQueued = Notification.Name("openthanks.composeLaunchQueued")
     static let focusReceivedThanks = Notification.Name("openthanks.focusReceivedThanks")
+    /// Tear down share / nudge sheets before opening compose from a notification.
+    static let dismissTransientSheets = Notification.Name("openthanks.dismissTransientSheets")
 }
 
 /// Queues a compose sheet from Siri / App Intents / widgets / Share Extension.

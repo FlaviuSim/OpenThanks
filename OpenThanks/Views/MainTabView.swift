@@ -251,6 +251,7 @@ struct MainTabView: View {
 
             if !homeSearchActive {
                 tabBar
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(10)
             }
@@ -288,8 +289,23 @@ struct MainTabView: View {
             ComposeShareHandoff.applyPendingShare()
         }
         guard let request = ComposeLaunchBridge.shared.consume() else { return }
+        presentCompose(.launch(request))
+    }
+
+    /// Clears overlapping sheets/keyboard, then presents compose so it isn’t
+    /// trapped at a half-height detent (e.g. share sheet still open when a
+    /// streak notification opens compose).
+    private func presentCompose(_ sheet: ComposeSheet) {
         showProfileSettings = false
-        composeSheet = .launch(request)
+        homeSearchActive = false
+        resignKeyboard()
+        NotificationCenter.default.post(name: .dismissTransientSheets, object: nil)
+
+        Task { @MainActor in
+            // Let share sheets / keyboard inset finish tearing down.
+            try? await Task.sleep(for: .milliseconds(350))
+            composeSheet = sheet
+        }
     }
 
     private func presentPendingTabIfNeeded() {
@@ -313,9 +329,7 @@ struct MainTabView: View {
                 .frame(maxWidth: .infinity)
 
             Button {
-                resignKeyboard()
-                homeSearchActive = false
-                composeSheet = .blank
+                presentCompose(.blank)
             } label: {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 22, weight: .bold))

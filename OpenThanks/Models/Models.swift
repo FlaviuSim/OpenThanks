@@ -74,6 +74,9 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var recipientName: String?
     var slug: String?
     var claimToken: UUID?
+    /// Claim notification delivery: sent | delivered | bounced | failed
+    var recipientEmailStatus: String?
+    var recipientEmailError: String?
 
     // Embedded relations (PostgREST resource embedding)
     var author: Profile?
@@ -94,7 +97,14 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case recipientPhone = "recipient_phone"
         case recipientName = "recipient_name"
         case claimToken = "claim_token"
+        case recipientEmailStatus = "recipient_email_status"
+        case recipientEmailError = "recipient_email_error"
         case author, recipient, hearts
+    }
+
+    var emailDeliveryFailed: Bool {
+        let status = recipientEmailStatus?.lowercased()
+        return status == "bounced" || status == "failed"
     }
 
     /// Prefer acceptance date for listing/display; fall back to sent date.
@@ -231,6 +241,8 @@ struct AppNotification: Codable, Identifiable, Hashable {
             return "replied to your appreciation"
         case "competition_winner":
             return "You finished the challenge — unlock $30 to give away to a classroom."
+        case "email_bounced":
+            return "Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
         default:
             return type.replacingOccurrences(of: "_", with: " ")
         }

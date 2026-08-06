@@ -4,7 +4,10 @@ import SwiftUI
 struct GratitudeIdRoute: Hashable, Identifiable { let id: UUID }
 
 /// Pending list pushed from Home / Notifications banners.
-struct PendingAppreciationsRoute: Hashable {}
+/// `highlightId` opens that item's share sheet (e.g. bounce / resend deep links).
+struct PendingAppreciationsRoute: Hashable {
+    var highlightId: UUID? = nil
+}
 
 /// Opens a profile on the host tab’s NavigationPath (e.g. after dismissing a sheet).
 private struct OpenProfileKey: EnvironmentKey {
@@ -26,8 +29,8 @@ extension View {
             .navigationDestination(for: Profile.self) { UserProfileView(profile: $0) }
             .navigationDestination(for: Gratitude.self) { GratitudeDetailView(gratitude: $0) }
             .navigationDestination(for: GratitudeIdRoute.self) { GratitudeLoaderView(gratitudeId: $0.id) }
-            .navigationDestination(for: PendingAppreciationsRoute.self) { _ in
-                PendingAppreciationsView()
+            .navigationDestination(for: PendingAppreciationsRoute.self) { route in
+                PendingAppreciationsView(highlightId: route.highlightId)
             }
     }
 }

@@ -13,6 +13,7 @@ struct OpenThanksApp: App {
             RootView()
                 .onAppear {
                     appDelegate.auth = auth
+                    appDelegate.deepLinks = deepLinks
                     WatchConnectivityService.shared.activate(auth: auth)
                 }
                 .onChange(of: auth.userId) { _, _ in
@@ -62,6 +63,7 @@ struct OpenThanksApp: App {
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     weak var auth: AuthService?
+    weak var deepLinks: DeepLinkRouter?
 
     func application(
         _ application: UIApplication,
@@ -155,6 +157,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             await StreakLiveActivityController.handleWakeNotification(userId: auth?.userId)
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(analyticsSource: "streak_live_activity_wake")
+            }
+        case "email_bounced":
+            let gratitudeId = (info["gratitude_id"] as? String).flatMap(UUID.init)
+            await MainActor.run {
+                deepLinks?.destination = .pendingSent(resendId: gratitudeId)
             }
         default:
             break

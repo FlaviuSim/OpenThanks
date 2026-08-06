@@ -117,6 +117,9 @@ struct FeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: .focusReceivedThanks)) { _ in
                 scrollToPendingToken += 1
             }
+            .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
+                payItForwardFromName = nil
+            }
             .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
                 guard let gratitude = note.object as? Gratitude else { return }
                 applyAcceptedPending(gratitude)

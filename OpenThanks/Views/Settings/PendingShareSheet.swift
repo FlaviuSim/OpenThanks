@@ -75,6 +75,39 @@ struct PendingShareSheet: View {
                 .padding(.horizontal, 28)
                 .padding(.bottom, 24)
 
+                if gratitude.emailDeliveryFailed {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(Theme.coral)
+                            .font(.system(size: 16, weight: .semibold))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(
+                                gratitude.recipientEmailStatus == "bounced"
+                                    ? "Email bounced — address may be invalid"
+                                    : "Notification email wasn't delivered"
+                            )
+                            .font(Theme.body(14, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            Text(
+                                "We couldn't deliver to \(gratitude.recipientEmail ?? "that address"). Share the claim link another way, or edit the email and try again."
+                            )
+                            .font(Theme.body(13))
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.coral.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Theme.coral.opacity(0.3), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+                }
+
                 VStack(spacing: 20) {
                     Button {
                         UIPasteboard.general.string = shareURL.absoluteString

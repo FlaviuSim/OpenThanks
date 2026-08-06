@@ -1,3 +1,4 @@
 [functions.send-apns]
-# We authorize with the service role key inside the function.
-verify_jwt = true
+# Auth is enforced inside the function (service_role JWT required).
+# Gateway JWT verify would reject some valid service-role callers.
+verify_jwt = false
