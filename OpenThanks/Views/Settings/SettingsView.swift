@@ -126,7 +126,7 @@ struct SettingsView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Logging In")
-                            Text("Email, Google, and phone for this account")
+                            Text("Email, Google, phone, and passkeys")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
                         }

@@ -35,11 +35,13 @@ struct ProfileView: View {
 }
 
 /// Any user's profile: header, nonprofit spotlight, stats, and
-/// Sent / Received / Inspired — accepted posts only, private posts shown
-/// only to the people involved in them.
+/// Appreciations received / given / People inspired — accepted posts only,
+/// private posts shown only to the people involved in them.
 struct UserProfileView: View {
     enum Section: String, CaseIterable {
-        case received = "Received", sent = "Sent", inspired = "Inspired"
+        case received = "Appreciations received"
+        case sent = "Appreciations given"
+        case inspired = "People inspired"
     }
 
     let profile: Profile
@@ -302,7 +304,7 @@ struct UserProfileView: View {
     }
 
     private var divider: some View {
-        Rectangle().fill(Theme.hairline).frame(width: 1, height: 44)
+        Rectangle().fill(Theme.hairline).frame(width: 1, height: 56)
     }
 
     private func sectionTab(_ s: Section) -> some View {
@@ -316,8 +318,11 @@ struct UserProfileView: View {
                     .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
                     .contentTransition(.numericText())
                 Text(s.rawValue)
-                    .font(Theme.body(12, weight: selected ? .semibold : .regular))
+                    .font(Theme.body(11, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? Theme.coralLight : Theme.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)

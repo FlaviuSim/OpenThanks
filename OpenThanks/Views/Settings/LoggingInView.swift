@@ -1,11 +1,12 @@
 import SwiftUI
-import Supabase
+@_spi(Experimental) import Supabase
 
-/// Sign-in methods for the current account: email, Google, phone.
+/// Sign-in methods for the current account: email, Google, phone, passkeys.
 struct LoggingInView: View {
     @Environment(AuthService.self) private var auth
 
     @State private var identities: [UserIdentity] = []
+    @State private var passkeys: [PasskeyListItem] = []
     @State private var verifiedPhone: String?
     @State private var primaryEmail: String?
     @State private var loading = true
@@ -59,6 +60,7 @@ struct LoggingInView: View {
             emailsSection
             googleSection
             phoneSection
+            passkeysSection
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
@@ -227,6 +229,69 @@ struct LoggingInView: View {
         .listRowBackground(Theme.surface)
     }
 
+    // MARK: - Passkeys
+
+    private var passkeysSection: some View {
+        Section {
+            if passkeys.isEmpty {
+                Text("No passkeys yet. Add one to sign in with Face ID or Touch ID on this and other devices.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+            } else {
+                ForEach(passkeys) { passkey in
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.badge.key.fill")
+                            .foregroundStyle(Theme.coral)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(passkey.friendlyName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                                ?? "Passkey")
+                                .font(Theme.body(15, weight: .semibold))
+                            Text(passkeySubtitle(passkey))
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        Spacer()
+                        Button(role: .destructive) {
+                            Task { await removePasskey(passkey) }
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .disabled(busy)
+                    }
+                }
+            }
+
+            Button {
+                Task { await addPasskey() }
+            } label: {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundStyle(Theme.coral)
+                    Text(busy ? "Waiting…" : "Add a passkey")
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                    Spacer()
+                }
+            }
+            .disabled(busy)
+        } header: {
+            Text("Passkeys")
+        } footer: {
+            Text("Passkeys sync via iCloud Keychain or your password manager so you can sign in on web and iPhone without a code.")
+        }
+        .listRowBackground(Theme.surface)
+    }
+
+    private func passkeySubtitle(_ passkey: PasskeyListItem) -> String {
+        let created = passkey.createdAt.formatted(date: .abbreviated, time: .omitted)
+        if let last = passkey.lastUsedAt {
+            let lastText = last.formatted(date: .abbreviated, time: .omitted)
+            return "Added \(created) · Last used \(lastText)"
+        }
+        return "Added \(created)"
+    }
+
     // MARK: - Rows
 
     private func identityRow(
@@ -255,6 +320,33 @@ struct LoggingInView: View {
         verifiedPhone = await auth.currentConfirmedPhone()
         if !phoneCodeSent {
             phoneInput = verifiedPhone ?? ""
+        }
+        passkeys = await auth.listPasskeys()
+    }
+
+    private func addPasskey() async {
+        clearBanners()
+        busy = true
+        let ok = await auth.registerPasskey()
+        busy = false
+        if ok {
+            successMessage = "Passkey added. You can use Face ID or Touch ID to sign in."
+            await reload()
+        } else if let message = auth.errorMessage {
+            errorMessage = message
+        }
+    }
+
+    private func removePasskey(_ passkey: PasskeyListItem) async {
+        clearBanners()
+        busy = true
+        let ok = await auth.deletePasskey(id: passkey.id)
+        busy = false
+        if ok {
+            passkeys.removeAll { $0.id == passkey.id }
+            successMessage = "Passkey removed."
+        } else {
+            errorMessage = auth.errorMessage ?? "Couldn't remove passkey."
         }
     }
 
@@ -395,5 +487,12 @@ private struct IdentityRow: View {
                     .foregroundStyle(Theme.coral)
             }
         }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

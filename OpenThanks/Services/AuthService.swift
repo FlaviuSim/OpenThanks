@@ -1,7 +1,7 @@
 import AuthenticationServices
 import Foundation
 import Observation
-import Supabase
+@_spi(Experimental) import Supabase
 import UIKit
 
 let supabase = SupabaseClient(
@@ -257,6 +257,105 @@ final class AuthService {
     }
 
     // MARK: Sign-in methods
+
+    /// Passkey (WebAuthn) sign-in — Face ID / Touch ID / device unlock.
+    /// Requires Passkeys enabled in Supabase (RP ID `openthanks.com`) and
+    /// `webcredentials:openthanks.com` Associated Domains.
+    @discardableResult
+    @MainActor
+    func signInWithPasskey(presentationAnchor: ASPresentationAnchor? = nil) async -> Bool {
+        errorMessage = nil
+        guard #available(iOS 16.0, *) else {
+            errorMessage = "Passkeys need iOS 16 or later."
+            return false
+        }
+        do {
+            let anchor = presentationAnchor ?? Self.keyPresentationAnchor()
+            _ = try await supabase.auth.signInWithPasskey(presentationAnchor: anchor)
+            Analytics.capture("auth_signed_in", ["method": "passkey"])
+            return true
+        } catch {
+            if Self.isPasskeyCancellation(error) { return false }
+            errorMessage = Self.passkeyErrorMessage(error)
+            return false
+        }
+    }
+
+    /// Register a passkey for the signed-in user.
+    @MainActor
+    func registerPasskey(presentationAnchor: ASPresentationAnchor? = nil) async -> Bool {
+        errorMessage = nil
+        guard #available(iOS 16.0, *) else {
+            errorMessage = "Passkeys need iOS 16 or later."
+            return false
+        }
+        do {
+            let anchor = presentationAnchor ?? Self.keyPresentationAnchor()
+            let passkey = try await supabase.auth.registerPasskey(presentationAnchor: anchor)
+            // High-level register API has no friendlyName; label with this device.
+            let deviceName = UIDevice.current.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !deviceName.isEmpty {
+                _ = try? await supabase.auth.renamePasskey(id: passkey.id, friendlyName: deviceName)
+            }
+            Analytics.capture("passkey_registered", [:])
+            return true
+        } catch {
+            if Self.isPasskeyCancellation(error) { return false }
+            errorMessage = Self.passkeyErrorMessage(error)
+            return false
+        }
+    }
+
+    /// List passkeys for the current user.
+    /// Does not set ``errorMessage`` — callers show empty state when unavailable.
+    func listPasskeys() async -> [PasskeyListItem] {
+        do {
+            return try await supabase.auth.listPasskeys()
+        } catch {
+            return []
+        }
+    }
+
+    /// Delete a registered passkey.
+    func deletePasskey(id: String) async -> Bool {
+        errorMessage = nil
+        do {
+            try await supabase.auth.deletePasskey(id: id)
+            return true
+        } catch {
+            errorMessage = Self.passkeyErrorMessage(error)
+            return false
+        }
+    }
+
+    @MainActor
+    private static func keyPresentationAnchor() -> ASPresentationAnchor {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        if let key = windows.first(where: \.isKeyWindow) { return key }
+        if let any = windows.first { return any }
+        return UIWindow()
+    }
+
+    private static func isPasskeyCancellation(_ error: Error) -> Bool {
+        let ns = error as NSError
+        if ns.domain == ASAuthorizationError.errorDomain,
+           ns.code == ASAuthorizationError.canceled.rawValue {
+            return true
+        }
+        let text = error.localizedDescription.lowercased()
+        return text.contains("cancel") || text.contains("not allowed") || text.contains("abort")
+    }
+
+    private static func passkeyErrorMessage(_ error: Error) -> String {
+        let text = error.localizedDescription
+        if text.localizedCaseInsensitiveContains("disabled")
+            || text.localizedCaseInsensitiveContains("passkey_disabled") {
+            return "Passkeys aren’t enabled yet. Use email or Apple to sign in, then add a passkey in Settings → Logging In."
+        }
+        return text
+    }
 
     /// Google OAuth via ASWebAuthenticationSession.
     @discardableResult

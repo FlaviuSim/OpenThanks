@@ -3,7 +3,7 @@ import SwiftUI
 
 struct WelcomeView: View {
     private enum OAuthBusy: Equatable {
-        case google, linkedin, apple
+        case google, linkedin, apple, passkey
     }
 
     @Environment(AuthService.self) private var auth
@@ -58,6 +58,15 @@ struct WelcomeView: View {
                     label: oauthBusy == .linkedin ? "Opening LinkedIn…" : "Continue with LinkedIn"
                 ) {
                     Task { await signInWithOAuth(.linkedin) }
+                }
+                .disabled(oauthBusy != nil)
+                .opacity(oauthBusy != nil ? 0.7 : 1)
+
+                authButton(
+                    icon: "person.badge.key.fill",
+                    label: oauthBusy == .passkey ? "Waiting for passkey…" : "Continue with Passkey"
+                ) {
+                    Task { await signInWithPasskey() }
                 }
                 .disabled(oauthBusy != nil)
                 .opacity(oauthBusy != nil ? 0.7 : 1)
@@ -135,9 +144,16 @@ struct WelcomeView: View {
             _ = await auth.signInWithGoogle()
         case .linkedin:
             _ = await auth.signInWithLinkedIn()
-        case .apple:
+        case .apple, .passkey:
             break
         }
+    }
+
+    private func signInWithPasskey() async {
+        guard oauthBusy == nil else { return }
+        oauthBusy = .passkey
+        defer { oauthBusy = nil }
+        _ = await auth.signInWithPasskey()
     }
 
     private func handleAppleResult(_ result: Result<ASAuthorization, Error>) {

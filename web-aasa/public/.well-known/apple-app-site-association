@@ -8,16 +8,18 @@
           { "/": "/claim/*" },
           { "/": "/for/*" },
           { "/": "/gratitude/*" },
+          { "/": "/pending", "comment": "Author reminder View & Resend" },
+          { "/": "/pending/*" },
+          { "/": "/sent", "comment": "Legacy author reminder links" },
+          { "/": "/sent/*" },
+          { "/": "/notifications", "comment": "Sunday hearts digest + in-app notifications" },
+          { "/": "/notifications/*" },
           { "/": "/privacy", "exclude": true },
           { "/": "/terms", "exclude": true },
           { "/": "/auth/*", "exclude": true },
           { "/": "/api/*", "exclude": true },
           { "/": "/feed", "exclude": true },
           { "/": "/feed/*", "exclude": true },
-          { "/": "/pending", "exclude": true },
-          { "/": "/pending/*", "exclude": true },
-          { "/": "/notifications", "exclude": true },
-          { "/": "/notifications/*", "exclude": true },
           { "/": "/donate", "exclude": true },
           { "/": "/donate/*", "exclude": true },
           { "/": "/profile", "exclude": true },
@@ -30,5 +32,8 @@
         ]
       }
     ]
+  },
+  "webcredentials": {
+    "apps": ["53CL59ATX8.com.openthanks.app"]
   }
 }

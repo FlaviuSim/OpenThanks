@@ -132,6 +132,8 @@ targets:
         com.apple.developer.associated-domains:
           - applinks:openthanks.com
           - applinks:www.openthanks.com
+          - webcredentials:openthanks.com
+          - webcredentials:www.openthanks.com
         com.apple.security.application-groups:
           - group.com.openthanks.app
         com.apple.developer.applesignin:
