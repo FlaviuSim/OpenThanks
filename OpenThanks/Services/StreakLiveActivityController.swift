@@ -2,17 +2,18 @@ import ActivityKit
 import Foundation
 
 /// Starts a Lock Screen Live Activity on the grace day after a send, keeps it
-/// running until the person posts again or Apple’s 8-hour active limit
-/// (whichever comes first). Streak midnight is still the countdown target.
+/// running until the person posts again (ended immediately) or Apple’s 8-hour
+/// active limit (whichever comes first). Streak midnight is still the countdown.
 @MainActor
 enum StreakLiveActivityController {
     /// Apple’s maximum active Live Activity duration.
     private static let maxActiveDuration: TimeInterval = 8 * 60 * 60
 
-    /// After a successful appreciation: end today’s reminder (if any) and
+    /// After a successful appreciation: remove today’s reminder immediately and
     /// schedule tomorrow’s Live Activity + morning wake notification.
     static func appreciationDidSend(userId: UUID) async {
-        await endAll(dismissal: .default, markedPosted: true)
+        // Dismiss right away — `.default` can leave the Lock Screen tile up for hours.
+        await endAll(dismissal: .immediate, markedPosted: true)
 
         let dates = await fetchSendDates(userId: userId)
         let keep = StreakMath.keepStatus(dates: dates)
@@ -20,6 +21,8 @@ enum StreakLiveActivityController {
         let today = calendar.startOfDay(for: Date())
         guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return }
 
+        // Trust this send: never restart today’s activity (fetch can lag and look
+        // like they still need to post).
         let streakHint = max(keep.streak, 1)
         StreakLiveActivityStore.save(
             StreakLiveActivitySchedule(
@@ -29,11 +32,6 @@ enum StreakLiveActivityController {
             )
         )
         await NotificationService.scheduleStreakLiveActivityWake(on: tomorrow)
-
-        // If somehow still at risk today (shouldn't happen right after a send), show now.
-        if keep.needsPostToday {
-            await ensureStarted(streak: keep.streak, deadline: keep.deadline, reminderDay: today)
-        }
     }
 
     /// Reconcile running Live Activities with streak math. Call on launch,
@@ -58,6 +56,12 @@ enum StreakLiveActivityController {
         let schedule = StreakLiveActivityStore.load()
 
         if keep.needsPostToday {
+            // After a send we arm tomorrow. If fetch still looks “at risk” (lag),
+            // don’t bring today’s Live Activity back.
+            if let schedule, calendar.startOfDay(for: schedule.activateDay) > today {
+                await endAll(dismissal: .immediate)
+                return
+            }
             await ensureStarted(
                 streak: keep.streak,
                 deadline: keep.deadline,
@@ -74,9 +78,9 @@ enum StreakLiveActivityController {
             return
         }
 
-        // Posted today — streak safe; tear down today’s activity and arm tomorrow.
+        // Posted today — streak safe; tear down today’s activity immediately and arm tomorrow.
         if keep.isSafeToday {
-            await endAll(dismissal: .default, markedPosted: true)
+            await endAll(dismissal: .immediate, markedPosted: true)
             if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) {
                 StreakLiveActivityStore.save(
                     StreakLiveActivitySchedule(
