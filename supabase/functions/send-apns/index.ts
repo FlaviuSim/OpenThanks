@@ -221,32 +221,44 @@ function composeAlert(payload: PushRequest): {
   switch (payload.type) {
     case "gratitude_pending":
       return {
-        title: "Someone appreciated you",
+        title: "🙏 Someone appreciated you",
         body: "Open OpenThanks to accept it.",
         data,
       };
     case "gratitude_received":
       return {
-        title: "Your appreciation was accepted",
+        title: "✅ Your appreciation was accepted",
         body: "They saw your note — take a look.",
         data,
       };
     case "heart_received":
       return {
-        title: "Someone hearted your appreciation",
+        title: "❤️ Someone hearted your appreciation",
         body: "A little more kindness came your way.",
         data,
       };
     case "competition_winner":
       return {
-        title: "You finished 30 Days of Thanks",
+        title: "🏆 You finished 30 Days of Thanks",
         body: "Unlock $30 to give away to a classroom — open notifications for next steps.",
         data,
       };
     case "email_bounced":
       return {
-        title: "Email may be invalid",
+        title: "⚠️ Email may be invalid",
         body: "Your appreciation notification couldn't be delivered. Check the address or share the claim link.",
+        data,
+      };
+    case "pay_it_forward_reminder":
+      return {
+        title: "🫶 Ready to pay it forward?",
+        body: "Someone appreciated you — thank someone else to keep it going.",
+        data,
+      };
+    case "gratitude_friday":
+      return {
+        title: "✨ Gratitude Friday",
+        body: "Share an appreciation for someone who made your week better.",
         data,
       };
     default:

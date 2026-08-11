@@ -234,22 +234,22 @@ struct AppNotification: Codable, Identifiable, Hashable {
     var verb: String {
         switch type {
         case "gratitude_pending":
-            return "shared appreciation for you"
+            return "🙏 shared appreciation for you"
         case "gratitude_received":
-            return "accepted your appreciation"
+            return "✅ accepted your appreciation"
         case "heart_received", "heart", "reaction":
-            return "hearted your appreciation"
+            return "❤️ hearted your appreciation"
         case "gratitude_friday":
             let date = createdAt ?? Date()
-            return FridayPrompts.prompt(for: date).headline
+            return "✨ \(FridayPrompts.prompt(for: date).headline)"
         case "pay_it_forward_reminder":
-            return "Ready to pay it forward?"
+            return "🫶 Ready to pay it forward?"
         case "reply":
-            return "replied to your appreciation"
+            return "💬 replied to your appreciation"
         case "competition_winner":
-            return "You finished the challenge — unlock $30 to give away to a classroom."
+            return "🏆 You finished the challenge — unlock $30 to give away to a classroom."
         case "email_bounced":
-            return "Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
+            return "⚠️ Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
         default:
             return type.replacingOccurrences(of: "_", with: " ")
         }
@@ -260,7 +260,9 @@ struct AppNotification: Codable, Identifiable, Hashable {
         if type == "competition_winner" {
             let body = CompetitionConfigService.cached.winnerNotifyBody
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !body.isEmpty { return body }
+            if !body.isEmpty {
+                return body.hasPrefix("🏆") ? body : "🏆 \(body)"
+            }
         }
         return verb
     }
