@@ -26,7 +26,6 @@ struct AppreciationShareContent {
     let message: String
     let mediaURL: URL?
     let mediaType: String?
-    let cardStyle: AppreciationCardStyle?
     let voice: AppreciationShareVoice
 
     init(gratitude: Gratitude, voice: AppreciationShareVoice = .viewer) {
@@ -36,7 +35,6 @@ struct AppreciationShareContent {
         message = gratitude.message.trimmingCharacters(in: .whitespacesAndNewlines)
         mediaURL = gratitude.mediaURL
         mediaType = gratitude.mediaType
-        cardStyle = gratitude.cardStyle
         self.voice = voice
     }
 
@@ -321,26 +319,6 @@ struct AppreciationShareLinkStickerView: View {
 enum AppreciationShareRenderer {
     @MainActor
     static func storyImage(for content: AppreciationShareContent, photo: UIImage? = nil) -> UIImage? {
-        if let style = content.cardStyle {
-            let export = CGSize(width: 1080, height: 1920)
-            let view = AppreciationCardView(
-                message: content.message,
-                style: style,
-                mediaURL: photo == nil ? content.mediaURL : nil,
-                mediaImage: photo,
-                mediaType: content.mediaType,
-                authorName: content.authorName,
-                recipientName: content.recipientName,
-                exportSize: export
-            )
-            .frame(width: export.width, height: export.height)
-            let renderer = ImageRenderer(content: view)
-            renderer.scale = 1
-            renderer.proposedSize = ProposedViewSize(width: export.width, height: export.height)
-            if let image = renderer.uiImage { return image }
-            return renderer.uiImage
-        }
-
         let view = AppreciationShareCardView(content: content, photo: photo)
         let renderer = ImageRenderer(content: view)
         renderer.scale = 1
@@ -356,10 +334,6 @@ enum AppreciationShareRenderer {
         var photo: UIImage?
         if let url = content.sharePhotoURL {
             photo = await RemoteImageCache.load(url, maxPixelSize: 1_400)
-        } else if content.cardStyle != nil,
-                  let url = content.mediaURL,
-                  content.mediaType?.lowercased().hasPrefix("video") == true {
-            photo = await VideoProcessing.thumbnail(from: url)
         }
         if let image = storyImage(for: content, photo: photo) { return image }
         await Task.yield()

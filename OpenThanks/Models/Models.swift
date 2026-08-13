@@ -65,7 +65,6 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var message: String
     var mediaUrl: String?
     var mediaType: String?
-    var cardStyle: AppreciationCardStyle?
     let createdAt: Date?
     let acceptedAt: Date?
     var status: GratitudeStatus?
@@ -91,7 +90,6 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case message
         case mediaUrl = "media_url"
         case mediaType = "media_type"
-        case cardStyle = "card_style"
         case createdAt = "created_at"
         case acceptedAt = "accepted_at"
         case status, visibility, slug
@@ -157,7 +155,6 @@ struct NewGratitude: Encodable {
     let visibility: String
     let mediaUrl: String?
     let mediaType: String?
-    var cardStyle: AppreciationCardStyle? = nil
     let source: String
 
     enum CodingKeys: String, CodingKey {
@@ -170,7 +167,6 @@ struct NewGratitude: Encodable {
         case visibility
         case mediaUrl = "media_url"
         case mediaType = "media_type"
-        case cardStyle = "card_style"
         case source
     }
 }
@@ -184,7 +180,6 @@ struct GratitudeUpdate: Encodable {
     var visibility: String
     var mediaUrl: String?
     var mediaType: String?
-    var cardStyle: AppreciationCardStyle?
 
     enum CodingKeys: String, CodingKey {
         case message
@@ -194,7 +189,6 @@ struct GratitudeUpdate: Encodable {
         case visibility
         case mediaUrl = "media_url"
         case mediaType = "media_type"
-        case cardStyle = "card_style"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -206,7 +200,6 @@ struct GratitudeUpdate: Encodable {
         try c.encode(visibility, forKey: .visibility)
         try c.encode(mediaUrl, forKey: .mediaUrl)
         try c.encode(mediaType, forKey: .mediaType)
-        try c.encodeIfPresent(cardStyle, forKey: .cardStyle)
     }
 }
 

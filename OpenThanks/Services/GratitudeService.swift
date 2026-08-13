@@ -355,7 +355,6 @@ enum GratitudeService {
             let message: String
             let media_url: String?
             let media_type: String?
-            let card_style: AppreciationCardStyle?
             let visibility: String
             let source: String
         }
@@ -394,7 +393,6 @@ enum GratitudeService {
                 message: payload.message,
                 media_url: payload.mediaUrl,
                 media_type: payload.mediaType,
-                card_style: payload.cardStyle,
                 visibility: payload.visibility,
                 source: payload.source
             )

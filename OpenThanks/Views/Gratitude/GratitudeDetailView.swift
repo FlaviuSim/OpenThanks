@@ -101,36 +101,23 @@ struct GratitudeDetailView: View {
                 }
             }
 
-            if let style = gratitude.cardStyle {
-                AppreciationCardView(
-                    message: gratitude.message,
-                    style: style,
-                    mediaURL: gratitude.mediaURL,
-                    mediaType: gratitude.mediaType,
-                    authorName: gratitude.author?.displayName,
-                    recipientName: gratitude.recipientDisplayName
-                )
-                .frame(maxWidth: .infinity)
-                .frame(maxHeight: 520)
-            } else {
-                LinkifiedText(
-                    text: gratitude.message,
-                    font: Theme.display(19, weight: .regular),
-                    foreground: Theme.textPrimary
-                )
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
+            LinkifiedText(
+                text: gratitude.message,
+                font: Theme.display(19, weight: .regular),
+                foreground: Theme.textPrimary
+            )
+            .lineSpacing(4)
+            .fixedSize(horizontal: false, vertical: true)
 
-                if let url = gratitude.mediaURL {
-                    let isVideo = gratitude.mediaType?.lowercased().hasPrefix("video") == true
-                    if isVideo {
-                        FlexiblePostMedia(url: url, mediaType: gratitude.mediaType, maxHeight: 520)
-                    } else {
-                        Button { fullScreenImageURL = url } label: {
-                            FlexiblePostImage(url: url, maxHeight: 520)
-                        }
-                        .buttonStyle(.plain)
+            if let url = gratitude.mediaURL {
+                let isVideo = gratitude.mediaType?.lowercased().hasPrefix("video") == true
+                if isVideo {
+                    FlexiblePostMedia(url: url, mediaType: gratitude.mediaType, maxHeight: 520)
+                } else {
+                    Button { fullScreenImageURL = url } label: {
+                        FlexiblePostImage(url: url, maxHeight: 520)
                     }
+                    .buttonStyle(.plain)
                 }
             }
 

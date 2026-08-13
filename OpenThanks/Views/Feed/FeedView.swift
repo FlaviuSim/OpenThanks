@@ -555,29 +555,17 @@ struct GratitudeCard: View {
             }
 
             openControl {
-                Group {
-                    if let style = gratitude.cardStyle {
-                        AppreciationCardView(
-                            message: gratitude.message,
-                            style: style,
-                            mediaURL: gratitude.mediaURL,
-                            mediaType: gratitude.mediaType
-                        )
-                        .frame(maxWidth: .infinity)
-                    } else {
-                        LinkifiedText(
-                            text: gratitude.message,
-                            font: Theme.body(15),
-                            foreground: Theme.textPrimary.opacity(0.92)
-                        )
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
+                LinkifiedText(
+                    text: gratitude.message,
+                    font: Theme.body(15),
+                    foreground: Theme.textPrimary.opacity(0.92)
+                )
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            if gratitude.cardStyle == nil, let url = gratitude.mediaURL {
+            if let url = gratitude.mediaURL {
                 let isVideo = gratitude.mediaType?.lowercased().hasPrefix("video") == true
                 if isVideo {
                     FlexiblePostMedia(url: url, mediaType: gratitude.mediaType, maxHeight: 420)

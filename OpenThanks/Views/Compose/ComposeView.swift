@@ -47,8 +47,6 @@ struct ComposeView: View {
     @State private var activeEditing: Gratitude?
     @State private var polishing: AppreciationAI.Style?
     @State private var messageBeforeAI: String?
-    @State private var cardStyle = AppreciationCardStyle.default
-    @State private var suggestingCard = false
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
     @State private var didCompleteSend = false
@@ -141,8 +139,6 @@ struct ComposeView: View {
                     recipientSection
 
                     messageSection
-
-                    cardStyleSection
 
                     photoSection
 
@@ -544,172 +540,6 @@ struct ComposeView: View {
         }
     }
 
-    private var cardStyleSection: some View {
-        field(label: "Card look", hint: "Stories-style") {
-            VStack(alignment: .leading, spacing: 14) {
-                AppreciationCardView(
-                    message: message,
-                    style: cardStyle,
-                    mediaURL: composeCardMediaURL,
-                    mediaImage: composeCardMediaImage,
-                    mediaType: composeCardMediaType
-                )
-                .frame(maxWidth: .infinity)
-                .frame(maxHeight: 360)
-                .padding(.horizontal, 28)
-                .padding(.top, 14)
-
-                if !hasAttachedMedia {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(AppreciationCardPresets.selectableBackgrounds, id: \.self) { id in
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        cardStyle.backgroundId = id
-                                    }
-                                } label: {
-                                    AppreciationCardPresets.gradient(for: id)
-                                        .frame(width: 56, height: 80)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .strokeBorder(
-                                                    cardStyle.backgroundId == id
-                                                        ? Theme.coral
-                                                        : Color.white.opacity(0.35),
-                                                    lineWidth: cardStyle.backgroundId == id ? 2.5 : 1
-                                                )
-                                        )
-                                        .shadow(
-                                            color: cardStyle.backgroundId == id
-                                                ? Theme.coral.opacity(0.35)
-                                                : .clear,
-                                            radius: 6, y: 2
-                                        )
-                                }
-                                .buttonStyle(ScalePressButtonStyle())
-                                .accessibilityLabel(
-                                    AppreciationCardStyle(
-                                        version: 1,
-                                        backgroundId: id,
-                                        typePreset: .display,
-                                        textAlign: .center
-                                    ).label
-                                )
-                                .disabled(sending || suggestingCard)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                    }
-                }
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(AppreciationCardStyle.TypePreset.allCases, id: \.self) { preset in
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    cardStyle.typePreset = preset
-                                }
-                            } label: {
-                                Text(typePresetLabel(preset))
-                                    .font(Theme.body(13, weight: .semibold))
-                                    .foregroundStyle(
-                                        cardStyle.typePreset == preset
-                                            ? Color(hex: 0x2B1209)
-                                            : Theme.textSecondary
-                                    )
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        cardStyle.typePreset == preset
-                                            ? Theme.coralPale
-                                            : Theme.surfaceRaised,
-                                        in: Capsule()
-                                    )
-                                    .overlay(
-                                        Capsule().strokeBorder(
-                                            cardStyle.typePreset == preset
-                                                ? Theme.coral.opacity(0.45)
-                                                : Theme.hairline
-                                        )
-                                    )
-                            }
-                            .buttonStyle(ScalePressButtonStyle())
-                            .disabled(sending || suggestingCard)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                }
-
-                HStack {
-                    Button {
-                        Task { await suggestCardBeauty() }
-                    } label: {
-                        HStack(spacing: 6) {
-                            if suggestingCard {
-                                ProgressView()
-                                    .controlSize(.mini)
-                                    .tint(Color(hex: 0x2B1209))
-                            } else {
-                                Image(systemName: "wand.and.stars")
-                                    .font(.system(size: 12, weight: .bold))
-                            }
-                            Text(suggestingCard ? "Styling…" : "Make it beautiful")
-                                .font(Theme.body(13, weight: .semibold))
-                                .lineLimit(1)
-                        }
-                        .foregroundStyle(Color(hex: 0x2B1209))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Theme.coralPale, in: Capsule())
-                    }
-                    .buttonStyle(ScalePressButtonStyle())
-                    .disabled(
-                        suggestingCard
-                            || sending
-                            || polishing != nil
-                            || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    )
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
-            }
-        }
-    }
-
-    private var composeCardMediaURL: URL? {
-        guard hasAttachedMedia else { return nil }
-        if showingVideo {
-            return videoPreviewURL ?? existingMediaURLResolved
-        }
-        // Prefer remote URL when we don't have a local preview bitmap yet.
-        if photoPreview == nil {
-            return existingMediaURLResolved
-        }
-        return nil
-    }
-
-    private var composeCardMediaImage: UIImage? {
-        guard hasAttachedMedia, !showingVideo else { return nil }
-        return photoPreview
-    }
-
-    private var composeCardMediaType: String? {
-        guard hasAttachedMedia else { return nil }
-        if showingVideo { return mediaContentType ?? existingMediaType ?? "video/mp4" }
-        return mediaContentType ?? existingMediaType ?? "image/jpeg"
-    }
-
-    private func typePresetLabel(_ preset: AppreciationCardStyle.TypePreset) -> String {
-        switch preset {
-        case .display: return "Display"
-        case .hand: return "Hand"
-        case .clean: return "Clean"
-        case .bold: return "Bold"
-        }
-    }
-
     private var addLinkSheet: some View {
         NavigationStack {
             Form {
@@ -1103,7 +933,7 @@ struct ComposeView: View {
 
     private var canSend: Bool {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed.count <= maxLength && !loadingPhoto && polishing == nil && !suggestingCard
+        return !trimmed.isEmpty && trimmed.count <= maxLength && !loadingPhoto && polishing == nil
     }
 
     private func insertEmoji(_ emoji: String) {
@@ -1209,7 +1039,6 @@ struct ComposeView: View {
         existingMediaType = nil
         photoError = nil
         cropItem = nil
-        markCardStyleUsingMedia()
     }
 
     private func applyCroppedPhoto(_ image: UIImage, source: UIImage? = nil) {
@@ -1233,7 +1062,6 @@ struct ComposeView: View {
         existingMediaUrl = nil
         existingMediaType = nil
         photoError = nil
-        markCardStyleUsingMedia()
     }
 
     private func openCropEditor() {
@@ -1278,14 +1106,7 @@ struct ComposeView: View {
         removedPhoto = true
         existingMediaUrl = nil
         existingMediaType = nil
-        if cardStyle.backgroundId == .custom_media {
-            cardStyle.backgroundId = .sunrise
-        }
         messageFocused = true
-    }
-
-    private func markCardStyleUsingMedia() {
-        cardStyle.backgroundId = .custom_media
     }
 
     private func prefillIfNeeded() {
@@ -1352,7 +1173,6 @@ struct ComposeView: View {
     private func applyEditing(_ editing: Gratitude) {
         message = editing.message
         visibility = editing.visibility ?? .public
-        cardStyle = editing.cardStyle ?? .default
         existingMediaUrl = editing.mediaUrl
         existingMediaType = editing.mediaType
         removedPhoto = false
@@ -1382,7 +1202,6 @@ struct ComposeView: View {
         }
 
         if let url = editing.mediaURL {
-            markCardStyleUsingMedia()
             let isVideo = editing.mediaType?.lowercased().hasPrefix("video") == true
             if isVideo {
                 attachedMediaKind = .video
@@ -1481,8 +1300,7 @@ struct ComposeView: View {
                         recipientName: contact.name ?? linked?.fullName ?? linked?.displayName,
                         visibility: visibility.rawValue,
                         mediaUrl: mediaUrl,
-                        mediaType: mediaType,
-                        cardStyle: cardStyleForSave(hasMedia: mediaUrl != nil)
+                        mediaType: mediaType
                     )
                 )
                 created = updated
@@ -1514,7 +1332,6 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     mediaUrl: mediaUrl,
                     mediaType: mediaType,
-                    cardStyle: cardStyleForSave(hasMedia: mediaUrl != nil),
                     source: "ios"
                 )
                 var result = try await GratitudeService.create(new)
@@ -1623,8 +1440,6 @@ struct ComposeView: View {
         cropItem = nil
         photoError = nil
         visibility = .public
-        cardStyle = .default
-        suggestingCard = false
         sent = false
         created = nil
         activeEditing = nil
@@ -1640,65 +1455,6 @@ struct ComposeView: View {
         didPrefill = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             messageFocused = true
-        }
-    }
-
-    private func cardStyleForSave(hasMedia: Bool) -> AppreciationCardStyle {
-        var style = cardStyle
-        if hasMedia {
-            style.backgroundId = .custom_media
-        } else if style.backgroundId == .custom_media {
-            style.backgroundId = .sunrise
-        }
-        return style
-    }
-
-    /// Soft-fails when offline or the suggest API is unavailable.
-    private func suggestCardBeauty() async {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !suggestingCard else { return }
-        suggestingCard = true
-        defer { suggestingCard = false }
-
-        struct SuggestBody: Encodable { let message: String }
-        struct SuggestResponse: Decodable {
-            let message: String?
-            let backgroundId: AppreciationCardStyle.BackgroundID?
-            let typePreset: AppreciationCardStyle.TypePreset?
-        }
-
-        do {
-            guard let session = try? await supabase.auth.session else { return }
-            var request = URLRequest(
-                url: AppConfig.webAppURL.appending(path: "api/card-suggest")
-            )
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
-            request.timeoutInterval = 20
-            request.httpBody = try JSONEncoder().encode(SuggestBody(message: trimmed))
-
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-                return
-            }
-            let suggest = try JSONDecoder().decode(SuggestResponse.self, from: data)
-            withAnimation(.easeInOut(duration: 0.25)) {
-                if let rewritten = suggest.message?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !rewritten.isEmpty {
-                    message = String(rewritten.prefix(maxLength))
-                }
-                if let typePreset = suggest.typePreset {
-                    cardStyle.typePreset = typePreset
-                }
-                if !hasAttachedMedia,
-                   let backgroundId = suggest.backgroundId,
-                   backgroundId != .custom_media {
-                    cardStyle.backgroundId = backgroundId
-                }
-            }
-        } catch {
-            // Soft-fail: leave the draft unchanged when offline or the API errors.
         }
     }
 }
