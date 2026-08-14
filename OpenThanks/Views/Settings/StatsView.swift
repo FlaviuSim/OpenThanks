@@ -79,7 +79,6 @@ struct StatsView: View {
                         competitionPanel
                     }
                     calendarSection
-                    totalsSection
                 }
             }
             .padding(.horizontal, 20)
