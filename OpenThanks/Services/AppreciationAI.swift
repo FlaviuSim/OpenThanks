@@ -6,8 +6,28 @@ import FoundationModels
 
 /// On-device rewrites via Apple Intelligence (Foundation Models). No network calls.
 enum AppreciationAI {
-    enum Style: String {
+    enum Style: String, CaseIterable, Identifiable {
+        case polish
+        case shorten
         case warmer
+
+        var id: String { rawValue }
+
+        var buttonTitle: String {
+            switch self {
+            case .polish: "Polish"
+            case .shorten: "Shorten"
+            case .warmer: "Make it warmer"
+            }
+        }
+
+        var busyTitle: String {
+            switch self {
+            case .polish: "Polishing…"
+            case .shorten: "Shortening…"
+            case .warmer: "Warming up…"
+            }
+        }
     }
 
     enum AIError: LocalizedError {
@@ -66,14 +86,31 @@ enum AppreciationAI {
     }
 
     private static func instructions(for style: Style) -> String {
-        switch style {
-        case .warmer:
-            """
+        let shared = """
             You help people write sincere thank-you notes on OpenThanks.
-            Rewrite the user's message so it feels warmer and more heartfelt.
-            Keep their meaning, voice, and approximate length.
+            Preserve the original meaning, specific details, and the sender's voice.
             Do not add greetings, sign-offs, quotes, or commentary — return only the rewritten message.
             Stay genuine; never sound fake, salesy, or overly dramatic.
+            """
+        switch style {
+        case .polish:
+            """
+            \(shared)
+            Rewrite the user's message so it reads clearly and smoothly — polished but not cheesy.
+            Fix awkward phrasing while keeping roughly the same length and their natural voice.
+            """
+        case .shorten:
+            """
+            \(shared)
+            Rewrite the user's message to be shorter and tighter.
+            Cut filler and repetition while keeping the heart of the thank-you and any concrete details.
+            Aim for noticeably fewer words — about half the length when possible, without losing sincerity.
+            """
+        case .warmer:
+            """
+            \(shared)
+            Rewrite the user's message so it feels warmer and more heartfelt.
+            Keep their meaning and approximate length.
             """
         }
     }

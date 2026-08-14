@@ -9,9 +9,9 @@ struct MessageEditor: UIViewRepresentable {
     var isEditable: Bool = true
     var onAddLink: (String, NSRange) -> Void
     var showAI: Bool = false
-    var aiTitle: String = "Make it warmer"
+    var aiBusy: Bool = false
     var aiEnabled: Bool = false
-    var onAI: (() -> Void)?
+    var onAI: ((AppreciationAI.Style) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -67,7 +67,7 @@ struct MessageEditor: UIViewRepresentable {
         var parent: MessageEditor
         weak var textView: IntrinsicTextView?
         private var accessory: UIToolbar?
-        private var lastAITitle: String?
+        private var lastAIBusy: Bool?
         private var lastAIEnabled: Bool?
         private var lastShowAI: Bool?
 
@@ -85,7 +85,7 @@ struct MessageEditor: UIViewRepresentable {
 
         func syncAccessoryIfNeeded() {
             guard lastShowAI != parent.showAI
-                || lastAITitle != parent.aiTitle
+                || lastAIBusy != parent.aiBusy
                 || lastAIEnabled != parent.aiEnabled
             else { return }
             rebuildAccessory()
@@ -94,7 +94,7 @@ struct MessageEditor: UIViewRepresentable {
         private func rebuildAccessory() {
             guard let bar = accessory else { return }
             lastShowAI = parent.showAI
-            lastAITitle = parent.aiTitle
+            lastAIBusy = parent.aiBusy
             lastAIEnabled = parent.aiEnabled
 
             var items: [UIBarButtonItem] = [
@@ -109,11 +109,14 @@ struct MessageEditor: UIViewRepresentable {
             items.append(UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil))
 
             if parent.showAI {
+                let actions = AppreciationAI.Style.allCases.map { style in
+                    UIAction(title: style.buttonTitle) { [weak self] _ in
+                        self?.parent.onAI?(style)
+                    }
+                }
                 let ai = UIBarButtonItem(
-                    title: parent.aiTitle,
-                    style: .plain,
-                    target: self,
-                    action: #selector(aiTapped)
+                    title: parent.aiBusy ? "AI…" : "AI",
+                    menu: UIMenu(title: "Let AI help", children: actions)
                 )
                 ai.isEnabled = parent.aiEnabled
                 items.append(ai)
@@ -136,10 +139,6 @@ struct MessageEditor: UIViewRepresentable {
                 ? (full as NSString).substring(with: range)
                 : ""
             parent.onAddLink(label, range)
-        }
-
-        @objc private func aiTapped() {
-            parent.onAI?()
         }
     }
 }

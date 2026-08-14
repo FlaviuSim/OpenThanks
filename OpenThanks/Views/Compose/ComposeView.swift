@@ -484,11 +484,13 @@ struct ComposeView: View {
                             beginAddLink(label: label, range: range)
                         },
                         showAI: aiAvailable,
-                        aiTitle: polishing != nil ? "Warming up…" : "Make it warmer",
+                        aiBusy: polishing != nil,
                         aiEnabled: polishing == nil
                             && !sending
                             && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                        onAI: aiAvailable ? { Task { await runAI(.warmer) } } : nil
+                        onAI: aiAvailable
+                            ? { style in Task { await runAI(style) } }
+                            : nil
                     )
                     .frame(minHeight: 160)
 
@@ -507,13 +509,11 @@ struct ComposeView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     emojiShortcuts
 
+                    if aiAvailable {
+                        aiChips
+                    }
+
                     HStack(alignment: .center, spacing: 10) {
-                        if aiAvailable {
-                            aiChip
-                        }
-
-                        Spacer(minLength: 8)
-
                         if messageBeforeAI != nil {
                             Button("Undo") {
                                 if let previous = messageBeforeAI {
@@ -526,6 +526,8 @@ struct ComposeView: View {
                             .font(Theme.body(13, weight: .semibold))
                             .foregroundStyle(Theme.coral)
                         }
+
+                        Spacer(minLength: 8)
 
                         Text("\(message.count)/\(maxLength)")
                             .font(Theme.body(12).monospacedDigit())
@@ -873,10 +875,20 @@ struct ComposeView: View {
         .disabled(sending || polishing != nil)
     }
 
-    private var aiChip: some View {
-        let isBusy = polishing != nil
+    private var aiChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(AppreciationAI.Style.allCases) { style in
+                    aiChip(for: style)
+                }
+            }
+        }
+    }
+
+    private func aiChip(for style: AppreciationAI.Style) -> some View {
+        let isBusy = polishing == style
         return Button {
-            Task { await runAI(.warmer) }
+            Task { await runAI(style) }
         } label: {
             HStack(spacing: 6) {
                 if isBusy {
@@ -887,7 +899,7 @@ struct ComposeView: View {
                     Image(systemName: "sparkle")
                         .font(.system(size: 12, weight: .bold))
                 }
-                Text(isBusy ? "Warming up…" : "Make it warmer")
+                Text(isBusy ? style.busyTitle : style.buttonTitle)
                     .font(Theme.body(13, weight: .semibold))
                     .lineLimit(1)
             }
@@ -902,6 +914,7 @@ struct ComposeView: View {
                 || sending
                 || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         )
+        .accessibilityLabel(style.buttonTitle)
     }
 
     // MARK: Chrome helpers
