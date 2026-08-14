@@ -94,20 +94,20 @@ enum AppreciationAI {
             """
         switch style {
         case .polish:
-            """
+            return """
             \(shared)
             Rewrite the user's message so it reads clearly and smoothly — polished but not cheesy.
             Fix awkward phrasing while keeping roughly the same length and their natural voice.
             """
         case .shorten:
-            """
+            return """
             \(shared)
             Rewrite the user's message to be shorter and tighter.
             Cut filler and repetition while keeping the heart of the thank-you and any concrete details.
             Aim for noticeably fewer words — about half the length when possible, without losing sincerity.
             """
         case .warmer:
-            """
+            return """
             \(shared)
             Rewrite the user's message so it feels warmer and more heartfelt.
             Keep their meaning and approximate length.
