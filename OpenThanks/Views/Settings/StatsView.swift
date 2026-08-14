@@ -396,7 +396,7 @@ struct StatsView: View {
                 tint: Theme.coral
             )
 
-            Text("Send one thanks a day for \(competition.targetDays) days in a row. They don’t need to accept — sending counts. Finishers unlock $30 to give away to a classroom.")
+            Text("Send one thanks a day for \(competition.targetDays) days in a row. Finishers unlock $30 to give away to a classroom.")
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
