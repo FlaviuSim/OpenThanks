@@ -46,9 +46,26 @@ struct PendingShareSheet: View {
         let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
             ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
         let greeting = name.map { "Hey \($0)! " } ?? "Hey! "
+        let preview = Self.messagePreview(gratitude.message)
+        let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
         return greeting
-            + "I wrote you an appreciation on OpenThanks 💛 You can read and accept it here: "
+            + "I wrote you an appreciation on OpenThanks 💛\(previewBit) You can read and accept it here: "
             + shareURL.absoluteString
+    }
+
+    private static func messagePreview(_ message: String, maxChars: Int = 120) -> String? {
+        let trimmed = message
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.count <= maxChars { return trimmed }
+        let end = trimmed.index(trimmed.startIndex, offsetBy: maxChars)
+        var slice = String(trimmed[..<end])
+        if let lastSpace = slice.lastIndex(of: " "),
+           slice.distance(from: slice.startIndex, to: lastSpace) > 40 {
+            slice = String(slice[..<lastSpace])
+        }
+        return slice.trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 
     var body: some View {
