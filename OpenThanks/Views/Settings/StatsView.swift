@@ -43,14 +43,6 @@ struct StatsView: View {
         StreakMath.acceptedDaysInCurrentStreak(posts: activity, calendar: calendar)
     }
 
-    private var competitionProgress: Int {
-        guard competition.isActive() || competition.enabled else { return 0 }
-        return min(
-            StreakMath.competitionCurrentStreak(posts: activity, config: competition, calendar: calendar),
-            max(competition.targetDays, 1)
-        )
-    }
-
     private var competitionSentStreak: Int {
         guard competition.enabled else { return 0 }
         return min(
@@ -158,7 +150,9 @@ struct StatsView: View {
 
             streakKeepBanner(for: keep)
 
-            if sent > 0 {
+            // Contest progress is send-only; hide the acceptance card while a
+            // challenge is enabled so Stats doesn't imply acceptances are required.
+            if !showCompetition, sent > 0 {
                 acceptanceCard(accepted: accepted, sent: sent)
             }
         }
@@ -362,7 +356,7 @@ struct StatsView: View {
 
     private var ringProgress: CGFloat {
         if showCompetition, competition.targetDays > 0 {
-            return CGFloat(competitionProgress) / CGFloat(competition.targetDays)
+            return CGFloat(competitionSentStreak) / CGFloat(competition.targetDays)
         }
         return min(CGFloat(currentStreak) / 14, 1)
     }
@@ -393,52 +387,19 @@ struct StatsView: View {
                     .foregroundStyle(Theme.coral)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                competitionMetricRow(
-                    title: "Sent streak",
-                    value: "\(competitionSentStreak) of \(competition.targetDays)",
-                    detail: "Days in a row you posted",
-                    progress: Double(competitionSentStreak),
-                    total: Double(max(competition.targetDays, 1)),
-                    tint: Theme.coralLight
-                )
-                competitionMetricRow(
-                    title: "Accepted streak",
-                    value: "\(competitionProgress) of \(competition.targetDays)",
-                    detail: "Days that unlock the classroom gift",
-                    progress: Double(competitionProgress),
-                    total: Double(max(competition.targetDays, 1)),
-                    tint: Theme.coral
-                )
-            }
+            competitionMetricRow(
+                title: "Your streak",
+                value: "\(competitionSentStreak) of \(competition.targetDays)",
+                detail: "Days in a row you sent a thanks",
+                progress: Double(competitionSentStreak),
+                total: Double(max(competition.targetDays, 1)),
+                tint: Theme.coral
+            )
 
-            Text("Start anytime. Build any rolling streak of \(competition.targetDays) days in a row — not tied to a calendar month. Finishers unlock $30 to give away to a classroom once each of those days has an accepted appreciation.")
+            Text("Send one thanks a day for \(competition.targetDays) days in a row. They don’t need to accept — sending counts. Finishers unlock $30 to give away to a classroom.")
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-
-            if competition.requireAccepted, competitionSentStreak > competitionProgress {
-                NavigationLink {
-                    PendingAppreciationsView()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "heart.text.clipboard")
-                        Text("Open Pending Appreciations")
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .font(Theme.body(13, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Theme.coral.opacity(0.12))
-                    )
-                }
-                .buttonStyle(.plain)
-            }
 
             if !competition.rulesSummary.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -526,7 +487,7 @@ struct StatsView: View {
                 .foregroundStyle(Theme.textPrimary)
             Text(
                 showCompetition
-                    ? "A moving \(rollingWindowDays)-day window — not a calendar month. Solid days are accepted; soft days are still pending."
+                    ? "A moving \(rollingWindowDays)-day window. Any day you send a thanks counts for the challenge."
                     : "Each day you share appreciation. Solid days are accepted; soft days are still pending."
             )
             .font(Theme.body(13))

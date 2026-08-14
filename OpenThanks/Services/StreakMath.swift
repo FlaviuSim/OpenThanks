@@ -29,7 +29,7 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
         startsAt: nil,
         endsAt: nil,
         allowedSources: ["ios", "watch"],
-        requireAccepted: true,
+        requireAccepted: false,
         requireOtherRecipient: true,
         termsUrl: "https://openthanks.com/competition",
         rulesSummary: [],
