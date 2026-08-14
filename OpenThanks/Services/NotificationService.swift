@@ -9,6 +9,8 @@ enum NotificationService {
     /// Local Gratitude Friday reminder — tap opens compose.
     static let fridayReminderTypeKey = "type"
     static let fridayReminderTypeValue = "gratitude_friday"
+    /// UNIX timestamp for the Friday the prompt belongs to (used for starter copy).
+    static let fridayPromptDateKey = "friday_prompt_date"
 
     struct DevicePushToken: Encodable {
         let userId: UUID
@@ -84,6 +86,7 @@ enum NotificationService {
         content.sound = .default
         content.userInfo = [
             fridayReminderTypeKey: fridayReminderTypeValue,
+            fridayPromptDateKey: fireDate.timeIntervalSince1970,
         ]
 
         let components = Calendar.current.dateComponents(

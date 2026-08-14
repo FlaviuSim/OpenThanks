@@ -18,6 +18,8 @@ final class ComposeLaunchBridge {
         let id: UUID
         var recipientName: String?
         var message: String?
+        /// Empty-field placeholder (e.g. Friday prompt starter idea).
+        var messagePlaceholder: String?
         /// When set, compose links the member chip instead of free text.
         var profile: Profile?
         /// App Group ShareInbox filename to attach as the post photo.
@@ -29,6 +31,7 @@ final class ComposeLaunchBridge {
             id: UUID = UUID(),
             recipientName: String? = nil,
             message: String? = nil,
+            messagePlaceholder: String? = nil,
             profile: Profile? = nil,
             imageFileName: String? = nil,
             analyticsSource: String = "compose_launch"
@@ -36,6 +39,7 @@ final class ComposeLaunchBridge {
             self.id = id
             self.recipientName = recipientName
             self.message = message
+            self.messagePlaceholder = messagePlaceholder
             self.profile = profile
             self.imageFileName = imageFileName
             self.analyticsSource = analyticsSource
@@ -47,16 +51,19 @@ final class ComposeLaunchBridge {
     func queue(
         recipientName: String? = nil,
         message: String? = nil,
+        messagePlaceholder: String? = nil,
         profile: Profile? = nil,
         imageFileName: String? = nil,
         analyticsSource: String = "compose_launch"
     ) {
         let trimmedName = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPlaceholder = messagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedImage = imageFileName?.trimmingCharacters(in: .whitespacesAndNewlines)
         pending = Request(
             recipientName: (trimmedName?.isEmpty == false) ? trimmedName : nil,
             message: (trimmedMessage?.isEmpty == false) ? trimmedMessage : nil,
+            messagePlaceholder: (trimmedPlaceholder?.isEmpty == false) ? trimmedPlaceholder : nil,
             profile: profile,
             imageFileName: (trimmedImage?.isEmpty == false) ? trimmedImage : nil,
             analyticsSource: analyticsSource

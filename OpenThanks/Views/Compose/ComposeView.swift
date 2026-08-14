@@ -14,6 +14,8 @@ struct ComposeView: View {
     var initialRecipientProfile: Profile? = nil
     /// Prefills the message (e.g. Siri “thank … for …”).
     var initialMessage: String? = nil
+    /// Empty-field hint when opened from a prompt notification (Friday, etc.).
+    var initialMessagePlaceholder: String? = nil
     /// App Group image from the Share Extension.
     var initialImageFileName: String? = nil
     /// PostHog `source` for the compose funnel (matches web event names).
@@ -68,6 +70,13 @@ struct ComposeView: View {
 
     private let maxLength = 1500
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨", "💐"]
+
+    private var messagePlaceholderText: String {
+        let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let custom, !custom.isEmpty { return custom }
+        return "Thank you for..."
+    }
+
     private var editingTarget: Gratitude? { activeEditing ?? editing }
     private var isEditing: Bool { editingTarget != nil }
 
@@ -495,12 +504,14 @@ struct ComposeView: View {
                     .frame(minHeight: 160)
 
                     if message.isEmpty {
-                        Text("Thank you for...")
+                        Text(messagePlaceholderText)
                             .font(Theme.body(16))
                             .foregroundStyle(Theme.textTertiary)
                             .padding(.top, 18)
                             .padding(.leading, 16)
+                            .padding(.trailing, 16)
                             .allowsHitTesting(false)
+                            .accessibilityLabel(messagePlaceholderText)
                     }
                 }
 

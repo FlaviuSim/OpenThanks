@@ -158,7 +158,11 @@ struct NotificationsView: View {
                     Button {
                         Task {
                             await markRead(note)
-                            ComposeLaunchBridge.shared.queue(analyticsSource: "notification_friday_tap")
+                            let starter = FridayPrompts.prompt(for: note.createdAt ?? Date()).starterIdea
+                            ComposeLaunchBridge.shared.queue(
+                                messagePlaceholder: starter,
+                                analyticsSource: "notification_friday_tap"
+                            )
                         }
                     } label: {
                         rowContent(note, linksToPost: true)
@@ -168,7 +172,10 @@ struct NotificationsView: View {
                     Button {
                         Task {
                             await markRead(note)
-                            ComposeLaunchBridge.shared.queue(analyticsSource: "notification_pay_it_forward")
+                            ComposeLaunchBridge.shared.queue(
+                                messagePlaceholder: "Thank you for … — your kindness inspired me to pass it on.",
+                                analyticsSource: "notification_pay_it_forward"
+                            )
                         }
                     } label: {
                         rowContent(note, linksToPost: true)

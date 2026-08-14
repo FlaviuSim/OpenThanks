@@ -278,6 +278,7 @@ struct MainTabView: View {
                 initialRecipient: request.recipientName,
                 initialRecipientProfile: request.profile,
                 initialMessage: request.message,
+                initialMessagePlaceholder: request.messagePlaceholder,
                 initialImageFileName: request.imageFileName,
                 analyticsSource: request.analyticsSource
             )

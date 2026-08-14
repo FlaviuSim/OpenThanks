@@ -128,8 +128,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 ComposeLaunchBridge.shared.queue(recipientName: name, analyticsSource: "notification_thank_reminder")
             }
         case NotificationService.fridayReminderTypeValue:
+            let promptDate: Date = {
+                if let interval = info[NotificationService.fridayPromptDateKey] as? TimeInterval {
+                    return Date(timeIntervalSince1970: interval)
+                }
+                return Date()
+            }()
+            let starter = FridayPrompts.prompt(for: promptDate).starterIdea
             await MainActor.run {
-                ComposeLaunchBridge.shared.queue(analyticsSource: "notification_friday")
+                ComposeLaunchBridge.shared.queue(
+                    messagePlaceholder: starter,
+                    analyticsSource: "notification_friday"
+                )
             }
         case NotificationService.calendarNudgeTypeValue:
             let name = (info[NotificationService.calendarNudgeNameKey] as? String)?
