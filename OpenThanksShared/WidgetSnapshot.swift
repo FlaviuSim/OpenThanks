@@ -7,6 +7,8 @@ struct WidgetSnapshot: Codable, Equatable {
     var sentThisMonth: Int
     var receivedTotal: Int
     var pendingToAccept: Int
+    /// Most recent appreciation received (pending preferred, else latest accepted).
+    var latestReceived: WidgetReceivedTeaser?
     var updatedAt: Date
 
     static let empty = WidgetSnapshot(
@@ -14,6 +16,7 @@ struct WidgetSnapshot: Codable, Equatable {
         sentThisMonth: 0,
         receivedTotal: 0,
         pendingToAccept: 0,
+        latestReceived: nil,
         updatedAt: .distantPast
     )
 
@@ -21,6 +24,28 @@ struct WidgetSnapshot: Codable, Equatable {
 
     /// Fresh appreciation waiting for you (pending accept) — not lifetime history or hearts.
     var hasAppreciationWaiting: Bool { pendingToAccept > 0 }
+}
+
+/// Compact teaser for the large Home Screen widget’s “recent received” panel.
+struct WidgetReceivedTeaser: Codable, Equatable {
+    var fromName: String
+    var messagePreview: String
+    var isPending: Bool
+
+    static func preview(from message: String, maxChars: Int = 140) -> String {
+        let trimmed = message
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        guard !trimmed.isEmpty else { return "" }
+        if trimmed.count <= maxChars { return trimmed }
+        let end = trimmed.index(trimmed.startIndex, offsetBy: maxChars)
+        var slice = String(trimmed[..<end])
+        if let lastSpace = slice.lastIndex(of: " "),
+           slice.distance(from: slice.startIndex, to: lastSpace) > 40 {
+            slice = String(slice[..<lastSpace])
+        }
+        return slice.trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
 }
 
 enum WidgetSnapshotStore {
@@ -121,9 +146,10 @@ enum WidgetPromptKind: String, CaseIterable, Codable {
         if snapshot.hasAppreciationWaiting {
             pool.append(.someoneAppreciated)
         }
-        // Bias medium / large toward monthlyCount without making it the only message.
+        // Bias medium toward monthlyCount without making it the only message.
+        // Large uses a dedicated two-panel layout, so keep its prompt pool varied.
         #if os(iOS)
-        if family == .systemMedium || family == .systemLarge || family == .systemExtraLarge {
+        if family == .systemMedium {
             pool.append(.monthlyCount)
             pool.append(.monthlyCount)
         }
@@ -131,5 +157,52 @@ enum WidgetPromptKind: String, CaseIterable, Codable {
         let slot = hour / 4
         let index = (day + slot) % max(pool.count, 1)
         return pool[index]
+    }
+}
+
+// MARK: - Large widget secondary panel
+
+/// Lower half of the large / extra-large Home Screen widget.
+enum WidgetLargeSecondary: Equatable {
+    case received(WidgetReceivedTeaser)
+    case reflection(headline: String, subtitle: String)
+
+    var deepLink: URL {
+        switch self {
+        case .received:
+            return WidgetDeepLink.received
+        case .reflection:
+            return WidgetDeepLink.compose
+        }
+    }
+
+    static func resolve(at date: Date, snapshot: WidgetSnapshot) -> WidgetLargeSecondary {
+        // Prefer a real appreciation when we have one — especially if it’s waiting.
+        if let teaser = snapshot.latestReceived {
+            if teaser.isPending { return .received(teaser) }
+            // Rotate: most slots show the recent note; occasional slot shows a prompt.
+            let hour = Calendar.current.component(.hour, from: date)
+            if (hour / 4) % 3 != 2 {
+                return .received(teaser)
+            }
+        }
+        return reflection(at: date)
+    }
+
+    private static let reflections: [(String, String)] = [
+        ("Who made your day easier?", "A short thank-you is enough."),
+        ("Who deserves a thank you you’ve never said?", "Say it today."),
+        ("Who quietly supports you?", "They’ll remember this note."),
+        ("Who made you smile this week?", "Capture it before it fades."),
+        ("Who believed in you first?", "They’d love to hear it."),
+        ("Who helped without being asked?", "Open a blank appreciation."),
+    ]
+
+    private static func reflection(at date: Date) -> WidgetLargeSecondary {
+        let day = Calendar.current.ordinality(of: .day, in: .year, for: date) ?? 0
+        let hour = Calendar.current.component(.hour, from: date)
+        let index = (day + hour / 4) % reflections.count
+        let pair = reflections[index]
+        return .reflection(headline: pair.0, subtitle: pair.1)
     }
 }
