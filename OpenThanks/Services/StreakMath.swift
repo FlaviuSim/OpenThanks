@@ -28,7 +28,7 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
         targetDays: 30,
         startsAt: nil,
         endsAt: nil,
-        allowedSources: ["ios", "watch"],
+        allowedSources: [],
         requireAccepted: false,
         requireOtherRecipient: true,
         termsUrl: "https://openthanks.com/competition",
@@ -158,11 +158,12 @@ enum StreakMath {
     ) -> [SentActivity] {
         guard config.enabled else { return [] }
         let allowed = Set(config.allowedSources.map { $0.lowercased() })
+        let restrictSources = !allowed.isEmpty
         return posts.filter { post in
             guard let created = post.createdAt else { return false }
             if let start = config.startsAt, created < start { return false }
             if let end = config.endsAt, created >= end { return false }
-            guard allowed.contains(normalizedSource(post.source)) else { return false }
+            if restrictSources, !allowed.contains(normalizedSource(post.source)) { return false }
             if config.requireOtherRecipient {
                 guard let recipientId = post.recipientId else { return false }
                 if let authorId = post.authorId, recipientId == authorId { return false }
@@ -184,11 +185,13 @@ enum StreakMath {
     ) -> [SentActivity] {
         guard config.enabled else { return [] }
         let allowed = Set(config.allowedSources.map { $0.lowercased() })
+        let restrictSources = !allowed.isEmpty
         return posts.filter { post in
             guard let created = post.createdAt else { return false }
             if let start = config.startsAt, created < start { return false }
             if let end = config.endsAt, created >= end { return false }
-            return allowed.contains(normalizedSource(post.source))
+            if restrictSources, !allowed.contains(normalizedSource(post.source)) { return false }
+            return true
         }
     }
 
