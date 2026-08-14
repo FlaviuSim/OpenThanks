@@ -61,6 +61,7 @@ struct GratitudeTimelineProvider: TimelineProvider {
 
     private func previewEntry(for family: WidgetFamily) -> GratitudeEntry {
         let teaser = WidgetReceivedTeaser(
+            gratitudeId: UUID(),
             fromName: "Alex",
             messagePreview: "Thank you for staying late to help me finish that project — I felt so supported.",
             isPending: true

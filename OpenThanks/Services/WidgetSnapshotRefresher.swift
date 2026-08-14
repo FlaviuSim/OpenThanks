@@ -60,6 +60,7 @@ enum WidgetSnapshotRefresher {
         let fromName = gratitude.author?.fullName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let display = (fromName?.isEmpty == false) ? fromName! : "Someone"
         return WidgetReceivedTeaser(
+            gratitudeId: gratitude.id,
             fromName: display,
             messagePreview: preview,
             isPending: gratitude.status == .pending

@@ -13,6 +13,10 @@ enum WidgetDeepLink {
         URL(string: "\(scheme)://received")!
     }
 
+    static func gratitude(id: UUID) -> URL {
+        URL(string: "\(scheme)://gratitude/\(id.uuidString.lowercased())")!
+    }
+
     static var home: URL {
         URL(string: "\(scheme)://home")!
     }
@@ -20,6 +24,7 @@ enum WidgetDeepLink {
     enum Destination: Equatable {
         case compose
         case received
+        case gratitude(UUID)
         case home
         case notifications
     }
@@ -39,11 +44,20 @@ enum WidgetDeepLink {
             return .compose
         case "received", "inbox":
             return .received
+        case "gratitude":
+            if let id = UUID(uuidString: path) {
+                return .gratitude(id)
+            }
+            return .received
         case "notifications":
             return .notifications
         case "home", "":
             if path == "compose" || path == "thank" { return .compose }
             if path == "received" || path == "inbox" { return .received }
+            if path.hasPrefix("gratitude/") {
+                let idPart = String(path.dropFirst("gratitude/".count))
+                if let id = UUID(uuidString: idPart) { return .gratitude(id) }
+            }
             if path == "notifications" { return .notifications }
             return .home
         default:

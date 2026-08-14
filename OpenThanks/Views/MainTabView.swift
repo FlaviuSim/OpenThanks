@@ -316,7 +316,11 @@ struct MainTabView: View {
             feedPath = NavigationPath()
             withAnimation(.easeInOut(duration: 0.18)) { tab = .feed }
             if destination == .received {
-                NotificationCenter.default.post(name: .focusReceivedThanks, object: nil)
+                // Let Home finish appearing before scrolling to pending thanks.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(400))
+                    NotificationCenter.default.post(name: .focusReceivedThanks, object: nil)
+                }
             }
         case .notifications:
             notificationsPath = NavigationPath()

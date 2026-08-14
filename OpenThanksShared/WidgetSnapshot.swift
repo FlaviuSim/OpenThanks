@@ -28,6 +28,7 @@ struct WidgetSnapshot: Codable, Equatable {
 
 /// Compact teaser for the large Home Screen widget’s “recent received” panel.
 struct WidgetReceivedTeaser: Codable, Equatable {
+    var gratitudeId: UUID
     var fromName: String
     var messagePreview: String
     var isPending: Bool
@@ -49,7 +50,7 @@ struct WidgetReceivedTeaser: Codable, Equatable {
 }
 
 enum WidgetSnapshotStore {
-    private static let key = "widgetSnapshot.v1"
+    private static let key = "widgetSnapshot.v2"
 
     static func load() -> WidgetSnapshot {
         guard let data = AppGroup.defaults.data(forKey: key),
@@ -169,8 +170,8 @@ enum WidgetLargeSecondary: Equatable {
 
     var deepLink: URL {
         switch self {
-        case .received:
-            return WidgetDeepLink.received
+        case .received(let teaser):
+            return WidgetDeepLink.gratitude(id: teaser.gratitudeId)
         case .reflection:
             return WidgetDeepLink.compose
         }

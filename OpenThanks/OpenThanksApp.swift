@@ -46,6 +46,8 @@ struct OpenThanksApp: App {
                     ComposeShareHandoff.queuePendingShareOrBlank()
                 case .received:
                     TabLaunchBridge.shared.queue(.received)
+                case .gratitude(let id):
+                    deepLinks.destination = .gratitude(id: id)
                 case .home:
                     TabLaunchBridge.shared.queue(.home)
                 case .notifications:
