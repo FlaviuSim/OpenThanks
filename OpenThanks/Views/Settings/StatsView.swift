@@ -7,7 +7,6 @@ struct StatsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var activity: [SentActivity] = []
-    @State private var profileStats = ProfileStats()
     @State private var competition = CompetitionConfig.disabled
     @State private var pendingSentCount = 0
     @State private var loading = true
@@ -525,33 +524,6 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Totals
-
-    private var totalsSection: some View {
-        HStack(spacing: 0) {
-            totalCell(value: profileStats.sent, label: "Sent")
-            Divider().frame(height: 36)
-            totalCell(value: profileStats.received, label: "Received")
-            Divider().frame(height: 36)
-            totalCell(value: profileStats.inspired, label: "Inspired")
-        }
-        .padding(.vertical, 8)
-        .opacity(appearReady ? 1 : 0)
-        .animation(.easeOut(duration: 0.5).delay(0.15), value: appearReady)
-    }
-
-    private func totalCell(value: Int, label: String) -> some View {
-        VStack(spacing: 4) {
-            Text("\(value)")
-                .font(Theme.display(24, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-            Text(label)
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     // MARK: - Load
 
     private func load() async {
@@ -569,10 +541,9 @@ struct StatsView: View {
         do {
             async let configTask = CompetitionConfigService.refresh(force: true)
             async let activityTask = GratitudeService.sentActivity(authorId: userId, since: since)
-            async let statsTask = GratitudeService.stats(userId: userId)
             async let pendingTask = GratitudeService.pendingCount(authorId: userId)
 
-            let (config, rows, stats, pending) = try await (configTask, activityTask, statsTask, pendingTask)
+            let (config, rows, pending) = try await (configTask, activityTask, pendingTask)
             competition = config
             pendingSentCount = pending
             // Rolling challenge: load enough history for a long streak (ignore month windows).
@@ -583,7 +554,6 @@ struct StatsView: View {
             } else {
                 activity = rows
             }
-            profileStats = stats
             appearReady = true
         } catch {
             loadError = error.localizedDescription
