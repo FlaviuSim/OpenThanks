@@ -51,6 +51,10 @@ enum Analytics {
         capture("appreciation_ai_rewrite", ["tone": tone])
     }
 
+    static func appreciationVoiceDictation(messageLength: Int) {
+        capture("appreciation_voice_dictation", ["message_length": messageLength])
+    }
+
     static func appreciationSubmitted(
         hasMedia: Bool,
         messageLength: Int,

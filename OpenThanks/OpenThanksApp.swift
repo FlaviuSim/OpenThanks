@@ -15,9 +15,15 @@ struct OpenThanksApp: App {
                     appDelegate.auth = auth
                     appDelegate.deepLinks = deepLinks
                     WatchConnectivityService.shared.activate(auth: auth)
+                    Task { @MainActor in
+                        await StreakLiveActivityController.authDidBecomeReady(userId: auth.userId)
+                    }
                 }
-                .onChange(of: auth.userId) { _, _ in
+                .onChange(of: auth.userId) { _, userId in
                     WatchConnectivityService.shared.pushAuthContext()
+                    Task { @MainActor in
+                        await StreakLiveActivityController.authDidBecomeReady(userId: userId)
+                    }
                 }
                 .onChange(of: auth.currentProfile?.displayName) { _, _ in
                     WatchConnectivityService.shared.pushAuthContext()
@@ -85,7 +91,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             WatchConnectivityService.shared.pushAuthContext()
         }
         Task { @MainActor in
-            await StreakLiveActivityController.sync(userId: auth?.userId)
+            // Always try schedule-first start, then full sync when auth is ready.
+            // Fixes cold-start taps that used to call sync(nil) and wipe the schedule.
+            await StreakLiveActivityController.handleWakeNotification(userId: auth?.userId)
         }
     }
 

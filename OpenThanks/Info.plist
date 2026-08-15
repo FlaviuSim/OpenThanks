@@ -143,8 +143,12 @@
 	<string>OpenThanks reads today’s Apple Calendar meetings and attendees to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>OpenThanks reads today’s Apple Calendar meetings to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OpenThanks uses the microphone so you can speak your appreciation.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Attach a photo to your appreciation.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>OpenThanks turns your spoken appreciation into text.</string>
 	<key>NSSiriUsageDescription</key>
 	<string>OpenThanks uses Siri to help you thank someone or start an appreciation.</string>
 	<key>UIBackgroundModes</key>

@@ -870,7 +870,7 @@ extension AuthService {
         Self.clearCachedProfile()
         WidgetSnapshotRefresher.clear()
         StreakLiveActivityStore.clear()
-        Task { await StreakLiveActivityController.sync(userId: nil) }
+        Task { await StreakLiveActivityController.clearForSignOut() }
         Analytics.reset()
         try? await supabase.auth.signOut(scope: .local)
     }

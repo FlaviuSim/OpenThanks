@@ -49,6 +49,7 @@ struct ComposeView: View {
     @State private var activeEditing: Gratitude?
     @State private var polishing: AppreciationAI.Style?
     @State private var messageBeforeAI: String?
+    @StateObject private var dictation = AppreciationDictation()
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
     @State private var didCompleteSend = false
@@ -192,6 +193,7 @@ struct ComposeView: View {
         .onAppear {
             prefillIfNeeded()
             trackFormStartIfNeeded()
+            dictation.refreshAvailability()
             // Don’t block presenting compose on Foundation Models readiness.
             Task.detached(priority: .utility) {
                 let available = AppreciationAI.isAvailable
@@ -199,6 +201,9 @@ struct ComposeView: View {
             }
         }
         .onDisappear {
+            if dictation.isListening {
+                dictation.finishListening()
+            }
             trackAbandonIfNeeded()
         }
         .onChange(of: photoItem) { _, item in
@@ -214,6 +219,23 @@ struct ComposeView: View {
         .onChange(of: recipient) { _, _ in
             if !recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 trackFormStartIfNeeded()
+            }
+        }
+        .onChange(of: dictation.transcript) { _, _ in
+            applyDictationTranscript()
+        }
+        .onChange(of: dictation.isListening) { wasListening, listening in
+            if !listening {
+                applyDictationTranscript()
+                let spoken = dictation.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                if wasListening, !spoken.isEmpty {
+                    Analytics.appreciationVoiceDictation(messageLength: spoken.count)
+                }
+            }
+        }
+        .onChange(of: dictation.errorMessage) { _, err in
+            if let err, !err.isEmpty {
+                error = err
             }
         }
     }
@@ -488,7 +510,7 @@ struct ComposeView: View {
                     MessageEditor(
                         text: $message,
                         minHeight: 160,
-                        isEditable: !(loadingPhoto || sending || polishing != nil),
+                        isEditable: !(loadingPhoto || sending || polishing != nil || dictation.isListening),
                         onAddLink: { label, range in
                             beginAddLink(label: label, range: range)
                         },
@@ -496,10 +518,15 @@ struct ComposeView: View {
                         aiBusy: polishing != nil,
                         aiEnabled: polishing == nil
                             && !sending
+                            && !dictation.isListening
                             && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                         onAI: aiAvailable
                             ? { style in Task { await runAI(style) } }
-                            : nil
+                            : nil,
+                        showVoice: true,
+                        voiceListening: dictation.isListening,
+                        voiceEnabled: voiceControlsEnabled,
+                        onToggleVoice: { Task { await toggleVoiceDictation() } }
                     )
                     .frame(minHeight: 160)
 
@@ -509,10 +536,15 @@ struct ComposeView: View {
                             .foregroundStyle(Theme.textTertiary)
                             .padding(.top, 18)
                             .padding(.leading, 16)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 72)
                             .allowsHitTesting(false)
                             .accessibilityLabel(messagePlaceholderText)
                     }
+
+                    voiceOverlayButton
+                        .padding(.trailing, 10)
+                        .padding(.bottom, 10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
                 Divider().overlay(Theme.hairline)
@@ -883,7 +915,39 @@ struct ComposeView: View {
                 }
             }
         }
-        .disabled(sending || polishing != nil)
+        .disabled(sending || polishing != nil || dictation.isListening)
+    }
+
+    private var voiceOverlayButton: some View {
+        Button {
+            Task { await toggleVoiceDictation() }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: dictation.isListening ? "mic.fill" : "mic")
+                    .font(.system(size: 13, weight: .bold))
+                    .symbolEffect(.pulse, isActive: dictation.isListening)
+                if dictation.isListening {
+                    Text("Listening…")
+                        .font(Theme.body(12, weight: .semibold))
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(dictation.isListening ? Color.white : Theme.coral)
+            .padding(.horizontal, dictation.isListening ? 12 : 10)
+            .padding(.vertical, 8)
+            .background {
+                Capsule()
+                    .fill(dictation.isListening ? Theme.coral : Theme.surface.opacity(0.92))
+                    .shadow(color: Color.black.opacity(0.08), radius: 4, y: 1)
+            }
+            .overlay {
+                Capsule()
+                    .strokeBorder(dictation.isListening ? Color.clear : Theme.hairline, lineWidth: 1)
+            }
+        }
+        .buttonStyle(ScalePressButtonStyle())
+        .disabled(!voiceControlsEnabled)
+        .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Dictate appreciation")
     }
 
     private var aiChips: some View {
@@ -923,9 +987,32 @@ struct ComposeView: View {
         .disabled(
             polishing != nil
                 || sending
+                || dictation.isListening
                 || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         )
         .accessibilityLabel(style.buttonTitle)
+    }
+
+    private var voiceControlsEnabled: Bool {
+        !sending && polishing == nil && !loadingPhoto
+    }
+
+    private func applyDictationTranscript() {
+        let next = dictation.combinedText(maxLength: maxLength)
+        if message != next {
+            message = next
+        }
+    }
+
+    private func toggleVoiceDictation() async {
+        error = nil
+        dictation.errorMessage = nil
+        messageFocused = true
+        let starting = !dictation.isListening
+        await dictation.toggle(baseText: message)
+        if starting, dictation.isListening {
+            trackFormStartIfNeeded()
+        }
     }
 
     // MARK: Chrome helpers
@@ -957,7 +1044,11 @@ struct ComposeView: View {
 
     private var canSend: Bool {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed.count <= maxLength && !loadingPhoto && polishing == nil
+        return !trimmed.isEmpty
+            && trimmed.count <= maxLength
+            && !loadingPhoto
+            && polishing == nil
+            && !dictation.isListening
     }
 
     private func insertEmoji(_ emoji: String) {

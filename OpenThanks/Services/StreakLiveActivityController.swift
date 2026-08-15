@@ -9,6 +9,9 @@ enum StreakLiveActivityController {
     /// Apple’s maximum active Live Activity duration.
     private static let maxActiveDuration: TimeInterval = 8 * 60 * 60
 
+    /// Set when a morning wake arrives before auth is ready — flushed in `authDidBecomeReady`.
+    private static var pendingWakeSync = false
+
     /// After a successful appreciation: remove today’s reminder immediately and
     /// schedule tomorrow’s Live Activity + morning wake notification.
     static func appreciationDidSend(userId: UUID) async {
@@ -36,18 +39,16 @@ enum StreakLiveActivityController {
 
     /// Reconcile running Live Activities with streak math. Call on launch,
     /// foreground, notification wake, and after sends.
+    ///
+    /// Important: `userId == nil` means auth isn’t ready yet — do **not** clear the
+    /// schedule (cold-start notification taps hit this race).
     static func sync(userId: UUID?) async {
         guard areActivitiesAvailable else {
             await endAll(dismissal: .immediate)
             return
         }
 
-        guard let userId else {
-            await endAll(dismissal: .immediate)
-            StreakLiveActivityStore.clear()
-            await NotificationService.cancelStreakLiveActivityWake()
-            return
-        }
+        guard let userId else { return }
 
         let dates = await fetchSendDates(userId: userId)
         let keep = StreakMath.keepStatus(dates: dates)
@@ -119,15 +120,74 @@ enum StreakLiveActivityController {
         await NotificationService.cancelStreakLiveActivityWake()
     }
 
-    /// Notification / cold-start path: start today’s activity if the grace day applies.
+    /// Notification / cold-start path: start today’s activity with minimal friction.
+    /// Uses the App Group schedule first (no auth/network), then reconciles when possible.
     static func handleWakeNotification(userId: UUID?) async {
-        await sync(userId: userId)
+        // Start immediately from what we armed on last send — works even if auth
+        // isn’t wired yet (common on cold-start notification taps).
+        await startFromScheduleIfDue()
+
+        if let userId {
+            pendingWakeSync = false
+            await sync(userId: userId)
+        } else {
+            pendingWakeSync = true
+        }
+    }
+
+    /// Call whenever auth resolves a user id (or becomes nil on sign-out).
+    static func authDidBecomeReady(userId: UUID?) async {
+        if userId == nil {
+            pendingWakeSync = false
+            return
+        }
+
+        let shouldSync = pendingWakeSync || scheduleIsDueToday || hasRunningActivity
+        pendingWakeSync = false
+        if shouldSync {
+            await startFromScheduleIfDue()
+            await sync(userId: userId)
+        }
+    }
+
+    /// Tear down activities + schedule. Used on explicit sign-out only.
+    static func clearForSignOut() async {
+        pendingWakeSync = false
+        StreakLiveActivityStore.clear()
+        await NotificationService.cancelStreakLiveActivityWake()
+        await endAll(dismissal: .immediate)
     }
 
     // MARK: - Private
 
     private static var areActivitiesAvailable: Bool {
         ActivityAuthorizationInfo().areActivitiesEnabled
+    }
+
+    private static var scheduleIsDueToday: Bool {
+        guard let schedule = StreakLiveActivityStore.load() else { return false }
+        return Calendar.current.isDate(schedule.activateDay, inSameDayAs: Date())
+    }
+
+    private static var hasRunningActivity: Bool {
+        !Activity<StreakLiveActivityAttributes>.activities.isEmpty
+    }
+
+    /// Start (or refresh) today’s Live Activity from the persisted schedule alone.
+    private static func startFromScheduleIfDue() async {
+        guard areActivitiesAvailable else { return }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let schedule = StreakLiveActivityStore.load(),
+              calendar.isDate(schedule.activateDay, inSameDayAs: today),
+              let deadline = calendar.date(byAdding: .day, value: 1, to: today)
+        else { return }
+
+        await ensureStarted(
+            streak: max(schedule.streakHint, 1),
+            deadline: deadline,
+            reminderDay: today
+        )
     }
 
     private static func fetchSendDates(userId: UUID) async -> [Date] {

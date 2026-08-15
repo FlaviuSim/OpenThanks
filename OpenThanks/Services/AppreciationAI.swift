@@ -1,4 +1,6 @@
+import AVFoundation
 import Foundation
+import Speech
 
 #if canImport(FoundationModels)
 import FoundationModels
@@ -113,5 +115,275 @@ enum AppreciationAI {
             Keep their meaning and approximate length.
             """
         }
+    }
+}
+
+// MARK: - Voice dictation
+
+/// Apple Speech tap-to-talk for the compose message field (auto punctuation via `addsPunctuation`).
+@MainActor
+final class AppreciationDictation: ObservableObject {
+    @Published private(set) var isListening = false
+    @Published private(set) var isAvailable = false
+    @Published var errorMessage: String?
+
+    /// Text already in the field when the current utterance started (used to splice live partials).
+    private(set) var baseText = ""
+
+    /// Latest best transcription for the active utterance (with punctuation when available).
+    @Published private(set) var transcript = ""
+
+    private let speechRecognizer: SFSpeechRecognizer?
+    private let audioEngine = AVAudioEngine()
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private var interruptionObserver: NSObjectProtocol?
+    private var sessionID = UUID()
+
+    init(locale: Locale = .current) {
+        speechRecognizer = SFSpeechRecognizer(locale: locale)
+        refreshAvailability()
+    }
+
+    func refreshAvailability() {
+        guard let speechRecognizer else {
+            isAvailable = false
+            return
+        }
+        isAvailable = speechRecognizer.isAvailable
+    }
+
+    /// Combined message while listening / after a final result: `baseText` + transcript.
+    func combinedText(maxLength: Int) -> String {
+        let joined = Self.join(base: baseText, addition: transcript)
+        if joined.count <= maxLength { return joined }
+        return String(joined.prefix(maxLength))
+    }
+
+    func toggle(baseText: String) async {
+        if isListening {
+            finishListening()
+        } else {
+            await start(baseText: baseText)
+        }
+    }
+
+    func start(baseText: String) async {
+        errorMessage = nil
+        guard !isListening else { return }
+
+        guard let speechRecognizer else {
+            errorMessage = "Speech recognition isn’t available on this device."
+            return
+        }
+        guard speechRecognizer.isAvailable else {
+            errorMessage = "Speech recognition isn’t available right now. Try again in a moment."
+            return
+        }
+
+        do {
+            try await ensureAuthorized()
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+
+        tearDownRecognition(cancelTask: true)
+
+        let session = UUID()
+        sessionID = session
+        self.baseText = baseText
+        transcript = ""
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        request.addsPunctuation = true
+        if speechRecognizer.supportsOnDeviceRecognition {
+            request.requiresOnDeviceRecognition = true
+        }
+        recognitionRequest = request
+
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            errorMessage = "Couldn’t access the microphone. Check Settings and try again."
+            recognitionRequest = nil
+            return
+        }
+
+        installInterruptionObserver()
+
+        let inputNode = audioEngine.inputNode
+        let format = inputNode.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            errorMessage = "Microphone isn’t ready. Try again."
+            recognitionRequest = nil
+            return
+        }
+
+        inputNode.removeTap(onBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            request.append(buffer)
+        }
+
+        recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
+            Task { @MainActor in
+                guard let self, self.sessionID == session else { return }
+                if let result {
+                    self.transcript = result.bestTranscription.formattedString
+                    if result.isFinal {
+                        self.completeAfterFinal()
+                    }
+                }
+                if let error {
+                    let ns = error as NSError
+                    if Self.isBenignSpeechError(ns) {
+                        self.completeAfterFinal()
+                        return
+                    }
+                    if self.isListening {
+                        self.errorMessage = Self.friendlySpeechError(ns)
+                    }
+                    self.completeAfterFinal()
+                }
+            }
+        }
+
+        do {
+            audioEngine.prepare()
+            try audioEngine.start()
+            isListening = true
+        } catch {
+            errorMessage = "Couldn’t start listening. Try again."
+            tearDownRecognition(cancelTask: true)
+            removeInterruptionObserver()
+        }
+    }
+
+    /// User tapped stop — end audio so Apple can finalize (with punctuation) without canceling mid-stream.
+    func finishListening() {
+        guard isListening else { return }
+        isListening = false
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+    }
+
+    private enum AuthError: LocalizedError {
+        case micDenied
+        case speechDenied
+
+        var errorDescription: String? {
+            switch self {
+            case .micDenied:
+                "Microphone access is off. Enable it in Settings → OpenThanks to speak your appreciation."
+            case .speechDenied:
+                "Speech recognition is off. Enable it in Settings → OpenThanks to speak your appreciation."
+            }
+        }
+    }
+
+    private func ensureAuthorized() async throws {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
+            break
+        case .denied:
+            throw AuthError.micDenied
+        case .undetermined:
+            let ok = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+                AVAudioApplication.requestRecordPermission { cont.resume(returning: $0) }
+            }
+            if !ok { throw AuthError.micDenied }
+        @unknown default:
+            throw AuthError.micDenied
+        }
+
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized:
+            return
+        case .denied, .restricted:
+            throw AuthError.speechDenied
+        case .notDetermined:
+            let status = await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+                SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
+            }
+            if status != .authorized { throw AuthError.speechDenied }
+        @unknown default:
+            throw AuthError.speechDenied
+        }
+    }
+
+    private func completeAfterFinal() {
+        isListening = false
+        tearDownRecognition(cancelTask: false)
+        removeInterruptionObserver()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           errorMessage == nil {
+            errorMessage = "Didn’t catch that. Tap the mic and try again."
+        }
+    }
+
+    private func tearDownRecognition(cancelTask: Bool) {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
+        if cancelTask {
+            recognitionTask?.cancel()
+        }
+        recognitionTask = nil
+        recognitionRequest = nil
+    }
+
+    private func installInterruptionObserver() {
+        removeInterruptionObserver()
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            let type = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt)
+                .flatMap(AVAudioSession.InterruptionType.init(rawValue:))
+            guard type == .began else { return }
+            Task { @MainActor in
+                self?.finishListening()
+            }
+        }
+    }
+
+    private func removeInterruptionObserver() {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+            self.interruptionObserver = nil
+        }
+    }
+
+    private static func join(base: String, addition: String) -> String {
+        let trimmedAddition = addition.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAddition.isEmpty else { return base }
+        if base.isEmpty { return trimmedAddition }
+        if base.hasSuffix(" ") || base.hasSuffix("\n") {
+            return base + trimmedAddition
+        }
+        return base + " " + trimmedAddition
+    }
+
+    private static func isBenignSpeechError(_ error: NSError) -> Bool {
+        if error.domain == "kAFAssistantErrorDomain", error.code == 216 || error.code == 1110 {
+            return true
+        }
+        return false
+    }
+
+    private static func friendlySpeechError(_ error: NSError) -> String {
+        if error.domain == NSURLErrorDomain {
+            return "Speech recognition needs a network connection on this device."
+        }
+        return "Couldn’t finish listening. Try again."
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Plain-text message editor with a keyboard accessory for Add link (and optional AI).
+/// Plain-text message editor with a keyboard accessory for Add link, voice, and optional AI.
 /// Selection is tracked so “Add link” can wrap highlighted text as `[label](url)`.
 struct MessageEditor: UIViewRepresentable {
     @Binding var text: String
@@ -12,6 +12,10 @@ struct MessageEditor: UIViewRepresentable {
     var aiBusy: Bool = false
     var aiEnabled: Bool = false
     var onAI: ((AppreciationAI.Style) -> Void)?
+    var showVoice: Bool = false
+    var voiceListening: Bool = false
+    var voiceEnabled: Bool = false
+    var onToggleVoice: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -24,7 +28,12 @@ struct MessageEditor: UIViewRepresentable {
         view.textColor = .label
         view.tintColor = UIColor(Theme.coral)
         view.font = .preferredFont(forTextStyle: .body)
-        view.textContainerInset = UIEdgeInsets(top: 10, left: 8, bottom: 6, right: 8)
+        view.textContainerInset = UIEdgeInsets(
+            top: 10,
+            left: 8,
+            bottom: showVoice ? 44 : 6,
+            right: showVoice ? 12 : 8
+        )
         view.textContainer.lineFragmentPadding = 4
         // Nested in a SwiftUI ScrollView — avoid dual scrolling (a common freeze cause).
         view.isScrollEnabled = false
@@ -60,6 +69,17 @@ struct MessageEditor: UIViewRepresentable {
             uiView.isEditable = isEditable
         }
 
+        let insets = UIEdgeInsets(
+            top: 10,
+            left: 8,
+            bottom: showVoice ? 44 : 6,
+            right: showVoice ? 12 : 8
+        )
+        if uiView.textContainerInset != insets {
+            uiView.textContainerInset = insets
+            uiView.invalidateIntrinsicContentSize()
+        }
+
         context.coordinator.syncAccessoryIfNeeded()
     }
 
@@ -70,6 +90,9 @@ struct MessageEditor: UIViewRepresentable {
         private var lastAIBusy: Bool?
         private var lastAIEnabled: Bool?
         private var lastShowAI: Bool?
+        private var lastShowVoice: Bool?
+        private var lastVoiceListening: Bool?
+        private var lastVoiceEnabled: Bool?
 
         init(_ parent: MessageEditor) {
             self.parent = parent
@@ -87,6 +110,9 @@ struct MessageEditor: UIViewRepresentable {
             guard lastShowAI != parent.showAI
                 || lastAIBusy != parent.aiBusy
                 || lastAIEnabled != parent.aiEnabled
+                || lastShowVoice != parent.showVoice
+                || lastVoiceListening != parent.voiceListening
+                || lastVoiceEnabled != parent.voiceEnabled
             else { return }
             rebuildAccessory()
         }
@@ -96,6 +122,9 @@ struct MessageEditor: UIViewRepresentable {
             lastShowAI = parent.showAI
             lastAIBusy = parent.aiBusy
             lastAIEnabled = parent.aiEnabled
+            lastShowVoice = parent.showVoice
+            lastVoiceListening = parent.voiceListening
+            lastVoiceEnabled = parent.voiceEnabled
 
             var items: [UIBarButtonItem] = [
                 UIBarButtonItem(
@@ -105,6 +134,18 @@ struct MessageEditor: UIViewRepresentable {
                     action: #selector(addLinkTapped)
                 ),
             ]
+
+            if parent.showVoice {
+                let mic = UIBarButtonItem(
+                    image: UIImage(systemName: parent.voiceListening ? "mic.fill" : "mic"),
+                    style: .plain,
+                    target: self,
+                    action: #selector(voiceTapped)
+                )
+                mic.isEnabled = parent.voiceEnabled
+                mic.accessibilityLabel = parent.voiceListening ? "Stop dictation" : "Dictate appreciation"
+                items.append(mic)
+            }
 
             items.append(UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil))
 
@@ -139,6 +180,10 @@ struct MessageEditor: UIViewRepresentable {
                 ? (full as NSString).substring(with: range)
                 : ""
             parent.onAddLink(label, range)
+        }
+
+        @objc private func voiceTapped() {
+            parent.onToggleVoice?()
         }
     }
 }
