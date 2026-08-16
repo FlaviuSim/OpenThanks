@@ -14,7 +14,7 @@ Use these fields when creating the listing in [App Store Connect](https://appsto
 | Category (Primary) | Social Networking |
 | Category (Secondary) | Lifestyle |
 | Content rights | Yes — you own / have rights to the content |
-| Age rating | 4+ (no unrestricted web, no mature content) |
+| Age rating | **18+** — Social Networking with unrestricted UGC (messages, photos). In App Store Connect, answer the age questionnaire accordingly (user-generated content, sharing personal info). Privacy/Terms require users **18+**. |
 
 ## Description
 
@@ -67,18 +67,26 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 ```
 Sign in with email OTP (or phone SMS) using a test account you create before review.
-Sign in with Apple is also available on the welcome screen.
+Sign in with Apple is also available on the welcome screen (required alongside Google/LinkedIn).
 
 To demo the core flow:
 1. Create an appreciation to a second email you control
 2. Open the link to accept from the Home “waiting for you” card
 3. Confirm it appears under Profile → Received
 
+Payments (Guideline 3.1.1): There are NO in-app purchases and NO external purchase links in the iOS app. We do not sell subscriptions or digital unlocks from Settings. Nonprofit honor donations exist only on the website (openthanks.com/donate) and are not linked from the iOS purchase path.
+
+UGC / reporting (Guideline 1.2): Users can report content in-app —
+• Appreciation → ⋯ menu → Report
+• Someone else’s profile → ⋯ menu → Report
+Reports are reviewed by our team (founders@openthanks.com). Privacy policy also covers CSAE reporting.
+
 Account deletion (Guideline 5.1.1v): Settings → Delete Account (below Log Out).
 This permanently deletes the profile and associated data via our API — no email required.
 
 Optional permissions (decline does not block core use):
 • Photo Library — attach a photo to an appreciation or set a profile photo
+• Microphone / Speech — optional Speak-to-write on compose
 • Notifications — Friday reminders and evening thank-you nudges
 • Apple Calendar / Google Calendar — evening thank-you suggestions only; calendar data stays on device (Google: readonly today’s events; tokens in Keychain). See https://openthanks.com/privacy#google-user-data
 • Siri — App Shortcuts to start an appreciation
@@ -110,16 +118,33 @@ For highest conversion, replace these with real device captures from TestFlight 
 
 ## Privacy Nutrition Labels (App Store Connect)
 
-Match the Privacy Manifest where possible:
+Declare accurately (PostHog analytics + account data):
 
-- Email, Phone, Name, User ID, Photos, Other User Content, Device ID  
-- Linked to user: **Yes**  
-- Used for tracking: **No**  
-- Purpose: App Functionality  
+| Data type | Linked to user | Used for tracking | Purposes |
+|-----------|----------------|-------------------|----------|
+| Email Address | Yes | No | App Functionality, Analytics |
+| Phone Number | Yes | No | App Functionality |
+| Name | Yes | No | App Functionality, Analytics |
+| User ID | Yes | No | App Functionality, Analytics |
+| Photos or Videos | Yes | No | App Functionality |
+| Other User Content (messages / appreciations) | Yes | No | App Functionality |
+| Device ID | Yes | No | Analytics |
+| Product Interaction | Yes | No | Analytics, App Functionality |
+| Calendar Events (optional connect) | Yes | No | App Functionality |
 
-**Calendar** (if not already disclosed): used for Product Interaction / App Functionality when the user connects Apple Calendar (on-device EventKit) and/or Google Calendar (readonly API for today’s events to build the evening thank-you suggestion). Calendar events are not stored on OpenThanks servers; Google tokens stay in the on-device Keychain. Public disclosures: https://openthanks.com/privacy#google-user-data
+**Tracking: No** (no ATT; no third-party advertising SDK).
 
-Tracking: **No**
+**Calendar:** used only when the user connects Apple Calendar (on-device EventKit) and/or Google Calendar (readonly API for today’s events for evening thank-you suggestions). Calendar events are not stored on OpenThanks servers; Google tokens stay in the on-device Keychain. Public disclosures: https://openthanks.com/privacy#google-user-data
+
+## Connect checklist (age / SIWA / delete)
+
+Complete in App Store Connect before submit:
+
+- [ ] Age rating questionnaire: mark **User-Generated Content**, **Social Networking**, sharing personal info; set rating to **18+** (policy: 18+)
+- [ ] Privacy Nutrition Labels match the table above (Analytics + App Functionality; Tracking = No)
+- [ ] Sign in with Apple works on device alongside Google / LinkedIn / email / phone
+- [ ] Settings → Delete Account works (use a spare test account — keep the reviewer demo account intact)
+- [ ] Confirm Settings has **no** Stripe / Subscribe / donate / external payment CTA
 
 ## Checklist before Submit
 
@@ -130,6 +155,8 @@ Tracking: **No**
 - [ ] Privacy Policy URL live (`https://openthanks.com/privacy`)
 - [ ] App Privacy questionnaire completed (include Calendar Events; no tracking)
 - [ ] Export compliance: uses only exempt encryption (already `ITSAppUsesNonExemptEncryption = false`)
-- [ ] TestFlight: sign-in (Apple + email), compose, accept, alternate icon, **Delete Account**
+- [ ] TestFlight: sign-in (Apple + email), compose, accept, Report, alternate icon, **Delete Account**
 - [ ] Reviewer demo account ready (do not delete the demo account before review finishes)
 - [ ] Sign in with Apple works if other third-party login is offered (Google)
+- [ ] Apply `scripts/025_content_reports.sql` on production Supabase before shipping Report
+- [ ] Deploy web `/api/report` to openthanks.com

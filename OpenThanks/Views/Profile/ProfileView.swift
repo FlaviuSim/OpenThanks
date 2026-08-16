@@ -57,6 +57,7 @@ struct UserProfileView: View {
     @State private var fullScreenAvatarURL: URL?
     @State private var showCompose = false
     @State private var pendingSentCount = 0
+    @State private var showReportSheet = false
 
     private var shownProfile: Profile {
         // Own profile must track live auth state — local `freshProfile` would
@@ -86,6 +87,29 @@ struct UserProfileView: View {
         .background(Theme.background)
         .navigationTitle(isOwnProfile ? "Profile" : shownProfile.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !isOwnProfile {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            showReportSheet = true
+                        } label: {
+                            Label("Report", systemImage: "flag")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .accessibilityLabel("More")
+                }
+            }
+        }
+        .sheet(isPresented: $showReportSheet) {
+            ReportContentSheet(
+                target: .profile(shownProfile.id),
+                title: "Report \(shownProfile.displayName)’s profile if it violates our community standards."
+            )
+        }
         .task(id: profile.id) { await load() }
         .refreshable { await load() }
         .animation(.easeInOut(duration: 0.2), value: section)

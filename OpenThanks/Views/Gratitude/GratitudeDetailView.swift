@@ -24,6 +24,7 @@ struct GratitudeDetailView: View {
     @State private var preparingShare = false
     @State private var preparingPreview = false
     @State private var systemSharePayload: SystemSharePayload?
+    @State private var showReportSheet = false
 
     private var shareVoice: AppreciationShareVoice {
         AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
@@ -49,6 +50,27 @@ struct GratitudeDetailView: View {
         .background(Theme.background)
         .navigationTitle("Appreciation")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button(role: .destructive) {
+                        showReportSheet = true
+                    } label: {
+                        Label("Report", systemImage: "flag")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                .accessibilityLabel("More")
+            }
+        }
+        .sheet(isPresented: $showReportSheet) {
+            ReportContentSheet(
+                target: .gratitude(gratitude.id),
+                title: "Report this appreciation if it violates our community standards."
+            )
+        }
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
         }

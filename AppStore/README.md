@@ -23,8 +23,9 @@ python3 scripts/generate_appstore_assets.py
 
 ## Submit flow
 
-1. Fill App Store Connect listing from `METADATA.md`
-2. Upload screenshots from `Screenshots/iPhone-6.7-inch/` (order 01→05)
-3. In Xcode: select **Any iOS Device** → **Product → Archive** → **Distribute App**
-4. Complete App Privacy questionnaire using the labels in `METADATA.md`
-5. Submit for review with the demo notes
+1. Fill App Store Connect listing from `METADATA.md` (age questionnaire, privacy labels, review notes)
+2. Confirm Settings has **no** Stripe/Subscribe CTA; Report works on appreciation + profile
+3. Upload screenshots from `Screenshots/iPhone-6.7-inch/` (order 01→05)
+4. In Xcode: select **Any iOS Device** → **Product → Archive** → **Distribute App**
+5. Complete App Privacy questionnaire using the labels in `METADATA.md`
+6. Submit for review with the demo notes and a live reviewer account

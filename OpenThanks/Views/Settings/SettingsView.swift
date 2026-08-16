@@ -184,19 +184,6 @@ struct SettingsView: View {
                         }
                     }
 
-                    Link(destination: URL(string: "https://buy.stripe.com/aFadR826I06Ea0i14l1ZS00")!) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Support OpenThanks")
-                                Text("Subscribe and help keep OpenThanks ad-free and growing.")
-                                    .font(Theme.body(12))
-                                    .foregroundStyle(Theme.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: "heart.fill").foregroundStyle(Theme.coral)
-                        }
-                    }
-
                     HStack(spacing: 6) {
                         Link("Privacy", destination: URL(string: "https://openthanks.com/privacy")!)
                         Text("·")
