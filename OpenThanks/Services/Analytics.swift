@@ -73,13 +73,13 @@ enum Analytics {
         var props: [String: Any] = ["platform": "ios"]
         if let email, !email.isEmpty { props["email"] = email }
         if let name, !name.isEmpty { props["name"] = name }
-        let internal = isInternalEmail(email)
-        props["is_internal"] = internal
+        let isInternal = isInternalEmail(email)
+        props["is_internal"] = isInternal
         PostHogSDK.shared.identify(userId.uuidString.lowercased(), userProperties: props)
 
         // Founder / test accounts: stop capturing so device testing
         // on Release builds doesn't pollute product metrics.
-        if internal {
+        if isInternal {
             PostHogSDK.shared.optOut()
         } else {
             PostHogSDK.shared.optIn()
