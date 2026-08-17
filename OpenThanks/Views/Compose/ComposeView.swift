@@ -250,13 +250,25 @@ struct ComposeView: View {
         guard didTrackFormStart, !didCompleteSend, !sent else { return }
         didCompleteSend = true // prevent double-fire from Cancel + onDisappear
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        let recipientKind = recipientTypeForAnalytics()
         Analytics.appreciationFormAbandoned(
             source: analyticsSource,
             messageLength: trimmed.count,
-            hasRecipient: linkedRecipient != nil
-                || !recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            hasRecipient: recipientKind != "none",
+            toMember: recipientKind == "member",
+            recipientType: recipientKind,
             hasMedia: hasAttachedMedia
         )
+    }
+
+    /// member | email | phone | name | none — shared by submit + abandon analytics.
+    private func recipientTypeForAnalytics() -> String {
+        if linkedRecipient != nil { return "member" }
+        let parsed = parseRecipient(recipient)
+        if parsed.email != nil { return "email" }
+        if parsed.phone != nil { return "phone" }
+        if parsed.name != nil { return "name" }
+        return "none"
     }
 
     private var existingMediaURLResolved: URL? {
@@ -1072,14 +1084,21 @@ struct ComposeView: View {
         do {
             let original = message
             let rewritten = try await AppreciationAI.rewrite(original, style: style)
+            let next = String(rewritten.prefix(maxLength))
+            guard next != original else {
+                self.error = "Couldn't find a different wording. Try adding a bit more detail, then tap again."
+                messageFocused = true
+                return
+            }
             withAnimation(.easeInOut(duration: 0.2)) {
                 messageBeforeAI = original
-                message = String(rewritten.prefix(maxLength))
+                message = next
             }
             Analytics.appreciationAIRewrite(tone: style.rawValue)
             messageFocused = true
         } catch {
             self.error = error.localizedDescription
+            messageFocused = true
         }
     }
 
@@ -1421,11 +1440,13 @@ struct ComposeView: View {
                 created = updated
                 activeEditing = nil
                 didCompleteSend = true
+                let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
                     hasMedia: mediaUrl != nil,
                     messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
-                    hasRecipient: linked != nil || contact.email != nil || contact.phone != nil
-                        || !(contact.name ?? "").isEmpty,
+                    hasRecipient: recipientKind != "none",
+                    toMember: recipientKind == "member",
+                    recipientType: recipientKind,
                     visibility: visibility.rawValue,
                     source: analyticsSource
                 )
@@ -1461,11 +1482,13 @@ struct ComposeView: View {
                 }
                 created = result
                 didCompleteSend = true
+                let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
                     hasMedia: mediaUrl != nil,
                     messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
-                    hasRecipient: linked != nil || contact.email != nil || contact.phone != nil
-                        || !(contact.name ?? "").isEmpty,
+                    hasRecipient: recipientKind != "none",
+                    toMember: recipientKind == "member",
+                    recipientType: recipientKind,
                     visibility: visibility.rawValue,
                     source: analyticsSource
                 )

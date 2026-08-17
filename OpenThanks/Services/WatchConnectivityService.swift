@@ -119,10 +119,18 @@ final class WatchConnectivityService: NSObject {
 
         do {
             let created = try await GratitudeService.create(new)
+            let recipientKind: String = {
+                if contact.email != nil { return "email" }
+                if contact.phone != nil { return "phone" }
+                if !(contact.name ?? "").isEmpty { return "name" }
+                return "none"
+            }()
             Analytics.appreciationSubmitted(
                 hasMedia: false,
                 messageLength: clipped.count,
-                hasRecipient: contact.email != nil || contact.phone != nil || !(contact.name ?? "").isEmpty,
+                hasRecipient: recipientKind != "none",
+                toMember: false,
+                recipientType: recipientKind,
                 visibility: GratitudeVisibility.public.rawValue,
                 source: "watch"
             )

@@ -12,6 +12,9 @@ struct SettingsView: View {
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+    #if DEBUG
+    @AppStorage("ot_analytics_force_enable") private var forceAnalyticsWhileTesting = false
+    #endif
 
     private var appearanceSubtitle: String {
         (AppAppearance(rawValue: appearance) ?? .dark).title
@@ -151,6 +154,20 @@ struct SettingsView: View {
                                 .foregroundStyle(Theme.textTertiary)
                         }
                     }
+
+                    #if DEBUG
+                    Toggle(isOn: $forceAnalyticsWhileTesting) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Send Analytics (DEBUG)")
+                            Text("Off by default on Simulator and DEBUG builds")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .onChange(of: forceAnalyticsWhileTesting) { _, enabled in
+                        Analytics.setForceEnabled(enabled)
+                    }
+                    #endif
 
                     NavigationLink {
                         AppearanceView()
