@@ -1,7 +1,17 @@
 import SwiftUI
 
 struct FeedView: View {
-    enum Scope: String, CaseIterable { case personal = "Personal", world = "World" }
+    enum Scope: String, CaseIterable {
+        case personal = "Personal"
+        case world = "World"
+
+        var title: String {
+            switch self {
+            case .personal: "My Feed"
+            case .world: "World Feed"
+            }
+        }
+    }
 
     @Binding var path: NavigationPath
     /// False when another tab is showing — Home stays mounted, so clear search focus.
@@ -232,7 +242,7 @@ struct FeedView: View {
     private var picker: some View {
         HStack(spacing: 8) {
             ForEach(Scope.allCases, id: \.self) { s in
-                Button(s.rawValue) {
+                Button(s.title) {
                     withAnimation(.easeInOut(duration: 0.2)) { scope = s }
                 }
                 .font(Theme.body(15, weight: .semibold))
@@ -747,13 +757,14 @@ private struct HomeProfileSearch: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(focused.wrappedValue ? Theme.coral : Theme.textTertiary)
 
-                TextField("Search people by name", text: $query)
+                TextField("Search for someone to thank", text: $query)
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textPrimary)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
                     .focused(focused)
                     .submitLabel(.search)
+                    .accessibilityLabel("Search for someone to thank")
 
                 if !query.isEmpty {
                     Button {

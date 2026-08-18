@@ -738,7 +738,7 @@ struct ComposeView: View {
                                 .foregroundStyle(Theme.textPrimary)
                             Text(loadingPhoto
                                  ? "Hang tight"
-                                 : "Photos can be cropped · videos up to 50MB")
+                                 : "Photos can be cropped")
                                 .font(Theme.body(13))
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -848,7 +848,7 @@ struct ComposeView: View {
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(visibility == .public
-                         ? "Anyone on OpenThanks can see this"
+                         ? "After the recipient accepts, anyone can see the post"
                          : "Only you and the recipient can see this")
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textSecondary)
