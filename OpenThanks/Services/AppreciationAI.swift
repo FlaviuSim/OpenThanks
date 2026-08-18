@@ -133,6 +133,9 @@ final class AppreciationDictation: ObservableObject {
     /// Latest best transcription for the active utterance (with punctuation when available).
     @Published private(set) var transcript = ""
 
+    /// Length of the utterance last committed on stop/finalize (for analytics).
+    private(set) var lastUtteranceLength = 0
+
     private let speechRecognizer: SFSpeechRecognizer?
     private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
@@ -194,6 +197,7 @@ final class AppreciationDictation: ObservableObject {
         sessionID = session
         self.baseText = baseText
         transcript = ""
+        lastUtteranceLength = 0
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -232,7 +236,10 @@ final class AppreciationDictation: ObservableObject {
             Task { @MainActor in
                 guard let self, self.sessionID == session else { return }
                 if let result {
-                    self.transcript = result.bestTranscription.formattedString
+                    if self.isListening {
+                        self.transcript = result.bestTranscription.formattedString
+                    }
+                    // Ignore late packets after the user taps stop — text is already committed.
                     if result.isFinal {
                         self.completeAfterFinal()
                     }
@@ -265,12 +272,22 @@ final class AppreciationDictation: ObservableObject {
     /// User tapped stop — end audio so Apple can finalize (with punctuation) without canceling mid-stream.
     func finishListening() {
         guard isListening else { return }
+        commitTranscript()
         isListening = false
         if audioEngine.isRunning {
             audioEngine.stop()
         }
         audioEngine.inputNode.removeTap(onBus: 0)
         recognitionRequest?.endAudio()
+    }
+
+    /// Fold live partials into `baseText` so a late empty final result can't wipe the field.
+    private func commitTranscript() {
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        lastUtteranceLength = trimmed.count
+        baseText = Self.join(base: baseText, addition: transcript)
+        transcript = ""
     }
 
     private enum AuthError: LocalizedError {
@@ -318,11 +335,12 @@ final class AppreciationDictation: ObservableObject {
     }
 
     private func completeAfterFinal() {
+        commitTranscript()
         isListening = false
         tearDownRecognition(cancelTask: false)
         removeInterruptionObserver()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        if transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        if baseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            errorMessage == nil {
             errorMessage = "Didn’t catch that. Tap the mic and try again."
         }

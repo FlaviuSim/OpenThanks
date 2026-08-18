@@ -227,9 +227,8 @@ struct ComposeView: View {
         .onChange(of: dictation.isListening) { wasListening, listening in
             if !listening {
                 applyDictationTranscript()
-                let spoken = dictation.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                if wasListening, !spoken.isEmpty {
-                    Analytics.appreciationVoiceDictation(messageLength: spoken.count)
+                if wasListening, dictation.lastUtteranceLength > 0 {
+                    Analytics.appreciationVoiceDictation(messageLength: dictation.lastUtteranceLength)
                 }
             }
         }
@@ -1011,9 +1010,14 @@ struct ComposeView: View {
 
     private func applyDictationTranscript() {
         let next = dictation.combinedText(maxLength: maxLength)
-        if message != next {
-            message = next
+        guard message != next else { return }
+        // Guard against a late empty speech callback wiping text the user already saw.
+        if next.isEmpty,
+           !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !dictation.isListening {
+            return
         }
+        message = next
     }
 
     private func toggleVoiceDictation() async {
