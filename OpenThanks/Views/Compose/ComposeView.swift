@@ -5,6 +5,7 @@ import AVKit
 struct ComposeView: View {
     @Environment(AuthService.self) private var auth
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     /// When set, the form edits this pending appreciation instead of creating one.
     var editing: Gratitude? = nil
@@ -26,6 +27,7 @@ struct ComposeView: View {
     @State private var message = ""
     @State private var visibility: GratitudeVisibility = .public
     @State private var photoItem: PhotosPickerItem?
+    @State private var showPhotosPicker = false
     @State private var photoData: Data?
     @State private var mediaContentType: String?
     @State private var attachedMediaKind: AttachedMediaKind?
@@ -166,6 +168,12 @@ struct ComposeView: View {
                 .padding(.bottom, 28)
             }
             .scrollDismissesKeyboard(.interactively)
+            .photosPicker(
+                isPresented: $showPhotosPicker,
+                selection: $photoItem,
+                matching: .any(of: [.images, .videos]),
+                photoLibrary: .shared()
+            )
 
             sendBar
         }
@@ -201,10 +209,18 @@ struct ComposeView: View {
             }
         }
         .onDisappear {
-            if dictation.isListening {
-                dictation.finishListening()
-            }
+            dictation.finishListening()
             trackAbandonIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                dictation.handleAppDidBecomeActive()
+            case .background:
+                dictation.handleAppWillResignActive()
+            default:
+                break
+            }
         }
         .onChange(of: photoItem) { _, item in
             guard let item else { return }
@@ -558,6 +574,17 @@ struct ComposeView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
+                if dictation.isListening {
+                    Text("Pauses are fine — tap Listening to stop.")
+                        .font(Theme.body(12, weight: .medium))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityHidden(true)
+                }
+
                 Divider().overlay(Theme.hairline)
 
                 VStack(alignment: .leading, spacing: 12) {
@@ -685,11 +712,7 @@ struct ComposeView: View {
                             .accessibilityLabel("Adjust photo crop")
                         }
 
-                        PhotosPicker(
-                            selection: $photoItem,
-                            matching: .any(of: [.images, .videos]),
-                            photoLibrary: .shared()
-                        ) {
+                        Button(action: openPhotosPicker) {
                             Label("Replace", systemImage: "arrow.triangle.2.circlepath")
                                 .font(Theme.body(12, weight: .semibold))
                                 .foregroundStyle(.white)
@@ -697,6 +720,7 @@ struct ComposeView: View {
                                 .padding(.vertical, 7)
                                 .background(.black.opacity(0.55), in: Capsule())
                         }
+                        .buttonStyle(.plain)
                         .disabled(loadingPhoto || sending)
 
                         Button {
@@ -715,11 +739,7 @@ struct ComposeView: View {
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
-                PhotosPicker(
-                    selection: $photoItem,
-                    matching: .any(of: [.images, .videos]),
-                    photoLibrary: .shared()
-                ) {
+                Button(action: openPhotosPicker) {
                     HStack(spacing: 14) {
                         ZStack {
                             if loadingPhoto {
@@ -749,6 +769,7 @@ struct ComposeView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(loadingPhoto || sending)
@@ -959,6 +980,7 @@ struct ComposeView: View {
         .buttonStyle(ScalePressButtonStyle())
         .disabled(!voiceControlsEnabled)
         .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Dictate appreciation")
+        .accessibilityHint(dictation.isListening ? "Recording continues through pauses until you tap stop." : "Speak your appreciation. Recording stays on until you tap stop.")
     }
 
     private var aiChips: some View {
@@ -1011,10 +1033,9 @@ struct ComposeView: View {
     private func applyDictationTranscript() {
         let next = dictation.combinedText(maxLength: maxLength)
         guard message != next else { return }
-        // Guard against a late empty speech callback wiping text the user already saw.
+        // Never let a late empty speech callback wipe text the user already saw.
         if next.isEmpty,
-           !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           !dictation.isListening {
+           !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return
         }
         message = next
@@ -1107,6 +1128,18 @@ struct ComposeView: View {
     }
 
     // MARK: Photo
+
+    /// Resign the keyboard first so the picker isn’t eaten by the first tap.
+    private func openPhotosPicker() {
+        guard !loadingPhoto, !sending else { return }
+        photoError = nil
+        messageFocused = false
+        recipientFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        Task { @MainActor in
+            showPhotosPicker = true
+        }
+    }
 
     private func handlePickedMedia(_ item: PhotosPickerItem) async {
         loadingPhoto = true

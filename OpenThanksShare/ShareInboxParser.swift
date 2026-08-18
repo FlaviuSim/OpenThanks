@@ -22,8 +22,8 @@ enum ShareInboxParser {
         for item in extensionItems {
             guard let attachments = item.attachments else { continue }
             for provider in attachments {
-                if let contact = await loadContact(from: provider) {
-                    applyContact(contact, to: &draft)
+                if let loaded = await loadContact(from: provider) {
+                    applyContact(loaded, to: &draft)
                     continue
                 }
                 if let image = await loadImage(from: provider) {
@@ -73,27 +73,130 @@ enum ShareInboxParser {
 
     // MARK: - Contact
 
-    private static func loadContact(from provider: NSItemProvider) async -> CNContact? {
+    private struct LoadedContact {
+        var contact: CNContact
+        var vCardData: Data?
+    }
+
+    private static func loadContact(from provider: NSItemProvider) async -> LoadedContact? {
         let types = [UTType.vCard.identifier, "public.vcard", "com.apple.contact"]
         for type in types where provider.hasItemConformingToTypeIdentifier(type) {
-            if let data = await loadData(from: provider, typeIdentifier: type) {
+            if let data = await loadVCardData(from: provider, typeIdentifier: type) {
                 let contacts = (try? CNContactVCardSerialization.contacts(with: data)) ?? []
-                if let first = contacts.first { return first }
+                if let first = contacts.first {
+                    return LoadedContact(contact: first, vCardData: data)
+                }
+            }
+        }
+
+        if provider.canLoadObject(ofClass: CNContact.self),
+           let contact = await loadContactObject(from: provider) {
+            return LoadedContact(contact: contact, vCardData: nil)
+        }
+        return nil
+    }
+
+    private static func loadContactObject(from provider: NSItemProvider) async -> CNContact? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadObject(ofClass: CNContact.self) { object, _ in
+                continuation.resume(returning: object as? CNContact)
+            }
+        }
+    }
+
+    private static func loadVCardData(from provider: NSItemProvider, typeIdentifier: String) async -> Data? {
+        if let data = await loadData(from: provider, typeIdentifier: typeIdentifier) {
+            return data
+        }
+        return await withCheckedContinuation { continuation in
+            provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { item, _ in
+                if let data = item as? Data {
+                    continuation.resume(returning: data)
+                } else if let url = item as? URL, let data = try? Data(contentsOf: url) {
+                    continuation.resume(returning: data)
+                } else if let string = item as? String, let data = string.data(using: .utf8) {
+                    continuation.resume(returning: data)
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    private static func applyContact(_ loaded: LoadedContact, to draft: inout Draft) {
+        draft.kind = .contact
+        draft.promptTitle = "Thank this person."
+        let contact = loaded.contact
+        if let email = preferredEmail(from: contact) ?? emailsFromVCard(loaded.vCardData).first {
+            draft.recipientName = email
+            return
+        }
+
+        let name = CNContactFormatter.string(from: contact, style: .fullName)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let name, !name.isEmpty {
+            draft.recipientName = name
+        } else if contact.isKeyAvailable(CNContactOrganizationNameKey),
+                  !contact.organizationName.isEmpty {
+            draft.recipientName = contact.organizationName
+        }
+    }
+
+    /// Prefer work, then home, then iCloud, then the first listed address.
+    private static func preferredEmail(from contact: CNContact) -> String? {
+        guard contact.isKeyAvailable(CNContactEmailAddressesKey) else { return nil }
+        let labeled = contact.emailAddresses
+        let preferredLabels = [CNLabelWork, CNLabelHome, CNLabelEmailiCloud]
+        for label in preferredLabels {
+            if let match = labeled.first(where: { $0.label == label }),
+               let email = normalizedEmail(match.value as String) {
+                return email
+            }
+        }
+        for item in labeled {
+            if let email = normalizedEmail(item.value as String) {
+                return email
             }
         }
         return nil
     }
 
-    private static func applyContact(_ contact: CNContact, to draft: inout Draft) {
-        draft.kind = .contact
-        draft.promptTitle = "Thank this person."
-        let name = CNContactFormatter.string(from: contact, style: .fullName)?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if let name, !name.isEmpty {
-            draft.recipientName = name
-        } else if !contact.organizationName.isEmpty {
-            draft.recipientName = contact.organizationName
+    private static func emailsFromVCard(_ data: Data?) -> [String] {
+        guard let data,
+              let text = String(data: data, encoding: .utf8)
+                ?? String(data: data, encoding: .utf16)
+                ?? String(data: data, encoding: .ascii)
+        else { return [] }
+
+        var emails: [String] = []
+        for rawLine in text.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            let upper = line.uppercased()
+            guard upper.hasPrefix("EMAIL") || upper.contains(".EMAIL") else { continue }
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            if let email = normalizedEmail(String(line[line.index(after: colon)...])) {
+                emails.append(email)
+            }
         }
+        return emails
+    }
+
+    private static func normalizedEmail(_ raw: String) -> String? {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
+            .lowercased()
+        guard value.contains("@"),
+              let at = value.firstIndex(of: "@")
+        else { return nil }
+        let local = value[..<at]
+        let domain = value[value.index(after: at)...]
+        guard !local.isEmpty,
+              domain.contains("."),
+              !domain.hasPrefix("."),
+              !domain.hasSuffix("."),
+              !domain.contains("@")
+        else { return nil }
+        return value
     }
 
     // MARK: - Calendar
