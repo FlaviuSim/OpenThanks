@@ -293,7 +293,9 @@ enum AppreciationAI {
 
 // MARK: - Voice dictation
 
-/// Apple Speech tap-to-talk for the compose message field (auto punctuation via `addsPunctuation`).
+/// Apple Speech tap-to-talk for the compose message field.
+/// Pauses become sentence breaks; spoken punctuation and casing are normalized
+/// so the result reads like keyboard dictation (Wispr-style).
 @MainActor
 final class AppreciationDictation: ObservableObject {
     @Published private(set) var isListening = false
@@ -322,6 +324,8 @@ final class AppreciationDictation: ObservableObject {
     private var audioTapInstalled = false
     /// Invalidates in-flight restart work after stop / a newer restart.
     private var restartToken = UUID()
+    /// Ignore session-activation interruptions so starting the mic doesn't immediately pause.
+    private var ignoreInterruptionsUntil = Date.distantPast
 
     init(locale: Locale = .current) {
         speechRecognizer = SFSpeechRecognizer(locale: locale)
@@ -338,13 +342,15 @@ final class AppreciationDictation: ObservableObject {
 
     /// Combined message while listening / after a final result: `baseText` + transcript.
     func combinedText(maxLength: Int) -> String {
-        let joined = Self.join(base: baseText, addition: transcript)
+        let joined = DictationProse.stitch(base: baseText, addition: transcript, finalizeAddition: false)
         if joined.count <= maxLength { return joined }
         return String(joined.prefix(maxLength))
     }
 
     func toggle(baseText: String) async {
-        if wantsListening || isListening {
+        // Drive stop/start from the visible Listening state so a desynced
+        // `wantsListening` flag can't swallow taps.
+        if isListening {
             finishListening()
         } else {
             await start(baseText: baseText)
@@ -353,7 +359,7 @@ final class AppreciationDictation: ObservableObject {
 
     func start(baseText: String) async {
         errorMessage = nil
-        guard !wantsListening, !isListening else { return }
+        guard !isListening else { return }
 
         guard speechRecognizer != nil else {
             errorMessage = "Speech recognition isn’t available on this device."
@@ -371,13 +377,16 @@ final class AppreciationDictation: ObservableObject {
             return
         }
 
+        // Drop any leftover pause/restart state from a previous attempt.
+        restartToken = UUID()
+        isRestartingRecognition = false
         tearDownRecognition(cancelTask: true)
         wantsListening = true
+        isListening = true
         self.baseText = baseText
         transcript = ""
         lastUtteranceLength = 0
         setIdleTimerDisabled(true)
-        installInterruptionObserver()
 
         do {
             try configureAudioSession()
@@ -389,11 +398,14 @@ final class AppreciationDictation: ObservableObject {
             return
         }
 
-        isListening = recognitionTask != nil
-        if !isListening {
+        // A synchronous Speech callback may already have started a pause-restart.
+        if recognitionTask == nil, !isRestartingRecognition {
             errorMessage = "Couldn’t start listening. Try again."
             abortStart()
+            return
         }
+        ignoreInterruptionsUntil = Date().addingTimeInterval(0.5)
+        installInterruptionObserver()
     }
 
     /// Keep the screen awake while dictating; resume after the app comes back.
@@ -420,6 +432,7 @@ final class AppreciationDictation: ObservableObject {
         isRestartingRecognition = false
         restartToken = UUID()
         commitTranscript()
+        baseText = DictationProse.polish(baseText)
         isListening = false
         setIdleTimerDisabled(false)
         recognitionRequest?.endAudio()
@@ -437,7 +450,7 @@ final class AppreciationDictation: ObservableObject {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         lastUtteranceLength += trimmed.count
-        baseText = Self.join(base: baseText, addition: transcript)
+        baseText = DictationProse.stitch(base: baseText, addition: transcript, finalizeAddition: true)
         transcript = ""
     }
 
@@ -454,8 +467,7 @@ final class AppreciationDictation: ObservableObject {
 
     private func configureAudioSession() throws {
         let audioSession = AVAudioSession.sharedInstance()
-        // `.spokenAudio` is less aggressive about ending on silence than `.measurement`.
-        try audioSession.setCategory(.record, mode: .spokenAudio, options: .duckOthers)
+        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
     }
 
@@ -499,9 +511,8 @@ final class AppreciationDictation: ObservableObject {
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
         request.taskHint = .dictation
-        if speechRecognizer.supportsOnDeviceRecognition {
-            request.requiresOnDeviceRecognition = true
-        }
+        // Prefer Apple's networked dictation when available — punctuation and
+        // sentence breaks are much closer to keyboard dictation / Wispr.
         recognitionRequest = request
         installTap(for: request)
 
@@ -510,7 +521,7 @@ final class AppreciationDictation: ObservableObject {
                 guard let self, self.sessionID == session else { return }
                 if let result {
                     if self.wantsListening {
-                        self.transcript = result.bestTranscription.formattedString
+                        self.transcript = DictationProse.normalize(result.bestTranscription.formattedString)
                     }
                     if result.isFinal {
                         self.handleUtteranceComplete()
@@ -519,11 +530,11 @@ final class AppreciationDictation: ObservableObject {
                 }
                 if let error {
                     let ns = error as NSError
-                    if Self.isBenignSpeechError(ns) {
+                    if Self.isBenignSpeechError(ns) || self.wantsListening {
                         self.handleUtteranceComplete()
                         return
                     }
-                    if self.wantsListening {
+                    if self.isListening {
                         self.errorMessage = Self.friendlySpeechError(ns)
                     }
                     self.finishListening()
@@ -564,10 +575,15 @@ final class AppreciationDictation: ObservableObject {
                 try self.configureAudioSession()
                 self.beginRecognitionTask()
                 try self.startEngineIfNeeded()
-                self.isListening = self.recognitionTask != nil
+                if self.recognitionTask == nil {
+                    self.errorMessage = "Couldn’t keep listening. Tap the mic to try again."
+                    self.abortStart()
+                    return
+                }
+                self.isListening = true
             } catch {
                 self.errorMessage = "Couldn’t keep listening. Tap the mic to try again."
-                self.finishListening()
+                self.abortStart()
             }
         }
     }
@@ -665,13 +681,14 @@ final class AppreciationDictation: ObservableObject {
             let optionsRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
             Task { @MainActor in
                 guard let self else { return }
+                guard Date() >= self.ignoreInterruptionsUntil else { return }
                 switch type {
                 case .began:
                     self.commitTranscript()
                     self.pauseRecognitionForBackground()
                 case .ended:
                     let shouldResume = optionsRaw.map { AVAudioSession.InterruptionOptions(rawValue: $0).contains(.shouldResume) } ?? true
-                    if self.wantsListening, shouldResume {
+                    if self.wantsListening, shouldResume || self.recognitionTask == nil {
                         self.restartRecognitionKeepingAudio()
                     }
                 default:
@@ -688,19 +705,10 @@ final class AppreciationDictation: ObservableObject {
         }
     }
 
-    private static func join(base: String, addition: String) -> String {
-        let trimmedAddition = addition.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedAddition.isEmpty else { return base }
-        if base.isEmpty { return trimmedAddition }
-        if base.hasSuffix(" ") || base.hasSuffix("\n") {
-            return base + trimmedAddition
-        }
-        return base + " " + trimmedAddition
-    }
-
     private static func isBenignSpeechError(_ error: NSError) -> Bool {
-        if error.domain == "kAFAssistantErrorDomain", error.code == 216 || error.code == 1110 {
-            return true
+        if error.domain == "kAFAssistantErrorDomain" {
+            // 203 canceled, 209 retry, 216 timeout, 1110 no speech detected.
+            return [203, 209, 216, 1101, 1110].contains(error.code)
         }
         return false
     }
@@ -712,3 +720,199 @@ final class AppreciationDictation: ObservableObject {
         return "Couldn’t finish listening. Try again."
     }
 }
+
+/// Turns raw Apple Speech chunks into readable thank-you prose.
+private enum DictationProse {
+    static func normalize(_ raw: String) -> String {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return "" }
+        text = applySpokenPunctuation(text)
+        text = tidyPunctuation(text)
+        text = capitalizeStandaloneI(text)
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// `finalizeAddition` is true on pause/stop so the finished thought gets a period
+    /// and the next phrase starts a new sentence.
+    static func stitch(base: String, addition: String, finalizeAddition: Bool) -> String {
+        var next = normalize(addition)
+        guard !next.isEmpty else { return base }
+
+        if finalizeAddition {
+            next = ensureSentenceEnd(next)
+        }
+
+        let prefix = trimTrailingSpaces(base)
+        if prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return capitalizeLeading(next)
+        }
+
+        if prefix.hasSuffix("\n") {
+            return prefix + capitalizeLeading(next)
+        }
+
+        if endsWithSentencePunctuation(prefix) {
+            return prefix + " " + capitalizeLeading(next)
+        }
+
+        if isContinuation(next) {
+            return prefix + " " + lowercaseLeading(next)
+        }
+
+        if finalizeAddition {
+            return ensureSentenceEnd(prefix) + " " + capitalizeLeading(next)
+        }
+
+        return prefix + " " + next
+    }
+
+    static func polish(_ raw: String) -> String {
+        var text = tidyPunctuation(raw)
+        text = capitalizeStandaloneI(text)
+        text = capitalizeSentences(text)
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !endsWithSentencePunctuation(trimTrailingSpaces(text)),
+           !text.hasSuffix("\n") {
+            text = ensureSentenceEnd(trimTrailingSpaces(text))
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static let spokenReplacements: [(pattern: String, replacement: String)] = [
+        (#"(?i)\bnew paragraph\b"#, "\n\n"),
+        (#"(?i)\bnew line\b"#, "\n"),
+        (#"(?i)\bquestion mark\b"#, "?"),
+        (#"(?i)\bexclamation point\b"#, "!"),
+        (#"(?i)\bexclamation mark\b"#, "!"),
+        (#"(?i)\bfull stop\b"#, "."),
+        (#"(?i)\bdot dot dot\b"#, "…"),
+        (#"(?i)\bellipsis\b"#, "…"),
+        (#"(?i)\bsemicolon\b"#, ";"),
+        (#"(?i)\bcolon\b"#, ":"),
+        (#"(?i)\bcomma\b"#, ","),
+        (#"(?i)\bperiod\b"#, "."),
+    ]
+
+    private static func applySpokenPunctuation(_ text: String) -> String {
+        var result = text
+        for pair in spokenReplacements {
+            result = result.replacingOccurrences(
+                of: pair.pattern,
+                with: pair.replacement,
+                options: .regularExpression
+            )
+        }
+        return result
+    }
+
+    private static func tidyPunctuation(_ text: String) -> String {
+        var s = text.replacingOccurrences(of: "\r\n", with: "\n")
+        s = s.replacingOccurrences(of: #"[ \t]+\n"#, with: "\n", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"[ \t]{2,}"#, with: " ", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"\s+([,.;:!?…])"#, with: "$1", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"([,.;:!?…])([A-Za-z“\"'])"#, with: "$1 $2", options: .regularExpression)
+        return s
+    }
+
+    private static func capitalizeStandaloneI(_ text: String) -> String {
+        var s = text
+        s = s.replacingOccurrences(of: #"(?i)\bi'm\b"#, with: "I'm", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"(?i)\bi've\b"#, with: "I've", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"(?i)\bi'll\b"#, with: "I'll", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"(?i)\bi'd\b"#, with: "I'd", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"(^|[\s“\"'(\[])i\b"#, with: "$1I", options: .regularExpression)
+        return s
+    }
+
+    private static func capitalizeSentences(_ text: String) -> String {
+        guard !text.isEmpty else { return text }
+        var chars = Array(text)
+        var capitalizeNext = true
+        for i in chars.indices {
+            let ch = chars[i]
+            if ch.isNewline {
+                capitalizeNext = true
+                continue
+            }
+            if capitalizeNext, ch.isLetter {
+                chars[i] = Character(ch.uppercased())
+                capitalizeNext = false
+                continue
+            }
+            if ch == "." || ch == "!" || ch == "?" || ch == "…" {
+                capitalizeNext = true
+            } else if !ch.isWhitespace && ch != "\"" && ch != "“" && ch != "'" {
+                capitalizeNext = false
+            }
+        }
+        return String(chars)
+    }
+
+    private static func capitalizeLeading(_ text: String) -> String {
+        guard let index = text.firstIndex(where: { $0.isLetter || $0.isNumber }) else { return text }
+        var chars = Array(text)
+        let offset = text.distance(from: text.startIndex, to: index)
+        if chars[offset].isLetter {
+            chars[offset] = Character(chars[offset].uppercased())
+        }
+        return String(chars)
+    }
+
+    private static func lowercaseLeading(_ text: String) -> String {
+        guard let index = text.firstIndex(where: \.isLetter) else { return text }
+        let word = firstWord(text).lowercased()
+        if word == "i" || word.hasPrefix("i'") { return text }
+        var chars = Array(text)
+        let offset = text.distance(from: text.startIndex, to: index)
+        chars[offset] = Character(chars[offset].lowercased())
+        return String(chars)
+    }
+
+    private static func ensureSentenceEnd(_ text: String) -> String {
+        let trimmed = trimTrailingSpaces(text)
+        guard !trimmed.isEmpty else { return trimmed }
+        if endsWithSentencePunctuation(trimmed) || trimmed.hasSuffix(":") { return trimmed }
+        if trimmed.hasSuffix(",") || trimmed.hasSuffix(";") {
+            return String(trimmed.dropLast()) + "."
+        }
+        return trimmed + "."
+    }
+
+    private static func endsWithSentencePunctuation(_ text: String) -> Bool {
+        guard let last = text.unicodeScalars.last else { return false }
+        return CharacterSet(charactersIn: ".!?…").contains(last)
+    }
+
+    private static func trimTrailingSpaces(_ text: String) -> String {
+        var end = text.endIndex
+        while end > text.startIndex {
+            let prev = text.index(before: end)
+            if text[prev] == " " || text[prev] == "\t" {
+                end = prev
+            } else {
+                break
+            }
+        }
+        return String(text[..<end])
+    }
+
+    private static let continuationWords: Set<String> = [
+        "and", "but", "or", "nor", "so", "yet",
+        "because", "since", "although", "though", "unless",
+        "which", "that", "who", "whom", "whose",
+        "when", "while", "if", "then", "also",
+        "plus", "with", "without", "for",
+    ]
+
+    private static func isContinuation(_ text: String) -> Bool {
+        continuationWords.contains(firstWord(text).lowercased())
+    }
+
+    private static func firstWord(_ text: String) -> String {
+        let scalars = text.unicodeScalars.drop(while: { CharacterSet.whitespacesAndNewlines.contains($0) })
+        let word = scalars.prefix { CharacterSet.letters.contains($0) || $0 == "'" }
+        return String(String.UnicodeScalarView(word))
+    }
+}
+

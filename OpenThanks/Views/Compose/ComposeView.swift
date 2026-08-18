@@ -181,12 +181,9 @@ struct ComposeView: View {
         .navigationTitle(isEditing ? "Edit Appreciation" : "New Appreciation")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
-                    trackAbandonIfNeeded()
-                    dismiss()
-                }
-                .foregroundStyle(Theme.textSecondary)
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel", action: cancelCompose)
+                    .foregroundStyle(Theme.textSecondary)
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -1282,9 +1279,7 @@ struct ComposeView: View {
 
     private func prefillIfNeeded() {
         guard !didPrefill else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                messageFocused = true
-            }
+            autofocusMessageIfNeeded()
             return
         }
         didPrefill = true
@@ -1309,9 +1304,29 @@ struct ComposeView: View {
             cropItem = CropItem(image: prepared)
             ComposeShareStore.removeImage(fileName: fileName)
         }
+        autofocusMessageIfNeeded()
+    }
+
+    /// Auto-opening compose on app launch shouldn't steal the first Cancel tap
+    /// to the keyboard.
+    private var shouldAutofocusMessage: Bool {
+        analyticsSource != "app_open"
+    }
+
+    private func autofocusMessageIfNeeded() {
+        guard shouldAutofocusMessage else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            guard shouldAutofocusMessage else { return }
             messageFocused = true
         }
+    }
+
+    private func cancelCompose() {
+        messageFocused = false
+        recipientFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        trackAbandonIfNeeded()
+        dismiss()
     }
 
     /// Pull the member's email/phone from profiles so claim email can send

@@ -18,6 +18,8 @@ struct MainTabView: View {
 
     @State private var tab: Tab = .feed
     @State private var composeSheet: ComposeSheet?
+    /// Drops overlapping presentCompose Tasks (onAppear + scenePhase both fire on launch).
+    @State private var composePresentGeneration = 0
     @State private var unreadCount = 0
     @State private var feedPath = NavigationPath()
     @State private var notificationsPath = NavigationPath()
@@ -30,6 +32,7 @@ struct MainTabView: View {
     /// Selected notification route for iPad list↔detail.
     @State private var notificationDetail: GratitudeIdRoute?
     @Environment(AuthService.self) private var auth
+    @Environment(DeepLinkRouter.self) private var deepLinks
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
@@ -57,8 +60,7 @@ struct MainTabView: View {
         }
         .task { await refreshUnread() }
         .onAppear {
-            presentPendingComposeIfNeeded()
-            presentPendingTabIfNeeded()
+            presentLaunchSurfaces(includeDefaultCompose: true)
         }
         .onReceive(NotificationCenter.default.publisher(for: .composeLaunchQueued)) { _ in
             presentPendingComposeIfNeeded()
@@ -66,10 +68,11 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .tabLaunchQueued)) { _ in
             presentPendingTabIfNeeded()
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase) { oldPhase, phase in
             guard phase == .active else { return }
-            presentPendingComposeIfNeeded()
-            presentPendingTabIfNeeded()
+            // Returning from the background (icon tap) should land on compose.
+            // Control Center / a quick inactive flicker should not.
+            presentLaunchSurfaces(includeDefaultCompose: oldPhase == .background)
             if fridayReminderEnabled {
                 Task { await NotificationService.refreshFridayReminderIfEnabled(true) }
             }
@@ -285,12 +288,30 @@ struct MainTabView: View {
         }
     }
 
-    private func presentPendingComposeIfNeeded() {
+    @discardableResult
+    private func presentPendingComposeIfNeeded() -> Bool {
         if ComposeLaunchBridge.shared.pending == nil {
             ComposeShareHandoff.applyPendingShare()
         }
-        guard let request = ComposeLaunchBridge.shared.consume() else { return }
+        guard let request = ComposeLaunchBridge.shared.consume() else { return false }
         presentCompose(.launch(request))
+        return true
+    }
+
+    /// Login, cold start, and icon-open land on compose — the primary action —
+    /// unless a widget, notification, or deep link already chose a destination.
+    private func presentLaunchSurfaces(includeDefaultCompose: Bool) {
+        let openedQueuedCompose = presentPendingComposeIfNeeded()
+        let hadExplicitTab = TabLaunchBridge.shared.pending != nil
+        presentPendingTabIfNeeded()
+        guard includeDefaultCompose else { return }
+        guard !openedQueuedCompose else { return }
+        guard composeSheet == nil else { return }
+        guard !hadExplicitTab else { return }
+        guard deepLinks.destination == nil else { return }
+        guard !showProfileSettings else { return }
+        ComposeLaunchBridge.shared.queue(analyticsSource: "app_open")
+        presentPendingComposeIfNeeded()
     }
 
     /// Clears overlapping sheets/keyboard, then presents compose so it isn’t
@@ -302,9 +323,15 @@ struct MainTabView: View {
         resignKeyboard()
         NotificationCenter.default.post(name: .dismissTransientSheets, object: nil)
 
+        guard composeSheet == nil else { return }
+
+        composePresentGeneration += 1
+        let generation = composePresentGeneration
         Task { @MainActor in
             // Let share sheets / keyboard inset finish tearing down.
             try? await Task.sleep(for: .milliseconds(350))
+            guard generation == composePresentGeneration else { return }
+            guard composeSheet == nil else { return }
             composeSheet = sheet
         }
     }
