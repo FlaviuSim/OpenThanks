@@ -272,7 +272,7 @@ final class AuthService {
         do {
             let anchor = presentationAnchor ?? Self.keyPresentationAnchor()
             _ = try await supabase.auth.signInWithPasskey(presentationAnchor: anchor)
-            Analytics.capture("auth_signed_in", ["method": "passkey"])
+            await handleAuthSuccess(method: "passkey")
             return true
         } catch {
             if Self.isPasskeyCancellation(error) { return false }
@@ -381,7 +381,7 @@ final class AuthService {
             ) { @MainActor url in
                 try await Self.presentOAuthSession(url: url)
             }
-            Analytics.capture("auth_signed_in", ["method": method])
+            await handleAuthSuccess(method: method)
             return true
         } catch {
             if Self.isOAuthCancellation(error) { return false }
@@ -464,7 +464,7 @@ final class AuthService {
                 }
             }
             await syncAppleEmailIfNeeded(credentialEmail: email)
-            Analytics.capture("auth_signed_in", ["method": "apple"])
+            await handleAuthSuccess(method: "apple")
             return true
         } catch {
             errorMessage = Self.friendlyAuthError(error)
@@ -556,14 +556,20 @@ extension AuthService {
         // New users with "Confirm email" enabled get a signup OTP;
         // returning users get a magic-link/email OTP. Try both.
         let email = Self.normalizedEmail(email)
+        var verified = false
         do {
             try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
+            verified = true
         } catch {
             do {
                 try await supabase.auth.verifyOTP(email: email, token: code, type: .signup)
+                verified = true
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+        if verified {
+            await handleAuthSuccess(method: "email")
         }
     }
 
@@ -619,9 +625,37 @@ extension AuthService {
     func verifyPhoneCode(phone: String, code: String) async {
         do {
             try await supabase.auth.verifyOTP(phone: phone, token: code, type: .sms)
+            await handleAuthSuccess(method: "phone")
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Post-sign-in analytics + one-time signup metadata (`signup_platform`, `signup_method`).
+    private func handleAuthSuccess(method: String) async {
+        guard let session = try? await supabase.auth.session else { return }
+        let isSignup = Self.isFreshSignup(user: session.user)
+        if isSignup {
+            await persistSignupMetadata(method: method, platform: "ios")
+        }
+        Analytics.authSignedIn(method: method, isSignup: isSignup)
+    }
+
+    /// True when the auth user was created within the last couple of minutes.
+    private static func isFreshSignup(user: User) -> Bool {
+        Date().timeIntervalSince(user.createdAt) < 120
+    }
+
+    /// Record how/where the account was created (once). Stored in user metadata for analytics.
+    private func persistSignupMetadata(method: String, platform: String) async {
+        guard let session = try? await supabase.auth.session else { return }
+        let existing = session.user.userMetadata["signup_platform"]?.stringValue
+        guard existing == nil || existing?.isEmpty == true else { return }
+
+        var data = session.user.userMetadata
+        data["signup_platform"] = .string(platform)
+        data["signup_method"] = .string(method)
+        _ = try? await supabase.auth.update(user: UserAttributes(data: data))
     }
 
     // MARK: Phone on existing account (mirrors web edit profile)

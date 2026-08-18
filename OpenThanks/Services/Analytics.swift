@@ -3,6 +3,12 @@ import PostHog
 
 /// Thin wrapper around PostHog so call sites stay simple and consistent with the web app.
 ///
+/// **App Store / privacy posture**
+/// - First-party product analytics only (improve OpenThanks — not ads or cross-app tracking).
+/// - `PrivacyInfo.xcprivacy` declares `NSPrivacyTracking = false` — no ATT prompt.
+/// - `personProfiles = .identifiedOnly` — no anonymous person profiles.
+/// - Internal / simulator traffic is excluded (see below).
+///
 /// Exclusion (no product events):
 /// - iOS Simulator (unless DEBUG “Send Analytics” is on)
 /// - DEBUG builds (unless that toggle is on)
@@ -48,6 +54,7 @@ enum Analytics {
             projectToken: AppConfig.postHogKey,
             host: AppConfig.postHogHost
         )
+        // First-party funnel metrics — declared in PrivacyInfo.xcprivacy (not tracking).
         config.captureScreenViews = true
         config.captureApplicationLifecycleEvents = true
         config.personProfiles = .identifiedOnly
@@ -99,6 +106,13 @@ enum Analytics {
         var props = properties
         props["platform"] = props["platform"] ?? "ios"
         PostHogSDK.shared.capture(event, properties: props)
+    }
+
+    /// Successful sign-in (all methods). Includes `platform: ios` automatically.
+    static func authSignedIn(method: String, isSignup: Bool = false) {
+        var props: [String: Any] = ["method": method]
+        if isSignup { props["is_signup"] = true }
+        capture("auth_signed_in", props)
     }
 
     // MARK: - Compose funnel (aligned with web PostHog events)
