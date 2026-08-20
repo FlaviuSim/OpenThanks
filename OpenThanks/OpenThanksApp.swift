@@ -91,9 +91,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             WatchConnectivityService.shared.pushAuthContext()
         }
         Task { @MainActor in
-            // Always try schedule-first start, then full sync when auth is ready.
-            // Fixes cold-start taps that used to call sync(nil) and wipe the schedule.
-            await StreakLiveActivityController.handleWakeNotification(userId: auth?.userId)
+            // Any foreground — schedule-first start, then full streak sync.
+            await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
         }
     }
 
@@ -116,11 +115,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        let info = notification.request.content.userInfo
-        if let type = info[NotificationService.thankReminderTypeKey] as? String,
-           type == NotificationService.streakLiveActivityWakeTypeValue {
-            await StreakLiveActivityController.handleWakeNotification(userId: auth?.userId)
-        }
+        // Any banner delivery while the app is open — not only the 8am streak wake.
+        await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
         return [.banner, .sound, .badge]
     }
 
@@ -128,6 +124,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        // Cold-start / tap from any local or remote notification — start grace-day
+        // Live Activity before routing to compose, feed, etc.
+        await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
+
         let info = response.notification.request.content.userInfo
         guard let type = info[NotificationService.thankReminderTypeKey] as? String else { return }
 
@@ -174,7 +174,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 )
             }
         case NotificationService.streakLiveActivityWakeTypeValue:
-            await StreakLiveActivityController.handleWakeNotification(userId: auth?.userId)
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(analyticsSource: "streak_live_activity_wake")
             }

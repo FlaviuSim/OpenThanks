@@ -120,11 +120,9 @@ enum StreakLiveActivityController {
         await NotificationService.cancelStreakLiveActivityWake()
     }
 
-    /// Notification / cold-start path: start today’s activity with minimal friction.
-    /// Uses the App Group schedule first (no auth/network), then reconciles when possible.
-    static func handleWakeNotification(userId: UUID?) async {
-        // Start immediately from what we armed on last send — works even if auth
-        // isn’t wired yet (common on cold-start notification taps).
+    /// App foreground / notification entry: start today’s activity from the
+    /// persisted schedule first (no auth/network), then reconcile with streak math.
+    static func handleAppBecameActive(userId: UUID?) async {
         await startFromScheduleIfDue()
 
         if let userId {
@@ -135,19 +133,23 @@ enum StreakLiveActivityController {
         }
     }
 
+    /// Backward-compatible name for notification wake handlers.
+    static func handleWakeNotification(userId: UUID?) async {
+        await handleAppBecameActive(userId: userId)
+    }
+
     /// Call whenever auth resolves a user id (or becomes nil on sign-out).
     static func authDidBecomeReady(userId: UUID?) async {
-        if userId == nil {
+        guard let userId else {
             pendingWakeSync = false
             return
         }
 
-        let shouldSync = pendingWakeSync || scheduleIsDueToday || hasRunningActivity
         pendingWakeSync = false
-        if shouldSync {
-            await startFromScheduleIfDue()
-            await sync(userId: userId)
-        }
+        await startFromScheduleIfDue()
+        // Always reconcile when signed in — grace-day Live Activity must not
+        // depend on the 8am wake notification or a prior foreground pass.
+        await sync(userId: userId)
     }
 
     /// Tear down activities + schedule. Used on explicit sign-out only.
@@ -162,15 +164,6 @@ enum StreakLiveActivityController {
 
     private static var areActivitiesAvailable: Bool {
         ActivityAuthorizationInfo().areActivitiesEnabled
-    }
-
-    private static var scheduleIsDueToday: Bool {
-        guard let schedule = StreakLiveActivityStore.load() else { return false }
-        return Calendar.current.isDate(schedule.activateDay, inSameDayAs: Date())
-    }
-
-    private static var hasRunningActivity: Bool {
-        !Activity<StreakLiveActivityAttributes>.activities.isEmpty
     }
 
     /// Start (or refresh) today’s Live Activity from the persisted schedule alone.

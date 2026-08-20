@@ -70,6 +70,9 @@ struct MainTabView: View {
         }
         .onChange(of: scenePhase) { oldPhase, phase in
             guard phase == .active else { return }
+            Task { @MainActor in
+                await StreakLiveActivityController.handleAppBecameActive(userId: auth.userId)
+            }
             // Returning from the background (icon tap) should land on compose.
             // Control Center / a quick inactive flicker should not.
             presentLaunchSurfaces(includeDefaultCompose: oldPhase == .background)
