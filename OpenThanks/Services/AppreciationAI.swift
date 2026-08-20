@@ -103,6 +103,32 @@ enum AppreciationAI {
         throw AIError.unavailable
     }
 
+    /// Fix speech-to-text glitches using the full dictated message (on-device).
+    static func cleanupDictation(_ text: String) async throws -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw AIError.emptyMessage }
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            guard SystemLanguageModel.default.isAvailable else {
+                throw AIError.unavailable
+            }
+
+            let session = LanguageModelSession(instructions: dictationCleanupInstructions)
+            let response = try await session.respond(
+                to: dictationCleanupPrompt(trimmed),
+                options: GenerationOptions(temperature: 0.2)
+            )
+            let content = sanitize(String(response.content))
+            guard !content.isEmpty else {
+                throw AIError.failed("Apple Intelligence returned an empty suggestion. Try again.")
+            }
+            return content
+        }
+        #endif
+        throw AIError.unavailable
+    }
+
     #if canImport(FoundationModels)
     @available(iOS 26.0, *)
     private static func generateRewrite(
@@ -124,6 +150,29 @@ enum AppreciationAI {
         return content
     }
     #endif
+
+    private static let dictationCleanupInstructions = """
+        You clean up voice-dictated thank-you messages on OpenThanks.
+        Read the entire message and fix words that do not make sense in context — \
+        homophones, merged or split words, obvious speech-recognition mistakes, \
+        and stray mid-sentence capitalization after a pause.
+        Keep the same meaning, tone, length, names, and details. Do not rewrite for style.
+        Return only the corrected message — no preamble, labels, or commentary.
+        """
+
+    private static func dictationCleanupPrompt(_ message: String) -> String {
+        """
+        This thank-you was dictated by voice. Using the full message for context, \
+        fix recognition errors and mid-sentence capitalization while preserving meaning.
+
+        Return only the corrected thank-you — no preamble or commentary.
+
+        Message:
+        \"\"\"
+        \(message)
+        \"\"\"
+        """
+    }
 
     /// Strip model wrappers and lead-in commentary so only the thank-you remains.
     private static func sanitize(_ raw: String) -> String {
@@ -294,12 +343,13 @@ enum AppreciationAI {
 // MARK: - Voice dictation
 
 /// Apple Speech tap-to-talk for the compose message field.
-/// Pauses become sentence breaks; spoken punctuation and casing are normalized
-/// so the result reads like keyboard dictation (Wispr-style).
+/// Pauses mid-sentence stay lowercase; stopping runs a full-text cleanup pass.
 @MainActor
 final class AppreciationDictation: ObservableObject {
     @Published private(set) var isListening = false
     @Published private(set) var isAvailable = false
+    /// Bumped when committed dictation text changes (pause chunks or stop cleanup).
+    @Published private(set) var textEpoch = 0
     @Published var errorMessage: String?
 
     /// Text already in the field when the current utterance started (used to splice live partials).
@@ -351,7 +401,7 @@ final class AppreciationDictation: ObservableObject {
         // Drive stop/start from the visible Listening state so a desynced
         // `wantsListening` flag can't swallow taps.
         if isListening {
-            finishListening()
+            await finishListening()
         } else {
             await start(baseText: baseText)
         }
@@ -426,13 +476,14 @@ final class AppreciationDictation: ObservableObject {
     }
 
     /// User tapped stop — end audio so Apple can finalize (with punctuation) without canceling mid-stream.
-    func finishListening() {
+    func finishListening() async {
         guard wantsListening || isListening else { return }
         wantsListening = false
         isRestartingRecognition = false
         restartToken = UUID()
         commitTranscript()
-        baseText = DictationProse.polish(baseText)
+        baseText = await DictationProse.reconcileFullText(baseText)
+        bumpTextEpoch()
         isListening = false
         setIdleTimerDisabled(false)
         recognitionRequest?.endAudio()
@@ -450,8 +501,13 @@ final class AppreciationDictation: ObservableObject {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         lastUtteranceLength += trimmed.count
-        baseText = DictationProse.stitch(base: baseText, addition: transcript, finalizeAddition: true)
+        baseText = DictationProse.stitchPauseChunk(base: baseText, addition: transcript)
         transcript = ""
+        bumpTextEpoch()
+    }
+
+    private func bumpTextEpoch() {
+        textEpoch += 1
     }
 
     private func abortStart() {
@@ -537,7 +593,7 @@ final class AppreciationDictation: ObservableObject {
                     if self.isListening {
                         self.errorMessage = Self.friendlySpeechError(ns)
                     }
-                    self.finishListening()
+                    Task { await self.finishListening() }
                 }
             }
         }
@@ -732,38 +788,65 @@ private enum DictationProse {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// `finalizeAddition` is true on pause/stop so the finished thought gets a period
-    /// and the next phrase starts a new sentence.
+    /// Live partial while the mic is still on — don't force sentence breaks.
     static func stitch(base: String, addition: String, finalizeAddition: Bool) -> String {
+        if finalizeAddition {
+            return stitchPauseChunk(base: base, addition: addition)
+        }
+        return stitchLive(base: base, addition: addition)
+    }
+
+    /// After a pause mid-dictation: keep mid-sentence flow (no forced period / cap).
+    static func stitchPauseChunk(base: String, addition: String) -> String {
         var next = normalize(addition)
         guard !next.isEmpty else { return base }
-
-        if finalizeAddition {
-            next = ensureSentenceEnd(next)
-        }
 
         let prefix = trimTrailingSpaces(base)
         if prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return capitalizeLeading(next)
         }
-
         if prefix.hasSuffix("\n") {
             return prefix + capitalizeLeading(next)
         }
-
         if endsWithSentencePunctuation(prefix) {
+            next = ensureSentenceEnd(next)
             return prefix + " " + capitalizeLeading(next)
         }
 
+        // Mid-sentence pause — lowercase the next chunk.
+        return prefix + " " + lowercaseLeading(next)
+    }
+
+    private static func stitchLive(base: String, addition: String) -> String {
+        let next = normalize(addition)
+        guard !next.isEmpty else { return base }
+
+        let prefix = trimTrailingSpaces(base)
+        if prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return capitalizeLeading(next)
+        }
+        if prefix.hasSuffix("\n") {
+            return prefix + capitalizeLeading(next)
+        }
+        if endsWithSentencePunctuation(prefix) {
+            return prefix + " " + capitalizeLeading(next)
+        }
         if isContinuation(next) {
             return prefix + " " + lowercaseLeading(next)
         }
-
-        if finalizeAddition {
-            return ensureSentenceEnd(prefix) + " " + capitalizeLeading(next)
-        }
-
         return prefix + " " + next
+    }
+
+    /// Full pass when dictation stops — punctuation, casing, then context cleanup.
+    static func reconcileFullText(_ raw: String) async -> String {
+        var text = polish(raw)
+        text = fixErroneousMidSentenceCaps(text)
+        if AppreciationAI.isAvailable {
+            if let cleaned = try? await AppreciationAI.cleanupDictation(text) {
+                return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return text
     }
 
     static func polish(_ raw: String) -> String {
@@ -857,6 +940,62 @@ private enum DictationProse {
             chars[offset] = Character(chars[offset].uppercased())
         }
         return String(chars)
+    }
+
+    /// Speech often capitalizes the word after a mid-sentence pause — fix before AI/heuristics.
+    private static func fixErroneousMidSentenceCaps(_ text: String) -> String {
+        guard !text.isEmpty else { return text }
+        var result = ""
+        var sentenceStart = true
+
+        var index = text.startIndex
+        while index < text.endIndex {
+            let ch = text[index]
+            if ch.isNewline {
+                sentenceStart = true
+                result.append(ch)
+                index = text.index(after: index)
+                continue
+            }
+
+            if ch.isLetter {
+                let wordStart = index
+                var wordEnd = index
+                while wordEnd < text.endIndex {
+                    let c = text[wordEnd]
+                    if c.isLetter || c == "'" { wordEnd = text.index(after: wordEnd) } else { break }
+                }
+                let word = String(text[wordStart..<wordEnd])
+                var wordOut = word
+                if !sentenceStart,
+                   let first = word.first,
+                   first.isUppercase,
+                   word != "I",
+                   !word.hasPrefix("I'"),
+                   let prev = lastSignificantCharacter(in: result),
+                   prev.isLowercase {
+                    wordOut = word.prefix(1).lowercased() + word.dropFirst()
+                }
+                result.append(contentsOf: wordOut)
+                index = wordEnd
+                sentenceStart = false
+                continue
+            }
+
+            if ".!?…".contains(ch) {
+                sentenceStart = true
+            }
+            result.append(ch)
+            index = text.index(after: index)
+        }
+        return result
+    }
+
+    private static func lastSignificantCharacter(in text: String) -> Character? {
+        for ch in text.reversed() where !ch.isWhitespace {
+            return ch
+        }
+        return nil
     }
 
     private static func lowercaseLeading(_ text: String) -> String {

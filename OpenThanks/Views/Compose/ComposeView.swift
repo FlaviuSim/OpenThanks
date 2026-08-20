@@ -206,7 +206,7 @@ struct ComposeView: View {
             }
         }
         .onDisappear {
-            dictation.finishListening()
+            Task { await dictation.finishListening() }
             trackAbandonIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
@@ -235,6 +235,9 @@ struct ComposeView: View {
             }
         }
         .onChange(of: dictation.transcript) { _, _ in
+            applyDictationTranscript()
+        }
+        .onChange(of: dictation.textEpoch) { _, _ in
             applyDictationTranscript()
         }
         .onChange(of: dictation.isListening) { wasListening, listening in
