@@ -54,9 +54,7 @@ struct EditProfileSheet: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                     }
-                    if !required {
-                        TextField("Headline", text: $headline)
-                    }
+                    TextField(required ? "Headline (optional)" : "Headline", text: $headline)
                 }
                 .listRowBackground(Theme.surface)
 
@@ -75,7 +73,7 @@ struct EditProfileSheet: View {
 
                 if required {
                     Section {
-                        Text("Add your name and username to enter OpenThanks. A profile photo is optional.")
+                        Text("Add your name and username to enter OpenThanks. Photo and headline are optional.")
                             .font(Theme.body(13))
                             .foregroundStyle(Theme.textSecondary)
                     }
@@ -345,7 +343,10 @@ struct EditProfileSheet: View {
                 update = .init(
                     fullName: cleanFullName,
                     username: cleanUsername,
-                    avatarUrl: avatarURLString
+                    avatarUrl: avatarURLString,
+                    headline: headline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? nil
+                        : headline.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
             } else {
                 if nonprofitName != nil {

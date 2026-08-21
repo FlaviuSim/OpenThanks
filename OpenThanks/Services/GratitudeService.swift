@@ -777,8 +777,8 @@ enum GratitudeService {
     }
 
     /// Profile update. Pass `clearOptionalFields: true` from Edit Profile so
-    /// clearing headline/nonprofit writes SQL NULL. Required onboarding only
-    /// patches name, username, and avatar.
+    /// clearing headline/nonprofit writes SQL NULL. Required onboarding patches
+    /// name, username, avatar, and optional headline.
     struct ProfileUpdate: Encodable {
         var fullName: String?
         var username: String
