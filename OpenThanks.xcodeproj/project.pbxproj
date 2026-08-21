@@ -34,6 +34,7 @@
 		3941394E94699B39AF29657B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */; };
 		3AD34DD6B9F207035D2FB879 /* LinkifiedText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23112A6E99B11377C47229C1 /* LinkifiedText.swift */; };
 		3C8C00DFC8C051B256BCB340 /* HeartedByView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */; };
+		2F81D224EDB24AF58C0F7D7E /* KeyboardAvoidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E95E319F77A4D108A56BCF6 /* KeyboardAvoidance.swift */; };
 		3D67CBB15AD5F7E53DA94769 /* AppIcon-Night@3x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = F7F32AE04085791782F13A5C /* AppIcon-Night@3x~ipad.png */; };
 		3F808764AE86830A598D0F51 /* GratitudeOpportunityRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */; };
 		3FC8D98D88D2290835A45166 /* AppIcon-Dawn.png in Resources */ = {isa = PBXBuildFile; fileRef = 802960DCA74AB23ED5D9DF85 /* AppIcon-Dawn.png */; };
@@ -233,6 +234,7 @@
 		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
 		2C1A67A77A55D99DD8040136 /* StreakLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
+		9E95E319F77A4D108A56BCF6 /* KeyboardAvoidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardAvoidance.swift; sourceTree = "<group>"; };
 		306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionConfigService.swift; sourceTree = "<group>"; };
 		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
 		34C1B132702899893D08B37C /* VideoProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessing.swift; sourceTree = "<group>"; };
@@ -538,6 +540,7 @@
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
 				2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */,
+				9E95E319F77A4D108A56BCF6 /* KeyboardAvoidance.swift */,
 				23112A6E99B11377C47229C1 /* LinkifiedText.swift */,
 				ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */,
 				D0F7A24C5E1A73D4B8C9F036 /* ReportContentSheet.swift */,
@@ -944,6 +947,7 @@
 				3F808764AE86830A598D0F51 /* GratitudeOpportunityRanker.swift in Sources */,
 				0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */,
 				3C8C00DFC8C051B256BCB340 /* HeartedByView.swift in Sources */,
+				2F81D224EDB24AF58C0F7D7E /* KeyboardAvoidance.swift in Sources */,
 				E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */,
 				EE499ED7A7C287F33B26482C /* KeychainStore.swift in Sources */,
 				3AD34DD6B9F207035D2FB879 /* LinkifiedText.swift in Sources */,

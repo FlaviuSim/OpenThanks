@@ -95,7 +95,6 @@ struct MainTabView: View {
             }
         }
         .animation(.easeInOut(duration: 0.18), value: tab)
-        .animation(.easeInOut(duration: 0.2), value: homeSearchActive)
         .onChange(of: tab) { _, newTab in
             if newTab != .feed {
                 homeSearchActive = false
@@ -231,7 +230,12 @@ struct MainTabView: View {
     // MARK: - iPhone shell
 
     private var phoneShell: some View {
-        ZStack(alignment: .bottom) {
+        // Pin with a bottom overlay (not a ZStack sibling). After OTP / login the
+        // keyboard safe-area can linger and compress a bottom stack, which leaves
+        // the floating bar mid-feed. Avoid `.move(edge:)` transitions — an
+        // interrupted insert (compose auto-presents ~350ms after login) can freeze
+        // the bar halfway up the screen.
+        ZStack {
             FeedView(
                 path: $feedPath,
                 isSelected: tab == .feed,
@@ -254,14 +258,16 @@ struct MainTabView: View {
                 .opacity(tab == .profile ? 1 : 0)
                 .allowsHitTesting(tab == .profile)
                 .zIndex(tab == .profile ? 1 : 0)
-
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .bottom) {
             if !homeSearchActive {
                 tabBar
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(10)
+                    .transition(.opacity)
             }
         }
+        .ignoresSafeArea(.keyboard)
+        .animation(.easeInOut(duration: 0.2), value: homeSearchActive)
     }
 
     /// Ends editing app-wide — needed because Home stays mounted under other tabs.
@@ -331,7 +337,8 @@ struct MainTabView: View {
         composePresentGeneration += 1
         let generation = composePresentGeneration
         Task { @MainActor in
-            // Let share sheets / keyboard inset finish tearing down.
+            // Let share sheets / OAuth teardown finish before covering Home.
+            // Compose itself ignores stale keyboard safe-area (see keyboardBottomPadding).
             try? await Task.sleep(for: .milliseconds(350))
             guard generation == composePresentGeneration else { return }
             guard composeSheet == nil else { return }

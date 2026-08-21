@@ -167,6 +167,7 @@ struct ComposeView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 28)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scrollDismissesKeyboard(.interactively)
             .photosPicker(
                 isPresented: $showPhotosPicker,
@@ -177,6 +178,11 @@ struct ComposeView: View {
 
             sendBar
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // LinkedIn/Google OAuth (and OTP) can leave a phantom keyboard inset that
+        // parks Create Appreciation mid-screen with empty space below. Ignore that
+        // safe-area and pad from real keyboard frames instead.
+        .keyboardBottomPadding()
         .background(Theme.background)
         .navigationTitle(isEditing ? "Edit Appreciation" : "New Appreciation")
         .navigationBarTitleDisplayMode(.inline)

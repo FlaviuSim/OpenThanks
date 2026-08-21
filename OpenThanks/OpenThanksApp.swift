@@ -267,6 +267,7 @@ struct RootView: View {
             }
         case .ready:
             MainTabView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
