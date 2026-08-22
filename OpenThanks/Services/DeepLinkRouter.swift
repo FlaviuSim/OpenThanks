@@ -35,6 +35,9 @@ final class DeepLinkRouter {
     ]
 
     var destination: Destination?
+    /// When set, the next appreciation deep-link cover shows a pay-it-forward prompt
+    /// (used after accepting via a claim link).
+    var payItForwardFromName: String?
 
     static func isUniversalLink(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(),
@@ -67,6 +70,34 @@ final class DeepLinkRouter {
 
     func clear() {
         destination = nil
+        payItForwardFromName = nil
+    }
+
+    /// Replace the current deep link (e.g. `/claim/{token}`) with the public
+    /// appreciation page (`/for/{slug}` or `/gratitude/{id}`).
+    func openAppreciation(_ gratitude: Gratitude, payItForwardFromName: String? = nil) {
+        // Swap the cover first; defer the nudge so it presents on the new page.
+        self.payItForwardFromName = nil
+        if let slug = gratitude.slug?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !slug.isEmpty {
+            destination = .slug(slug)
+        } else {
+            destination = .gratitude(id: gratitude.id)
+        }
+        guard let name = payItForwardFromName else { return }
+        let openedId = gratitude.id
+        let openedSlug = gratitude.slug
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            switch destination {
+            case .gratitude(let id) where id == openedId:
+                self.payItForwardFromName = name
+            case .slug(let slug) where slug == openedSlug:
+                self.payItForwardFromName = name
+            default:
+                break
+            }
+        }
     }
 
     /// `/gratitude/new` opens the create-appreciation sheet (not a detail cover).

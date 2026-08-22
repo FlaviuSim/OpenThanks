@@ -7,12 +7,37 @@ struct DeepLinkHostModifier: ViewModifier {
     @Bindable var deepLinks: DeepLinkRouter
     var auth: AuthService
 
+    private var showPayItForward: Binding<Bool> {
+        Binding(
+            get: { deepLinks.payItForwardFromName != nil },
+            set: { if !$0 { deepLinks.payItForwardFromName = nil } }
+        )
+    }
+
     func body(content: Content) -> some View {
         content
             .fullScreenCover(item: $deepLinks.destination) { destination in
                 destinationView(destination)
                     .environment(auth)
+                    .environment(deepLinks)
                     .syncAppAppearance()
+                    .sheet(isPresented: showPayItForward) {
+                        PayItForwardSheet(
+                            fromName: deepLinks.payItForwardFromName,
+                            onThankSomeone: {
+                                Analytics.capture(
+                                    "pay_it_forward_tapped",
+                                    ["source": "claim_accept"]
+                                )
+                                deepLinks.payItForwardFromName = nil
+                                deepLinks.clear()
+                                ComposeLaunchBridge.shared.queue(
+                                    analyticsSource: "post_accept_pay_it_forward"
+                                )
+                            }
+                        )
+                        .syncAppAppearance()
+                    }
             }
     }
 
