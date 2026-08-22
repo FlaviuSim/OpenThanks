@@ -66,6 +66,7 @@ struct PayItForwardSheet: View {
     var fromName: String?
     var onThankSomeone: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var detentHeight: CGFloat = 340
 
     var body: some View {
         VStack(spacing: 20) {
@@ -92,13 +93,33 @@ struct PayItForwardSheet: View {
                 dismiss()
                 AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
             }
-                .font(Theme.body(15, weight: .medium))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.bottom, 12)
+            .font(Theme.body(15, weight: .medium))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.bottom, 8)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .top)
         .background(Theme.background)
-        .presentationDetents([.medium])
+        .background {
+            GeometryReader { geo in
+                Color.clear.preference(
+                    key: PayItForwardSheetHeightKey.self,
+                    value: geo.size.height
+                )
+            }
+        }
+        .onPreferenceChange(PayItForwardSheetHeightKey.self) { height in
+            guard height > 0 else { return }
+            detentHeight = height
+        }
+        .presentationDetents([.height(detentHeight)])
         .presentationDragIndicator(.hidden)
+    }
+}
+
+private enum PayItForwardSheetHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
     }
 }
