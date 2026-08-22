@@ -14,12 +14,23 @@ struct MainTabView: View {
             case .launch(let request): request.id.uuidString
             }
         }
+
+        /// Blank tab compose or empty `app_open` — notification / calendar launches replace these.
+        var isWeakDefault: Bool {
+            switch self {
+            case .blank: true
+            case .launch(let request): request.isWeakDefault
+            }
+        }
     }
 
     @State private var tab: Tab = .feed
     @State private var composeSheet: ComposeSheet?
     /// Drops overlapping presentCompose Tasks (onAppear + scenePhase both fire on launch).
     @State private var composePresentGeneration = 0
+    /// Tracks whether the in-flight `presentCompose` is blank/`app_open` so a deferred
+    /// cold-start default doesn't clobber a calendar / notification prefill mid-delay.
+    @State private var composePresentIntentIsWeak = true
     @State private var unreadCount = 0
     @State private var feedPath = NavigationPath()
     @State private var notificationsPath = NavigationPath()
@@ -319,8 +330,24 @@ struct MainTabView: View {
         guard !hadExplicitTab else { return }
         guard deepLinks.destination == nil else { return }
         guard !showProfileSettings else { return }
-        ComposeLaunchBridge.shared.queue(analyticsSource: "app_open")
-        presentPendingComposeIfNeeded()
+
+        // Cold-start from a notification: AppDelegate may still be queuing the
+        // calendar/Friday prefill. Wait briefly so blank `app_open` doesn't win.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            if ComposeLaunchBridge.shared.pending != nil {
+                presentPendingComposeIfNeeded()
+                return
+            }
+            // Richer compose already up, or a calendar/notification present is mid-delay.
+            if !composePresentIntentIsWeak { return }
+            if let sheet = composeSheet, !sheet.isWeakDefault { return }
+            guard composeSheet == nil else { return }
+            guard deepLinks.destination == nil else { return }
+            guard !showProfileSettings else { return }
+            ComposeLaunchBridge.shared.queue(analyticsSource: "app_open")
+            presentPendingComposeIfNeeded()
+        }
     }
 
     /// Clears overlapping sheets/keyboard, then presents compose so it isn’t
@@ -332,8 +359,13 @@ struct MainTabView: View {
         resignKeyboard()
         NotificationCenter.default.post(name: .dismissTransientSheets, object: nil)
 
-        guard composeSheet == nil else { return }
+        if let current = composeSheet {
+            // Calendar / notification prefills must replace blank app_open compose.
+            guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else { return }
+            composeSheet = nil
+        }
 
+        composePresentIntentIsWeak = sheet.isWeakDefault
         composePresentGeneration += 1
         let generation = composePresentGeneration
         Task { @MainActor in
@@ -341,9 +373,17 @@ struct MainTabView: View {
             // Compose itself ignores stale keyboard safe-area (see keyboardBottomPadding).
             try? await Task.sleep(for: .milliseconds(350))
             guard generation == composePresentGeneration else { return }
-            guard composeSheet == nil else { return }
+            if let current = composeSheet {
+                guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else { return }
+            }
             composeSheet = sheet
         }
+    }
+
+    /// Richer launches (calendar email, share, Siri) beat blank / `app_open` compose.
+    private static func incomingBeatsOpenCompose(current: ComposeSheet, incoming: ComposeSheet) -> Bool {
+        guard !incoming.isWeakDefault else { return false }
+        return current.isWeakDefault
     }
 
     private func presentPendingTabIfNeeded() {

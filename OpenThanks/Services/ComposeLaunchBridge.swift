@@ -44,6 +44,16 @@ final class ComposeLaunchBridge {
             self.imageFileName = imageFileName
             self.analyticsSource = analyticsSource
         }
+
+        /// Blank cold-start / icon-open compose — must lose to notification / calendar / share launches.
+        var isWeakDefault: Bool {
+            analyticsSource == "app_open"
+                && recipientName == nil
+                && message == nil
+                && messagePlaceholder == nil
+                && profile == nil
+                && imageFileName == nil
+        }
     }
 
     private(set) var pending: Request?
@@ -60,7 +70,7 @@ final class ComposeLaunchBridge {
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPlaceholder = messagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedImage = imageFileName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        pending = Request(
+        let request = Request(
             recipientName: (trimmedName?.isEmpty == false) ? trimmedName : nil,
             message: (trimmedMessage?.isEmpty == false) ? trimmedMessage : nil,
             messagePlaceholder: (trimmedPlaceholder?.isEmpty == false) ? trimmedPlaceholder : nil,
@@ -68,6 +78,12 @@ final class ComposeLaunchBridge {
             imageFileName: (trimmedImage?.isEmpty == false) ? trimmedImage : nil,
             analyticsSource: analyticsSource
         )
+        // Never let blank app_open clobber a calendar / notification / share prefill
+        // that landed milliseconds earlier on cold start.
+        if let pending, !pending.isWeakDefault, request.isWeakDefault {
+            return
+        }
+        pending = request
         NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
     }
 
