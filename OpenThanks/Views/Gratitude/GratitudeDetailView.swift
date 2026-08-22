@@ -223,16 +223,16 @@ struct GratitudeDetailView: View {
             .disabled(preparingShare)
 
             Button {
-                UIPasteboard.general.string = shareContent.socialCaption
+                UIPasteboard.general.string = shareContent.url.absoluteString
                 withAnimation { linkCopied = true }
-                flashHint("Caption & link copied")
+                flashHint("Link copied")
                 Task {
                     try? await Task.sleep(for: .seconds(2.5))
                     withAnimation { linkCopied = false }
                 }
             } label: {
                 Label(
-                    linkCopied ? "Caption copied" : "Copy caption & link",
+                    linkCopied ? "Link copied" : "Copy link to appreciation",
                     systemImage: linkCopied ? "checkmark" : "doc.on.doc"
                 )
                 .font(Theme.body(14, weight: .medium))

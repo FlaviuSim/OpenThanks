@@ -90,7 +90,7 @@ struct AppreciationShareContent {
         """
     }
 
-    /// Caption with URL — Copy action.
+    /// Caption with URL — used when a channel needs both in one string.
     var socialCaption: String {
         """
         \(socialCaptionBody)
