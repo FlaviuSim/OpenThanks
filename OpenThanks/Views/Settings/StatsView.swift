@@ -496,13 +496,19 @@ struct StatsView: View {
                 posts: activity,
                 windowDays: rollingWindowDays,
                 windowEnd: $rollingWindowEnd,
+                sendOnly: showCompetition,
                 appear: appearReady
             )
 
             HStack(spacing: 14) {
-                legendSwatch(color: Theme.coral, label: "Accepted")
-                legendSwatch(color: Theme.coral.opacity(0.28), label: "Sent · pending", stroked: true)
-                legendSwatch(color: Theme.surfaceRaised, label: "No post")
+                if showCompetition {
+                    legendSwatch(color: Theme.coral, label: "Sent")
+                    legendSwatch(color: Theme.surfaceRaised, label: "No post")
+                } else {
+                    legendSwatch(color: Theme.coral, label: "Accepted")
+                    legendSwatch(color: Theme.coral.opacity(0.28), label: "Sent · pending", stroked: true)
+                    legendSwatch(color: Theme.surfaceRaised, label: "No post")
+                }
             }
             .font(Theme.body(11))
             .foregroundStyle(Theme.textTertiary)
@@ -567,6 +573,8 @@ private struct ActivityCalendarView: View {
     let posts: [SentActivity]
     let windowDays: Int
     @Binding var windowEnd: Date
+    /// When true (challenge active), any send counts — no accepted vs pending split.
+    let sendOnly: Bool
     let appear: Bool
 
     private let calendar = Calendar.current
@@ -682,7 +690,7 @@ private struct ActivityCalendarView: View {
     }
 
     private func dayCell(_ day: Date, index: Int) -> some View {
-        let kind = StreakMath.activity(on: day, posts: posts, calendar: calendar)
+        let kind = dayActivity(on: day)
         let isToday = calendar.isDateInToday(day)
         let isFuture = day > today
         let number = calendar.component(.day, from: day)
@@ -691,7 +699,7 @@ private struct ActivityCalendarView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(fill(for: kind, isFuture: isFuture))
                 .overlay {
-                    if kind == .pending {
+                    if !sendOnly, kind == .pending {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .stroke(Theme.coral.opacity(0.45), lineWidth: 1)
                     }
@@ -715,6 +723,15 @@ private struct ActivityCalendarView: View {
         .accessibilityLabel(accessibilityLabel(day: day, kind: kind))
     }
 
+    private func dayActivity(on day: Date) -> StreakMath.DayActivity {
+        if sendOnly {
+            return StreakMath.sentActivity(on: day, posts: posts, calendar: calendar)
+                ? .accepted
+                : .empty
+        }
+        return StreakMath.activity(on: day, posts: posts, calendar: calendar)
+    }
+
     private func fill(for kind: StreakMath.DayActivity, isFuture: Bool) -> Color {
         if isFuture { return Theme.surfaceRaised.opacity(0.4) }
         switch kind {
@@ -735,6 +752,12 @@ private struct ActivityCalendarView: View {
 
     private func accessibilityLabel(day: Date, kind: StreakMath.DayActivity) -> String {
         let date = day.formatted(.dateTime.month(.abbreviated).day())
+        if sendOnly {
+            switch kind {
+            case .empty: return "\(date), no thanks sent"
+            case .pending, .accepted: return "\(date), sent a thanks"
+            }
+        }
         switch kind {
         case .empty: return "\(date), no appreciation"
         case .pending: return "\(date), sent, awaiting acceptance"

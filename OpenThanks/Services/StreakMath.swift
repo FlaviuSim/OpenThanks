@@ -335,6 +335,19 @@ enum StreakMath {
         case accepted
     }
 
+    /// Whether the user sent at least one appreciation on `day` (any status).
+    static func sentActivity(
+        on day: Date,
+        posts: [SentActivity],
+        calendar: Calendar = .current
+    ) -> Bool {
+        let start = calendar.startOfDay(for: day)
+        return posts.contains { post in
+            guard let created = post.createdAt else { return false }
+            return calendar.isDate(created, inSameDayAs: start)
+        }
+    }
+
     /// Best status for a calendar day: accepted wins over pending.
     static func activity(
         on day: Date,
