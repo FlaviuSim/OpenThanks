@@ -86,7 +86,7 @@ struct MessageEditor: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: MessageEditor
         weak var textView: IntrinsicTextView?
-        private var accessory: UIToolbar?
+        private var accessory: PaddedKeyboardToolbar?
         private var lastAIBusy: Bool?
         private var lastAIEnabled: Bool?
         private var lastShowAI: Bool?
@@ -98,8 +98,10 @@ struct MessageEditor: UIViewRepresentable {
             self.parent = parent
         }
 
-        func makeAccessory() -> UIToolbar {
-            let bar = UIToolbar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44))
+        func makeAccessory() -> PaddedKeyboardToolbar {
+            let bar = PaddedKeyboardToolbar(
+                frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: PaddedKeyboardToolbar.preferredHeight)
+            )
             bar.tintColor = UIColor(Theme.coral)
             accessory = bar
             rebuildAccessory()
@@ -163,6 +165,14 @@ struct MessageEditor: UIViewRepresentable {
                 items.append(ai)
             }
 
+            let done = UIBarButtonItem(
+                title: "Done",
+                style: .done,
+                target: self,
+                action: #selector(doneTapped)
+            )
+            items.append(done)
+
             bar.items = items
         }
 
@@ -184,6 +194,33 @@ struct MessageEditor: UIViewRepresentable {
 
         @objc private func voiceTapped() {
             parent.onToggleVoice?()
+        }
+
+        @objc private func doneTapped() {
+            textView?.resignFirstResponder()
+        }
+    }
+}
+
+/// Keyboard accessory toolbar with extra vertical padding so controls aren’t flush to the keys.
+final class PaddedKeyboardToolbar: UIToolbar {
+    static let preferredHeight: CGFloat = 56
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: Self.preferredHeight)
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        CGSize(width: size.width, height: Self.preferredHeight)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Keep the reported accessory height stable; UIKit sometimes collapses toolbars to 44.
+        if abs(bounds.height - Self.preferredHeight) > 0.5 {
+            var frame = self.frame
+            frame.size.height = Self.preferredHeight
+            self.frame = frame
         }
     }
 }

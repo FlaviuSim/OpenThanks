@@ -370,7 +370,7 @@ struct MainTabView: View {
         let generation = composePresentGeneration
         Task { @MainActor in
             // Let share sheets / OAuth teardown finish before covering Home.
-            // Compose itself ignores stale keyboard safe-area (see keyboardBottomPadding).
+            // Compose no longer pins a footer above the keyboard (scroll CTA + nav Save).
             try? await Task.sleep(for: .milliseconds(350))
             guard generation == composePresentGeneration else { return }
             if let current = composeSheet {

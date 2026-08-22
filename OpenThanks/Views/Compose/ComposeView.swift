@@ -143,46 +143,41 @@ struct ComposeView: View {
     }
 
     private var form: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    intro
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                intro
 
-                    recipientSection
+                recipientSection
 
-                    messageSection
+                messageSection
 
-                    photoSection
+                photoSection
 
-                    visibilitySection
+                visibilitySection
 
-                    if let error {
-                        Text(error)
-                            .font(Theme.body(13))
-                            .foregroundStyle(.red)
-                            .padding(.horizontal, 4)
-                    }
+                if let error {
+                    Text(error)
+                        .font(Theme.body(13))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 4)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 28)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .scrollDismissesKeyboard(.interactively)
-            .photosPicker(
-                isPresented: $showPhotosPicker,
-                selection: $photoItem,
-                matching: .any(of: [.images, .videos]),
-                photoLibrary: .shared()
-            )
 
-            sendBar
+                // CTA lives in scroll content so it isn’t pinned above the keyboard
+                // (which left a large empty band mid-screen while editing).
+                sendBar
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // LinkedIn/Google OAuth (and OTP) can leave a phantom keyboard inset that
-        // parks Create Appreciation mid-screen with empty space below. Ignore that
-        // safe-area and pad from real keyboard frames instead.
-        .keyboardBottomPadding()
+        .scrollDismissesKeyboard(.interactively)
+        .photosPicker(
+            isPresented: $showPhotosPicker,
+            selection: $photoItem,
+            matching: .any(of: [.images, .videos]),
+            photoLibrary: .shared()
+        )
         .background(Theme.background)
         .navigationTitle(isEditing ? "Edit Appreciation" : "New Appreciation")
         .navigationBarTitleDisplayMode(.inline)
@@ -191,14 +186,34 @@ struct ComposeView: View {
                 Button("Cancel", action: cancelCompose)
                     .foregroundStyle(Theme.textSecondary)
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                if sending {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Button(isEditing ? "Save Changes" : "Create") {
+                        messageFocused = false
+                        recipientFocused = false
+                        Task { await send() }
+                    }
+                    .font(Theme.body(16, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .disabled(!canSend)
+                }
+            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") {
                     messageFocused = false
                     recipientFocused = false
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
                 }
                 .font(Theme.body(16, weight: .semibold))
                 .foregroundStyle(Theme.coral)
+                .padding(.vertical, 8)
             }
         }
         .onAppear {
@@ -621,7 +636,9 @@ struct ComposeView: View {
                             .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
                     }
                 }
-                .padding(12)
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
             }
         }
         .sheet(isPresented: $showAddLinkSheet) {
@@ -799,13 +816,13 @@ struct ComposeView: View {
                     if let photoPreview {
                         Image(uiImage: photoPreview)
                             .resizable()
-                            .flexiblePhotoPreview(maxHeight: 420)
+                            .flexiblePhotoPreview(maxHeight: 240)
                             .overlay { Color.black.opacity(0.22) }
                     } else {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Theme.surfaceRaised)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 220)
+                            .frame(height: 160)
                             .overlay {
                                 Image(systemName: "play.circle.fill")
                                     .font(.system(size: 44))
@@ -826,7 +843,7 @@ struct ComposeView: View {
             } label: {
                 Image(uiImage: photoPreview)
                     .resizable()
-                    .flexiblePhotoPreview(maxHeight: 420)
+                    .flexiblePhotoPreview(maxHeight: 240)
                     .overlay(alignment: .bottomLeading) {
                         Label("Tap to adjust", systemImage: "crop")
                             .font(Theme.body(12, weight: .semibold))
@@ -844,7 +861,7 @@ struct ComposeView: View {
             CachedAsyncImage(url: url, maxPixelSize: RemoteImageCache.feedMaxPixelSize) { image in
                 image
                     .resizable()
-                    .flexiblePhotoPreview(maxHeight: 420)
+                    .flexiblePhotoPreview(maxHeight: 240)
             } placeholder: {
                 ProgressView().tint(Theme.coral)
                     .frame(maxWidth: .infinity)
@@ -901,37 +918,28 @@ struct ComposeView: View {
     }
 
     private var sendBar: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(Theme.hairline)
-                .frame(height: 0.5)
-
-            Button {
-                messageFocused = false
-                recipientFocused = false
-                Task { await send() }
-            } label: {
-                HStack(spacing: 8) {
-                    if sending {
-                        ProgressView()
-                            .tint(Color(hex: 0x2B1209))
-                    } else {
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 14, weight: .bold))
-                    }
-                    Text(sending
-                         ? (isEditing ? "Saving…" : "Sending…")
-                         : (isEditing ? "Save Changes" : "Create Appreciation"))
+        Button {
+            messageFocused = false
+            recipientFocused = false
+            Task { await send() }
+        } label: {
+            HStack(spacing: 8) {
+                if sending {
+                    ProgressView()
+                        .tint(Color(hex: 0x2B1209))
+                } else {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 14, weight: .bold))
                 }
+                Text(sending
+                     ? (isEditing ? "Saving…" : "Sending…")
+                     : (isEditing ? "Save Changes" : "Create Appreciation"))
             }
-            .buttonStyle(CTAButtonStyle(isLoading: sending))
-            .disabled(!canSend || sending)
-            .opacity(canSend || sending ? 1 : 0.45)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 10)
         }
-        .background(Theme.background.opacity(0.96))
+        .buttonStyle(CTAButtonStyle(isLoading: sending))
+        .disabled(!canSend || sending)
+        .opacity(canSend || sending ? 1 : 0.45)
+        .padding(.top, 4)
     }
 
     // MARK: Message tools
