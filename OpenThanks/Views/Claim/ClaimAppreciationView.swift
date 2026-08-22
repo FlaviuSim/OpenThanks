@@ -4,6 +4,9 @@ import SwiftUI
 /// Used from claim links and from notification taps that open a pending post.
 struct PendingAppreciationReviewView: View {
     @State var gratitude: Gratitude
+    /// When set, called after a successful accept so the host can navigate to the
+    /// accepted appreciation page (claim deep links redirect here).
+    var onAccepted: ((Gratitude) -> Void)? = nil
     @Environment(AuthService.self) private var auth
     @Environment(\.dismiss) private var dismiss
 
@@ -31,6 +34,7 @@ struct PendingAppreciationReviewView: View {
             case .review:
                 reviewContent
             case .accepted(let accepted):
+                // Fallback when the host doesn't redirect (e.g. in-place loaders).
                 VStack(spacing: 0) {
                     if showPayItForward {
                         PayItForwardNudgeCard(
@@ -216,6 +220,11 @@ struct PendingAppreciationReviewView: View {
             if action == .accept {
                 WarmHaptics.received()
                 Analytics.capture("pay_it_forward_shown", ["source": "claim_accept"])
+                if let onAccepted {
+                    onAccepted(updated)
+                    acting = nil
+                    return
+                }
                 showPayItForward = true
             }
             withAnimation(Motion.note) {
@@ -229,6 +238,11 @@ struct PendingAppreciationReviewView: View {
             if let current = try? await GratitudeService.gratitude(id: gratitude.id) {
                 if action == .accept, current.status == .accepted {
                     gratitude = current
+                    if let onAccepted {
+                        onAccepted(current)
+                        acting = nil
+                        return
+                    }
                     withAnimation(Motion.note) { outcome = .accepted(current) }
                     acting = nil
                     return
@@ -249,6 +263,7 @@ struct PendingAppreciationReviewView: View {
 struct ClaimAppreciationView: View {
     let token: UUID
     @Environment(AuthService.self) private var auth
+    @Environment(DeepLinkRouter.self) private var deepLinks
     @Environment(\.dismiss) private var dismiss
 
     @State private var gratitude: Gratitude?
@@ -283,15 +298,11 @@ struct ClaimAppreciationView: View {
                         systemImage: "exclamationmark.triangle"
                     )
                 case .alreadyProcessed:
-                    if let gratitude, gratitude.status == .accepted {
-                        GratitudeDetailView(gratitude: gratitude)
-                    } else {
-                        messageState(
-                            title: "Already processed",
-                            body: "This appreciation has already been accepted or declined.",
-                            systemImage: "heart"
-                        )
-                    }
+                    messageState(
+                        title: "Already processed",
+                        body: "This appreciation has already been accepted or declined.",
+                        systemImage: "heart"
+                    )
                 case .ownAppreciation:
                     messageState(
                         title: "This is your appreciation",
@@ -300,7 +311,9 @@ struct ClaimAppreciationView: View {
                     )
                 case .ready:
                     if let gratitude {
-                        PendingAppreciationReviewView(gratitude: gratitude)
+                        PendingAppreciationReviewView(gratitude: gratitude) { accepted in
+                            redirectToAcceptedAppreciation(accepted, offerPayItForward: true)
+                        }
                     }
                 }
             }
@@ -345,6 +358,22 @@ struct ClaimAppreciationView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private func redirectToAcceptedAppreciation(
+        _ gratitude: Gratitude,
+        offerPayItForward: Bool
+    ) {
+        let fromName: String?
+        if offerPayItForward {
+            fromName = gratitude.author?.fullName
+                ?? gratitude.author?.displayName
+                ?? gratitude.author?.username
+                ?? "someone"
+        } else {
+            fromName = nil
+        }
+        deepLinks.openAppreciation(gratitude, payItForwardFromName: fromName)
+    }
+
     private func load() async {
         guard auth.userId != nil else {
             phase = .needsSignIn
@@ -357,6 +386,12 @@ struct ClaimAppreciationView: View {
 
             if loaded.authorId == auth.userId {
                 phase = .ownAppreciation
+                return
+            }
+
+            // Already accepted → open the public appreciation page (not the claim UI).
+            if loaded.status == .accepted {
+                redirectToAcceptedAppreciation(loaded, offerPayItForward: false)
                 return
             }
 
