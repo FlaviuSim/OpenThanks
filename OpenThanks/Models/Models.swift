@@ -234,7 +234,8 @@ struct AppNotification: Codable, Identifiable, Hashable {
             return "❤️ hearted your appreciation"
         case "gratitude_friday":
             let date = createdAt ?? Date()
-            return "✨ \(FridayPrompts.prompt(for: date).headline)"
+            let prompt = FridayPrompts.prompt(for: date)
+            return "\(prompt.emoji) \(prompt.headline)"
         case "pay_it_forward_reminder":
             return "🫶 Ready to pay it forward?"
         case "reply":

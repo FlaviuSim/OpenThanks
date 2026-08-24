@@ -81,7 +81,7 @@ enum NotificationService {
         let prompt = FridayPrompts.prompt(for: fireDate)
 
         let content = UNMutableNotificationContent()
-        content.title = prompt.headline
+        content.title = "\(prompt.emoji) \(prompt.headline)"
         content.body = prompt.body
         content.sound = .default
         content.userInfo = [
@@ -192,7 +192,7 @@ enum NotificationService {
         await disableCalendarGratitudeNudge()
 
         let content = UNMutableNotificationContent()
-        content.title = "Someone to thank tonight?"
+        content.title = "🤝 Someone to thank tonight?"
         let meetingBit = nudge.meetingTitle.count <= 40
             ? " about \(nudge.meetingTitle)"
             : ""
