@@ -191,7 +191,7 @@ struct ComposeView: View {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Button(isEditing ? "Save Changes" : "Create") {
+                    Button(isEditing ? "Save Changes" : "Save") {
                         messageFocused = false
                         recipientFocused = false
                         Task { await send() }
@@ -324,16 +324,11 @@ struct ComposeView: View {
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Send To")
-                    .font(Theme.body(14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("Optional")
-                    .font(Theme.body(12, weight: .medium))
-                    .foregroundStyle(Theme.textTertiary)
-            }
+            Text("Name")
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
 
-            Text("If you put in an email, we'll notify the recipient. Either way, you will get a link to share with the recipient so they can accept the appreciation.")
+            Text("The person you want to appreciate. After you save, you will get a link to share so the recipient can accept the appreciation.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -364,7 +359,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Email, OpenThanks Handle, or leave blank", text: $recipient)
+                TextField("Name of who you want to thank", text: $recipient)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.default)
@@ -932,8 +927,8 @@ struct ComposeView: View {
                         .font(.system(size: 14, weight: .bold))
                 }
                 Text(sending
-                     ? (isEditing ? "Saving…" : "Sending…")
-                     : (isEditing ? "Save Changes" : "Create Appreciation"))
+                     ? "Saving…"
+                     : (isEditing ? "Save Changes" : "Save Appreciation"))
             }
         }
         .buttonStyle(CTAButtonStyle(isLoading: sending))
@@ -1093,9 +1088,15 @@ struct ComposeView: View {
         }
     }
 
+    private var hasRecipient: Bool {
+        linkedRecipient != nil
+            || !recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var canSend: Bool {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty
+        return hasRecipient
+            && !trimmed.isEmpty
             && trimmed.count <= maxLength
             && !loadingPhoto
             && polishing == nil

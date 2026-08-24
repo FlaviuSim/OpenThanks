@@ -77,7 +77,7 @@ struct WatchComposeView: View {
     }
 
     private var canSend: Bool {
-        hasMessage && status != .sending && !isPresentingInput
+        hasMessage && !trimmedRecipient.isEmpty && status != .sending && !isPresentingInput
     }
 
     var body: some View {
@@ -153,7 +153,7 @@ struct WatchComposeView: View {
             .accessibilityLabel("Record a thanks")
 
             Button(action: dictateRecipient) {
-                Text(recipient.isEmpty ? "Add name or email (optional)" : "To: \(recipient)")
+                Text(recipient.isEmpty ? "Add name of who to thank" : "To: \(recipient)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
