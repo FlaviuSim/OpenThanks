@@ -45,10 +45,11 @@ struct UserProfileView: View {
     }
 
     let profile: Profile
+    var initialSection: Section? = nil
     @Environment(AuthService.self) private var auth
 
     @State private var freshProfile: Profile?
-    @State private var section: Section = .received
+    @State private var section: Section
     @State private var stats = ProfileStats()
     @State private var sent: [Gratitude] = []
     @State private var received: [Gratitude] = []
@@ -58,6 +59,12 @@ struct UserProfileView: View {
     @State private var showCompose = false
     @State private var pendingSentCount = 0
     @State private var showReportSheet = false
+
+    init(profile: Profile, initialSection: Section? = nil) {
+        self.profile = profile
+        self.initialSection = initialSection
+        _section = State(initialValue: initialSection ?? .received)
+    }
 
     private var shownProfile: Profile {
         // Own profile must track live auth state — local `freshProfile` would
@@ -117,6 +124,10 @@ struct UserProfileView: View {
             guard isOwnProfile, let newValue else { return }
             freshProfile = newValue
             applyProfileUpdate(newValue)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .focusProfileInspired)) { _ in
+            guard isOwnProfile else { return }
+            section = .inspired
         }
         .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
             guard let gratitude = note.object as? Gratitude else { return }

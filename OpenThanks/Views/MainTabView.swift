@@ -402,6 +402,13 @@ struct MainTabView: View {
         case .notifications:
             notificationsPath = NavigationPath()
             withAnimation(.easeInOut(duration: 0.18)) { tab = .notifications }
+        case .profileInspired:
+            profilePath = NavigationPath()
+            withAnimation(.easeInOut(duration: 0.18)) { tab = .profile }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(400))
+                NotificationCenter.default.post(name: .focusProfileInspired, object: nil)
+            }
         }
     }
 

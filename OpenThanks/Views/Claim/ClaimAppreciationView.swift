@@ -198,6 +198,15 @@ struct PendingAppreciationReviewView: View {
         loadedAuthor = try? await GratitudeService.profile(id: gratitude.authorId)
     }
 
+    private func trackClaimResponse(_ action: Action) {
+        switch action {
+        case .accept:
+            Analytics.capture("appreciation_accepted", ["source": "claim"])
+        case .decline:
+            Analytics.capture("appreciation_declined", ["source": "claim"])
+        }
+    }
+
     private func respond(_ action: Action) async {
         guard let userId = auth.userId else { return }
         acting = action
@@ -217,6 +226,7 @@ struct PendingAppreciationReviewView: View {
                 accept: action == .accept
             )
             gratitude = updated
+            trackClaimResponse(action)
             if action == .accept {
                 WarmHaptics.received()
                 Analytics.capture("pay_it_forward_shown", ["source": "claim_accept"])
@@ -238,6 +248,7 @@ struct PendingAppreciationReviewView: View {
             if let current = try? await GratitudeService.gratitude(id: gratitude.id) {
                 if action == .accept, current.status == .accepted {
                     gratitude = current
+                    trackClaimResponse(.accept)
                     if let onAccepted {
                         onAccepted(current)
                         acting = nil
@@ -248,6 +259,7 @@ struct PendingAppreciationReviewView: View {
                     return
                 }
                 if action == .decline, current.status == .rejected {
+                    trackClaimResponse(.decline)
                     withAnimation(Motion.note) { outcome = .declined }
                     acting = nil
                     return

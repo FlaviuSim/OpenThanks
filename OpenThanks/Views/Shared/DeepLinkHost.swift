@@ -68,9 +68,20 @@ struct DeepLinkHostModifier: ViewModifier {
                     }
                     .appDestinations()
             }
-        case .profile(let username):
+        case .profile(let username, let tab):
             NavigationStack {
-                ProfileUsernameLoaderView(username: username)
+                ProfileUsernameLoaderView(username: username, initialSection: tab?.profileSection)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close") { deepLinks.clear() }
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .appDestinations()
+            }
+        case .profileId(let id, let tab):
+            NavigationStack {
+                ProfileIdLoaderView(profileId: id, initialSection: tab?.profileSection)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button("Close") { deepLinks.clear() }
@@ -139,13 +150,14 @@ struct GratitudeSlugLoaderView: View {
 
 struct ProfileUsernameLoaderView: View {
     let username: String
+    var initialSection: UserProfileView.Section? = nil
     @State private var profile: Profile?
     @State private var failed = false
 
     var body: some View {
         Group {
             if let profile {
-                UserProfileView(profile: profile)
+                UserProfileView(profile: profile, initialSection: initialSection)
             } else if failed {
                 VStack(spacing: 10) {
                     HeartMark(size: 40)
@@ -163,6 +175,40 @@ struct ProfileUsernameLoaderView: View {
         }
         .task {
             do { profile = try await GratitudeService.profile(username: username) }
+            catch {
+                if !error.isCancellation { failed = true }
+            }
+        }
+    }
+}
+
+struct ProfileIdLoaderView: View {
+    let profileId: UUID
+    var initialSection: UserProfileView.Section? = nil
+    @State private var profile: Profile?
+    @State private var failed = false
+
+    var body: some View {
+        Group {
+            if let profile {
+                UserProfileView(profile: profile, initialSection: initialSection)
+            } else if failed {
+                VStack(spacing: 10) {
+                    HeartMark(size: 40)
+                    Text("Profile not found.")
+                        .font(Theme.body(15))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.background)
+            } else {
+                ProgressView().tint(Theme.coral)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
+            }
+        }
+        .task {
+            do { profile = try await GratitudeService.profile(id: profileId) }
             catch {
                 if !error.isCancellation { failed = true }
             }

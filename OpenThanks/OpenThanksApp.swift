@@ -64,6 +64,14 @@ struct OpenThanksApp: App {
                 auth.handleDeepLink(url)
             }
         } else {
+            if DeepLinkRouter.shouldOpenOwnInspiredTab(
+                url,
+                username: auth.currentProfile?.username,
+                userId: auth.userId
+            ) {
+                TabLaunchBridge.shared.queue(.profileInspired)
+                return
+            }
             _ = deepLinks.handle(url)
         }
     }
