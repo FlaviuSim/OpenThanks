@@ -148,11 +148,7 @@ struct NotificationsView: View {
             && note.gratitudeId != nil
             && splitSelection?.wrappedValue?.id == note.gratitudeId
         HStack(spacing: 12) {
-            ProfileAvatarLink(
-                profile: note.fromUser,
-                size: 44,
-                onOpen: { path.append($0) }
-            )
+            systemOrProfileAvatar(note)
             Group {
                 if note.type == "gratitude_friday" {
                     Button {
@@ -262,6 +258,42 @@ struct NotificationsView: View {
             return "OpenThanks"
         }
         return "Someone"
+    }
+
+    /// System prompts (Friday, pay-it-forward, etc.) have no sender — show a
+    /// matching emoji instead of the blank avatar's "?" placeholder.
+    @ViewBuilder
+    private func systemOrProfileAvatar(_ note: AppNotification) -> some View {
+        if let emoji = systemNotificationEmoji(for: note) {
+            ZStack {
+                Circle().fill(Theme.surfaceRaised)
+                Text(emoji)
+                    .font(.system(size: 22))
+            }
+            .frame(width: 44, height: 44)
+            .accessibilityHidden(true)
+        } else {
+            ProfileAvatarLink(
+                profile: note.fromUser,
+                size: 44,
+                onOpen: { path.append($0) }
+            )
+        }
+    }
+
+    private func systemNotificationEmoji(for note: AppNotification) -> String? {
+        switch note.type {
+        case "gratitude_friday":
+            return FridayPrompts.prompt(for: note.createdAt ?? Date()).emoji
+        case "pay_it_forward_reminder":
+            return "🫶"
+        case "competition_winner":
+            return "🏆"
+        case "email_bounced":
+            return "⚠️"
+        default:
+            return nil
+        }
     }
 
     private func load() async {
