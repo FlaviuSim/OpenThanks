@@ -403,6 +403,8 @@ struct MainTabView: View {
             notificationsPath = NavigationPath()
             withAnimation(.easeInOut(duration: 0.18)) { tab = .notifications }
         case .profileInspired:
+            composeSheet = nil
+            showProfileSettings = false
             profilePath = NavigationPath()
             withAnimation(.easeInOut(duration: 0.18)) { tab = .profile }
             Task { @MainActor in
