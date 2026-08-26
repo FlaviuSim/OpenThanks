@@ -198,21 +198,25 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 struct RootView: View {
     enum HomeGate {
-        case checking, needsNotifications, needsCalendar, needsSiriTip, ready
+        case checking, needsNotifications, needsCalendar, needsProfile, needsSiriTip, ready
     }
 
     @Environment(AuthService.self) private var auth
     @Environment(DeepLinkRouter.self) private var deepLinks
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
-    /// One-time gate after profile is ready — ask for Friday reminder notifications.
+    /// One-time gate after sign-in — ask for Friday reminder notifications.
     @AppStorage("hasCompletedNotificationPrompt") private var hasCompletedNotificationPrompt = false
     /// One-time gate for calendar access (evening thank-you nudges).
     @AppStorage("hasCompletedCalendarPrompt") private var hasCompletedCalendarPrompt = false
     /// One-time tip so people discover App Shortcuts / Siri phrases.
     @AppStorage("hasCompletedSiriPrompt") private var hasCompletedSiriPrompt = false
+    /// True after the first session that reached the main app — Siri tip waits until the next launch.
+    @AppStorage("hasEnteredMainAppOnce") private var hasEnteredMainAppOnce = false
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @State private var homeGate: HomeGate = .checking
+    /// Keeps the deferred Siri tip from appearing again during the same process.
+    @State private var deferredSiriThisProcess = false
 
     var body: some View {
         ZStack {
@@ -222,6 +226,7 @@ struct RootView: View {
                 HeartMark(size: 64)
                     .transition(.opacity)
             case .signedOut:
+                // Description slides → sign-in only. Never ask for notifications/calendar here.
                 Group {
                     if hasSeenOnboarding {
                         WelcomeView()
@@ -231,13 +236,12 @@ struct RootView: View {
                 }
                 .transition(.opacity)
             case .signedIn:
-                if !auth.hasResolvedProfile && auth.currentProfile?.isCompleteForApp != true {
+                if !auth.hasResolvedProfile {
                     HeartMark(size: 64)
                         .transition(.opacity)
-                } else if auth.currentProfile?.isCompleteForApp != true {
-                    EditProfileSheet(required: true)
-                        .transition(.opacity)
                 } else {
+                    // After login: notifications → calendar → profile → app
+                    // (Siri tip on the second open).
                     signedInHome
                         .transition(.opacity)
                 }
@@ -266,8 +270,10 @@ struct RootView: View {
         case .needsCalendar:
             CalendarPermissionView {
                 hasCompletedCalendarPrompt = true
-                homeGate = hasCompletedSiriPrompt ? .ready : .needsSiriTip
+                homeGate = nextGateAfterCalendar()
             }
+        case .needsProfile:
+            EditProfileSheet(required: true)
         case .needsSiriTip:
             SiriIntroView {
                 hasCompletedSiriPrompt = true
@@ -281,7 +287,25 @@ struct RootView: View {
 
     private func nextGateAfterNotifications() -> HomeGate {
         if !hasCompletedCalendarPrompt { return .needsCalendar }
-        if !hasCompletedSiriPrompt { return .needsSiriTip }
+        return nextGateAfterCalendar()
+    }
+
+    private func nextGateAfterCalendar() -> HomeGate {
+        if auth.currentProfile?.isCompleteForApp != true { return .needsProfile }
+        return gateAfterProfileComplete()
+    }
+
+    /// Siri tip waits until the second app open to avoid first-session overload.
+    private var shouldShowSiriTipNow: Bool {
+        !hasCompletedSiriPrompt && hasEnteredMainAppOnce && !deferredSiriThisProcess
+    }
+
+    private func gateAfterProfileComplete() -> HomeGate {
+        if shouldShowSiriTipNow { return .needsSiriTip }
+        if !hasCompletedSiriPrompt, !hasEnteredMainAppOnce {
+            hasEnteredMainAppOnce = true
+            deferredSiriThisProcess = true
+        }
         return .ready
     }
 
@@ -292,24 +316,28 @@ struct RootView: View {
         if !hasCompletedCalendarPrompt {
             return homeGate == .needsCalendar ? .needsCalendar : homeGate
         }
-        if !hasCompletedSiriPrompt {
+        if auth.currentProfile?.isCompleteForApp != true {
+            return .needsProfile
+        }
+        if homeGate == .checking {
+            return .checking
+        }
+        if shouldShowSiriTipNow {
             return .needsSiriTip
         }
         return .ready
     }
 
-    /// Re-check when the user finishes profile (or signs in) before entering the app.
+    /// Re-check when the user signs in, finishes permissions, or completes profile.
     private var homeGateTaskID: String {
         let user = auth.userId?.uuidString ?? "out"
-        let ready = auth.hasResolvedProfile && auth.currentProfile?.isCompleteForApp == true
-        return "\(user)-\(ready)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)"
+        let resolved = auth.hasResolvedProfile
+        let complete = auth.currentProfile?.isCompleteForApp == true
+        return "\(user)-\(resolved)-\(complete)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)"
     }
 
     private func resolveHomeGate() async {
-        guard case .signedIn = auth.state,
-              auth.hasResolvedProfile,
-              auth.currentProfile?.isCompleteForApp == true
-        else {
+        guard case .signedIn = auth.state, auth.hasResolvedProfile else {
             homeGate = .checking
             return
         }
@@ -350,6 +378,11 @@ struct RootView: View {
             }
         }
 
+        if auth.currentProfile?.isCompleteForApp != true {
+            homeGate = .needsProfile
+            return
+        }
+
         if fridayReminderEnabled, hasCompletedNotificationPrompt {
             await NotificationService.refreshFridayReminderIfEnabled(true)
         }
@@ -367,12 +400,7 @@ struct RootView: View {
             CalendarGratitudeBackgroundRefresh.schedule()
         }
 
-        if !hasCompletedSiriPrompt {
-            homeGate = .needsSiriTip
-            return
-        }
-
-        homeGate = .ready
+        homeGate = gateAfterProfileComplete()
     }
 
     private var isSignedIn: Bool {

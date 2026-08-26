@@ -1,7 +1,7 @@
 import SwiftUI
 import AppIntents
 
-/// One-time post-login tip: every way to start an appreciation.
+/// Post-login tip (shown on the second app open): every way to start an appreciation.
 struct SiriIntroView: View {
     var onFinished: () -> Void
 

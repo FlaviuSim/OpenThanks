@@ -44,6 +44,9 @@ struct FeedView: View {
     @State private var didAutoSwitchToWorld = false
     @State private var scrollToPendingToken = 0
     @State private var loadGeneration = 0
+    /// +1 when moving Personal → World, −1 World → Personal (drives slide direction).
+    @State private var scopeSlideSign: CGFloat = 1
+    @Namespace private var scopePickerNamespace
     @FocusState private var searchFocused: Bool
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
@@ -193,8 +196,30 @@ struct FeedView: View {
             .zIndex(2)
 
             picker
-            content
+            ZStack {
+                feedContent
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
         }
+    }
+
+    /// Scoped list with an explicit identity swap so My ↔ World never feels instant.
+    private var feedContent: some View {
+        content
+            .id(scope)
+            .transition(scopeContentTransition)
+    }
+
+    private var scopeContentTransition: AnyTransition {
+        let insertX: CGFloat = 28 * scopeSlideSign
+        let removeX: CGFloat = -18 * scopeSlideSign
+        return .asymmetric(
+            insertion: .opacity
+                .combined(with: .offset(x: insertX, y: 10))
+                .combined(with: .scale(scale: 0.985, anchor: .top)),
+            removal: .opacity.combined(with: .offset(x: removeX, y: -4))
+        )
     }
 
     private var header: some View {
@@ -242,20 +267,47 @@ struct FeedView: View {
     private var picker: some View {
         HStack(spacing: 8) {
             ForEach(Scope.allCases, id: \.self) { s in
-                Button(s.title) {
-                    withAnimation(.easeInOut(duration: 0.2)) { scope = s }
+                Button {
+                    selectScope(s)
+                } label: {
+                    Text(s.title)
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(scope == s ? Theme.textPrimary : Theme.textSecondary)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 9)
+                        .background {
+                            if scope == s {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Theme.surfaceRaised)
+                                    .matchedGeometryEffect(id: "feedScopePill", in: scopePickerNamespace)
+                            }
+                        }
                 }
-                .font(Theme.body(15, weight: .semibold))
-                .foregroundStyle(scope == s ? Theme.textPrimary : Theme.textSecondary)
-                .padding(.horizontal, 18).padding(.vertical, 9)
-                .background(scope == s ? Theme.surfaceRaised : .clear,
-                            in: RoundedRectangle(cornerRadius: 12))
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(scope == s ? .isSelected : [])
             }
             Spacer()
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 6)
+        .animation(Self.scopeSwitchAnimation, value: scope)
+    }
+
+    private static let scopeSwitchAnimation = Animation.spring(response: 0.42, dampingFraction: 0.86)
+
+    private func selectScope(_ next: Scope) {
+        guard next != scope else { return }
+        dismissSearchKeyboard()
+        scopeSlideSign = next == .world ? 1 : -1
+        withAnimation(Self.scopeSwitchAnimation) {
+            // Drop the outgoing list so the swap is obvious (refresh still keeps content).
+            items = []
+            heartedIds = []
+            error = nil
+            loading = true
+            scope = next
+        }
     }
 
     @ViewBuilder
@@ -332,8 +384,8 @@ struct FeedView: View {
                     .padding(.horizontal, 16)
                     .tabChromeBottomPadding()
                     .readableWidth()
-                    .opacity(loading && !isEmpty ? 0.72 : 1)
-                    .animation(.easeInOut(duration: 0.2), value: loading)
+                    .opacity(loading && !isEmpty ? 0.78 : 1)
+                    .animation(.easeInOut(duration: 0.28), value: loading)
                 }
                 .scrollDismissesKeyboard(.immediately)
                 .onChange(of: scrollToPendingToken) { _, _ in
@@ -416,7 +468,7 @@ struct FeedView: View {
 
     private func load() async {
         guard let userId = auth.userId else { return }
-        // Keep prior content visible while refreshing / switching scope.
+        // Pull-to-refresh keeps the current list; My ↔ World clears in `selectScope`.
         loadGeneration += 1
         let generation = loadGeneration
         loading = true
@@ -452,7 +504,13 @@ struct FeedView: View {
                 applyPendingList(pending)
                 pendingSentCount = pendingSent
                 loading = false
-                withAnimation(.easeInOut(duration: 0.2)) { scope = .world }
+                scopeSlideSign = 1
+                withAnimation(Self.scopeSwitchAnimation) {
+                    items = []
+                    heartedIds = []
+                    scope = .world
+                    loading = true
+                }
                 return
             }
 
@@ -461,7 +519,7 @@ struct FeedView: View {
 
             guard generation == loadGeneration else { return }
 
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(Self.scopeSwitchAnimation) {
                 items = result
                 applyPendingList(pending)
                 pendingSentCount = pendingSent
@@ -474,7 +532,9 @@ struct FeedView: View {
             }
         }
         if generation == loadGeneration {
-            loading = false
+            withAnimation(.easeInOut(duration: 0.28)) {
+                loading = false
+            }
         }
     }
 
