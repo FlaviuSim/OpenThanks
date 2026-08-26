@@ -328,11 +328,6 @@ struct ComposeView: View {
                 .font(Theme.body(14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
 
-            Text("The person you want to appreciate. After you save, you will get a link to share so the recipient can accept the appreciation.")
-                .font(Theme.body(13))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
             VStack(alignment: .leading, spacing: 8) {
                 recipientFieldChrome
 
@@ -359,7 +354,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Name of who you want to thank", text: $recipient)
+                TextField("Name or Email of the recipient", text: $recipient)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.default)
@@ -774,11 +769,11 @@ struct ComposeView: View {
                             Text(loadingPhoto ? "Preparing…" : "Add a photo or video")
                                 .font(Theme.body(15, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
-                            Text(loadingPhoto
-                                 ? "Hang tight"
-                                 : "Photos can be cropped")
-                                .font(Theme.body(13))
-                                .foregroundStyle(Theme.textSecondary)
+                            if loadingPhoto {
+                                Text("Hang tight")
+                                    .font(Theme.body(13))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
                         }
                         Spacer(minLength: 0)
                         Image(systemName: "chevron.right")
@@ -887,7 +882,7 @@ struct ComposeView: View {
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(visibility == .public
-                         ? "After the recipient accepts, anyone can see the post"
+                         ? "Anyone with the link can see this after they accept"
                          : "Only you and the recipient can see this")
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textSecondary)
@@ -928,7 +923,7 @@ struct ComposeView: View {
                 }
                 Text(sending
                      ? "Saving…"
-                     : (isEditing ? "Save Changes" : "Save Appreciation"))
+                     : (isEditing ? "Save Changes" : "Save & Share"))
             }
         }
         .buttonStyle(CTAButtonStyle(isLoading: sending))
@@ -1725,9 +1720,7 @@ struct SuccessView: View {
     }
 
     private var headline: String {
-        hasDeliverableRecipient
-            ? "Your appreciation has been shared!"
-            : "Your appreciation has been created!"
+        "Your appreciation has been saved!"
     }
 
     private var subtitle: String {
@@ -1769,7 +1762,7 @@ struct SuccessView: View {
                                 title: "WhatsApp",
                                 systemImage: "phone.bubble.fill",
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                                    ?? "Share the link to accept"
+                                    ?? "Opens Whatsapp with the link"
                             ) {
                                 openWhatsApp()
                             }

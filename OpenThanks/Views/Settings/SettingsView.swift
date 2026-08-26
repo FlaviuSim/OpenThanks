@@ -399,7 +399,7 @@ struct PendingAppreciationsView: View {
                         )
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
-                        Text("Pending — tap to share the link to accept")
+                        Text("No one has accepted it yet")
                             .font(Theme.body(12, weight: .semibold))
                             .foregroundStyle(Theme.coral)
                     }
