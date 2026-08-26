@@ -329,7 +329,7 @@ struct PendingAppreciationsView: View {
                 }
             }
             .padding(16)
-            // Clear the floating tab bar so Edit / Share / Delete stay tappable.
+            // Clear the floating tab bar so Edit / Send / Delete stay tappable.
             .tabChromeBottomPadding()
             .readableWidth()
         }
