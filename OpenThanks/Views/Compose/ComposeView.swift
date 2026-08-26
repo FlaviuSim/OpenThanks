@@ -326,7 +326,7 @@ struct ComposeView: View {
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Name")
+            Text("Name or Email")
                 .font(Theme.body(14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
 
