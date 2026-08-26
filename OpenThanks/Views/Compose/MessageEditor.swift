@@ -4,6 +4,16 @@ import UIKit
 /// Plain-text message editor with a keyboard accessory for Add link, voice, and optional AI.
 /// Selection is tracked so “Add link” can wrap highlighted text as `[label](url)`.
 struct MessageEditor: UIViewRepresentable {
+    struct PendingInsert: Equatable, Identifiable {
+        let id: UUID
+        let text: String
+
+        init(text: String, id: UUID = UUID()) {
+            self.id = id
+            self.text = text
+        }
+    }
+
     @Binding var text: String
     var minHeight: CGFloat = 160
     var isEditable: Bool = true
@@ -16,6 +26,10 @@ struct MessageEditor: UIViewRepresentable {
     var voiceListening: Bool = false
     var voiceEnabled: Bool = false
     var onToggleVoice: (() -> Void)?
+    /// When set, insert at the caret (replacing any selection), move the cursor
+    /// after the inserted text, then call `onPendingInsertConsumed`.
+    var pendingInsert: PendingInsert? = nil
+    var onPendingInsertConsumed: ((UUID) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -53,7 +67,9 @@ struct MessageEditor: UIViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.textView = uiView
 
-        if uiView.text != text {
+        if let pending = pendingInsert, !pending.text.isEmpty {
+            context.coordinator.applyPendingInsert(pending, in: uiView)
+        } else if uiView.text != text {
             let selected = uiView.selectedRange
             uiView.text = text
             let maxLen = (text as NSString).length
@@ -93,9 +109,53 @@ struct MessageEditor: UIViewRepresentable {
         private var lastShowVoice: Bool?
         private var lastVoiceListening: Bool?
         private var lastVoiceEnabled: Bool?
+        private var lastHandledInsertID: UUID?
 
         init(_ parent: MessageEditor) {
             self.parent = parent
+        }
+
+        func applyPendingInsert(_ pending: PendingInsert, in textView: IntrinsicTextView) {
+            guard lastHandledInsertID != pending.id else { return }
+            lastHandledInsertID = pending.id
+
+            let finish = {
+                DispatchQueue.main.async {
+                    self.parent.onPendingInsertConsumed?(pending.id)
+                }
+            }
+
+            guard textView.isEditable else {
+                finish()
+                return
+            }
+
+            let raw = pending.text
+            let ns = (textView.text ?? "") as NSString
+            var range = textView.selectedRange
+            if range.location == NSNotFound {
+                range = NSRange(location: ns.length, length: 0)
+            }
+            range.location = min(range.location, ns.length)
+            range.length = min(range.length, ns.length - range.location)
+
+            // Soft space before the insert when it would otherwise stick to a word.
+            var insert = raw
+            if range.location > 0, range.length == 0 {
+                let prev = ns.substring(with: NSRange(location: range.location - 1, length: 1))
+                if prev != " ", prev != "\n", !raw.hasPrefix(" "), !raw.hasPrefix("\n") {
+                    insert = " " + raw
+                }
+            }
+
+            let next = ns.replacingCharacters(in: range, with: insert)
+            textView.text = next
+            parent.text = next
+            let caret = range.location + (insert as NSString).length
+            textView.selectedRange = NSRange(location: min(caret, (next as NSString).length), length: 0)
+            textView.becomeFirstResponder()
+            textView.invalidateIntrinsicContentSize()
+            finish()
         }
 
         func makeAccessory() -> PaddedKeyboardToolbar {

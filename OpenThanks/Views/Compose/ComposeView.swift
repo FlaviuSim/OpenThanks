@@ -51,6 +51,8 @@ struct ComposeView: View {
     @State private var activeEditing: Gratitude?
     @State private var polishing: AppreciationAI.Style?
     @State private var messageBeforeAI: String?
+    /// Queued chip insert for `MessageEditor` (places caret after the emoji).
+    @State private var pendingMessageInsert: MessageEditor.PendingInsert?
     @StateObject private var dictation = AppreciationDictation()
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
@@ -566,7 +568,16 @@ struct ComposeView: View {
                         showVoice: true,
                         voiceListening: dictation.isListening,
                         voiceEnabled: voiceControlsEnabled,
-                        onToggleVoice: { Task { await toggleVoiceDictation() } }
+                        onToggleVoice: { Task { await toggleVoiceDictation() } },
+                        pendingInsert: pendingMessageInsert,
+                        onPendingInsertConsumed: { id in
+                            if pendingMessageInsert?.id == id {
+                                pendingMessageInsert = nil
+                            }
+                            if message.count > maxLength {
+                                message = String(message.prefix(maxLength))
+                            }
+                        }
                     )
                     .frame(minHeight: 160)
 
@@ -1101,15 +1112,10 @@ struct ComposeView: View {
     }
 
     private func insertEmoji(_ emoji: String) {
+        guard polishing == nil, !dictation.isListening, !sending else { return }
         messageFocused = true
-        if message.isEmpty || message.hasSuffix(" ") || message.hasSuffix("\n") {
-            message += emoji
-        } else {
-            message += " \(emoji)"
-        }
-        if message.count > maxLength {
-            message = String(message.prefix(maxLength))
-        }
+        // Insert at the caret via MessageEditor so the cursor lands after the emoji.
+        pendingMessageInsert = MessageEditor.PendingInsert(text: emoji)
     }
 
     private func runAI(_ style: AppreciationAI.Style) async {
