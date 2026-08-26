@@ -74,7 +74,7 @@ struct ComposeView: View {
     @State private var aiAvailable = false
 
     private let maxLength = 1500
-    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨", "💐"]
+    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
 
     private var messagePlaceholderText: String {
         let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -618,25 +618,17 @@ struct ComposeView: View {
                         aiChips
                     }
 
-                    HStack(alignment: .center, spacing: 10) {
-                        if messageBeforeAI != nil {
-                            Button("Undo") {
-                                if let previous = messageBeforeAI {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        message = previous
-                                        messageBeforeAI = nil
-                                    }
+                    if messageBeforeAI != nil {
+                        Button("Undo") {
+                            if let previous = messageBeforeAI {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    message = previous
+                                    messageBeforeAI = nil
                                 }
                             }
-                            .font(Theme.body(13, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
                         }
-
-                        Spacer(minLength: 8)
-
-                        Text("\(message.count)/\(maxLength)")
-                            .font(Theme.body(12).monospacedDigit())
-                            .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -948,21 +940,28 @@ struct ComposeView: View {
     // MARK: Message tools
 
     private var emojiShortcuts: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(quickEmojis, id: \.self) { emoji in
-                    Button {
-                        insertEmoji(emoji)
-                    } label: {
-                        Text(emoji)
-                            .font(.system(size: 22))
-                            .frame(width: 40, height: 40)
-                            .background(Theme.coralPale.opacity(0.5), in: Circle())
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(quickEmojis, id: \.self) { emoji in
+                        Button {
+                            insertEmoji(emoji)
+                        } label: {
+                            Text(emoji)
+                                .font(.system(size: 22))
+                                .frame(width: 40, height: 40)
+                                .background(Theme.coralPale.opacity(0.5), in: Circle())
+                        }
+                        .buttonStyle(ScalePressButtonStyle())
+                        .accessibilityLabel("Insert \(emoji)")
                     }
-                    .buttonStyle(ScalePressButtonStyle())
-                    .accessibilityLabel("Insert \(emoji)")
                 }
             }
+
+            Text("\(message.count)/\(maxLength)")
+                .font(Theme.body(12).monospacedDigit())
+                .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
+                .accessibilityLabel("\(message.count) of \(maxLength) characters")
         }
         .disabled(sending || polishing != nil || dictation.isListening)
     }
