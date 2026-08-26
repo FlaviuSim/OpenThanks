@@ -165,7 +165,7 @@ struct PendingShareSheet: View {
                                 title: "WhatsApp",
                                 systemImage: "phone.bubble.fill",
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                                    ?? "Share the link to accept"
+                                    ?? "Opens Whatsapp with the link"
                             ) {
                                 openWhatsApp()
                             }
