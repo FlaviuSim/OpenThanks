@@ -417,7 +417,7 @@ struct PendingAppreciationsView: View {
                 actionButton(title: "Edit", systemImage: "square.and.pencil") {
                     editing = g
                 }
-                actionButton(title: "Share", systemImage: "link") {
+                actionButton(title: "Send", systemImage: "link") {
                     sharing = g
                 }
                 actionButton(title: "Delete", systemImage: "trash", destructive: true) {
@@ -434,7 +434,7 @@ struct PendingAppreciationsView: View {
         .card()
         .contextMenu {
             Button { sharing = g } label: {
-                Label("Share link to accept", systemImage: "square.and.arrow.up")
+                Label("Send link to accept", systemImage: "square.and.arrow.up")
             }
             Button { editing = g } label: {
                 Label("Edit", systemImage: "pencil")
