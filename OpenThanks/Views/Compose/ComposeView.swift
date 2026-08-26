@@ -925,7 +925,7 @@ struct ComposeView: View {
                 }
                 Text(sending
                      ? "Saving…"
-                     : (isEditing ? "Save Changes" : "Save & Share"))
+                     : (isEditing ? "Save Changes" : "Save Appreciation"))
             }
         }
         .buttonStyle(CTAButtonStyle(isLoading: sending))
