@@ -145,7 +145,9 @@ struct ComposeView: View {
     private var form: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                intro
+                if isEditing {
+                    intro
+                }
 
                 recipientSection
 
@@ -315,8 +317,8 @@ struct ComposeView: View {
     // MARK: Sections
 
     private var intro: some View {
-        Text(isEditing ? "Edit your appreciation" : "A few kind words can make someone's day")
-            .font(Theme.display(isEditing ? 26 : 22, weight: .semibold))
+        Text("Edit your appreciation")
+            .font(Theme.display(26, weight: .semibold))
             .foregroundStyle(Theme.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
