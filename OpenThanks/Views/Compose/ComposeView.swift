@@ -328,7 +328,7 @@ struct ComposeView: View {
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Name or Email")
+            Text("Recipient")
                 .font(Theme.body(14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
 
@@ -709,7 +709,7 @@ struct ComposeView: View {
     }
 
     private var photoSection: some View {
-        field(label: "Photo or video", hint: "Optional") {
+        field(label: nil, hint: nil) {
             if hasAttachedMedia {
                 ZStack(alignment: .topTrailing) {
                     mediaPreviewBody
@@ -771,7 +771,7 @@ struct ComposeView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(loadingPhoto ? "Preparing…" : "Add a photo or video")
+                            Text(loadingPhoto ? "Preparing…" : "Add a photo or video (optional)")
                                 .font(Theme.body(15, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                             if loadingPhoto {
@@ -1071,19 +1071,21 @@ struct ComposeView: View {
     // MARK: Chrome helpers
 
     private func field(
-        label: String,
+        label: String? = nil,
         hint: String? = nil,
         @ViewBuilder content: () -> some View
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(label)
-                    .font(Theme.body(14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                if let hint {
-                    Text(hint)
-                        .font(Theme.body(12, weight: .medium))
-                        .foregroundStyle(Theme.textTertiary)
+            if let label, !label.isEmpty {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(label)
+                        .font(Theme.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    if let hint {
+                        Text(hint)
+                            .font(Theme.body(12, weight: .medium))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
                 }
             }
             content()
