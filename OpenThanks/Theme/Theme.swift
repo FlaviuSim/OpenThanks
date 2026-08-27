@@ -407,7 +407,7 @@ struct AppreciationVisibilityNote: View {
                     .foregroundStyle(Theme.textPrimary)
                 Text(isPrivate
                      ? "Only you and the sender will see this if you accept."
-                     : "Anyone on OpenThanks can see this if you accept.")
+                     : "In the feed once they accept")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
