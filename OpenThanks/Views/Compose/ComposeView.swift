@@ -74,7 +74,7 @@ struct ComposeView: View {
     @State private var aiAvailable = false
 
     private let maxLength = 1500
-    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
+    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗"]
 
     private var messagePlaceholderText: String {
         let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
