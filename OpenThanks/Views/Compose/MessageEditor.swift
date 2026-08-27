@@ -148,6 +148,18 @@ struct MessageEditor: UIViewRepresentable {
                 }
             }
 
+            // Soft space after so the next character isn't glued to the emoji —
+            // including at end-of-text so typing continues cleanly.
+            let afterIndex = range.location + range.length
+            if afterIndex < ns.length {
+                let nextChar = ns.substring(with: NSRange(location: afterIndex, length: 1))
+                if nextChar != " ", nextChar != "\n", !insert.hasSuffix(" "), !insert.hasSuffix("\n") {
+                    insert += " "
+                }
+            } else if !insert.hasSuffix(" "), !insert.hasSuffix("\n") {
+                insert += " "
+            }
+
             let next = ns.replacingCharacters(in: range, with: insert)
             textView.text = next
             parent.text = next
