@@ -887,8 +887,8 @@ struct ComposeView: View {
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(visibility == .public
-                         ? "Anyone with the link can see this after they accept"
-                         : "Only you and the recipient can see this")
+                         ? "In the feed once they accept"
+                         : "Only you and the recipient can see")
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.leading)
