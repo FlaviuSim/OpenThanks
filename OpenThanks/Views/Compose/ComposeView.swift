@@ -1727,12 +1727,14 @@ struct SuccessView: View {
     }
 
     private var headline: String {
-        "Your appreciation has been saved!"
+        hasDeliverableRecipient
+            ? "Your appreciation has been created!"
+            : "Your appreciation has been saved!"
     }
 
     private var subtitle: String {
         if hasDeliverableRecipient {
-            return "Send your own personalized note below so they can accept your appreciation."
+            return "We've notified the recipient but it would help if you share a personalized note with the link so they can accept it."
         }
         return "Share the link so they can open and accept your appreciation."
     }
