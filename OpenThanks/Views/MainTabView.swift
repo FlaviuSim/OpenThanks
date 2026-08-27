@@ -359,24 +359,36 @@ struct MainTabView: View {
         resignKeyboard()
         NotificationCenter.default.post(name: .dismissTransientSheets, object: nil)
 
+        // Only delay when swapping an already-open compose cover — a blank wait
+        // made the heart tab feel laggy on every tap.
+        var replacingExisting = false
         if let current = composeSheet {
             // Calendar / notification prefills must replace blank app_open compose.
             guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else { return }
             composeSheet = nil
+            replacingExisting = true
         }
 
         composePresentIntentIsWeak = sheet.isWeakDefault
         composePresentGeneration += 1
         let generation = composePresentGeneration
-        Task { @MainActor in
-            // Let share sheets / OAuth teardown finish before covering Home.
-            // Compose no longer pins a footer above the keyboard (scroll CTA + nav Save).
-            try? await Task.sleep(for: .milliseconds(350))
+
+        let apply: @MainActor () -> Void = {
             guard generation == composePresentGeneration else { return }
             if let current = composeSheet {
                 guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else { return }
             }
             composeSheet = sheet
+        }
+
+        if replacingExisting {
+            Task { @MainActor in
+                // Let the outgoing cover finish dismissing before presenting again.
+                try? await Task.sleep(for: .milliseconds(350))
+                apply()
+            }
+        } else {
+            apply()
         }
     }
 
