@@ -358,7 +358,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Name or Email of the recipient", text: $recipient)
+                TextField("Name or Email", text: $recipient)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.default)
