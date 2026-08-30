@@ -406,7 +406,7 @@ struct AppreciationVisibilityNote: View {
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Text(isPrivate
-                     ? "Only you and the sender will see this if you accept."
+                     ? "Only you and the sender can see it"
                      : "In the feed once you accept")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
