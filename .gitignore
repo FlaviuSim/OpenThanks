@@ -1,3 +1,6 @@
 
 # Xcode user state
 **/xcuserdata/
+
+# Supabase CLI cache
+supabase/.temp/
