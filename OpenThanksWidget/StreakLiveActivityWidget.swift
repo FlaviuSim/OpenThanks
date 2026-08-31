@@ -113,6 +113,6 @@ private struct StreakLiveActivityLockScreenView: View {
         if state.postedToday {
             return "Come back tomorrow to keep it going"
         }
-        return "Post once before midnight"
+        return "Send thanks before midnight"
     }
 }
