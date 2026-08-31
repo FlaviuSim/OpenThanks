@@ -43,9 +43,7 @@ struct PendingShareSheet: View {
     }
 
     private var messageBody: String {
-        let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
-            ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
-        let greeting = name.map { "Hey \($0)! " } ?? "Hey! "
+        let greeting = gratitude.shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
         let preview = Self.messagePreview(gratitude.message)
         let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
         return greeting
@@ -273,7 +271,7 @@ struct PendingShareSheet: View {
     private func openMail() {
         var components = URLComponents()
         components.scheme = "mailto"
-        if let email = recipientEmail {
+        if let email = gratitude.shareMailtoEmail {
             components.path = email
         }
         components.queryItems = [
