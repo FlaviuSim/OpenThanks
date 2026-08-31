@@ -1699,9 +1699,7 @@ struct SuccessView: View {
     }
 
     private var shareMessage: String {
-        let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
-            ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
-        let greeting = name.map { "Hey \($0)! " } ?? "Hey! "
+        let greeting = gratitude.shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
         let preview = Self.messagePreview(gratitude.message)
         let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
         return greeting
@@ -1879,11 +1877,11 @@ struct SuccessView: View {
     }
 
     private func openMail() {
-        // Blank To is intentional when we only know the username — Mail lets
-        // the sender pick an address while keeping subject/body filled in.
+        // Email in To when known; name-only leaves To blank so Mail can pick an address.
+        // Body greets by name only — never by email address.
         var components = URLComponents()
         components.scheme = "mailto"
-        if let email = recipientEmail {
+        if let email = gratitude.shareMailtoEmail {
             components.path = email
         }
         components.queryItems = [

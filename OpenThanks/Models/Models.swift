@@ -117,6 +117,27 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var recipientDisplayName: String {
         recipient?.displayName ?? recipientName ?? recipientEmail ?? recipientPhone ?? "Someone"
     }
+
+    /// First name for SMS/email share drafts — never an email address.
+    var shareGreetingFirstName: String? {
+        let candidates = [recipient?.fullName, recipientName]
+        for raw in candidates {
+            guard let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !value.isEmpty,
+                  !value.contains("@")
+            else { continue }
+            return value.split(separator: " ").first.map(String.init)
+        }
+        return nil
+    }
+
+    /// Email for mailto `To:` — only when we have a real address.
+    var shareMailtoEmail: String? {
+        let value = recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value, !value.isEmpty, value.contains("@") else { return nil }
+        return value
+    }
+
     var mediaURL: URL? { AppConfig.mediaURL(from: mediaUrl) }
 
     /// Public post page on openthanks.com (matches the web app's route:
