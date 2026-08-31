@@ -210,13 +210,12 @@ struct RootView: View {
     @AppStorage("hasCompletedCalendarPrompt") private var hasCompletedCalendarPrompt = false
     /// One-time tip so people discover App Shortcuts / Siri phrases.
     @AppStorage("hasCompletedSiriPrompt") private var hasCompletedSiriPrompt = false
-    /// True after the first session that reached the main app — calendar + Siri wait until the next launch.
+    /// True after the first session that reached the main app — Siri tip waits until the next launch.
     @AppStorage("hasEnteredMainAppOnce") private var hasEnteredMainAppOnce = false
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @State private var homeGate: HomeGate = .checking
-    /// Keeps deferred calendar / Siri prompts from appearing again during the same process.
-    @State private var deferredCalendarThisProcess = false
+    /// Keeps the deferred Siri tip from appearing again during the same process.
     @State private var deferredSiriThisProcess = false
 
     var body: some View {
@@ -241,8 +240,8 @@ struct RootView: View {
                     HeartMark(size: 64)
                         .transition(.opacity)
                 } else {
-                    // After login: notifications → profile → app
-                    // (calendar + Siri tip on the second open).
+                    // After login: notifications → profile → calendar → app
+                    // (Siri tip on the second open).
                     signedInHome
                         .transition(.opacity)
                 }
@@ -287,30 +286,29 @@ struct RootView: View {
     }
 
     private func nextGateAfterNotifications() -> HomeGate {
-        if shouldShowCalendarNow { return .needsCalendar }
-        return nextGateAfterCalendar()
+        if auth.currentProfile?.isCompleteForApp != true { return .needsProfile }
+        return nextGateAfterProfile()
+    }
+
+    /// Calendar is the last first-login gate before the main app.
+    private func nextGateAfterProfile() -> HomeGate {
+        if !hasCompletedCalendarPrompt { return .needsCalendar }
+        return gateAfterCalendarOrReady()
     }
 
     private func nextGateAfterCalendar() -> HomeGate {
-        if auth.currentProfile?.isCompleteForApp != true { return .needsProfile }
-        return gateAfterProfileComplete()
+        gateAfterCalendarOrReady()
     }
 
-    /// Calendar + Siri wait until the second app open to avoid first-session overload.
-    private var shouldShowCalendarNow: Bool {
-        !hasCompletedCalendarPrompt && hasEnteredMainAppOnce && !deferredCalendarThisProcess
-    }
-
+    /// Siri tip waits until the second app open to avoid first-session overload.
     private var shouldShowSiriTipNow: Bool {
         !hasCompletedSiriPrompt && hasEnteredMainAppOnce && !deferredSiriThisProcess
     }
 
-    private func gateAfterProfileComplete() -> HomeGate {
-        if shouldShowCalendarNow { return .needsCalendar }
+    private func gateAfterCalendarOrReady() -> HomeGate {
         if shouldShowSiriTipNow { return .needsSiriTip }
         if !hasEnteredMainAppOnce {
             hasEnteredMainAppOnce = true
-            deferredCalendarThisProcess = true
             deferredSiriThisProcess = true
         }
         return .ready
@@ -320,13 +318,11 @@ struct RootView: View {
         if !hasCompletedNotificationPrompt {
             return homeGate == .needsNotifications ? .needsNotifications : homeGate
         }
-        if !hasCompletedCalendarPrompt {
-            // Sticky while showing the sheet; otherwise allow .ready on the first open
-            // (calendar waits until hasEnteredMainAppOnce).
-            return homeGate == .needsCalendar ? .needsCalendar : homeGate
-        }
         if auth.currentProfile?.isCompleteForApp != true {
             return .needsProfile
+        }
+        if !hasCompletedCalendarPrompt {
+            return homeGate == .needsCalendar ? .needsCalendar : homeGate
         }
         if homeGate == .checking {
             return .checking
@@ -366,6 +362,11 @@ struct RootView: View {
             }
         }
 
+        if auth.currentProfile?.isCompleteForApp != true {
+            homeGate = .needsProfile
+            return
+        }
+
         if !hasCompletedCalendarPrompt {
             if CalendarMeetingAggregator.hasAnyConnectedSource {
                 // Already connected (Apple and/or Google) — keep nudge on and schedule.
@@ -381,17 +382,11 @@ struct RootView: View {
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
                 hasCompletedCalendarPrompt = true
-            } else if shouldShowCalendarNow {
-                // Second open — ask which calendar to use.
+            } else {
+                // Last first-login step — which calendar to use for evening nudges.
                 homeGate = .needsCalendar
                 return
             }
-            // First open — skip; ask on the next launch after they've used the app once.
-        }
-
-        if auth.currentProfile?.isCompleteForApp != true {
-            homeGate = .needsProfile
-            return
         }
 
         if fridayReminderEnabled, hasCompletedNotificationPrompt {
@@ -411,7 +406,7 @@ struct RootView: View {
             CalendarGratitudeBackgroundRefresh.schedule()
         }
 
-        homeGate = gateAfterProfileComplete()
+        homeGate = gateAfterCalendarOrReady()
     }
 
     private var isSignedIn: Bool {
