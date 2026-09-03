@@ -54,6 +54,7 @@ enum NotificationService {
                 granted = status == .authorized || status == .provisional || status == .ephemeral
             }
             guard granted else { return false }
+            WatchComposeNotification.registerCategories()
             await MainActor.run {
                 UIApplication.shared.registerForRemoteNotifications()
             }
@@ -61,6 +62,11 @@ enum NotificationService {
         } catch {
             return false
         }
+    }
+
+    /// Marks content so Watch (and iPhone) can route the tap into compose / record.
+    private static func applyComposeCategory(_ content: UNMutableNotificationContent) {
+        content.categoryIdentifier = WatchComposeNotification.categoryIdentifier
     }
 
     /// Why enabling a Settings notification toggle failed (nil = success).
@@ -84,6 +90,7 @@ enum NotificationService {
         content.title = "\(prompt.emoji) \(prompt.headline)"
         content.body = prompt.body
         content.sound = .default
+        applyComposeCategory(content)
         content.userInfo = [
             fridayReminderTypeKey: fridayReminderTypeValue,
             fridayPromptDateKey: fireDate.timeIntervalSince1970,
@@ -198,6 +205,7 @@ enum NotificationService {
             : ""
         content.body = "You met with \(nudge.personName)\(meetingBit) — send a quick thanks?"
         content.sound = .default
+        applyComposeCategory(content)
 
         var info: [String: Any] = [
             fridayReminderTypeKey: calendarNudgeTypeValue,
@@ -285,6 +293,7 @@ enum NotificationService {
         content.title = "Time to say thanks"
         content.body = "Thank \(recipientName) on OpenThanks"
         content.sound = .default
+        applyComposeCategory(content)
         content.userInfo = [
             thankReminderTypeKey: thankReminderTypeValue,
             thankReminderNameKey: recipientName,
@@ -324,6 +333,7 @@ enum NotificationService {
         content.title = "Keep your streak going"
         content.body = "You have today to share a thanks before midnight."
         content.sound = .default
+        applyComposeCategory(content)
         content.userInfo = [
             thankReminderTypeKey: streakLiveActivityWakeTypeValue,
         ]

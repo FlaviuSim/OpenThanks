@@ -86,6 +86,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        WatchComposeNotification.registerCategories()
         CalendarGratitudeBackgroundRefresh.register()
         CalendarGratitudeBackgroundRefresh.schedule()
         Analytics.setup()

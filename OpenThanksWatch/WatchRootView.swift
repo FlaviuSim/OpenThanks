@@ -107,11 +107,17 @@ struct WatchComposeView: View {
             restoreComposeDraftIfNeeded()
             pendingWaiting = WidgetSnapshotStore.load().pendingToAccept
             Task { await session.flushQueueIfPossible() }
+            Task { await autoStartRecordingIfNeeded() }
         }
         .onChange(of: message) { _, _ in persistComposeDraft() }
         .onChange(of: recipient) { _, _ in persistComposeDraft() }
         .onChange(of: scenePhase) { _, phase in
             handleScenePhase(phase)
+        }
+        .onChange(of: session.pendingAutoRecord) { _, should in
+            if should {
+                Task { await autoStartRecordingIfNeeded() }
+            }
         }
     }
 
@@ -335,6 +341,7 @@ struct WatchComposeView: View {
                 status = .idle
             }
             Task { await session.flushQueueIfPossible() }
+            Task { await autoStartRecordingIfNeeded() }
         case .inactive, .background:
             dismissVoiceInputIfNeeded()
             persistComposeDraft()
@@ -376,14 +383,23 @@ struct WatchComposeView: View {
 
     // MARK: - Voice input
 
+    /// Notification / widget / "Record a thanks" — jump straight into dictation (no suggestion chips).
+    private func autoStartRecordingIfNeeded() async {
+        guard session.pendingAutoRecord else { return }
+        session.pendingAutoRecord = false
+        // Wait until the visible interface controller is ready after cold launch.
+        try? await Task.sleep(for: .milliseconds(350))
+        guard scenePhase == .active else { return }
+        guard !isPresentingInput else { return }
+        // Don't clobber an existing draft the user is reviewing.
+        guard !hasMessage else { return }
+        if case .success = status { return }
+        dictateMessage()
+    }
+
     private func dictateMessage() {
-        presentVoiceInput(
-            suggestions: [
-                "Thank you for everything.",
-                "I'm grateful for you.",
-                "You made a difference.",
-            ]
-        ) { spoken in
+        // nil suggestions → dictation / scribble sheet only (no text suggestion chips).
+        presentVoiceInput(suggestions: nil) { spoken in
             let clipped = String(spoken.prefix(WatchRelay.watchMessageMaxLength))
             message = clipped
             if case .failed = status { status = .idle }

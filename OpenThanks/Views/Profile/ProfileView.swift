@@ -333,13 +333,14 @@ struct UserProfileView: View {
                 sectionTab(s)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .card()
         .animation(.easeInOut(duration: 0.2), value: section)
     }
 
     private var divider: some View {
-        Rectangle().fill(Theme.hairline).frame(width: 1, height: 56)
+        Rectangle().fill(Theme.hairline).frame(width: 1)
+            .padding(.vertical, 10)
     }
 
     private func sectionTab(_ s: Section) -> some View {
@@ -347,7 +348,7 @@ struct UserProfileView: View {
         return Button {
             section = s
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 5) {
                 Text("\(count(for: s))")
                     .font(Theme.display(24, weight: .semibold))
                     .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
@@ -358,9 +359,12 @@ struct UserProfileView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 8)
+            .padding(.top, 14)
+            .padding(.bottom, 16)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(selected ? Theme.coral.opacity(0.12) : .clear)
@@ -370,7 +374,7 @@ struct UserProfileView: View {
                 Capsule()
                     .fill(selected ? Theme.coral : .clear)
                     .frame(width: 28, height: 2)
-                    .padding(.bottom, 6)
+                    .padding(.bottom, 8)
             }
         }
         .buttonStyle(.plain)

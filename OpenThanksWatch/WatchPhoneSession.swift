@@ -13,6 +13,8 @@ final class WatchPhoneSession: NSObject {
     var isActivated = false
     var lastError: String?
     var pendingComposeFocus = false
+    /// When true, compose should start dictation immediately (no suggestion chips).
+    var pendingAutoRecord = false
     /// Draft ids currently sending (interactive or flush).
     private(set) var sendingIds: Set<UUID> = []
 
@@ -21,6 +23,12 @@ final class WatchPhoneSession: NSObject {
     override init() {
         super.init()
         activate()
+    }
+
+    /// Open compose; optionally jump straight into voice recording.
+    func requestCompose(autoRecord: Bool) {
+        pendingComposeFocus = true
+        pendingAutoRecord = autoRecord
     }
 
     func activate() {

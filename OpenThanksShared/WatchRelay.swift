@@ -1,4 +1,47 @@
 import Foundation
+import UserNotifications
+
+/// Local notification category so Watch (and iPhone) taps open compose / record.
+enum WatchComposeNotification {
+    static let categoryIdentifier = "openthanks.compose"
+    static let recordActionIdentifier = "openthanks.compose.record"
+
+    /// userInfo `type` values that should open Watch compose + auto-record.
+    static let composeOpenTypeValues: Set<String> = [
+        "gratitude_friday",
+        "thank_reminder",
+        "calendar_gratitude_nudge",
+        "streak_live_activity_wake",
+    ]
+
+    static func registerCategories() {
+        let record = UNNotificationAction(
+            identifier: recordActionIdentifier,
+            title: "Record a thanks",
+            options: [.foreground]
+        )
+        let category = UNNotificationCategory(
+            identifier: categoryIdentifier,
+            actions: [record],
+            intentIdentifiers: [],
+            options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
+    static func shouldOpenCompose(from response: UNNotificationResponse) -> Bool {
+        let category = response.notification.request.content.categoryIdentifier
+        let action = response.actionIdentifier
+        if category == categoryIdentifier {
+            return action == UNNotificationDefaultActionIdentifier
+                || action == recordActionIdentifier
+        }
+        let info = response.notification.request.content.userInfo
+        guard let type = info["type"] as? String else { return false }
+        return composeOpenTypeValues.contains(type)
+            && (action == UNNotificationDefaultActionIdentifier || action == recordActionIdentifier)
+    }
+}
 
 /// Shared Watch ↔ iPhone relay contract (Watch Connectivity).
 enum WatchRelay {
