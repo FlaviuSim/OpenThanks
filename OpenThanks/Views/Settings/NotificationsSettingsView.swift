@@ -14,6 +14,10 @@ struct NotificationsSettingsView: View {
     @State private var calendarToggleTask: Task<Void, Never>?
     @State private var fridayToggleEpoch = 0
     @State private var calendarToggleEpoch = 0
+    #if DEBUG
+    @State private var previewBusy = false
+    @State private var previewStatus: String?
+    #endif
 
     private var fridayBinding: Binding<Bool> {
         Binding(
@@ -191,6 +195,10 @@ struct NotificationsSettingsView: View {
                     await connectGoogle()
                 }
             }
+
+            #if DEBUG
+            debugCalendarNudgePreview
+            #endif
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -200,6 +208,68 @@ struct NotificationsSettingsView: View {
                 .stroke(Theme.hairline, lineWidth: 1)
         )
     }
+
+    #if DEBUG
+    private var debugCalendarNudgePreview: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().overlay(Theme.hairline)
+            Text("Google verification (DEBUG)")
+                .font(Theme.body(13, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+            Text("Fires the same evening nudge in ~5 seconds from live calendar data — for screen recording without waiting until 8:00 PM.")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Task { await runCalendarNudgePreview() }
+            } label: {
+                HStack {
+                    if previewBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(previewBusy ? "Finding someone…" : "Preview evening nudge now")
+                        .font(Theme.body(15, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .foregroundStyle(.white)
+                .background(Theme.coral, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(previewBusy || !anyCalendarReady)
+            if let previewStatus {
+                Text(previewStatus)
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func runCalendarNudgePreview() async {
+        previewBusy = true
+        previewStatus = nil
+        defer { previewBusy = false }
+        let result = await NotificationService.scheduleImmediateCalendarNudgePreview(
+            authorId: auth.userId,
+            selfEmails: selfEmails
+        )
+        switch result {
+        case .scheduled(let person, let meeting):
+            previewStatus = "Notification in ~5s for \(person) (\(meeting)). Lock the phone or go Home so the banner is visible, then tap it."
+        case .notificationsDenied:
+            previewStatus = "Notifications are off — enable them first."
+        case .noCalendar:
+            previewStatus = "Connect Google Calendar (or Apple) first."
+        case .noCandidate:
+            previewStatus = "No strong candidate today. In Google Calendar, add a weekday 1:1 (or small meeting) with another attendee that starts before 8:00 PM, then try again."
+        case .schedulingFailed:
+            previewStatus = "Couldn't schedule the preview notification."
+        }
+    }
+    #endif
 
     private var appleActionTitle: String {
         switch CalendarMeetingService.accessState {

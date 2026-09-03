@@ -198,6 +198,28 @@ enum NotificationService {
 
         await disableCalendarGratitudeNudge()
 
+        let content = calendarNudgeContent(for: nudge)
+
+        let components = cal.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: eightPM
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: calendarNudgeId,
+            content: content,
+            trigger: trigger
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            // Leave cancelled if scheduling fails.
+        }
+    }
+
+    /// Builds the same notification content used for the evening nudge.
+    private static func calendarNudgeContent(for nudge: GratitudeNudge) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = "🤝 Someone to thank tonight?"
         let meetingBit = nudge.meetingTitle.count <= 40
@@ -219,24 +241,66 @@ enum NotificationService {
             info[calendarNudgeMessageKey] = draft
         }
         content.userInfo = info
+        return content
+    }
 
-        let components = cal.dateComponents(
-            [.year, .month, .day, .hour, .minute],
-            from: eightPM
-        )
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+#if DEBUG
+    private static let calendarNudgePreviewId = "calendar-gratitude-nudge-preview"
+
+    /// DEBUG / Google verification: fire the same nudge ~5s from now so you can screen-record
+    /// without waiting until 8:00 PM. Uses live calendar data (Google and/or Apple).
+    enum CalendarNudgePreviewResult: Equatable {
+        case scheduled(personName: String, meetingTitle: String)
+        case notificationsDenied
+        case noCalendar
+        case noCandidate
+        case schedulingFailed
+    }
+
+    @discardableResult
+    static func scheduleImmediateCalendarNudgePreview(
+        authorId: UUID?,
+        selfEmails: Set<String>
+    ) async -> CalendarNudgePreviewResult {
+        guard await isAuthorized() else { return .notificationsDenied }
+        guard CalendarMeetingAggregator.hasAnyConnectedSource else { return .noCalendar }
+
+        let resolvedAuthorId: UUID?
+        if let authorId {
+            resolvedAuthorId = authorId
+        } else if let session = try? await supabase.auth.session {
+            resolvedAuthorId = session.user.id
+        } else {
+            resolvedAuthorId = nil
+        }
+
+        guard let nudge = await GratitudeOpportunityRanker.pickNudgeForPreview(
+            authorId: resolvedAuthorId,
+            selfEmails: selfEmails
+        ) else {
+            return .noCandidate
+        }
+
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [calendarNudgePreviewId])
+        UNUserNotificationCenter.current()
+            .removeDeliveredNotifications(withIdentifiers: [calendarNudgePreviewId])
+
+        let content = calendarNudgeContent(for: nudge)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
         let request = UNNotificationRequest(
-            identifier: calendarNudgeId,
+            identifier: calendarNudgePreviewId,
             content: content,
             trigger: trigger
         )
-
         do {
             try await UNUserNotificationCenter.current().add(request)
+            return .scheduled(personName: nudge.personName, meetingTitle: nudge.meetingTitle)
         } catch {
-            // Leave cancelled if scheduling fails.
+            return .schedulingFailed
         }
     }
+#endif
 
     /// Enables the evening nudge: notification permission + any calendar source, then schedule.
     /// Returns nil on success. Preference can stay on even when there’s no candidate tonight.

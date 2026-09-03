@@ -102,7 +102,9 @@ final class WatchConnectivityService: NSObject {
             )
         }
 
-        let clipped = String(message.prefix(1_500))
+        // Run the same dictation cleanup as iOS compose before saving.
+        let cleaned = await DictationProse.reconcileFullText(message)
+        let clipped = String(cleaned.prefix(1_500))
         let contact = Self.parseRecipient(request.recipient)
         let new = NewGratitude(
             authorId: userId,

@@ -148,39 +148,10 @@ enum WatchRelay {
     }
 }
 
-/// In-progress Watch compose note (survives interruption / app relaunch before Save/Send).
+/// Removed — one-button flow sends immediately; no draft to persist.
 enum WatchComposeDraftStore {
-    private static let key = "watchComposeDraft.v1"
-
-    struct Draft: Codable, Equatable {
-        var message: String
-        var recipient: String
-    }
-
-    static func load() -> Draft? {
-        guard let data = AppGroup.defaults.data(forKey: key),
-              let draft = try? JSONDecoder().decode(Draft.self, from: data)
-        else { return nil }
-        let message = draft.message.trimmingCharacters(in: .whitespacesAndNewlines)
-        let recipient = draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines)
-        if message.isEmpty && recipient.isEmpty { return nil }
-        return Draft(message: message, recipient: recipient)
-    }
-
-    static func save(message: String, recipient: String) {
-        let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedRecipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedMessage.isEmpty && trimmedRecipient.isEmpty {
-            clear()
-            return
-        }
-        let draft = Draft(message: trimmedMessage, recipient: trimmedRecipient)
-        guard let data = try? JSONEncoder().encode(draft) else { return }
-        AppGroup.defaults.set(data, forKey: key)
-    }
-
     static func clear() {
-        AppGroup.defaults.removeObject(forKey: key)
+        AppGroup.defaults.removeObject(forKey: "watchComposeDraft.v1")
     }
 }
 
