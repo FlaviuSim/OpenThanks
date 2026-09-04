@@ -21,12 +21,14 @@ enum GratitudeService {
     """
 
     /// Feed select plus parent appreciation for ripple / pay-it-forward chains.
+    /// Use column embed `inspired_by_gratitude_id(...)` — PostgREST often fails to
+    /// resolve self-FK constraint hints (`gratitudes!…_fkey`) with PGRST200.
     private static let rippleSelect = """
     *,
     author:profiles!gratitudes_author_id_fkey(*),
     recipient:profiles!gratitudes_recipient_id_fkey(*),
     hearts(count),
-    inspiredByParent:gratitudes!gratitudes_inspired_by_gratitude_id_fkey(
+    inspiredByParent:inspired_by_gratitude_id(
         *,
         author:profiles!gratitudes_author_id_fkey(*),
         recipient:profiles!gratitudes_recipient_id_fkey(*)
@@ -172,7 +174,7 @@ enum GratitudeService {
     /// Single post (for notification taps).
     static func gratitude(id: UUID) async throws -> Gratitude {
         try await supabase.from("gratitudes")
-            .select(feedSelect)
+            .select(rippleSelect)
             .eq("id", value: id)
             .single()
             .execute().value
@@ -351,23 +353,31 @@ enum GratitudeService {
     /// Accepted thanks that were inspired by an appreciation involving this profile
     /// (parent author or recipient). Powers the Ripple tab “Passed on” list.
     static func ripples(userId: UUID, viewerId: UUID?, limit: Int = 100) async throws -> [Gratitude] {
+        // 1) Parent posts this profile sent or received (ids only).
+        struct IdRow: Decodable { let id: UUID }
+        let parentRows: [IdRow] = try await supabase.from("gratitudes")
+            .select("id")
+            .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
+            .eq("status", value: "accepted")
+            .limit(500)
+            .execute().value
+        let parentIds = parentRows.map(\.id)
+        guard !parentIds.isEmpty else { return [] }
+
+        // 2) Children that cite those parents — no global over-fetch / filter miss.
         let all: [Gratitude] = try await supabase.from("gratitudes")
             .select(rippleSelect)
-            .not("inspired_by_gratitude_id", operator: .is, value: "null")
+            .in("inspired_by_gratitude_id", values: parentIds.map { $0.uuidString.lowercased() })
             .eq("status", value: "accepted")
             .order("created_at", ascending: false)
-            .limit(limit * 3) // over-fetch; filter to this profile’s parents in memory
+            .limit(limit)
             .execute().value
 
-        return all
-            .filter { child in
-                guard child.isVisible(to: viewerId) else { return false }
-                guard let parent = child.inspiredByParent else { return false }
-                guard parent.isVisible(to: viewerId) else { return false }
-                return parent.authorId == userId || parent.recipientId == userId
-            }
-            .prefix(limit)
-            .map { $0 }
+        return all.filter { child in
+            guard child.isVisible(to: viewerId) else { return false }
+            guard let parent = child.inspiredByParent else { return false }
+            return parent.isVisible(to: viewerId)
+        }
     }
 
     // MARK: Compose
