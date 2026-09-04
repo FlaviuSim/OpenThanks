@@ -24,6 +24,10 @@ final class ComposeLaunchBridge {
         var profile: Profile?
         /// App Group ShareInbox filename to attach as the post photo.
         var imageFileName: String?
+        /// Parent appreciation for pay-it-forward / ripple attribution.
+        var inspiredByGratitudeId: UUID?
+        /// Display name for inspired-by placeholder copy.
+        var inspiredByAuthorName: String?
         /// PostHog compose funnel `source`.
         var analyticsSource: String
 
@@ -34,6 +38,8 @@ final class ComposeLaunchBridge {
             messagePlaceholder: String? = nil,
             profile: Profile? = nil,
             imageFileName: String? = nil,
+            inspiredByGratitudeId: UUID? = nil,
+            inspiredByAuthorName: String? = nil,
             analyticsSource: String = "compose_launch"
         ) {
             self.id = id
@@ -42,6 +48,8 @@ final class ComposeLaunchBridge {
             self.messagePlaceholder = messagePlaceholder
             self.profile = profile
             self.imageFileName = imageFileName
+            self.inspiredByGratitudeId = inspiredByGratitudeId
+            self.inspiredByAuthorName = inspiredByAuthorName
             self.analyticsSource = analyticsSource
         }
 
@@ -53,6 +61,7 @@ final class ComposeLaunchBridge {
                 && messagePlaceholder == nil
                 && profile == nil
                 && imageFileName == nil
+                && inspiredByGratitudeId == nil
         }
     }
 
@@ -64,18 +73,24 @@ final class ComposeLaunchBridge {
         messagePlaceholder: String? = nil,
         profile: Profile? = nil,
         imageFileName: String? = nil,
+        inspiredByGratitudeId: UUID? = nil,
+        inspiredByAuthorName: String? = nil,
         analyticsSource: String = "compose_launch"
     ) {
         let trimmedName = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPlaceholder = messagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedImage = imageFileName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedInspiredName = inspiredByAuthorName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let request = Request(
             recipientName: (trimmedName?.isEmpty == false) ? trimmedName : nil,
             message: (trimmedMessage?.isEmpty == false) ? trimmedMessage : nil,
             messagePlaceholder: (trimmedPlaceholder?.isEmpty == false) ? trimmedPlaceholder : nil,
             profile: profile,
             imageFileName: (trimmedImage?.isEmpty == false) ? trimmedImage : nil,
+            inspiredByGratitudeId: inspiredByGratitudeId,
+            inspiredByAuthorName: (trimmedInspiredName?.isEmpty == false) ? trimmedInspiredName : nil,
             analyticsSource: analyticsSource
         )
         // Never let blank app_open clobber a calendar / notification / share prefill

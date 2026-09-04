@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Gentle post-accept prompt to pay an appreciation forward.
+/// Gentle post-accept prompt to continue a gratitude ripple.
 struct PayItForwardNudgeCard: View {
     var fromName: String?
     var onThankSomeone: () -> Void
@@ -14,10 +14,10 @@ struct PayItForwardNudgeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Image(systemName: "arrow.forward.heart.fill")
+                Image(systemName: "water.waves")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Theme.coral)
-                Text("Pay it forward")
+                Text("Continue the ripple")
                     .font(Theme.body(15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer(minLength: 0)
@@ -34,17 +34,17 @@ struct PayItForwardNudgeCard: View {
                 }
             }
 
-            Text("That felt good — who might love hearing from you next? A short note to someone else keeps the kindness moving.")
+            Text("\(firstName) just thanked you. Send one note to someone who deserves it — keep their kindness moving.")
                 .font(Theme.body(14))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Inspired by \(firstName)’s appreciation for you.")
+            Text("Ripple started by \(firstName)")
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textTertiary)
 
             Button(action: onThankSomeone) {
-                Text("Thank Someone")
+                Text("Thank someone next")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(CTAButtonStyle())

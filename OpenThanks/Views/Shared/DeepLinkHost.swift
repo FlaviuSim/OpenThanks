@@ -25,13 +25,19 @@ struct DeepLinkHostModifier: ViewModifier {
                         PayItForwardSheet(
                             fromName: deepLinks.payItForwardFromName,
                             onThankSomeone: {
-                                Analytics.capture(
-                                    "pay_it_forward_tapped",
-                                    ["source": "claim_accept"]
-                                )
+                                var props: [String: Any] = ["source": "claim_accept"]
+                                if let parentId = deepLinks.payItForwardParentId {
+                                    props["parent_gratitude_id"] = parentId.uuidString.lowercased()
+                                }
+                                Analytics.capture("pay_it_forward_tapped", props)
+                                let parentId = deepLinks.payItForwardParentId
+                                let fromName = deepLinks.payItForwardFromName
                                 deepLinks.payItForwardFromName = nil
+                                deepLinks.payItForwardParentId = nil
                                 deepLinks.clear()
                                 ComposeLaunchBridge.shared.queue(
+                                    inspiredByGratitudeId: parentId,
+                                    inspiredByAuthorName: fromName,
                                     analyticsSource: "post_accept_pay_it_forward"
                                 )
                             }

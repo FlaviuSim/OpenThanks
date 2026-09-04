@@ -35,13 +35,13 @@ struct ProfileView: View {
 }
 
 /// Any user's profile: header, nonprofit spotlight, stats, and
-/// Appreciations received / given / People inspired — accepted posts only,
+/// Ripple / Appreciations received / given — accepted posts only,
 /// private posts shown only to the people involved in them.
 struct UserProfileView: View {
     enum Section: String, CaseIterable {
+        case ripple = "Ripple"
         case received = "Appreciations received"
         case sent = "Appreciations given"
-        case inspired = "People inspired"
     }
 
     let profile: Profile
@@ -54,16 +54,20 @@ struct UserProfileView: View {
     @State private var sent: [Gratitude] = []
     @State private var received: [Gratitude] = []
     @State private var inspirations: [Inspiration] = []
+    @State private var ripplePassOns: [Gratitude] = []
     @State private var loaded = false
     @State private var fullScreenAvatarURL: URL?
     @State private var showCompose = false
+    @State private var composeAnalyticsSource = "profile_thank"
+    @State private var composeUsesProfileRecipient = true
     @State private var pendingSentCount = 0
     @State private var showReportSheet = false
+    @State private var didTrackRippleTab = false
 
     init(profile: Profile, initialSection: Section? = nil) {
         self.profile = profile
         self.initialSection = initialSection
-        _section = State(initialValue: initialSection ?? .received)
+        _section = State(initialValue: initialSection ?? .ripple)
     }
 
     private var shownProfile: Profile {
@@ -127,7 +131,13 @@ struct UserProfileView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .focusProfileInspired)) { _ in
             guard isOwnProfile else { return }
-            section = .inspired
+            section = .ripple
+        }
+        .onChange(of: section) { _, newSection in
+            if newSection == .ripple { trackRippleTabIfNeeded() }
+        }
+        .onAppear {
+            if section == .ripple { trackRippleTabIfNeeded() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
             guard let gratitude = note.object as? Gratitude else { return }
@@ -143,10 +153,32 @@ struct UserProfileView: View {
         }
         .composeCover(isPresented: $showCompose) {
             ComposeView(
-                initialRecipientProfile: shownProfile,
-                analyticsSource: "profile_thank"
+                initialRecipientProfile: composeUsesProfileRecipient && !isOwnProfile
+                    ? shownProfile
+                    : nil,
+                analyticsSource: composeAnalyticsSource
             )
         }
+    }
+
+    private func trackRippleTabIfNeeded() {
+        guard !didTrackRippleTab else { return }
+        didTrackRippleTab = true
+        Analytics.capture("ripple_tab_viewed", [
+            "is_own_profile": isOwnProfile,
+            "profile_id": profile.id.uuidString.lowercased(),
+        ])
+    }
+
+    private func openComposeFromRippleEmpty() {
+        if isOwnProfile {
+            composeUsesProfileRecipient = false
+            composeAnalyticsSource = "profile_ripple_empty"
+        } else {
+            composeUsesProfileRecipient = true
+            composeAnalyticsSource = "profile_ripple_empty_thank"
+        }
+        showCompose = true
     }
 
     /// Patch embedded author/recipient avatars after a profile photo/name edit.
@@ -219,6 +251,8 @@ struct UserProfileView: View {
 
             if !isOwnProfile {
                 Button {
+                    composeUsesProfileRecipient = true
+                    composeAnalyticsSource = "profile_thank"
                     showCompose = true
                 } label: {
                     HStack(spacing: 7) {
@@ -388,7 +422,11 @@ struct UserProfileView: View {
         switch s {
         case .sent: return loaded ? sent.count : stats.sent
         case .received: return loaded ? received.count : stats.received
-        case .inspired: return loaded ? inspirations.count : stats.inspired
+        case .ripple:
+            if loaded {
+                return inspirations.count + ripplePassOns.count
+            }
+            return stats.inspired + stats.ripplesPassedOn
         }
     }
 
@@ -403,8 +441,8 @@ struct UserProfileView: View {
             gratitudeList(sent, empty: isOwnProfile
                           ? "You haven't sent an appreciation yet."
                           : "No appreciations sent yet.")
-        case .inspired:
-            inspiredList
+        case .ripple:
+            rippleList
         }
     }
 
@@ -466,34 +504,151 @@ struct UserProfileView: View {
                             : "\(author) thanked \(shownProfile.displayName)"
     }
 
-    private var inspiredList: some View {
-        VStack(spacing: 12) {
-            if inspirations.isEmpty && loaded {
-                Text(isOwnProfile
-                     ? "When someone hearts an appreciation you sent or received, they'll show up here."
-                     : "No one has been inspired yet — be the first.")
-                    .font(Theme.body(14))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.vertical, 32)
-                    .padding(.horizontal, 16)
-            }
-            ForEach(inspirations) { ins in
-                HStack(alignment: .top, spacing: 12) {
-                    ProfileAvatarLink(profile: ins.user, size: 40)
-                    Group {
-                        if let g = ins.gratitude {
-                            NavigationLink(value: g) { inspirationRow(ins) }
-                                .buttonStyle(.plain)
-                        } else {
-                            inspirationRow(ins)
+    private var rippleList: some View {
+        VStack(spacing: 16) {
+            if loaded && inspirations.isEmpty && ripplePassOns.isEmpty {
+                rippleEmptyState
+            } else {
+                if !inspirations.isEmpty || !ripplePassOns.isEmpty {
+                    rippleHero
+                }
+
+                if !inspirations.isEmpty {
+                    rippleSectionHeader("Inspired", systemImage: "heart.fill")
+                    ForEach(inspirations) { ins in
+                        HStack(alignment: .top, spacing: 12) {
+                            ProfileAvatarLink(profile: ins.user, size: 40)
+                            Group {
+                                if let g = ins.gratitude {
+                                    NavigationLink(value: g) { inspirationRow(ins) }
+                                        .buttonStyle(.plain)
+                                } else {
+                                    inspirationRow(ins)
+                                }
+                            }
                         }
+                        .padding(14)
+                        .card()
                     }
                 }
-                .padding(14)
-                .card()
+
+                if !ripplePassOns.isEmpty {
+                    rippleSectionHeader("Passed on", systemImage: "water.waves")
+                    ForEach(ripplePassOns) { child in
+                        HStack(alignment: .top, spacing: 12) {
+                            ProfileAvatarLink(profile: child.author, size: 40)
+                            NavigationLink(value: child) {
+                                ripplePassOnRow(child)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(14)
+                        .card()
+                    }
+                }
             }
         }
+    }
+
+    private var rippleHero: some View {
+        let inspiredCount = inspirations.count
+        let passedCount = ripplePassOns.count
+        let reachedCount = ripplePassOns.filter { $0.inspiredByParent?.authorId == profile.id }.count
+
+        return VStack(spacing: 12) {
+            ZStack {
+                GratitudeRipple(trigger: loaded, size: 72)
+                Image(systemName: "water.waves")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+            }
+            .frame(height: 88)
+
+            HStack(spacing: 18) {
+                rippleStat(value: inspiredCount, label: "inspired")
+                rippleStat(value: passedCount, label: "passed on")
+            }
+
+            if isOwnProfile, reachedCount > 0 {
+                Text(reachedCount == 1
+                     ? "Your thanks reached 1 more person"
+                     : "Your thanks reached \(reachedCount) more people")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private func rippleStat(value: Int, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(Theme.display(22, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+            Text(label)
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textTertiary)
+        }
+    }
+
+    private func rippleSectionHeader(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+            Text(title)
+                .font(Theme.body(13, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 4)
+    }
+
+    private var rippleEmptyState: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .stroke(Theme.coral.opacity(0.25), lineWidth: 1.5)
+                    .frame(width: 64, height: 64)
+                Circle()
+                    .stroke(Theme.coral.opacity(0.15), lineWidth: 1)
+                    .frame(width: 84, height: 84)
+                Image(systemName: "water.waves")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+            }
+            .padding(.top, 12)
+
+            Text(isOwnProfile ? "Your ripple starts here" : "No ripple yet")
+                .font(Theme.display(20, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .multilineTextAlignment(.center)
+
+            Text(isOwnProfile
+                 ? "When someone hearts an appreciation you sent or received, they show up as inspired. When you (or they) pass thanks to someone new after receiving one, that becomes part of the ripple — kindness that keeps moving."
+                 : "Hearts on \(shownProfile.displayName)’s appreciations and thanks passed on from them will collect here — a living trail of gratitude.")
+                .font(Theme.body(14))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: openComposeFromRippleEmpty) {
+                Text(isOwnProfile ? "Send an appreciation" : "Thank \(firstName)")
+                    .font(Theme.body(15, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Theme.coral.opacity(0.12), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
+            .accessibilityLabel(isOwnProfile ? "Send an appreciation" : "Thank \(shownProfile.displayName)")
+        }
+        .padding(.horizontal, 8)
     }
 
     private func inspirationRow(_ ins: Inspiration) -> some View {
@@ -530,6 +685,46 @@ struct UserProfileView: View {
         }
     }
 
+    private func ripplePassOnRow(_ child: Gratitude) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                (Text(child.author?.displayName ?? "Someone")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                 + Text(" thanked \(child.recipientDisplayName)")
+                    .font(Theme.body(14))
+                    .foregroundStyle(Theme.textSecondary))
+                    .multilineTextAlignment(.leading)
+
+                LinkifiedText(
+                    text: "“\(child.message)”",
+                    font: Theme.body(13),
+                    foreground: Theme.textSecondary
+                )
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+                if let parent = child.inspiredByParent {
+                    let origin = parent.author?.displayName ?? "someone"
+                    Text("from \(origin)’s thanks")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Image(systemName: "water.waves")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                if let date = child.displayDate {
+                    Text(date, format: .relative(presentation: .named))
+                        .font(Theme.body(11))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+            }
+        }
+    }
+
     // MARK: Data
 
     private func load() async {
@@ -546,11 +741,12 @@ struct UserProfileView: View {
             async let sentList = GratitudeService.sentBy(userId: profile.id, viewerId: viewerId)
             async let receivedList = GratitudeService.receivedBy(userId: profile.id, viewerId: viewerId)
             async let inspiredList = GratitudeService.inspirations(userId: profile.id, viewerId: viewerId)
+            async let rippleList = GratitudeService.ripples(userId: profile.id, viewerId: viewerId)
             // Accurate counts via head queries (lists are capped).
             async let statsTask = GratitudeService.stats(userId: profile.id)
 
-            let (sentResult, receivedResult, inspiredResult, statsResult) =
-                try await (sentList, receivedList, inspiredList, statsTask)
+            let (sentResult, receivedResult, inspiredResult, rippleResult, statsResult) =
+                try await (sentList, receivedList, inspiredList, rippleList, statsTask)
             var pendingResult = 0
             if isOwnProfile, let userId = auth.userId {
                 pendingResult = (try? await GratitudeService.pendingCount(authorId: userId)) ?? pendingSentCount
@@ -559,6 +755,7 @@ struct UserProfileView: View {
                 sent = sentResult
                 received = receivedResult
                 inspirations = inspiredResult
+                ripplePassOns = rippleResult
                 stats = statsResult
                 if isOwnProfile { pendingSentCount = pendingResult }
             }

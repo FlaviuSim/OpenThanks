@@ -3,7 +3,7 @@ import Observation
 
 extension Notification.Name {
     static let tabLaunchQueued = Notification.Name("openthanks.tabLaunchQueued")
-    /// Own-profile UserProfileView should select the People inspired section.
+    /// Own-profile UserProfileView should select the Ripple section.
     static let focusProfileInspired = Notification.Name("openthanks.focusProfileInspired")
 }
 
@@ -18,7 +18,7 @@ final class TabLaunchBridge {
         case received
         case home
         case notifications
-        /// Own Profile tab, People inspired section (weekly hearts email).
+        /// Own Profile tab, Ripple section (weekly hearts email / ?tab=inspired|ripple).
         case profileInspired
     }
 
