@@ -375,22 +375,44 @@ struct PendingAppreciationsView: View {
         }
     }
 
+    /// True when the appreciation has no recipient at all (Watch one-tap drafts).
+    private func hasNoRecipient(_ g: Gratitude) -> Bool {
+        g.recipientId == nil
+            && (g.recipientEmail ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (g.recipientPhone ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (g.recipientName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private func pendingCard(_ g: Gratitude) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button { sharing = g } label: {
+        let noRecipient = hasNoRecipient(g)
+        return VStack(alignment: .leading, spacing: 12) {
+            Button { noRecipient ? (editing = g) : (sharing = g) } label: {
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: "clock")
-                        .foregroundStyle(Theme.textSecondary)
+                    Image(systemName: noRecipient ? "waveform" : "clock")
+                        .foregroundStyle(noRecipient ? Theme.coral : Theme.textSecondary)
                         .frame(width: 36, height: 36)
-                        .background(Theme.surfaceRaised, in: Circle())
+                        .background(
+                            (noRecipient ? Theme.coral.opacity(0.12) : Theme.surfaceRaised),
+                            in: Circle()
+                        )
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("To: \(g.recipientDisplayName)")
-                            .font(Theme.body(14, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                        if let contact = g.recipientEmail ?? g.recipientPhone {
-                            Text(contact)
+                        if noRecipient {
+                            Text("Add who to thank")
+                                .font(Theme.body(14, weight: .semibold))
+                                .foregroundStyle(Theme.coral)
+                            Text("Recorded from Apple Watch — tap to add a recipient and share.")
                                 .font(Theme.body(12))
-                                .foregroundStyle(Theme.textTertiary)
+                                .foregroundStyle(Theme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text("To: \(g.recipientDisplayName)")
+                                .font(Theme.body(14, weight: .semibold))
+                                .foregroundStyle(Theme.textPrimary)
+                            if let contact = g.recipientEmail ?? g.recipientPhone {
+                                Text(contact)
+                                    .font(Theme.body(12))
+                                    .foregroundStyle(Theme.textTertiary)
+                            }
                         }
                         LinkifiedText(
                             text: g.message,
@@ -399,9 +421,11 @@ struct PendingAppreciationsView: View {
                         )
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
-                        Text("No one has accepted it yet")
-                            .font(Theme.body(12, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                        if !noRecipient {
+                            Text("No one has accepted it yet")
+                                .font(Theme.body(12, weight: .semibold))
+                                .foregroundStyle(Theme.coral)
+                        }
                     }
                     Spacer(minLength: 0)
                     if let date = g.createdAt {
@@ -417,8 +441,10 @@ struct PendingAppreciationsView: View {
                 actionButton(title: "Edit", systemImage: "square.and.pencil") {
                     editing = g
                 }
-                actionButton(title: "Send", systemImage: "link") {
-                    sharing = g
+                if !noRecipient {
+                    actionButton(title: "Send", systemImage: "link") {
+                        sharing = g
+                    }
                 }
                 actionButton(title: "Delete", systemImage: "trash", destructive: true) {
                     deleting = g
@@ -433,11 +459,13 @@ struct PendingAppreciationsView: View {
         .padding(14)
         .card()
         .contextMenu {
-            Button { sharing = g } label: {
-                Label("Send link to accept", systemImage: "square.and.arrow.up")
-            }
             Button { editing = g } label: {
                 Label("Edit", systemImage: "pencil")
+            }
+            if !noRecipient {
+                Button { sharing = g } label: {
+                    Label("Send link to accept", systemImage: "square.and.arrow.up")
+                }
             }
             Button(role: .destructive) { deleting = g } label: {
                 Label("Delete", systemImage: "trash")

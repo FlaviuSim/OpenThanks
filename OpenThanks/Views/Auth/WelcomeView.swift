@@ -353,11 +353,26 @@ struct OTPSheet: View {
             if case .signedIn = auth.state { dismiss() }
         } else {
             destinationFocused = false
+            // Review account: password sign-in, no OTP step (matches web).
+            if mode == .email, AuthService.isTestAccountEmail(destination) {
+                let ok = await auth.signInTestAccount()
+                if ok, case .signedIn = auth.state {
+                    dismiss()
+                } else {
+                    destinationFocused = true
+                }
+                return
+            }
             let ok = mode == .email
                 ? await auth.sendEmailCode(to: destination)
                 : await auth.sendPhoneCode(to: normalizedPhone)
             if ok {
-                codeSent = true
+                // Test account may have signed in inside sendEmailCode — dismiss.
+                if case .signedIn = auth.state {
+                    dismiss()
+                } else {
+                    codeSent = true
+                }
             } else {
                 destinationFocused = true
             }

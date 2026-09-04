@@ -13,6 +13,8 @@ final class WatchPhoneSession: NSObject {
     var isActivated = false
     var lastError: String?
     var pendingComposeFocus = false
+    /// When true, compose should start dictation immediately (no suggestion chips).
+    var pendingAutoRecord = false
     /// Draft ids currently sending (interactive or flush).
     private(set) var sendingIds: Set<UUID> = []
 
@@ -21,6 +23,12 @@ final class WatchPhoneSession: NSObject {
     override init() {
         super.init()
         activate()
+    }
+
+    /// Open compose; optionally jump straight into voice recording.
+    func requestCompose(autoRecord: Bool) {
+        pendingComposeFocus = true
+        pendingAutoRecord = autoRecord
     }
 
     func activate() {
@@ -44,18 +52,14 @@ final class WatchPhoneSession: NSObject {
 
     var queuedCount: Int { WatchDraftQueue.all().count }
 
-    /// Save to Pending Appreciations on iPhone (or email a claim link when `recipient` is an email).
+    /// Records a thanks and saves it to Pending Appreciations on iPhone.
+    /// Recipient is always nil — the user adds who to thank later on iPhone.
     func sendAppreciation(message: String, recipient: String?) async -> SendOutcome {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return .failed("Write a short note first.") }
+        guard !trimmed.isEmpty else { return .failed("Speak a short note first.") }
 
         let clipped = String(trimmed.prefix(WatchRelay.watchMessageMaxLength))
-        let to = recipient?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let willEmail = WatchRelay.looksLikeEmail(to ?? "")
-        let draft = WatchRelay.CreateRequest(
-            message: clipped,
-            recipient: (to?.isEmpty == false) ? to : nil
-        )
+        let draft = WatchRelay.CreateRequest(message: clipped, recipient: nil)
 
         guard isSignedIn else {
             return .failed("Sign in on iPhone to save thanks.")
@@ -69,17 +73,13 @@ final class WatchPhoneSession: NSObject {
                 let reply = try await sendCreateMessage(draft)
                 if reply.ok {
                     WatchDraftQueue.remove(draft.id)
-                    return .sent(emailed: willEmail)
+                    return .sent
                 }
-                let fallback = willEmail ? "Couldn't send. Try again." : "Couldn't save. Try again."
-                return .failed(reply.errorMessage ?? fallback)
+                return .failed(reply.errorMessage ?? "Couldn't save. Try again.")
             } catch {
                 WatchDraftQueue.enqueue(draft)
                 transferCreateUserInfo(draft)
-                let note = willEmail
-                    ? "iPhone is busy — we'll send when it's nearby."
-                    : "iPhone is busy — we'll save it when it's nearby."
-                return .queued(note)
+                return .queued("iPhone is busy — we'll save when it's nearby.")
             }
         } else {
             WatchDraftQueue.enqueue(draft)
@@ -105,7 +105,7 @@ final class WatchPhoneSession: NSObject {
     }
 
     enum SendOutcome: Equatable {
-        case sent(emailed: Bool)
+        case sent
         case queued(String)
         case failed(String)
     }
@@ -128,9 +128,7 @@ final class WatchPhoneSession: NSObject {
             return .success(draftId: draft.id, gratitudeId: UUID())
         }
         let code = reply["errorCode"] as? String ?? "unknown"
-        let willEmail = WatchRelay.looksLikeEmail(draft.recipient ?? "")
-        let fallback = willEmail ? "Couldn't send. Try again." : "Couldn't save. Try again."
-        let msg = reply["errorMessage"] as? String ?? fallback
+        let msg = reply["errorMessage"] as? String ?? "Couldn't save. Try again."
         return .failure(draftId: draft.id, code: code, message: msg)
     }
 

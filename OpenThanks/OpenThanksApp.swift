@@ -49,7 +49,13 @@ struct OpenThanksApp: App {
             } else if let destination = WidgetDeepLink.parse(url) {
                 switch destination {
                 case .compose:
-                    ComposeShareHandoff.queuePendingShareOrBlank()
+                    let fromControl = ControlCenterHandoff.consumeCompose()
+                    if ComposeShareHandoff.applyPendingShare() {
+                        break
+                    }
+                    ComposeLaunchBridge.shared.queue(
+                        analyticsSource: fromControl ? "control_center" : "deep_link_compose"
+                    )
                 case .received:
                     TabLaunchBridge.shared.queue(.received)
                 case .gratitude(let id):
@@ -86,6 +92,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        WatchComposeNotification.registerCategories()
         CalendarGratitudeBackgroundRefresh.register()
         CalendarGratitudeBackgroundRefresh.schedule()
         Analytics.setup()
@@ -99,6 +106,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             WatchConnectivityService.shared.pushAuthContext()
         }
         Task { @MainActor in
+            // Control Center may launch us without delivering openthanks://compose.
+            if ControlCenterHandoff.consumeCompose() {
+                ComposeLaunchBridge.shared.queue(analyticsSource: "control_center")
+            }
             // Any foreground — schedule-first start, then full streak sync.
             await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
         }
@@ -173,6 +184,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 toField = name
             } else {
                 toField = nil
+            }
+            // Keep the row in Notifications; mark today’s saved suggestion read.
+            let today = Calendar.current.startOfDay(for: Date())
+            if let match = CalendarThankSuggestionStore.all().first(where: {
+                Calendar.current.isDate($0.dayStart, inSameDayAs: today)
+            }) {
+                CalendarThankSuggestionStore.markRead(id: match.id)
             }
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(
@@ -369,7 +387,9 @@ struct RootView: View {
 
         if !hasCompletedCalendarPrompt {
             if CalendarMeetingAggregator.hasAnyConnectedSource {
-                // Already connected (Apple and/or Google) — keep nudge on and schedule.
+                // Already connected (Apple and/or Google) — silently mark done,
+                // keep nudge on, and schedule. Never show the picker screen.
+                hasCompletedCalendarPrompt = true
                 calendarNudgeEnabled = true
                 var emails = Set<String>()
                 if let email = auth.currentProfile?.email?.lowercased() {
@@ -381,7 +401,7 @@ struct RootView: View {
                     selfEmails: emails
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
-                hasCompletedCalendarPrompt = true
+                // Fall through — do not return; continue to ready/Siri below.
             } else {
                 // Last first-login step — which calendar to use for evening nudges.
                 homeGate = .needsCalendar

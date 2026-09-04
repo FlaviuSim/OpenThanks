@@ -1,8 +1,10 @@
 import SwiftUI
-import WatchConnectivity
+import UserNotifications
+import WatchKit
 
 @main
 struct OpenThanksWatchApp: App {
+    @WKApplicationDelegateAdaptor(WatchAppDelegate.self) private var appDelegate
     @State private var session = WatchPhoneSession.shared
 
     var body: some Scene {
@@ -11,9 +13,33 @@ struct OpenThanksWatchApp: App {
                 .environment(session)
                 .onOpenURL { url in
                     if WatchDeepLink.isCompose(url) {
-                        session.pendingComposeFocus = true
+                        session.requestCompose(autoRecord: true)
                     }
                 }
+        }
+    }
+}
+
+final class WatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCenterDelegate {
+    func applicationDidFinishLaunching() {
+        UNUserNotificationCenter.current().delegate = self
+        WatchComposeNotification.registerCategories()
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .list]
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        guard WatchComposeNotification.shouldOpenCompose(from: response) else { return }
+        await MainActor.run {
+            WatchPhoneSession.shared.requestCompose(autoRecord: true)
         }
     }
 }

@@ -54,6 +54,7 @@ enum NotificationService {
                 granted = status == .authorized || status == .provisional || status == .ephemeral
             }
             guard granted else { return false }
+            WatchComposeNotification.registerCategories()
             await MainActor.run {
                 UIApplication.shared.registerForRemoteNotifications()
             }
@@ -61,6 +62,11 @@ enum NotificationService {
         } catch {
             return false
         }
+    }
+
+    /// Marks content so Watch (and iPhone) can route the tap into compose / record.
+    private static func applyComposeCategory(_ content: UNMutableNotificationContent) {
+        content.categoryIdentifier = WatchComposeNotification.categoryIdentifier
     }
 
     /// Why enabling a Settings notification toggle failed (nil = success).
@@ -84,6 +90,7 @@ enum NotificationService {
         content.title = "\(prompt.emoji) \(prompt.headline)"
         content.body = prompt.body
         content.sound = .default
+        applyComposeCategory(content)
         content.userInfo = [
             fridayReminderTypeKey: fridayReminderTypeValue,
             fridayPromptDateKey: fireDate.timeIntervalSince1970,
@@ -191,26 +198,7 @@ enum NotificationService {
 
         await disableCalendarGratitudeNudge()
 
-        let content = UNMutableNotificationContent()
-        content.title = "🤝 Someone to thank tonight?"
-        let meetingBit = nudge.meetingTitle.count <= 40
-            ? " about \(nudge.meetingTitle)"
-            : ""
-        content.body = "You met with \(nudge.personName)\(meetingBit) — send a quick thanks?"
-        content.sound = .default
-
-        var info: [String: Any] = [
-            fridayReminderTypeKey: calendarNudgeTypeValue,
-            calendarNudgeNameKey: nudge.personName,
-            calendarNudgeMeetingKey: nudge.meetingTitle,
-        ]
-        if let email = nudge.email {
-            info[calendarNudgeEmailKey] = email
-        }
-        if let draft = nudge.messageDraft {
-            info[calendarNudgeMessageKey] = draft
-        }
-        content.userInfo = info
+        let content = calendarNudgeContent(for: nudge)
 
         let components = cal.dateComponents(
             [.year, .month, .day, .hour, .minute],
@@ -225,8 +213,93 @@ enum NotificationService {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
+            // Keep in the in-app Notifications list so the user can thank later.
+            CalendarThankSuggestionStore.upsert(from: nudge, at: now)
         } catch {
             // Leave cancelled if scheduling fails.
+        }
+    }
+
+    /// Builds the same notification content used for the evening nudge.
+    private static func calendarNudgeContent(for nudge: GratitudeNudge) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = "🤝 Someone to thank tonight?"
+        let meetingBit = nudge.meetingTitle.count <= 40
+            ? " about \(nudge.meetingTitle)"
+            : ""
+        content.body = "You met with \(nudge.personName)\(meetingBit) — send a quick thanks?"
+        content.sound = .default
+        applyComposeCategory(content)
+
+        var info: [String: Any] = [
+            fridayReminderTypeKey: calendarNudgeTypeValue,
+            calendarNudgeNameKey: nudge.personName,
+            calendarNudgeMeetingKey: nudge.meetingTitle,
+        ]
+        if let email = nudge.email {
+            info[calendarNudgeEmailKey] = email
+        }
+        if let draft = nudge.messageDraft {
+            info[calendarNudgeMessageKey] = draft
+        }
+        content.userInfo = info
+        return content
+    }
+
+    private static let calendarNudgePreviewId = "calendar-gratitude-nudge-preview"
+
+    /// Google verification / reviewer helper: fire the same nudge ~5s from now so you can
+    /// screen-record without waiting until 8:00 PM. Uses live calendar data.
+    enum CalendarNudgePreviewResult: Equatable {
+        case scheduled(personName: String, meetingTitle: String)
+        case notificationsDenied
+        case noCalendar
+        case noCandidate
+        case schedulingFailed
+    }
+
+    @discardableResult
+    static func scheduleImmediateCalendarNudgePreview(
+        authorId: UUID?,
+        selfEmails: Set<String>
+    ) async -> CalendarNudgePreviewResult {
+        guard await isAuthorized() else { return .notificationsDenied }
+        guard CalendarMeetingAggregator.hasAnyConnectedSource else { return .noCalendar }
+
+        let resolvedAuthorId: UUID?
+        if let authorId {
+            resolvedAuthorId = authorId
+        } else if let session = try? await supabase.auth.session {
+            resolvedAuthorId = session.user.id
+        } else {
+            resolvedAuthorId = nil
+        }
+
+        guard let nudge = await GratitudeOpportunityRanker.pickNudgeForPreview(
+            authorId: resolvedAuthorId,
+            selfEmails: selfEmails
+        ) else {
+            return .noCandidate
+        }
+
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [calendarNudgePreviewId])
+        UNUserNotificationCenter.current()
+            .removeDeliveredNotifications(withIdentifiers: [calendarNudgePreviewId])
+
+        let content = calendarNudgeContent(for: nudge)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: calendarNudgePreviewId,
+            content: content,
+            trigger: trigger
+        )
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            CalendarThankSuggestionStore.upsert(from: nudge)
+            return .scheduled(personName: nudge.personName, meetingTitle: nudge.meetingTitle)
+        } catch {
+            return .schedulingFailed
         }
     }
 
@@ -285,6 +358,7 @@ enum NotificationService {
         content.title = "Time to say thanks"
         content.body = "Thank \(recipientName) on OpenThanks"
         content.sound = .default
+        applyComposeCategory(content)
         content.userInfo = [
             thankReminderTypeKey: thankReminderTypeValue,
             thankReminderNameKey: recipientName,
@@ -324,6 +398,7 @@ enum NotificationService {
         content.title = "Keep your streak going"
         content.body = "You have today to share a thanks before midnight."
         content.sound = .default
+        applyComposeCategory(content)
         content.userInfo = [
             thankReminderTypeKey: streakLiveActivityWakeTypeValue,
         ]

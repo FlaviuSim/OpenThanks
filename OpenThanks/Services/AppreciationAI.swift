@@ -768,7 +768,7 @@ final class AppreciationDictation: ObservableObject {
 }
 
 /// Turns raw Apple Speech chunks into readable thank-you prose.
-private enum DictationProse {
+enum DictationProse {
     static func normalize(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }

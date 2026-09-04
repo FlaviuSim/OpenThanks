@@ -8,5 +8,8 @@ struct OpenThanksWidgetBundle: WidgetBundle {
         GratitudePromptWidget()
         SendThanksWidget()
         ReceivedThanksWidget()
+        if #available(iOS 18.0, *) {
+            ThankSomeoneControl()
+        }
     }
 }

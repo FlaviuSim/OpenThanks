@@ -265,6 +265,16 @@ struct AppNotification: Codable, Identifiable, Hashable {
             return "🏆 You finished the challenge — unlock $30 to give away to a classroom."
         case "email_bounced":
             return "⚠️ Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
+        case "calendar_gratitude_nudge":
+            if let item = CalendarThankSuggestionStore.suggestion(id: id) {
+                let meeting = item.meetingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                if meeting.isEmpty {
+                    return "🤝 You met today — send a quick thanks?"
+                }
+                let short = meeting.count <= 40 ? meeting : String(meeting.prefix(37)) + "…"
+                return "🤝 You met about \(short) — send a quick thanks?"
+            }
+            return "🤝 Someone to thank from today"
         default:
             return type.replacingOccurrences(of: "_", with: " ")
         }

@@ -495,6 +495,7 @@ struct MainTabView: View {
 
     private func refreshUnread() async {
         guard let userId = auth.userId else { return }
-        unreadCount = (try? await GratitudeService.unreadNotificationCount(userId: userId)) ?? unreadCount
+        let remote = (try? await GratitudeService.unreadNotificationCount(userId: userId)) ?? 0
+        unreadCount = remote + CalendarThankSuggestionStore.unreadCount()
     }
 }
