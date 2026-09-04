@@ -741,12 +741,16 @@ struct UserProfileView: View {
             async let sentList = GratitudeService.sentBy(userId: profile.id, viewerId: viewerId)
             async let receivedList = GratitudeService.receivedBy(userId: profile.id, viewerId: viewerId)
             async let inspiredList = GratitudeService.inspirations(userId: profile.id, viewerId: viewerId)
-            async let rippleList = GratitudeService.ripples(userId: profile.id, viewerId: viewerId)
+            // Soft-fail: missing inspired_by migration / embed must not blank Sent/Received.
+            async let rippleList = Result {
+                try await GratitudeService.ripples(userId: profile.id, viewerId: viewerId)
+            }
             // Accurate counts via head queries (lists are capped).
             async let statsTask = GratitudeService.stats(userId: profile.id)
 
-            let (sentResult, receivedResult, inspiredResult, rippleResult, statsResult) =
+            let (sentResult, receivedResult, inspiredResult, rippleOutcome, statsResult) =
                 try await (sentList, receivedList, inspiredList, rippleList, statsTask)
+            let rippleResult = (try? rippleOutcome.get()) ?? []
             var pendingResult = 0
             if isOwnProfile, let userId = auth.userId {
                 pendingResult = (try? await GratitudeService.pendingCount(authorId: userId)) ?? pendingSentCount
