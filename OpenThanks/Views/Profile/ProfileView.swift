@@ -532,7 +532,7 @@ struct UserProfileView: View {
                 }
 
                 if !inspirations.isEmpty {
-                    rippleSectionHeader("Inspired", count: inspirations.count, systemImage: "heart.fill")
+                    rippleSectionHeader("People Inspired", count: inspirations.count, systemImage: "heart.fill")
                     ForEach(inspirations) { ins in
                         HStack(alignment: .top, spacing: 12) {
                             ProfileAvatarLink(profile: ins.user, size: 40)
@@ -714,12 +714,12 @@ struct UserProfileView: View {
             VStack(alignment: .leading, spacing: 10) {
                 rippleExplainRow(
                     icon: "water.waves",
-                    title: "Ripples",
+                    title: "Ripple Effect",
                     body: "When thanks spark new thanks — kindness passed person to person."
                 )
                 rippleExplainRow(
                     icon: "heart.fill",
-                    title: "Inspired",
+                    title: "People Inspired",
                     body: "When someone hearts an appreciation you sent or received."
                 )
             }
