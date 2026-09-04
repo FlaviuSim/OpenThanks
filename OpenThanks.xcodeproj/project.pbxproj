@@ -144,6 +144,7 @@
 		F36A70064AEDC80974EFB95D /* AppIcon-Default@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A3A63267707F904BE79C2365 /* AppIcon-Default@2x.png */; };
 		F4825D43527A7E5A9EAA100A /* AppIcon-Dawn@3x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = E2A9BEF3F82CD8A4E723CE2D /* AppIcon-Dawn@3x~ipad.png */; };
 		F879B767EAE9FED2200BFD1B /* AppreciationShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3503FCA888C8E244D2C73F4F /* AppreciationShare.swift */; };
+		F98C0B0104CE6D338FF2C75E /* WatchVoiceCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2062178EF919D0C7B35D6EF3 /* WatchVoiceCapture.swift */; };
 		FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */; };
 		FD4FD5B91A8E1714D55933F0 /* OpenThanksWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = C1A1612FD16ABCA6168C5A99 /* OpenThanksWatch.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FDD318014FDE724E16267431 /* WatchConnectivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */; };
@@ -235,6 +236,7 @@
 		1EC0A8CDE94660605C46C812 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		200E9036D46AAE66F6F99936 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		20248F044E360A013BCF425B /* OpenThanksShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksShare.entitlements; sourceTree = "<group>"; };
+		2062178EF919D0C7B35D6EF3 /* WatchVoiceCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceCapture.swift; sourceTree = "<group>"; };
 		21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMeetingSource.swift; sourceTree = "<group>"; };
 		23112A6E99B11377C47229C1 /* LinkifiedText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkifiedText.swift; sourceTree = "<group>"; };
 		2792E4F9223E315B237FEE3E /* AppIcon-Dawn@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@2x.png"; sourceTree = "<group>"; };
@@ -390,6 +392,7 @@
 				0B6169C26020D6156BA7352D /* OpenThanksWatchApp.swift */,
 				1492832F51480664FA868B1F /* WatchPhoneSession.swift */,
 				5A78907B236CBABA2233D056 /* WatchRootView.swift */,
+				2062178EF919D0C7B35D6EF3 /* WatchVoiceCapture.swift */,
 			);
 			path = OpenThanksWatch;
 			sourceTree = "<group>";
@@ -1015,6 +1018,7 @@
 				829E4CC2390F305B93310571 /* WatchPhoneSession.swift in Sources */,
 				B848FFB6E382CD9F3663956E /* WatchRelay.swift in Sources */,
 				72773CFAD5A52646C6CDE6D1 /* WatchRootView.swift in Sources */,
+				F98C0B0104CE6D338FF2C75E /* WatchVoiceCapture.swift in Sources */,
 				472E06539772B7665712C59E /* WidgetDeepLink.swift in Sources */,
 				652CB389E2FF994DB08D335E /* WidgetSnapshot.swift in Sources */,
 			);

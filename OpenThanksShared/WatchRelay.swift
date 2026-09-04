@@ -52,8 +52,12 @@ enum WatchRelay {
 
     enum Action: String, Codable {
         case createAppreciation
+        case createFromVoice
         case ping
     }
+
+    /// Metadata key on `transferFile` for voice → iPhone transcription.
+    static let voiceDraftIdKey = "voiceDraftId"
 
     /// Pushed from iPhone via `updateApplicationContext`.
     struct AuthContext: Codable, Equatable {
