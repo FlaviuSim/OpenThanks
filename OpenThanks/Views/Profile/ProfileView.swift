@@ -557,7 +557,6 @@ struct UserProfileView: View {
     private var rippleStoryCard: some View {
         let inspiredCount = inspirations.count
         let rippleCount = ripplePassOns.count
-        let reachedCount = ripplePassOns.filter { $0.inspiredByParent?.authorId == profile.id }.count
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
@@ -569,15 +568,10 @@ struct UserProfileView: View {
                 }
                 .frame(width: 44, height: 44)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Kindness that keeps moving")
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text(rippleStorySubtitle(inspired: inspiredCount, ripples: rippleCount, reached: reachedCount))
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text("Your gratitude can inspire others")
+                    .font(Theme.body(15, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             HStack(spacing: 8) {
@@ -595,27 +589,6 @@ struct UserProfileView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(Theme.coral.opacity(0.18), lineWidth: 1)
         )
-    }
-
-    private func rippleStorySubtitle(inspired: Int, ripples: Int, reached: Int) -> String {
-        if isOwnProfile {
-            if ripples > 0, reached > 0 {
-                return reached == 1
-                    ? "Your thanks already reached 1 more person."
-                    : "Your thanks already reached \(reached) more people."
-            }
-            if inspired > 0 {
-                return "People are lighting up from your thanks — pass it on to grow the wave."
-            }
-            return "Hearts mean inspired. New thanks sparked by yours are ripples."
-        }
-        if ripples > 0 {
-            return "Thanks that grew from \(firstName)’s appreciations."
-        }
-        if inspired > 0 {
-            return "People inspired by \(firstName) — ripples appear when thanks spark new thanks."
-        }
-        return "Hearts mean inspired. New thanks sparked by theirs are ripples."
     }
 
     private func rippleChip(value: Int, label: String, systemImage: String) -> some View {

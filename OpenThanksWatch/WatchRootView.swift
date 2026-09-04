@@ -170,7 +170,7 @@ struct WatchRecordView: View {
                 .foregroundStyle(watchCoral)
             Text("Saved")
                 .font(.system(.headline, design: .rounded))
-            Text("On iPhone in Pending — add who to thank when ready.")
+            Text("On iPhone in Pending — send it to the recipient when ready.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
