@@ -35,12 +35,13 @@ final class DeepLinkRouter {
         case received
         case given
         case inspired
+        case ripple
 
         var profileSection: UserProfileView.Section {
             switch self {
             case .received: .received
             case .given: .sent
-            case .inspired: .inspired
+            case .inspired, .ripple: .ripple
             }
         }
     }
@@ -57,6 +58,8 @@ final class DeepLinkRouter {
     /// When set, the next appreciation deep-link cover shows a pay-it-forward prompt
     /// (used after accepting via a claim link).
     var payItForwardFromName: String?
+    /// Parent appreciation id for ripple attribution when the nudge opens compose.
+    var payItForwardParentId: UUID?
 
     static func isUniversalLink(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(),
@@ -90,13 +93,18 @@ final class DeepLinkRouter {
     func clear() {
         destination = nil
         payItForwardFromName = nil
+        payItForwardParentId = nil
     }
 
     /// Replace the current deep link (e.g. `/claim/{token}`) with the public
     /// appreciation page (`/for/{slug}` or `/gratitude/{id}`).
-    func openAppreciation(_ gratitude: Gratitude, payItForwardFromName: String? = nil) {
+    func openAppreciation(
+        _ gratitude: Gratitude,
+        payItForwardFromName: String? = nil
+    ) {
         // Swap the cover first; defer the nudge so it presents on the new page.
         self.payItForwardFromName = nil
+        self.payItForwardParentId = nil
         if let slug = gratitude.slug?.trimmingCharacters(in: .whitespacesAndNewlines),
            !slug.isEmpty {
             destination = .slug(slug)
@@ -110,8 +118,10 @@ final class DeepLinkRouter {
             try? await Task.sleep(for: .milliseconds(450))
             switch destination {
             case .gratitude(let id) where id == openedId:
+                self.payItForwardParentId = openedId
                 self.payItForwardFromName = name
             case .slug(let slug) where slug == openedSlug:
+                self.payItForwardParentId = openedId
                 self.payItForwardFromName = name
             default:
                 break
@@ -204,7 +214,7 @@ final class DeepLinkRouter {
         userId: UUID?
     ) -> Bool {
         guard isUniversalLink(url) else { return false }
-        guard profileTab(from: url) == .inspired else { return false }
+        guard profileTab(from: url) == .inspired || profileTab(from: url) == .ripple else { return false }
         let parts = pathParts(url)
         guard let first = parts.first?.lowercased() else { return false }
         if first == "profile" {

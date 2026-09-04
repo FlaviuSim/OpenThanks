@@ -43,7 +43,10 @@ struct PendingAppreciationReviewView: View {
                             onThankSomeone: {
                                 Analytics.capture(
                                     "pay_it_forward_tapped",
-                                    ["source": "claim_accept"]
+                                    [
+                                        "source": "claim_accept",
+                                        "parent_gratitude_id": gratitude.id.uuidString.lowercased(),
+                                    ]
                                 )
                                 showCompose = true
                                 AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
@@ -70,7 +73,11 @@ struct PendingAppreciationReviewView: View {
         .navigationTitle(outcomeTitle)
         .navigationBarTitleDisplayMode(.inline)
         .composeCover(isPresented: $showCompose) {
-            ComposeView(analyticsSource: "post_accept_pay_it_forward")
+            ComposeView(
+                inspiredByGratitudeId: gratitude.id,
+                inspiredByAuthorName: authorProfile?.fullName ?? authorProfile?.displayName,
+                analyticsSource: "post_accept_pay_it_forward"
+            )
         }
         .task {
             await linkRecipientIfNeeded()
@@ -229,7 +236,10 @@ struct PendingAppreciationReviewView: View {
             trackClaimResponse(action)
             if action == .accept {
                 WarmHaptics.received()
-                Analytics.capture("pay_it_forward_shown", ["source": "claim_accept"])
+                Analytics.capture("pay_it_forward_shown", [
+                    "source": "claim_accept",
+                    "parent_gratitude_id": updated.id.uuidString.lowercased(),
+                ])
                 if let onAccepted {
                     onAccepted(updated)
                     acting = nil

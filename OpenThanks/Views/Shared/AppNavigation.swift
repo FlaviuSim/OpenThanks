@@ -171,7 +171,10 @@ struct GratitudeLoaderView: View {
                                 onThankSomeone: {
                                     Analytics.capture(
                                         "pay_it_forward_tapped",
-                                        ["source": "claim_accept"]
+                                        [
+                                            "source": "claim_accept",
+                                            "parent_gratitude_id": gratitude.id.uuidString.lowercased(),
+                                        ]
                                     )
                                     showCompose = true
                                     AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
@@ -210,7 +213,12 @@ struct GratitudeLoaderView: View {
             }
         }
         .composeCover(isPresented: $showCompose) {
-            ComposeView(analyticsSource: "post_accept_pay_it_forward")
+            ComposeView(
+                inspiredByGratitudeId: gratitude?.id,
+                inspiredByAuthorName: gratitude?.author?.fullName
+                    ?? gratitude?.author?.displayName,
+                analyticsSource: "post_accept_pay_it_forward"
+            )
         }
         .task {
             do { gratitude = try await GratitudeService.gratitude(id: gratitudeId) }

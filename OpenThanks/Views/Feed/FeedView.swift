@@ -40,7 +40,10 @@ struct FeedView: View {
     @State private var composeAnalyticsSource = "home_thank_someone"
     /// After accepting, gently invite the recipient to thank someone else.
     @State private var payItForwardFromName: String?
+    @State private var payItForwardParentId: UUID?
     @State private var payItForwardPresentedIds: Set<UUID> = []
+    @State private var composeInspiredById: UUID?
+    @State private var composeInspiredByName: String?
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
     @State private var scrollToPendingToken = 0
@@ -106,6 +109,8 @@ struct FeedView: View {
             .composeCover(isPresented: $showCompose) {
                 ComposeView(
                     initialRecipient: composeRecipient,
+                    inspiredByGratitudeId: composeInspiredById,
+                    inspiredByAuthorName: composeInspiredByName,
                     analyticsSource: composeAnalyticsSource
                 )
             }
@@ -121,8 +126,14 @@ struct FeedView: View {
                     fromName: payItForwardFromName,
                     onThankSomeone: {
                         composeRecipient = nil
+                        composeInspiredById = payItForwardParentId
+                        composeInspiredByName = payItForwardFromName
                         composeAnalyticsSource = "post_accept_pay_it_forward"
-                        Analytics.capture("pay_it_forward_tapped", ["source": "feed_accept"])
+                        var props: [String: Any] = ["source": "feed_accept"]
+                        if let parentId = payItForwardParentId {
+                            props["parent_gratitude_id"] = parentId.uuidString.lowercased()
+                        }
+                        Analytics.capture("pay_it_forward_tapped", props)
                         showCompose = true
                     }
                 )
@@ -132,6 +143,8 @@ struct FeedView: View {
                 if open { dismissSearchKeyboard() }
                 if !open {
                     composeRecipient = nil
+                    composeInspiredById = nil
+                    composeInspiredByName = nil
                     composeAnalyticsSource = "home_thank_someone"
                 }
             }
@@ -147,6 +160,7 @@ struct FeedView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
                 payItForwardFromName = nil
+                payItForwardParentId = nil
             }
             .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
                 guard let gratitude = note.object as? Gratitude else { return }
@@ -530,8 +544,12 @@ struct FeedView: View {
             ?? gratitude.author?.username
         // Slight delay so the pending card dismiss animation settles first.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            payItForwardParentId = gratitude.id
             payItForwardFromName = name ?? "someone"
-            Analytics.capture("pay_it_forward_shown", ["source": "feed_accept"])
+            Analytics.capture("pay_it_forward_shown", [
+                "source": "feed_accept",
+                "parent_gratitude_id": gratitude.id.uuidString.lowercased(),
+            ])
         }
     }
 

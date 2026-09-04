@@ -303,6 +303,8 @@ struct MainTabView: View {
                 initialMessage: request.message,
                 initialMessagePlaceholder: request.messagePlaceholder,
                 initialImageFileName: request.imageFileName,
+                inspiredByGratitudeId: request.inspiredByGratitudeId,
+                inspiredByAuthorName: request.inspiredByAuthorName,
                 analyticsSource: request.analyticsSource
             )
         }

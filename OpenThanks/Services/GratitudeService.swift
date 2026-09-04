@@ -20,6 +20,19 @@ enum GratitudeService {
     hearts(count)
     """
 
+    /// Feed select plus parent appreciation for ripple / pay-it-forward chains.
+    private static let rippleSelect = """
+    *,
+    author:profiles!gratitudes_author_id_fkey(*),
+    recipient:profiles!gratitudes_recipient_id_fkey(*),
+    hearts(count),
+    inspiredByParent:gratitudes!gratitudes_inspired_by_gratitude_id_fkey(
+        *,
+        author:profiles!gratitudes_author_id_fkey(*),
+        recipient:profiles!gratitudes_recipient_id_fkey(*)
+    )
+    """
+
     // MARK: Feeds
 
     /// World feed: public, accepted appreciations, newest accepted first.
@@ -335,6 +348,28 @@ enum GratitudeService {
             }
     }
 
+    /// Accepted thanks that were inspired by an appreciation involving this profile
+    /// (parent author or recipient). Powers the Ripple tab “Passed on” list.
+    static func ripples(userId: UUID, viewerId: UUID?, limit: Int = 100) async throws -> [Gratitude] {
+        let all: [Gratitude] = try await supabase.from("gratitudes")
+            .select(rippleSelect)
+            .not("inspired_by_gratitude_id", operator: .is, value: "null")
+            .eq("status", value: "accepted")
+            .order("created_at", ascending: false)
+            .limit(limit * 3) // over-fetch; filter to this profile’s parents in memory
+            .execute().value
+
+        return all
+            .filter { child in
+                guard child.isVisible(to: viewerId) else { return false }
+                guard let parent = child.inspiredByParent else { return false }
+                guard parent.isVisible(to: viewerId) else { return false }
+                return parent.authorId == userId || parent.recipientId == userId
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
     // MARK: Compose
 
     /// Creates a pending appreciation via the web create API so claim email
@@ -416,7 +451,20 @@ enum GratitudeService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let created = try decoder.decode(CreateResponse.self, from: data).gratitude
+        var created = try decoder.decode(CreateResponse.self, from: data).gratitude
+
+        // Web create API may not yet forward inspired_by — attach via direct update.
+        if let parentId = payload.inspiredByGratitudeId {
+            struct InspiredByUpdate: Encodable {
+                let inspired_by_gratitude_id: String
+            }
+            _ = try? await supabase.from("gratitudes")
+                .update(InspiredByUpdate(inspired_by_gratitude_id: parentId.uuidString.lowercased()))
+                .eq("id", value: created.id)
+                .eq("author_id", value: payload.authorId)
+                .execute()
+            created.inspiredByGratitudeId = parentId
+        }
 
         // Re-fetch with feed embeds (author/recipient) for the success UI.
         if let hydrated: Gratitude = try? await supabase.from("gratitudes")
@@ -746,9 +794,16 @@ enum GratitudeService {
             .execute().value
 
         let (sentCount, receivedCount, rows) = try await (sent, received, inspiredRows)
-        return ProfileStats(sent: sentCount ?? 0,
-                            received: receivedCount ?? 0,
-                            inspired: Set(rows.map(\.user_id)).count)
+
+        // Ripples: accepted children inspired by a post this user sent or received.
+        let rippleRows = (try? await ripples(userId: userId, viewerId: userId, limit: 200)) ?? []
+
+        return ProfileStats(
+            sent: sentCount ?? 0,
+            received: receivedCount ?? 0,
+            inspired: Set(rows.map(\.user_id)).count,
+            ripplesPassedOn: rippleRows.count
+        )
     }
 
     // MARK: Profile

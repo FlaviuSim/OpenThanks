@@ -74,6 +74,8 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var recipientName: String?
     var slug: String?
     var claimToken: UUID?
+    /// Parent appreciation that inspired this send (pay-it-forward / ripple).
+    var inspiredByGratitudeId: UUID?
     /// Claim notification delivery: sent | delivered | bounced | failed
     var recipientEmailStatus: String?
     var recipientEmailError: String?
@@ -82,6 +84,8 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var author: Profile?
     var recipient: Profile?
     var hearts: [CountHolder]?
+    /// Parent post when selected with an `inspiredByParent` embed.
+    var inspiredByParent: Gratitude?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -97,9 +101,11 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case recipientPhone = "recipient_phone"
         case recipientName = "recipient_name"
         case claimToken = "claim_token"
+        case inspiredByGratitudeId = "inspired_by_gratitude_id"
         case recipientEmailStatus = "recipient_email_status"
         case recipientEmailError = "recipient_email_error"
         case author, recipient, hearts
+        case inspiredByParent
     }
 
     var emailDeliveryFailed: Bool {
@@ -177,6 +183,8 @@ struct NewGratitude: Encodable {
     let mediaUrl: String?
     let mediaType: String?
     let source: String
+    /// Parent appreciation for pay-it-forward / ripple attribution.
+    var inspiredByGratitudeId: UUID? = nil
 
     enum CodingKeys: String, CodingKey {
         case authorId = "author_id"
@@ -189,6 +197,7 @@ struct NewGratitude: Encodable {
         case mediaUrl = "media_url"
         case mediaType = "media_type"
         case source
+        case inspiredByGratitudeId = "inspired_by_gratitude_id"
     }
 }
 
@@ -297,10 +306,11 @@ struct ProfileStats {
     var sent = 0
     var received = 0
     var inspired = 0   // distinct people who hearted accepted posts you sent or received (excl. self)
+    /// Accepted thanks that were inspired by an appreciation involving this profile.
+    var ripplesPassedOn = 0
 }
 
-/// A heart someone left on a post you sent or received — powers the
-/// "Inspired" tab on profiles (who was inspired, newest first).
+/// "Inspired" / Ripple tab — a heart on a post you sent or received.
 struct Inspiration: Codable, Identifiable, Hashable {
     let id: UUID
     let createdAt: Date?

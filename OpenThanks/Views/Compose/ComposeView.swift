@@ -19,6 +19,10 @@ struct ComposeView: View {
     var initialMessagePlaceholder: String? = nil
     /// App Group image from the Share Extension.
     var initialImageFileName: String? = nil
+    /// Parent appreciation for pay-it-forward / ripple attribution.
+    var inspiredByGratitudeId: UUID? = nil
+    /// Display name used when building an inspired-by placeholder.
+    var inspiredByAuthorName: String? = nil
     /// PostHog `source` for the compose funnel (matches web event names).
     var analyticsSource: String = "compose"
     var onSaved: ((Gratitude) -> Void)? = nil
@@ -79,6 +83,13 @@ struct ComposeView: View {
     private var messagePlaceholderText: String {
         let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let custom, !custom.isEmpty { return custom }
+        if inspiredByGratitudeId != nil {
+            let raw = inspiredByAuthorName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let first = (raw?.isEmpty == false)
+                ? (raw!.split(separator: " ").first.map(String.init) ?? raw!)
+                : "someone"
+            return "Thank someone who deserves it — inspired by \(first)’s appreciation for you."
+        }
         return "Thank you for..."
     }
 
@@ -1542,7 +1553,8 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     mediaUrl: mediaUrl,
                     mediaType: mediaType,
-                    source: "ios"
+                    source: "ios",
+                    inspiredByGratitudeId: inspiredByGratitudeId
                 )
                 var result = try await GratitudeService.create(new)
                 if result.recipient == nil, let linked {
@@ -1566,6 +1578,13 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     source: analyticsSource
                 )
+                if let parentId = inspiredByGratitudeId {
+                    Analytics.capture("ripple_created", [
+                        "parent_gratitude_id": parentId.uuidString.lowercased(),
+                        "depth": 1,
+                        "source": analyticsSource,
+                    ])
+                }
                 sent = true
                 await refreshWidgetAfterSend()
                 if let userId = auth.userId {
