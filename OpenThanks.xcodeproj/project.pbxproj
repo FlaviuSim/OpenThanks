@@ -11,15 +11,15 @@
 		03ACE0F6325591D8F322DD3A /* AppIcon-Night@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = F2AE333A7E42E07D09F3D05E /* AppIcon-Night@2x.png */; };
 		06EE4316D00DEEF35B015B7D /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
 		06F2D3E145B798C680888431 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEFAF07C21753839CBCCE3B /* ComposeView.swift */; };
+		08B31A59202DA1F3D19399E8 /* ReportContentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A5D66D50A0761C6FAB1E37 /* ReportContentSheet.swift */; };
 		0A1FDEB4FA46C561A56A60F1 /* OpenThanksWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6169C26020D6156BA7352D /* OpenThanksWatchApp.swift */; };
 		0ACC6D5C451B4F99A20FFA2E /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DF3638B7D67D53E1D3EFE1C9 /* PostHog */; };
 		0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */; };
 		0E0B7260631600BF275998F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200E9036D46AAE66F6F99936 /* Assets.xcassets */; };
+		0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */; };
 		108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D87DB1FBDF467DB01585D /* SiriIntroView.swift */; };
 		1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */; };
 		13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */; };
-		A7C4E91F2B8D40A1E5F6C703 /* ContentReportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D5F02A3C9E51B2F6A7D814 /* ContentReportService.swift */; };
-		C9E6F13B4D0F62C3A7B8E925 /* ReportContentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0F7A24C5E1A73D4B8C9F036 /* ReportContentSheet.swift */; };
 		19BCDD4D9F51778CCF379DE9 /* AppIcon-Night@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = FBC593DA46378D66511E5B0E /* AppIcon-Night@3x.png */; };
 		1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */; };
 		25E669420F46DD1D94EA265F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C167FB354536416CA8B7FD1B /* Assets.xcassets */; };
@@ -34,7 +34,6 @@
 		3941394E94699B39AF29657B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */; };
 		3AD34DD6B9F207035D2FB879 /* LinkifiedText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23112A6E99B11377C47229C1 /* LinkifiedText.swift */; };
 		3C8C00DFC8C051B256BCB340 /* HeartedByView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */; };
-		2F81D224EDB24AF58C0F7D7E /* KeyboardAvoidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E95E319F77A4D108A56BCF6 /* KeyboardAvoidance.swift */; };
 		3D67CBB15AD5F7E53DA94769 /* AppIcon-Night@3x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = F7F32AE04085791782F13A5C /* AppIcon-Night@3x~ipad.png */; };
 		3F808764AE86830A598D0F51 /* GratitudeOpportunityRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */; };
 		3FC8D98D88D2290835A45166 /* AppIcon-Dawn.png in Resources */ = {isa = PBXBuildFile; fileRef = 802960DCA74AB23ED5D9DF85 /* AppIcon-Dawn.png */; };
@@ -89,6 +88,7 @@
 		945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */; };
 		97160E3FCE100F6C9EA664AB /* AppIcon-Ember@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */; };
 		985D66E76E069167F1534690 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24196DBDF1449EB46FBF5DD /* SettingsView.swift */; };
+		9D48EEC345E826F5D2104A86 /* KeyboardAvoidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3AF4417F7AEAB08341BC14 /* KeyboardAvoidance.swift */; };
 		9DECC067D96EE41B315394FE /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
 		A2E19DB593F46137CD01A6FF /* AppIcon-Dawn@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 770E8C35EF74B63F51439119 /* AppIcon-Dawn@3x.png */; };
 		A919A1EE243E7020EEC394DC /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
@@ -116,6 +116,7 @@
 		C8DB929803C920F0E53E0682 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0320D5FF717E6D107693552A /* Supabase */; };
 		C996A0D049573420EF57C322 /* AppIcon-Ember.png in Resources */ = {isa = PBXBuildFile; fileRef = E127445E45EA6D660852EB3D /* AppIcon-Ember.png */; };
 		CBD66B58879CB43B73DD5D59 /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
+		CF52B6A0719414CAED2C27D5 /* ContentReportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */; };
 		D114CD44AF748B2FE6CCBCAB /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		D306E53D13DB665D6FCC6CF6 /* GoogleCalendarAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */; };
 		D53447D17D5B6C753839B3D2 /* AppIcon-Ember@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = ACE734EF8985A181EF2C08D5 /* AppIcon-Ember@3x.png */; };
@@ -234,7 +235,7 @@
 		2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneTimeCodeField.swift; sourceTree = "<group>"; };
 		2C1A67A77A55D99DD8040136 /* StreakLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityAttributes.swift; sourceTree = "<group>"; };
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
-		9E95E319F77A4D108A56BCF6 /* KeyboardAvoidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardAvoidance.swift; sourceTree = "<group>"; };
+		2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarThankSuggestionStore.swift; sourceTree = "<group>"; };
 		306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionConfigService.swift; sourceTree = "<group>"; };
 		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
 		34C1B132702899893D08B37C /* VideoProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessing.swift; sourceTree = "<group>"; };
@@ -269,11 +270,13 @@
 		7B876396921E9835E95D4BAF /* OpenThanksWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OpenThanksWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7BEFAF07C21753839CBCCE3B /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
 		7C91C4B36B035A0262E9EDC1 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentReportService.swift; sourceTree = "<group>"; };
 		7D72AA8FF83837C77EAD56B9 /* OpenThanksWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWatch.entitlements; sourceTree = "<group>"; };
 		802960DCA74AB23ED5D9DF85 /* AppIcon-Dawn.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn.png"; sourceTree = "<group>"; };
 		85B4CF870C280FA94F05D8B8 /* OpenThanks.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanks.entitlements; sourceTree = "<group>"; };
 		87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksIntents.swift; sourceTree = "<group>"; };
 		88382B39EC95AA443DDE696C /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		88A5D66D50A0761C6FAB1E37 /* ReportContentSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportContentSheet.swift; sourceTree = "<group>"; };
 		8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetDeepLink.swift; sourceTree = "<group>"; };
 		8BE1AF8F84B03701D48BD2EA /* AppIcon-Default.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Default.png"; sourceTree = "<group>"; };
 		8C000C57CC0B3785BC0BE99F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -312,6 +315,7 @@
 		C819BEB1D35972B783049B03 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C876538C4A1AB43A22C08A49 /* AppIcon-Night-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night-Preview.png"; sourceTree = "<group>"; };
 		C91180B6593FFEAD765F2A8A /* WatchGratitudeWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchGratitudeWidget.swift; sourceTree = "<group>"; };
+		CE3AF4417F7AEAB08341BC14 /* KeyboardAvoidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardAvoidance.swift; sourceTree = "<group>"; };
 		CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x~ipad.png"; sourceTree = "<group>"; };
 		D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareSheet.swift; sourceTree = "<group>"; };
 		D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchBridge.swift; sourceTree = "<group>"; };
@@ -319,8 +323,6 @@
 		D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarService.swift; sourceTree = "<group>"; };
 		DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMeetingService.swift; sourceTree = "<group>"; };
 		DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationAI.swift; sourceTree = "<group>"; };
-		B8D5F02A3C9E51B2F6A7D814 /* ContentReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentReportService.swift; sourceTree = "<group>"; };
-		D0F7A24C5E1A73D4B8C9F036 /* ReportContentSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportContentSheet.swift; sourceTree = "<group>"; };
 		E127445E45EA6D660852EB3D /* AppIcon-Ember.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember.png"; sourceTree = "<group>"; };
 		E2A9BEF3F82CD8A4E723CE2D /* AppIcon-Dawn@3x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@3x~ipad.png"; sourceTree = "<group>"; };
 		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -388,15 +390,16 @@
 			children = (
 				A4C1F5AF689FF4B940FFDD36 /* Analytics.swift */,
 				DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */,
-				B8D5F02A3C9E51B2F6A7D814 /* ContentReportService.swift */,
 				A56F72311BC9752D833B4C08 /* AppStoreReviewPrompt.swift */,
 				1EC0A8CDE94660605C46C812 /* AuthService.swift */,
 				566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */,
 				DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */,
 				21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */,
+				2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */,
 				306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */,
 				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
+				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
 				96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */,
 				D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */,
@@ -540,11 +543,11 @@
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
 				2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */,
-				9E95E319F77A4D108A56BCF6 /* KeyboardAvoidance.swift */,
+				CE3AF4417F7AEAB08341BC14 /* KeyboardAvoidance.swift */,
 				23112A6E99B11377C47229C1 /* LinkifiedText.swift */,
 				ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */,
-				D0F7A24C5E1A73D4B8C9F036 /* ReportContentSheet.swift */,
 				27F0BE629D251F856F14F577 /* PostMediaViews.swift */,
+				88A5D66D50A0761C6FAB1E37 /* ReportContentSheet.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -921,7 +924,6 @@
 				6CE1E3F87BC0DA2F0FF4D845 /* AppStoreReviewPrompt.swift in Sources */,
 				815D16B613D154A9092DA748 /* AppearanceView.swift in Sources */,
 				13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */,
-				A7C4E91F2B8D40A1E5F6C703 /* ContentReportService.swift in Sources */,
 				F879B767EAE9FED2200BFD1B /* AppreciationShare.swift in Sources */,
 				BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */,
 				7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */,
@@ -929,12 +931,14 @@
 				FF60DD89D5A059CB7194C72C /* CalendarMeetingService.swift in Sources */,
 				EA81503A5D6E988AB4201319 /* CalendarMeetingSource.swift in Sources */,
 				7E2EFE12321E2ECFE1CC661A /* CalendarPermissionView.swift in Sources */,
+				0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */,
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
 				4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */,
 				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
 				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
 				77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */,
 				06F2D3E145B798C680888431 /* ComposeView.swift in Sources */,
+				CF52B6A0719414CAED2C27D5 /* ContentReportService.swift in Sources */,
 				DF5DD2D1A0CF2C9B30E53033 /* DeepLinkHost.swift in Sources */,
 				C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */,
 				B44A3CEFF76027AF0F586362 /* EditProfileSheet.swift in Sources */,
@@ -947,8 +951,8 @@
 				3F808764AE86830A598D0F51 /* GratitudeOpportunityRanker.swift in Sources */,
 				0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */,
 				3C8C00DFC8C051B256BCB340 /* HeartedByView.swift in Sources */,
-				2F81D224EDB24AF58C0F7D7E /* KeyboardAvoidance.swift in Sources */,
 				E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */,
+				9D48EEC345E826F5D2104A86 /* KeyboardAvoidance.swift in Sources */,
 				EE499ED7A7C287F33B26482C /* KeychainStore.swift in Sources */,
 				3AD34DD6B9F207035D2FB879 /* LinkifiedText.swift in Sources */,
 				4B8AA8E545E56B4034B9801E /* LoggingInView.swift in Sources */,
@@ -965,10 +969,10 @@
 				56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */,
 				5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */,
 				C3D72B15B5AD7623BA50758F /* PayItForwardNudge.swift in Sources */,
-				C9E6F13B4D0F62C3A7B8E925 /* ReportContentSheet.swift in Sources */,
 				5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */,
 				6C538E48BED0F8D5D2DF4472 /* PostMediaViews.swift in Sources */,
 				3941394E94699B39AF29657B /* ProfileView.swift in Sources */,
+				08B31A59202DA1F3D19399E8 /* ReportContentSheet.swift in Sources */,
 				985D66E76E069167F1534690 /* SettingsView.swift in Sources */,
 				108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */,
 				69B4F6E0C080880220BFF632 /* StatsView.swift in Sources */,

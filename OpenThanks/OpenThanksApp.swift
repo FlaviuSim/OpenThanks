@@ -175,6 +175,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             } else {
                 toField = nil
             }
+            // Keep the row in Notifications; mark today’s saved suggestion read.
+            let today = Calendar.current.startOfDay(for: Date())
+            if let match = CalendarThankSuggestionStore.all().first(where: {
+                Calendar.current.isDate($0.dayStart, inSameDayAs: today)
+            }) {
+                CalendarThankSuggestionStore.markRead(id: match.id)
+            }
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(
                     recipientName: toField,

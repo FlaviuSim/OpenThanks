@@ -213,6 +213,8 @@ enum NotificationService {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
+            // Keep in the in-app Notifications list so the user can thank later.
+            CalendarThankSuggestionStore.upsert(from: nudge, at: now)
         } catch {
             // Leave cancelled if scheduling fails.
         }
@@ -244,11 +246,10 @@ enum NotificationService {
         return content
     }
 
-#if DEBUG
     private static let calendarNudgePreviewId = "calendar-gratitude-nudge-preview"
 
-    /// DEBUG / Google verification: fire the same nudge ~5s from now so you can screen-record
-    /// without waiting until 8:00 PM. Uses live calendar data (Google and/or Apple).
+    /// Google verification / reviewer helper: fire the same nudge ~5s from now so you can
+    /// screen-record without waiting until 8:00 PM. Uses live calendar data.
     enum CalendarNudgePreviewResult: Equatable {
         case scheduled(personName: String, meetingTitle: String)
         case notificationsDenied
@@ -295,12 +296,12 @@ enum NotificationService {
         )
         do {
             try await UNUserNotificationCenter.current().add(request)
+            CalendarThankSuggestionStore.upsert(from: nudge)
             return .scheduled(personName: nudge.personName, meetingTitle: nudge.meetingTitle)
         } catch {
             return .schedulingFailed
         }
     }
-#endif
 
     /// Enables the evening nudge: notification permission + any calendar source, then schedule.
     /// Returns nil on success. Preference can stay on even when there’s no candidate tonight.

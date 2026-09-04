@@ -14,10 +14,8 @@ struct NotificationsSettingsView: View {
     @State private var calendarToggleTask: Task<Void, Never>?
     @State private var fridayToggleEpoch = 0
     @State private var calendarToggleEpoch = 0
-    #if DEBUG
     @State private var previewBusy = false
     @State private var previewStatus: String?
-    #endif
 
     private var fridayBinding: Binding<Bool> {
         Binding(
@@ -196,9 +194,7 @@ struct NotificationsSettingsView: View {
                 }
             }
 
-            #if DEBUG
-            debugCalendarNudgePreview
-            #endif
+            calendarNudgePreview
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -209,11 +205,11 @@ struct NotificationsSettingsView: View {
         )
     }
 
-    #if DEBUG
-    private var debugCalendarNudgePreview: some View {
+    /// Included in TestFlight so Google reviewers can demo the evening nudge without waiting until 8:00 PM.
+    private var calendarNudgePreview: some View {
         VStack(alignment: .leading, spacing: 8) {
             Divider().overlay(Theme.hairline)
-            Text("Google verification (DEBUG)")
+            Text("Preview for reviewers")
                 .font(Theme.body(13, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
             Text("Fires the same evening nudge in ~5 seconds from live calendar data — for screen recording without waiting until 8:00 PM.")
@@ -269,7 +265,6 @@ struct NotificationsSettingsView: View {
             previewStatus = "Couldn't schedule the preview notification."
         }
     }
-    #endif
 
     private var appleActionTitle: String {
         switch CalendarMeetingService.accessState {

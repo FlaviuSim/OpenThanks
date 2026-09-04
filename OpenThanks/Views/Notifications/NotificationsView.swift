@@ -130,7 +130,7 @@ struct NotificationsView: View {
             Image(systemName: "bell")
                 .font(.system(size: 36))
                 .foregroundStyle(Theme.textTertiary)
-            Text("When someone sends, accepts, or hearts an appreciation, you'll see it here.")
+            Text("When someone sends, accepts, or hearts an appreciation — or when OpenThanks suggests someone to thank from your day — you'll see it here.")
                 .font(Theme.body(14))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -172,6 +172,26 @@ struct NotificationsView: View {
                                 messagePlaceholder: "Thank you for … — your kindness inspired me to pass it on.",
                                 analyticsSource: "notification_pay_it_forward"
                             )
+                        }
+                    } label: {
+                        rowContent(note, linksToPost: true)
+                    }
+                    .buttonStyle(.plain)
+                } else if note.type == NotificationService.calendarNudgeTypeValue {
+                    Button {
+                        Task {
+                            await markRead(note)
+                            if let item = CalendarThankSuggestionStore.suggestion(id: note.id) {
+                                ComposeLaunchBridge.shared.queue(
+                                    recipientName: CalendarThankSuggestionStore.composeRecipient(for: item),
+                                    message: item.messageDraft,
+                                    analyticsSource: "notification_calendar_nudge"
+                                )
+                            } else {
+                                ComposeLaunchBridge.shared.queue(
+                                    analyticsSource: "notification_calendar_nudge"
+                                )
+                            }
                         }
                     } label: {
                         rowContent(note, linksToPost: true)
@@ -251,6 +271,9 @@ struct NotificationsView: View {
 
     private func displayName(for note: AppNotification) -> String {
         if let name = note.fromUser?.displayName { return name }
+        if note.type == NotificationService.calendarNudgeTypeValue {
+            return CalendarThankSuggestionStore.suggestion(id: note.id)?.personName ?? "Someone to thank"
+        }
         if note.type == "gratitude_friday"
             || note.type == "pay_it_forward_reminder"
             || note.type == "competition_winner"
@@ -291,6 +314,8 @@ struct NotificationsView: View {
             return "🏆"
         case "email_bounced":
             return "⚠️"
+        case NotificationService.calendarNudgeTypeValue:
+            return "🤝"
         default:
             return nil
         }
@@ -304,13 +329,26 @@ struct NotificationsView: View {
         async let pendingTask = GratitudeService.pendingCount(authorId: userId)
 
         do {
-            let result = try await notesTask
+            let remote = try await notesTask
+            let local = CalendarThankSuggestionStore.asAppNotifications(userId: userId)
+            let merged = (local + remote).sorted {
+                ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast)
+            }
             withAnimation(.easeInOut(duration: 0.2)) {
-                notes = result
+                notes = merged
             }
             syncUnread()
         } catch {
-            if !error.isCancellation { /* keep existing */ }
+            if !error.isCancellation {
+                // Still show local calendar thank suggestions if remote fails.
+                let local = CalendarThankSuggestionStore.asAppNotifications(userId: userId)
+                if !local.isEmpty {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        notes = local
+                    }
+                    syncUnread()
+                }
+            }
         }
 
         pendingCount = (try? await pendingTask) ?? pendingCount
@@ -322,6 +360,10 @@ struct NotificationsView: View {
               let idx = notes.firstIndex(where: { $0.id == note.id }) else { return }
         notes[idx].read = true
         syncUnread()
+        if note.type == NotificationService.calendarNudgeTypeValue {
+            CalendarThankSuggestionStore.markRead(id: note.id)
+            return
+        }
         try? await GratitudeService.markRead(id: note.id)
     }
 
@@ -332,6 +374,7 @@ struct NotificationsView: View {
             notes[i].read = true
         }
         syncUnread()
+        CalendarThankSuggestionStore.markAllRead()
         try? await GratitudeService.markAllRead(userId: userId)
         markingAll = false
     }
