@@ -396,6 +396,12 @@ enum GratitudeService {
         var payload = new
         await resolveRecipientContact(&payload)
 
+        // Explicit pay-it-forward parent wins; otherwise most recent accepted
+        // thanks this author received within 7 days (API also applies this).
+        if payload.inspiredByGratitudeId == nil {
+            payload.inspiredByGratitudeId = await recentReceivedParentId(for: payload.authorId)
+        }
+
         guard let session = try? await supabase.auth.session else {
             throw URLError(.userAuthenticationRequired)
         }
@@ -410,6 +416,7 @@ enum GratitudeService {
             let media_type: String?
             let visibility: String
             let source: String
+            let inspired_by_gratitude_id: String?
         }
 
         struct CreateResponse: Decodable {
@@ -433,6 +440,7 @@ enum GratitudeService {
             payload.recipientName ?? "",
             payload.mediaUrl ?? "",
             payload.visibility,
+            payload.inspiredByGratitudeId?.uuidString ?? "",
         ].joined(separator: "|")
         request.setValue(idempotencyKey(from: idempotencySeed), forHTTPHeaderField: "X-Idempotency-Key")
         // Create returns after DB insert; claim email is sent asynchronously on the server.
@@ -447,7 +455,8 @@ enum GratitudeService {
                 media_url: payload.mediaUrl,
                 media_type: payload.mediaType,
                 visibility: payload.visibility,
-                source: payload.source
+                source: payload.source,
+                inspired_by_gratitude_id: payload.inspiredByGratitudeId?.uuidString.lowercased()
             )
         )
 
@@ -471,8 +480,8 @@ enum GratitudeService {
         decoder.dateDecodingStrategy = .iso8601
         var created = try decoder.decode(CreateResponse.self, from: data).gratitude
 
-        // Web create API may not yet forward inspired_by — attach via direct update.
-        if let parentId = payload.inspiredByGratitudeId {
+        // Fallback if an older API build didn't persist inspired_by on insert.
+        if created.inspiredByGratitudeId == nil, let parentId = payload.inspiredByGratitudeId {
             struct InspiredByUpdate: Encodable {
                 let inspired_by_gratitude_id: String
             }
@@ -494,6 +503,24 @@ enum GratitudeService {
             return hydrated
         }
         return created
+    }
+
+    /// Most recent accepted appreciation this user received within 7 days.
+    private static func recentReceivedParentId(for userId: UUID) async -> UUID? {
+        let since = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+            .addingTimeInterval(-7 * 86_400)
+        struct IdRow: Decodable { let id: UUID }
+        let rows: [IdRow] = (try? await supabase.from("gratitudes")
+            .select("id")
+            .eq("recipient_id", value: userId)
+            .eq("status", value: "accepted")
+            .not("accepted_at", operator: .is, value: "null")
+            .gte("accepted_at", value: since.ISO8601Format())
+            .order("accepted_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        return rows.first?.id
     }
 
     /// Contact fields for a member — used when thanking from their profile.
