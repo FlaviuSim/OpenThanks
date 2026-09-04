@@ -511,25 +511,6 @@ struct UserProfileView: View {
             } else {
                 rippleStoryCard
 
-                if !inspirations.isEmpty {
-                    rippleSectionHeader("Inspired", count: inspirations.count, systemImage: "heart.fill")
-                    ForEach(inspirations) { ins in
-                        HStack(alignment: .top, spacing: 12) {
-                            ProfileAvatarLink(profile: ins.user, size: 40)
-                            Group {
-                                if let g = ins.gratitude {
-                                    NavigationLink(value: g) { inspirationRow(ins) }
-                                        .buttonStyle(.plain)
-                                } else {
-                                    inspirationRow(ins)
-                                }
-                            }
-                        }
-                        .padding(14)
-                        .card()
-                    }
-                }
-
                 rippleSectionHeader("Ripples", count: ripplePassOns.count, systemImage: "water.waves")
                 if ripplePassOns.isEmpty {
                     rippleZeroExplainer
@@ -547,6 +528,25 @@ struct UserProfileView: View {
                     }
                     if isOwnProfile {
                         rippleKeepGoingCTA
+                    }
+                }
+
+                if !inspirations.isEmpty {
+                    rippleSectionHeader("Inspired", count: inspirations.count, systemImage: "heart.fill")
+                    ForEach(inspirations) { ins in
+                        HStack(alignment: .top, spacing: 12) {
+                            ProfileAvatarLink(profile: ins.user, size: 40)
+                            Group {
+                                if let g = ins.gratitude {
+                                    NavigationLink(value: g) { inspirationRow(ins) }
+                                        .buttonStyle(.plain)
+                                } else {
+                                    inspirationRow(ins)
+                                }
+                            }
+                        }
+                        .padding(14)
+                        .card()
                     }
                 }
             }
@@ -581,8 +581,8 @@ struct UserProfileView: View {
             }
 
             HStack(spacing: 8) {
-                rippleChip(value: inspiredCount, label: "inspired", systemImage: "heart.fill")
                 rippleChip(value: rippleCount, label: rippleCount == 1 ? "ripple" : "ripples", systemImage: "water.waves")
+                rippleChip(value: inspiredCount, label: "inspired", systemImage: "heart.fill")
             }
         }
         .padding(14)
@@ -740,14 +740,14 @@ struct UserProfileView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 rippleExplainRow(
-                    icon: "heart.fill",
-                    title: "Inspired",
-                    body: "When someone hearts an appreciation you sent or received."
-                )
-                rippleExplainRow(
                     icon: "water.waves",
                     title: "Ripples",
                     body: "When thanks spark new thanks — kindness passed person to person."
+                )
+                rippleExplainRow(
+                    icon: "heart.fill",
+                    title: "Inspired",
+                    body: "When someone hearts an appreciation you sent or received."
                 )
             }
             .padding(14)

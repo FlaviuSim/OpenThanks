@@ -350,8 +350,10 @@ enum GratitudeService {
             }
     }
 
-    /// Accepted thanks that were inspired by an appreciation involving this profile
-    /// (parent author or recipient). Powers the Ripple Effect tab “Ripples” list.
+    /// Accepted thanks inspired by an appreciation involving this profile
+    /// (parent author or recipient), authored by someone else to someone else.
+    /// Powers the Ripple Effect tab “Ripples” list — excludes posts where this
+    /// profile is the giver or receiver of the child appreciation.
     static func ripples(userId: UUID, viewerId: UUID?, limit: Int = 100) async throws -> [Gratitude] {
         // 1) Parent posts this profile sent or received (ids only).
         struct IdRow: Decodable { let id: UUID }
@@ -364,20 +366,26 @@ enum GratitudeService {
         let parentIds = parentRows.map(\.id)
         guard !parentIds.isEmpty else { return [] }
 
-        // 2) Children that cite those parents — no global over-fetch / filter miss.
+        // 2) Children that cite those parents — others thanking others.
         let all: [Gratitude] = try await supabase.from("gratitudes")
             .select(rippleSelect)
             .in("inspired_by_gratitude_id", values: parentIds.map { $0.uuidString.lowercased() })
+            .neq("author_id", value: userId)
             .eq("status", value: "accepted")
             .order("created_at", ascending: false)
-            .limit(limit)
+            .limit(limit * 2) // room after excluding self as recipient
             .execute().value
 
-        return all.filter { child in
-            guard child.isVisible(to: viewerId) else { return false }
-            guard let parent = child.inspiredByParent else { return false }
-            return parent.isVisible(to: viewerId)
-        }
+        return all
+            .filter { child in
+                guard child.authorId != userId else { return false }
+                if child.recipientId == userId { return false }
+                guard child.isVisible(to: viewerId) else { return false }
+                guard let parent = child.inspiredByParent else { return false }
+                return parent.isVisible(to: viewerId)
+            }
+            .prefix(limit)
+            .map { $0 }
     }
 
     // MARK: Compose
