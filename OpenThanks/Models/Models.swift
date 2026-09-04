@@ -85,7 +85,8 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var recipient: Profile?
     var hearts: [CountHolder]?
     /// Parent post when selected with an `inspiredByParent` embed.
-    var inspiredByParent: Gratitude?
+    /// Separate type — a recursive `Gratitude?` would give the struct infinite size.
+    var inspiredByParent: InspiredParent?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -163,6 +164,30 @@ struct Gratitude: Codable, Identifiable, Hashable {
 
     /// Whether `viewerId` is allowed to see this post: public posts are open,
     /// private ones only to their author and recipient.
+    func isVisible(to viewerId: UUID?) -> Bool {
+        if visibility != .private { return true }
+        guard let viewerId else { return false }
+        return authorId == viewerId || recipientId == viewerId
+    }
+}
+
+/// Parent appreciation in a ripple chain (embed only — no nested parent).
+struct InspiredParent: Codable, Identifiable, Hashable {
+    let id: UUID
+    let authorId: UUID
+    let recipientId: UUID?
+    var message: String?
+    var visibility: GratitudeVisibility?
+    var author: Profile?
+    var recipient: Profile?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case authorId = "author_id"
+        case recipientId = "recipient_id"
+        case message, visibility, author, recipient
+    }
+
     func isVisible(to viewerId: UUID?) -> Bool {
         if visibility != .private { return true }
         guard let viewerId else { return false }
