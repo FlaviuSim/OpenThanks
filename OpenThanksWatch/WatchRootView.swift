@@ -154,7 +154,7 @@ struct WatchRecordView: View {
             Text("Saving…")
                 .font(.system(.headline, design: .rounded))
                 .foregroundStyle(.secondary)
-            Text("iPhone is turning your voice into text.")
+            Text("Sending to iPhone to turn into text. Keep the phone nearby.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -329,6 +329,7 @@ struct WatchRecordView: View {
                 self.status = .saving
                 WKInterfaceDevice.current().play(.click)
                 let outcome = await self.session.sendVoiceAppreciation(fileURL: url)
+                // Session keeps a durable copy until transfer finishes.
                 try? FileManager.default.removeItem(at: url)
 
                 switch outcome {

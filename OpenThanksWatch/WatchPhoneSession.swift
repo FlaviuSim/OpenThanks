@@ -19,6 +19,10 @@ final class WatchPhoneSession: NSObject {
     private(set) var sendingIds: Set<UUID> = []
 
     private var didActivate = false
+    private var createResultWaiters: [UUID: CheckedContinuation<WatchRelay.CreateReply?, Never>] = [:]
+    private var fileTransferWaiters: [UUID: CheckedContinuation<Error?, Never>] = [:]
+    /// Durable copies of voice clips until transfer finishes (or fails).
+    private var pendingVoiceFiles: [UUID: URL] = [:]
 
     override init() {
         super.init()
@@ -103,19 +107,57 @@ final class WatchPhoneSession: NSObject {
             return .failed("Watch isn’t connected yet — open OpenThanks on iPhone.")
         }
 
-        sendingIds.insert(draftId)
-        defer { sendingIds.remove(draftId) }
+        // Keep a durable copy until the system confirms transfer finished.
+        let durable = Self.voiceDirectory()
+            .appendingPathComponent("\(draftId.uuidString).m4a")
+        do {
+            try FileManager.default.createDirectory(
+                at: Self.voiceDirectory(),
+                withIntermediateDirectories: true
+            )
+            try? FileManager.default.removeItem(at: durable)
+            try FileManager.default.copyItem(at: fileURL, to: durable)
+        } catch {
+            return .failed("Couldn't prepare recording — try again.")
+        }
 
-        let waitTask = Task { await waitForCreateResult(draftId: draftId, timeoutSeconds: 75) }
+        sendingIds.insert(draftId)
+        defer {
+            sendingIds.remove(draftId)
+            cleanupVoiceFile(draftId)
+        }
+
+        pendingVoiceFiles[draftId] = durable
+
+        let transferWait = Task { await waitForFileTransfer(draftId: draftId, timeoutSeconds: 45) }
+        let resultWait = Task { await waitForCreateResult(draftId: draftId, timeoutSeconds: 90) }
+
         session.transferFile(
-            fileURL,
+            durable,
             metadata: [
                 WatchRelay.actionKey: WatchRelay.Action.createFromVoice.rawValue,
                 WatchRelay.voiceDraftIdKey: draftId.uuidString,
             ]
         )
 
-        if let reply = await waitTask.value {
+        // Nudge iPhone if it's reachable so transcription starts promptly.
+        if session.isReachable {
+            session.sendMessage(
+                [WatchRelay.actionKey: WatchRelay.Action.ping.rawValue],
+                replyHandler: nil,
+                errorHandler: { _ in }
+            )
+        }
+
+        if let transferError = await transferWait.value {
+            if let pending = createResultWaiters.removeValue(forKey: draftId) {
+                pending.resume(returning: nil)
+            }
+            resultWait.cancel()
+            return .failed(transferError.localizedDescription)
+        }
+
+        if let reply = await resultWait.value {
             if reply.ok {
                 WatchDraftQueue.remove(draftId)
                 return .sent
@@ -123,8 +165,8 @@ final class WatchPhoneSession: NSObject {
             return .failed(reply.errorMessage ?? "Couldn't save. Try again.")
         }
 
-        // File is queued to the phone — result may arrive later via application context.
-        return .queued("Sending to iPhone — keep OpenThanks open nearby.")
+        // File left the Watch; phone may still be transcribing / creating.
+        return .queued("Sent to iPhone — open OpenThanks there to finish saving.")
     }
 
     enum SendOutcome: Equatable {
@@ -133,7 +175,16 @@ final class WatchPhoneSession: NSObject {
         case failed(String)
     }
 
-    private var createResultWaiters: [UUID: CheckedContinuation<WatchRelay.CreateReply?, Never>] = [:]
+    private static func voiceDirectory() -> URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("WatchVoicePending", isDirectory: true)
+    }
+
+    private func cleanupVoiceFile(_ draftId: UUID) {
+        if let url = pendingVoiceFiles.removeValue(forKey: draftId) {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
 
     private func waitForCreateResult(draftId: UUID, timeoutSeconds: Double) async -> WatchRelay.CreateReply? {
         await withCheckedContinuation { (cont: CheckedContinuation<WatchRelay.CreateReply?, Never>) in
@@ -147,12 +198,37 @@ final class WatchPhoneSession: NSObject {
         }
     }
 
+    private func waitForFileTransfer(draftId: UUID, timeoutSeconds: Double) async -> Error? {
+        await withCheckedContinuation { (cont: CheckedContinuation<Error?, Never>) in
+            fileTransferWaiters[draftId] = cont
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(timeoutSeconds))
+                if let pending = fileTransferWaiters.removeValue(forKey: draftId) {
+                    // Timed out waiting for transfer ack — treat as still in flight (nil error)
+                    // so create-result wait can continue; WCSession may still deliver.
+                    pending.resume(returning: nil)
+                }
+            }
+        }
+    }
+
     private func fulfillCreateResult(_ reply: WatchRelay.CreateReply) {
         if let waiter = createResultWaiters.removeValue(forKey: reply.draftId) {
             waiter.resume(returning: reply)
         }
         if reply.ok {
             WatchDraftQueue.remove(reply.draftId)
+        }
+        cleanupVoiceFile(reply.draftId)
+    }
+
+    private func fulfillFileTransfer(draftId: UUID, error: Error?) {
+        if let waiter = fileTransferWaiters.removeValue(forKey: draftId) {
+            waiter.resume(returning: error)
+        }
+        // Keep durable file until create result arrives (or sendVoiceAppreciation defers cleanup).
+        if error != nil {
+            cleanupVoiceFile(draftId)
         }
     }
 
@@ -210,6 +286,16 @@ final class WatchPhoneSession: NSObject {
             fulfillCreateResult(result)
         }
     }
+
+    private func ingestCreateResultMessage(_ message: [String: Any]) {
+        if let result = WatchRelay.decode(WatchRelay.CreateReply.self, fromAny: message[WatchRelay.createResultKey]) {
+            fulfillCreateResult(result)
+            return
+        }
+        if let result = WatchRelay.decode(WatchRelay.CreateReply.self, fromAny: message[WatchRelay.payloadKey]) {
+            fulfillCreateResult(result)
+        }
+    }
 }
 
 extension WatchPhoneSession: WCSessionDelegate {
@@ -243,6 +329,38 @@ extension WatchPhoneSession: WCSessionDelegate {
         Task { @MainActor in
             ingestApplicationContext(applicationContext)
             await flushQueueIfPossible()
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        Task { @MainActor in
+            if userInfo[WatchRelay.actionKey] as? String == WatchRelay.Action.createResult.rawValue {
+                ingestCreateResultMessage(userInfo)
+            } else {
+                ingestCreateResultMessage(userInfo)
+            }
+            await flushQueueIfPossible()
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        Task { @MainActor in
+            if message[WatchRelay.actionKey] as? String == WatchRelay.Action.createResult.rawValue {
+                ingestCreateResultMessage(message)
+            }
+        }
+    }
+
+    nonisolated func session(
+        _ session: WCSession,
+        didFinish fileTransfer: WCSessionFileTransfer,
+        error: Error?
+    ) {
+        let draftId = (fileTransfer.file.metadata?[WatchRelay.voiceDraftIdKey] as? String)
+            .flatMap(UUID.init(uuidString:))
+        Task { @MainActor in
+            guard let draftId else { return }
+            fulfillFileTransfer(draftId: draftId, error: error)
         }
     }
 

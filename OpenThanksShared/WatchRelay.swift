@@ -53,11 +53,21 @@ enum WatchRelay {
     enum Action: String, Codable {
         case createAppreciation
         case createFromVoice
+        case createResult
         case ping
     }
 
     /// Metadata key on `transferFile` for voice → iPhone transcription.
     static let voiceDraftIdKey = "voiceDraftId"
+
+    /// Pack a create reply for `transferUserInfo` (survives better than application context alone).
+    static func createResultUserInfo(_ reply: CreateReply) -> [String: Any]? {
+        guard let data = encode(reply) else { return nil }
+        return [
+            actionKey: Action.createResult.rawValue,
+            createResultKey: data,
+        ]
+    }
 
     /// Pushed from iPhone via `updateApplicationContext`.
     struct AuthContext: Codable, Equatable {

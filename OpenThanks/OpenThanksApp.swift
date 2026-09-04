@@ -97,6 +97,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         CalendarGratitudeBackgroundRefresh.schedule()
         Analytics.setup()
         RemoteImageCache.prepare()
+        // Activate ASAP so Watch file transfers aren't missed before RootView appears.
+        WatchConnectivityService.shared.activate(auth: nil)
         return true
     }
 
