@@ -46,13 +46,13 @@ struct WatchRecordView: View {
     @Environment(WatchPhoneSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var capture = WatchVoiceCapture()
     @State private var status: Status = .idle
     @State private var pendingWaiting = 0
+    @State private var isPresentingRecorder = false
+    @State private var inputGeneration = 0
 
     private enum Status: Equatable {
         case idle
-        case recording
         case saving
         case saved
         case queued(String)
@@ -65,8 +65,6 @@ struct WatchRecordView: View {
                 switch status {
                 case .idle:
                     idleContent
-                case .recording:
-                    recordingContent
                 case .saving:
                     savingContent
                 case .saved:
@@ -102,7 +100,10 @@ struct WatchRecordView: View {
             Task { await autoStartRecordingIfNeeded() }
         }
         .onChange(of: scenePhase) { _, phase in
-            handleScenePhase(phase)
+            if phase == .active {
+                Task { await session.flushQueueIfPossible() }
+                Task { await autoStartRecordingIfNeeded() }
+            }
         }
         .onChange(of: session.pendingAutoRecord) { _, should in
             if should {
@@ -127,28 +128,8 @@ struct WatchRecordView: View {
                 recordButtonLabel(title: "Record a thanks", systemImage: "waveform")
             }
             .buttonStyle(.plain)
+            .disabled(isPresentingRecorder)
             .accessibilityLabel("Record a thanks")
-        }
-    }
-
-    private var recordingContent: some View {
-        VStack(spacing: 14) {
-            Text("Listening…")
-                .font(.system(.headline, design: .rounded))
-                .foregroundStyle(watchCoral)
-
-            Text("Tap when you’re done.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button {
-                Task { await finishRecording() }
-            } label: {
-                recordButtonLabel(title: "Stop & save", systemImage: "stop.fill")
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Stop recording and save")
         }
     }
 
@@ -156,7 +137,6 @@ struct WatchRecordView: View {
         VStack(spacing: 8) {
             Image(systemName: systemImage)
                 .font(.system(size: 28, weight: .semibold))
-                .symbolEffect(.pulse, isActive: status == .recording)
             Text(title)
                 .font(.system(.headline, design: .rounded))
         }
@@ -279,83 +259,97 @@ struct WatchRecordView: View {
         }
     }
 
-    // MARK: - Lifecycle
-
-    private func handleScenePhase(_ phase: ScenePhase) {
-        switch phase {
-        case .active:
-            if case .saving = status { status = .failed("Interrupted — please try again.") }
-            Task { await session.flushQueueIfPossible() }
-            Task { await autoStartRecordingIfNeeded() }
-        case .inactive:
-            break
-        case .background:
-            if status == .recording {
-                capture.stopDiscarding()
-                status = .idle
-            }
-        @unknown default:
-            break
-        }
-    }
-
     // MARK: - Recording
 
     private func autoStartRecordingIfNeeded() async {
         guard session.pendingAutoRecord else { return }
         session.pendingAutoRecord = false
         try? await Task.sleep(for: .milliseconds(350))
-        guard scenePhase == .active else { return }
+        guard scenePhase == .active, !isPresentingRecorder else { return }
         if case .saving = status { return }
-        if status == .recording { return }
         await startRecording()
     }
 
+    /// System Watch audio recorder (mic UI) — not the text/keyboard sheet.
     private func startRecording() async {
-        guard status != .recording, status != .saving else { return }
+        guard !isPresentingRecorder else { return }
+        guard status != .saving else { return }
         status = .idle
 
-        let granted = await WatchVoiceCapture.requestPermission()
-        guard granted else {
-            status = .failed(WatchVoiceCapture.CaptureError.micDenied.localizedDescription)
+        // Retry briefly — SwiftUI can report a nil host right after appear.
+        var controller: WKInterfaceController?
+        for attempt in 0..<6 {
+            controller = visibleInterfaceController()
+            if controller != nil { break }
+            if attempt < 5 {
+                try? await Task.sleep(for: .milliseconds(120))
+            }
+        }
+        guard let controller else {
+            status = .failed("Couldn't open the recorder — open the app again and try.")
             return
         }
 
-        do {
-            try capture.start()
-            status = .recording
-            WKInterfaceDevice.current().play(.start)
-        } catch {
-            status = .failed(error.localizedDescription)
-            WKInterfaceDevice.current().play(.failure)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openthanks-watch-\(UUID().uuidString).m4a")
+        try? FileManager.default.removeItem(at: url)
+
+        isPresentingRecorder = true
+        inputGeneration += 1
+        let generation = inputGeneration
+
+        let options: [String: Any] = [
+            WKAudioRecorderControllerOptionsActionTitleKey: "Save thanks",
+            WKAudioRecorderControllerOptionsAutorecordKey: true,
+            WKAudioRecorderControllerOptionsMaximumDurationKey: 90.0,
+        ]
+
+        controller.presentAudioRecorderController(
+            withOutputURL: url,
+            preset: .wideBandSpeech,
+            options: options
+        ) { didSave, error in
+            Task { @MainActor in
+                guard generation == self.inputGeneration else { return }
+                self.isPresentingRecorder = false
+
+                if let error {
+                    self.status = .failed(error.localizedDescription)
+                    WKInterfaceDevice.current().play(.failure)
+                    try? FileManager.default.removeItem(at: url)
+                    return
+                }
+                guard didSave else {
+                    // User cancelled.
+                    self.status = .idle
+                    try? FileManager.default.removeItem(at: url)
+                    return
+                }
+
+                self.status = .saving
+                WKInterfaceDevice.current().play(.click)
+                let outcome = await self.session.sendVoiceAppreciation(fileURL: url)
+                try? FileManager.default.removeItem(at: url)
+
+                switch outcome {
+                case .sent:
+                    self.status = .saved
+                    self.pendingWaiting = WidgetSnapshotStore.load().pendingToAccept
+                    WKInterfaceDevice.current().play(.success)
+                case .queued(let note):
+                    self.status = .queued(note)
+                case .failed(let note):
+                    self.status = .failed(note)
+                    WKInterfaceDevice.current().play(.failure)
+                }
+            }
         }
     }
 
-    private func finishRecording() async {
-        guard status == .recording else { return }
-        guard let url = capture.stop() else {
-            status = .failed("Didn’t catch that — try speaking a bit longer.")
-            WKInterfaceDevice.current().play(.failure)
-            return
+    private func visibleInterfaceController() -> WKInterfaceController? {
+        if let controller = WKApplication.shared().visibleInterfaceController {
+            return controller
         }
-
-        status = .saving
-        WKInterfaceDevice.current().play(.click)
-
-        let outcome = await session.sendVoiceAppreciation(fileURL: url)
-        // Best-effort cleanup of temp audio.
-        try? FileManager.default.removeItem(at: url)
-
-        switch outcome {
-        case .sent:
-            status = .saved
-            pendingWaiting = WidgetSnapshotStore.load().pendingToAccept
-            WKInterfaceDevice.current().play(.success)
-        case .queued(let note):
-            status = .queued(note)
-        case .failed(let note):
-            status = .failed(note)
-            WKInterfaceDevice.current().play(.failure)
-        }
+        return WKExtension.shared().visibleInterfaceController
     }
 }
