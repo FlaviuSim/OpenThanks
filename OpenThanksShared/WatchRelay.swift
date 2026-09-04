@@ -1,4 +1,47 @@
 import Foundation
+import UserNotifications
+
+/// Local notification category so Watch (and iPhone) taps open compose / record.
+enum WatchComposeNotification {
+    static let categoryIdentifier = "openthanks.compose"
+    static let recordActionIdentifier = "openthanks.compose.record"
+
+    /// userInfo `type` values that should open Watch compose + auto-record.
+    static let composeOpenTypeValues: Set<String> = [
+        "gratitude_friday",
+        "thank_reminder",
+        "calendar_gratitude_nudge",
+        "streak_live_activity_wake",
+    ]
+
+    static func registerCategories() {
+        let record = UNNotificationAction(
+            identifier: recordActionIdentifier,
+            title: "Record a thanks",
+            options: [.foreground]
+        )
+        let category = UNNotificationCategory(
+            identifier: categoryIdentifier,
+            actions: [record],
+            intentIdentifiers: [],
+            options: []
+        )
+        UNUserNotificationCenter.current().setNotificationCategories([category])
+    }
+
+    static func shouldOpenCompose(from response: UNNotificationResponse) -> Bool {
+        let category = response.notification.request.content.categoryIdentifier
+        let action = response.actionIdentifier
+        if category == categoryIdentifier {
+            return action == UNNotificationDefaultActionIdentifier
+                || action == recordActionIdentifier
+        }
+        let info = response.notification.request.content.userInfo
+        guard let type = info["type"] as? String else { return false }
+        return composeOpenTypeValues.contains(type)
+            && (action == UNNotificationDefaultActionIdentifier || action == recordActionIdentifier)
+    }
+}
 
 /// Shared Watch ↔ iPhone relay contract (Watch Connectivity).
 enum WatchRelay {
@@ -9,7 +52,21 @@ enum WatchRelay {
 
     enum Action: String, Codable {
         case createAppreciation
+        case createFromVoice
+        case createResult
         case ping
+    }
+
+    /// Metadata key on `transferFile` for voice → iPhone transcription.
+    static let voiceDraftIdKey = "voiceDraftId"
+
+    /// Pack a create reply for `transferUserInfo` (survives better than application context alone).
+    static func createResultUserInfo(_ reply: CreateReply) -> [String: Any]? {
+        guard let data = encode(reply) else { return nil }
+        return [
+            actionKey: Action.createResult.rawValue,
+            createResultKey: data,
+        ]
     }
 
     /// Pushed from iPhone via `updateApplicationContext`.
@@ -105,39 +162,10 @@ enum WatchRelay {
     }
 }
 
-/// In-progress Watch compose note (survives interruption / app relaunch before Save/Send).
+/// Removed — one-button flow sends immediately; no draft to persist.
 enum WatchComposeDraftStore {
-    private static let key = "watchComposeDraft.v1"
-
-    struct Draft: Codable, Equatable {
-        var message: String
-        var recipient: String
-    }
-
-    static func load() -> Draft? {
-        guard let data = AppGroup.defaults.data(forKey: key),
-              let draft = try? JSONDecoder().decode(Draft.self, from: data)
-        else { return nil }
-        let message = draft.message.trimmingCharacters(in: .whitespacesAndNewlines)
-        let recipient = draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines)
-        if message.isEmpty && recipient.isEmpty { return nil }
-        return Draft(message: message, recipient: recipient)
-    }
-
-    static func save(message: String, recipient: String) {
-        let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedRecipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedMessage.isEmpty && trimmedRecipient.isEmpty {
-            clear()
-            return
-        }
-        let draft = Draft(message: trimmedMessage, recipient: trimmedRecipient)
-        guard let data = try? JSONEncoder().encode(draft) else { return }
-        AppGroup.defaults.set(data, forKey: key)
-    }
-
     static func clear() {
-        AppGroup.defaults.removeObject(forKey: key)
+        AppGroup.defaults.removeObject(forKey: "watchComposeDraft.v1")
     }
 }
 

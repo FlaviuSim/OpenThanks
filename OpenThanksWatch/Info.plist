@@ -39,5 +39,7 @@
 	<string>com.openthanks.app</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OpenThanks records your spoken appreciation on Apple Watch, then turns it into text on iPhone.</string>
 </dict>
 </plist>

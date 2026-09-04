@@ -303,6 +303,8 @@ struct MainTabView: View {
                 initialMessage: request.message,
                 initialMessagePlaceholder: request.messagePlaceholder,
                 initialImageFileName: request.imageFileName,
+                inspiredByGratitudeId: request.inspiredByGratitudeId,
+                inspiredByAuthorName: request.inspiredByAuthorName,
                 analyticsSource: request.analyticsSource
             )
         }
@@ -370,7 +372,7 @@ struct MainTabView: View {
         let generation = composePresentGeneration
         Task { @MainActor in
             // Let share sheets / OAuth teardown finish before covering Home.
-            // Compose itself ignores stale keyboard safe-area (see keyboardBottomPadding).
+            // Compose no longer pins a footer above the keyboard (scroll CTA + nav Save).
             try? await Task.sleep(for: .milliseconds(350))
             guard generation == composePresentGeneration else { return }
             if let current = composeSheet {
@@ -402,6 +404,15 @@ struct MainTabView: View {
         case .notifications:
             notificationsPath = NavigationPath()
             withAnimation(.easeInOut(duration: 0.18)) { tab = .notifications }
+        case .profileInspired:
+            composeSheet = nil
+            showProfileSettings = false
+            profilePath = NavigationPath()
+            withAnimation(.easeInOut(duration: 0.18)) { tab = .profile }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(400))
+                NotificationCenter.default.post(name: .focusProfileInspired, object: nil)
+            }
         }
     }
 
@@ -486,6 +497,7 @@ struct MainTabView: View {
 
     private func refreshUnread() async {
         guard let userId = auth.userId else { return }
-        unreadCount = (try? await GratitudeService.unreadNotificationCount(userId: userId)) ?? unreadCount
+        let remote = (try? await GratitudeService.unreadNotificationCount(userId: userId)) ?? 0
+        unreadCount = remote + CalendarThankSuggestionStore.unreadCount()
     }
 }

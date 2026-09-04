@@ -4,6 +4,16 @@ import UIKit
 /// Plain-text message editor with a keyboard accessory for Add link, voice, and optional AI.
 /// Selection is tracked so “Add link” can wrap highlighted text as `[label](url)`.
 struct MessageEditor: UIViewRepresentable {
+    struct PendingInsert: Equatable, Identifiable {
+        let id: UUID
+        let text: String
+
+        init(text: String, id: UUID = UUID()) {
+            self.id = id
+            self.text = text
+        }
+    }
+
     @Binding var text: String
     var minHeight: CGFloat = 160
     var isEditable: Bool = true
@@ -16,6 +26,10 @@ struct MessageEditor: UIViewRepresentable {
     var voiceListening: Bool = false
     var voiceEnabled: Bool = false
     var onToggleVoice: (() -> Void)?
+    /// When set, insert at the caret (replacing any selection), move the cursor
+    /// after the inserted text, then call `onPendingInsertConsumed`.
+    var pendingInsert: PendingInsert? = nil
+    var onPendingInsertConsumed: ((UUID) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -53,7 +67,9 @@ struct MessageEditor: UIViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.textView = uiView
 
-        if uiView.text != text {
+        if let pending = pendingInsert, !pending.text.isEmpty {
+            context.coordinator.applyPendingInsert(pending, in: uiView)
+        } else if uiView.text != text {
             let selected = uiView.selectedRange
             uiView.text = text
             let maxLen = (text as NSString).length
@@ -86,20 +102,78 @@ struct MessageEditor: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: MessageEditor
         weak var textView: IntrinsicTextView?
-        private var accessory: UIToolbar?
+        private var accessory: PaddedKeyboardToolbar?
         private var lastAIBusy: Bool?
         private var lastAIEnabled: Bool?
         private var lastShowAI: Bool?
         private var lastShowVoice: Bool?
         private var lastVoiceListening: Bool?
         private var lastVoiceEnabled: Bool?
+        private var lastHandledInsertID: UUID?
 
         init(_ parent: MessageEditor) {
             self.parent = parent
         }
 
-        func makeAccessory() -> UIToolbar {
-            let bar = UIToolbar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44))
+        func applyPendingInsert(_ pending: PendingInsert, in textView: IntrinsicTextView) {
+            guard lastHandledInsertID != pending.id else { return }
+            lastHandledInsertID = pending.id
+
+            let finish = {
+                DispatchQueue.main.async {
+                    self.parent.onPendingInsertConsumed?(pending.id)
+                }
+            }
+
+            guard textView.isEditable else {
+                finish()
+                return
+            }
+
+            let raw = pending.text
+            let ns = (textView.text ?? "") as NSString
+            var range = textView.selectedRange
+            if range.location == NSNotFound {
+                range = NSRange(location: ns.length, length: 0)
+            }
+            range.location = min(range.location, ns.length)
+            range.length = min(range.length, ns.length - range.location)
+
+            // Soft space before the insert when it would otherwise stick to a word.
+            var insert = raw
+            if range.location > 0, range.length == 0 {
+                let prev = ns.substring(with: NSRange(location: range.location - 1, length: 1))
+                if prev != " ", prev != "\n", !raw.hasPrefix(" "), !raw.hasPrefix("\n") {
+                    insert = " " + raw
+                }
+            }
+
+            // Soft space after so the next character isn't glued to the emoji —
+            // including at end-of-text so typing continues cleanly.
+            let afterIndex = range.location + range.length
+            if afterIndex < ns.length {
+                let nextChar = ns.substring(with: NSRange(location: afterIndex, length: 1))
+                if nextChar != " ", nextChar != "\n", !insert.hasSuffix(" "), !insert.hasSuffix("\n") {
+                    insert += " "
+                }
+            } else if !insert.hasSuffix(" "), !insert.hasSuffix("\n") {
+                insert += " "
+            }
+
+            let next = ns.replacingCharacters(in: range, with: insert)
+            textView.text = next
+            parent.text = next
+            let caret = range.location + (insert as NSString).length
+            textView.selectedRange = NSRange(location: min(caret, (next as NSString).length), length: 0)
+            textView.becomeFirstResponder()
+            textView.invalidateIntrinsicContentSize()
+            finish()
+        }
+
+        func makeAccessory() -> PaddedKeyboardToolbar {
+            let bar = PaddedKeyboardToolbar(
+                frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: PaddedKeyboardToolbar.preferredHeight)
+            )
             bar.tintColor = UIColor(Theme.coral)
             accessory = bar
             rebuildAccessory()
@@ -163,6 +237,14 @@ struct MessageEditor: UIViewRepresentable {
                 items.append(ai)
             }
 
+            let done = UIBarButtonItem(
+                title: "Done",
+                style: .done,
+                target: self,
+                action: #selector(doneTapped)
+            )
+            items.append(done)
+
             bar.items = items
         }
 
@@ -184,6 +266,33 @@ struct MessageEditor: UIViewRepresentable {
 
         @objc private func voiceTapped() {
             parent.onToggleVoice?()
+        }
+
+        @objc private func doneTapped() {
+            textView?.resignFirstResponder()
+        }
+    }
+}
+
+/// Keyboard accessory toolbar with extra vertical padding so controls aren’t flush to the keys.
+final class PaddedKeyboardToolbar: UIToolbar {
+    static let preferredHeight: CGFloat = 56
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: Self.preferredHeight)
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        CGSize(width: size.width, height: Self.preferredHeight)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Keep the reported accessory height stable; UIKit sometimes collapses toolbars to 44.
+        if abs(bounds.height - Self.preferredHeight) > 0.5 {
+            var frame = self.frame
+            frame.size.height = Self.preferredHeight
+            self.frame = frame
         }
     }
 }

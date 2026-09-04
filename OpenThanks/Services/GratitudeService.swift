@@ -20,6 +20,21 @@ enum GratitudeService {
     hearts(count)
     """
 
+    /// Feed select plus parent appreciation for ripple / pay-it-forward chains.
+    /// Use column embed `inspired_by_gratitude_id(...)` — PostgREST often fails to
+    /// resolve self-FK constraint hints (`gratitudes!…_fkey`) with PGRST200.
+    private static let rippleSelect = """
+    *,
+    author:profiles!gratitudes_author_id_fkey(*),
+    recipient:profiles!gratitudes_recipient_id_fkey(*),
+    hearts(count),
+    inspiredByParent:inspired_by_gratitude_id(
+        *,
+        author:profiles!gratitudes_author_id_fkey(*),
+        recipient:profiles!gratitudes_recipient_id_fkey(*)
+    )
+    """
+
     // MARK: Feeds
 
     /// World feed: public, accepted appreciations, newest accepted first.
@@ -159,7 +174,7 @@ enum GratitudeService {
     /// Single post (for notification taps).
     static func gratitude(id: UUID) async throws -> Gratitude {
         try await supabase.from("gratitudes")
-            .select(feedSelect)
+            .select(rippleSelect)
             .eq("id", value: id)
             .single()
             .execute().value
@@ -335,6 +350,44 @@ enum GratitudeService {
             }
     }
 
+    /// Accepted thanks inspired by an appreciation involving this profile
+    /// (parent author or recipient), authored by someone else to someone else.
+    /// Powers the Ripple Effect tab “Ripples” list — excludes posts where this
+    /// profile is the giver or receiver of the child appreciation.
+    static func ripples(userId: UUID, viewerId: UUID?, limit: Int = 100) async throws -> [Gratitude] {
+        // 1) Parent posts this profile sent or received (ids only).
+        struct IdRow: Decodable { let id: UUID }
+        let parentRows: [IdRow] = try await supabase.from("gratitudes")
+            .select("id")
+            .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
+            .eq("status", value: "accepted")
+            .limit(500)
+            .execute().value
+        let parentIds = parentRows.map(\.id)
+        guard !parentIds.isEmpty else { return [] }
+
+        // 2) Children that cite those parents — others thanking others.
+        let all: [Gratitude] = try await supabase.from("gratitudes")
+            .select(rippleSelect)
+            .in("inspired_by_gratitude_id", values: parentIds.map { $0.uuidString.lowercased() })
+            .neq("author_id", value: userId)
+            .eq("status", value: "accepted")
+            .order("created_at", ascending: false)
+            .limit(limit * 2) // room after excluding self as recipient
+            .execute().value
+
+        return all
+            .filter { child in
+                guard child.authorId != userId else { return false }
+                if child.recipientId == userId { return false }
+                guard child.isVisible(to: viewerId) else { return false }
+                guard let parent = child.inspiredByParent else { return false }
+                return parent.isVisible(to: viewerId)
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
     // MARK: Compose
 
     /// Creates a pending appreciation via the web create API so claim email
@@ -342,6 +395,12 @@ enum GratitudeService {
     static func create(_ new: NewGratitude) async throws -> Gratitude {
         var payload = new
         await resolveRecipientContact(&payload)
+
+        // Explicit pay-it-forward parent wins; otherwise most recent accepted
+        // thanks this author received within 7 days (API also applies this).
+        if payload.inspiredByGratitudeId == nil {
+            payload.inspiredByGratitudeId = await recentReceivedParentId(for: payload.authorId)
+        }
 
         guard let session = try? await supabase.auth.session else {
             throw URLError(.userAuthenticationRequired)
@@ -357,6 +416,7 @@ enum GratitudeService {
             let media_type: String?
             let visibility: String
             let source: String
+            let inspired_by_gratitude_id: String?
         }
 
         struct CreateResponse: Decodable {
@@ -380,6 +440,7 @@ enum GratitudeService {
             payload.recipientName ?? "",
             payload.mediaUrl ?? "",
             payload.visibility,
+            payload.inspiredByGratitudeId?.uuidString ?? "",
         ].joined(separator: "|")
         request.setValue(idempotencyKey(from: idempotencySeed), forHTTPHeaderField: "X-Idempotency-Key")
         // Create returns after DB insert; claim email is sent asynchronously on the server.
@@ -394,7 +455,8 @@ enum GratitudeService {
                 media_url: payload.mediaUrl,
                 media_type: payload.mediaType,
                 visibility: payload.visibility,
-                source: payload.source
+                source: payload.source,
+                inspired_by_gratitude_id: payload.inspiredByGratitudeId?.uuidString.lowercased()
             )
         )
 
@@ -416,7 +478,20 @@ enum GratitudeService {
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let created = try decoder.decode(CreateResponse.self, from: data).gratitude
+        var created = try decoder.decode(CreateResponse.self, from: data).gratitude
+
+        // Fallback if an older API build didn't persist inspired_by on insert.
+        if created.inspiredByGratitudeId == nil, let parentId = payload.inspiredByGratitudeId {
+            struct InspiredByUpdate: Encodable {
+                let inspired_by_gratitude_id: String
+            }
+            _ = try? await supabase.from("gratitudes")
+                .update(InspiredByUpdate(inspired_by_gratitude_id: parentId.uuidString.lowercased()))
+                .eq("id", value: created.id)
+                .eq("author_id", value: payload.authorId)
+                .execute()
+            created.inspiredByGratitudeId = parentId
+        }
 
         // Re-fetch with feed embeds (author/recipient) for the success UI.
         if let hydrated: Gratitude = try? await supabase.from("gratitudes")
@@ -428,6 +503,24 @@ enum GratitudeService {
             return hydrated
         }
         return created
+    }
+
+    /// Most recent accepted appreciation this user received within 7 days.
+    private static func recentReceivedParentId(for userId: UUID) async -> UUID? {
+        let since = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+            .addingTimeInterval(-7 * 86_400)
+        struct IdRow: Decodable { let id: UUID }
+        let rows: [IdRow] = (try? await supabase.from("gratitudes")
+            .select("id")
+            .eq("recipient_id", value: userId)
+            .eq("status", value: "accepted")
+            .not("accepted_at", operator: .is, value: "null")
+            .gte("accepted_at", value: since.ISO8601Format())
+            .order("accepted_at", ascending: false)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        return rows.first?.id
     }
 
     /// Contact fields for a member — used when thanking from their profile.
@@ -657,12 +750,15 @@ enum GratitudeService {
     }
 
     static func notifications(userId: UUID, limit: Int = 50) async throws -> [AppNotification] {
-        try await supabase.from("notifications")
+        await expireStaleFridayNotifications(userId: userId)
+        let notes: [AppNotification] = try await supabase.from("notifications")
             .select("*, from_user:profiles!notifications_from_user_id_fkey(*)")
             .eq("user_id", value: userId)
+            .or(Self.activeNotificationsOrFilter)
             .order("created_at", ascending: false)
             .limit(limit)
             .execute().value
+        return notes
     }
 
     /// Badge count only — avoids loading notification rows + profile embeds.
@@ -671,7 +767,36 @@ enum GratitudeService {
             .select("id", head: true, count: .exact)
             .eq("user_id", value: userId)
             .eq("read", value: false)
+            .or(Self.activeNotificationsOrFilter)
             .execute().count ?? 0
+    }
+
+    /// Weekly Friday prompts older than this leave the inbox.
+    static let fridayNotificationMaxAgeDays = 21
+
+    /// PostgREST `or`: keep non-Friday rows, or Friday rows within the retention window.
+    private static var activeNotificationsOrFilter: String {
+        // Quote the timestamp — unquoted ISO8601 colons break PostgREST parsing.
+        "type.neq.gratitude_friday,created_at.gte.\"\(fridayNotificationCutoffISO8601)\""
+    }
+
+    private static var fridayNotificationCutoffISO8601: String {
+        let cutoff = Calendar.current.date(
+            byAdding: .day,
+            value: -fridayNotificationMaxAgeDays,
+            to: Date()
+        ) ?? Date().addingTimeInterval(-TimeInterval(fridayNotificationMaxAgeDays * 86_400))
+        return ISO8601DateFormatter().string(from: cutoff)
+    }
+
+    /// Deletes this user's Friday prompts older than three weeks (don't wait for cron).
+    private static func expireStaleFridayNotifications(userId: UUID) async {
+        _ = try? await supabase.from("notifications")
+            .delete()
+            .eq("user_id", value: userId)
+            .eq("type", value: "gratitude_friday")
+            .lt("created_at", value: fridayNotificationCutoffISO8601)
+            .execute()
     }
 
     static func markRead(id: UUID) async throws {
@@ -714,9 +839,16 @@ enum GratitudeService {
             .execute().value
 
         let (sentCount, receivedCount, rows) = try await (sent, received, inspiredRows)
-        return ProfileStats(sent: sentCount ?? 0,
-                            received: receivedCount ?? 0,
-                            inspired: Set(rows.map(\.user_id)).count)
+
+        // Ripples: accepted children inspired by a post this user sent or received.
+        let rippleRows = (try? await ripples(userId: userId, viewerId: userId, limit: 200)) ?? []
+
+        return ProfileStats(
+            sent: sentCount ?? 0,
+            received: receivedCount ?? 0,
+            inspired: Set(rows.map(\.user_id)).count,
+            ripplesPassedOn: rippleRows.count
+        )
     }
 
     // MARK: Profile

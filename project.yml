@@ -40,6 +40,8 @@ targets:
     sources:
       - path: OpenThanks
       - path: OpenThanksShared
+      # Intent must also compile into the app so Control Center can launch it.
+      - path: OpenThanksWidget/ThankSomeoneControl.swift
     dependencies:
       - package: Supabase
         product: Supabase
@@ -266,6 +268,7 @@ targets:
         WKApplication: true
         # Independent so Xcode can install the Watch app directly; phone relay still works.
         WKRunsIndependentlyOfCompanionApp: true
+        NSMicrophoneUsageDescription: OpenThanks records your spoken appreciation on Apple Watch, then turns it into text on iPhone.
         CFBundleURLTypes:
           - CFBundleURLName: com.openthanks.app.watch
             CFBundleURLSchemes: [openthanks-watch]

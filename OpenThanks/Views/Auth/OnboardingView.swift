@@ -23,15 +23,8 @@ struct OnboardingView: View {
               points: [
                 ("paperplane.fill", "Send in seconds",
                  "A name and a few honest words. That's the whole product."),
-                ("envelope.fill", "No account needed to receive",
-                 "Recipients get your appreciation by email or text and claim it when ready."),
-              ]),
-        .init(headline: ["Built for", "the person", "receiving it"],
-              points: [
-                ("person.fill", "Their moment, not your feed",
-                 "Every appreciation centers the recipient."),
                 ("lock.fill", "Public or private",
-                 "You choose what the world sees. They choose what they keep."),
+                 "The recipient has to accept before anything is posted on OpenThanks"),
               ]),
     ]
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shown once after sign-in (and profile completion) before the main app.
+/// Shown once after sign-in before the main app (and before profile completion).
 /// Friday reminder defaults on; we ask for notification permission here.
 struct NotificationPermissionView: View {
     var onFinished: () -> Void

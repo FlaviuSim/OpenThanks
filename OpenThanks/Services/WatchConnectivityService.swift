@@ -1,4 +1,7 @@
 import Foundation
+import AVFoundation
+import Speech
+import UIKit
 import WatchConnectivity
 
 /// iPhone side of Watch Connectivity: pushes auth context and creates appreciations.
@@ -9,12 +12,18 @@ final class WatchConnectivityService: NSObject {
 
     private weak var auth: AuthService?
     private var didRequestActivation = false
+    /// Last create reply pushed to the Watch — re-included when auth context updates
+    /// so `updateApplicationContext` does not wipe an in-flight “Saving…” waiter.
+    private var lastCreateResultData: Data?
+    private var voiceBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     /// True after activation completes with a paired Watch that has our companion installed.
     private(set) var isWatchReady = false
 
-    func activate(auth: AuthService) {
-        self.auth = auth
+    func activate(auth: AuthService?) {
+        if let auth {
+            self.auth = auth
+        }
         // Simulator WCSession without a paired Watch floods logs with
         // "pairingIDs no longer match" / "WCSession is not paired" and is
         // useless for phone-only runs. Real devices (and Watch testing) still activate.
@@ -35,7 +44,9 @@ final class WatchConnectivityService: NSObject {
             session.activate()
         case .activated:
             refreshWatchReadiness(session)
-            pushAuthContext()
+            if self.auth != nil {
+                pushAuthContext()
+            }
         default:
             break
         }
@@ -67,8 +78,13 @@ final class WatchConnectivityService: NSObject {
         }
 
         guard let data = WatchRelay.encode(context) else { return }
+        var payload: [String: Any] = [WatchRelay.authContextKey: data]
+        // Keep outstanding create replies so Watch “Saving…” waiters still resolve.
+        if let lastCreateResultData {
+            payload[WatchRelay.createResultKey] = lastCreateResultData
+        }
         do {
-            try session.updateApplicationContext([WatchRelay.authContextKey: data])
+            try session.updateApplicationContext(payload)
         } catch {
             // Non-fatal — Watch will retry when reachable / next activate.
             #if DEBUG
@@ -84,7 +100,10 @@ final class WatchConnectivityService: NSObject {
 
     // MARK: - Create
 
-    private func handleCreate(_ request: WatchRelay.CreateRequest) async -> WatchRelay.CreateReply {
+    private func handleCreate(
+        _ request: WatchRelay.CreateRequest,
+        lightCleanup: Bool = false
+    ) async -> WatchRelay.CreateReply {
         guard let auth, let userId = auth.userId else {
             return .failure(
                 draftId: request.id,
@@ -102,7 +121,18 @@ final class WatchConnectivityService: NSObject {
             )
         }
 
-        let clipped = String(message.prefix(1_500))
+        // Watch voice uses lightCleanup; text drafts get full reconcile.
+        // Guard against AI cleanup returning a stub of a long message.
+        let cleaned: String
+        if lightCleanup {
+            cleaned = DictationProse.polish(message)
+        } else {
+            let reconciled = await DictationProse.reconcileFullText(message)
+            cleaned = (reconciled.count < max(12, message.count / 4))
+                ? DictationProse.polish(message)
+                : reconciled
+        }
+        let clipped = String(cleaned.prefix(1_500))
         let contact = Self.parseRecipient(request.recipient)
         let new = NewGratitude(
             authorId: userId,
@@ -156,9 +186,256 @@ final class WatchConnectivityService: NSObject {
         }
     }
 
+    /// Watch recorded audio → speech-to-text → same create path.
+    private func handleVoiceFile(at url: URL, draftId: UUID) async -> WatchRelay.CreateReply {
+        do {
+            let duration = await Self.audioDurationSeconds(at: url)
+            // Long clips: prefer cloud; on-device often keeps only the last phrase.
+            let preferOnDevice = duration > 0 && duration < 28
+            let transcript: String
+            do {
+                transcript = try await Self.transcribeAudioFile(at: url, preferOnDevice: preferOnDevice)
+            } catch {
+                transcript = try await Self.transcribeAudioFile(at: url, preferOnDevice: false)
+            }
+            let request = WatchRelay.CreateRequest(
+                id: draftId,
+                message: transcript,
+                recipient: nil
+            )
+            return await handleCreate(request, lightCleanup: true)
+        } catch {
+            let reply = WatchRelay.CreateReply.failure(
+                draftId: draftId,
+                code: "transcription",
+                message: error.localizedDescription
+            )
+            publishCreateResult(reply)
+            return reply
+        }
+    }
+
+    /// Transcribe a Watch voice file. Long clips are split — SFSpeech often only
+    /// returns the last utterance for multi-minute URL requests.
+    private static func transcribeAudioFile(at url: URL, preferOnDevice: Bool = true) async throws -> String {
+        let status = await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+            SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
+        }
+        guard status == .authorized else {
+            throw TranscriptionError.notAuthorized
+        }
+
+        let duration = await audioDurationSeconds(at: url)
+        let chunkLimit: Double = 45
+        if duration <= chunkLimit + 5 {
+            return try await transcribeSingleFile(at: url, preferOnDevice: preferOnDevice, timeoutSeconds: 120)
+        }
+
+        let chunkURLs = try await splitAudio(at: url, chunkSeconds: chunkLimit)
+        defer {
+            for chunk in chunkURLs {
+                try? FileManager.default.removeItem(at: chunk)
+            }
+        }
+
+        var combined = ""
+        for chunk in chunkURLs {
+            let piece = try await transcribeSingleFile(
+                at: chunk,
+                preferOnDevice: preferOnDevice,
+                timeoutSeconds: 90
+            )
+            combined = DictationProse.stitchPauseChunk(base: combined, addition: piece)
+        }
+        let trimmed = combined.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TranscriptionError.empty }
+        return trimmed
+    }
+
+    private static func transcribeSingleFile(
+        at url: URL,
+        preferOnDevice: Bool,
+        timeoutSeconds: Double
+    ) async throws -> String {
+        guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
+            throw TranscriptionError.unavailable
+        }
+
+        let request = SFSpeechURLRecognitionRequest(url: url)
+        // Partials keep a growing cumulative string; finals alone can be per-phrase.
+        request.shouldReportPartialResults = true
+        request.taskHint = .dictation
+        if preferOnDevice, recognizer.supportsOnDeviceRecognition {
+            request.requiresOnDeviceRecognition = true
+        } else {
+            request.requiresOnDeviceRecognition = false
+        }
+
+        final class Box: @unchecked Sendable {
+            var task: SFSpeechRecognitionTask?
+            var best = ""
+            var settled = false
+            var finishWork: DispatchWorkItem?
+        }
+        let box = Box()
+
+        let text: String = try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask {
+                try await withCheckedThrowingContinuation { (cont: CheckedContinuation<String, Error>) in
+                    let finish: (Result<String, Error>) -> Void = { result in
+                        guard !box.settled else { return }
+                        box.settled = true
+                        box.finishWork?.cancel()
+                        box.task?.cancel()
+                        cont.resume(with: result)
+                    }
+
+                    box.task = recognizer.recognitionTask(with: request) { result, error in
+                        if let result {
+                            let formatted = result.bestTranscription.formattedString
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            if formatted.count >= box.best.count {
+                                box.best = formatted
+                            }
+                        }
+
+                        if let error {
+                            let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !best.isEmpty {
+                                finish(.success(best))
+                            } else {
+                                finish(.failure(error))
+                            }
+                            return
+                        }
+
+                        guard let result, result.isFinal else { return }
+                        // Debounce — long files emit multiple finals; keep the longest.
+                        box.finishWork?.cancel()
+                        let work = DispatchWorkItem {
+                            let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !best.isEmpty {
+                                finish(.success(best))
+                            } else {
+                                finish(.failure(TranscriptionError.empty))
+                            }
+                        }
+                        box.finishWork = work
+                        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.45, execute: work)
+                    }
+                }
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(timeoutSeconds))
+                let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !best.isEmpty { return best }
+                throw TranscriptionError.timedOut
+            }
+            guard let value = try await group.next() else {
+                throw TranscriptionError.unavailable
+            }
+            group.cancelAll()
+            box.finishWork?.cancel()
+            box.task?.cancel()
+            return value
+        }
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TranscriptionError.empty }
+        return trimmed
+    }
+
+    private static func audioDurationSeconds(at url: URL) async -> Double {
+        let asset = AVURLAsset(url: url)
+        do {
+            let duration = try await asset.load(.duration)
+            let seconds = CMTimeGetSeconds(duration)
+            return seconds.isFinite ? seconds : 0
+        } catch {
+            return 0
+        }
+    }
+
+    private static func splitAudio(at url: URL, chunkSeconds: Double) async throws -> [URL] {
+        let total = await audioDurationSeconds(at: url)
+        guard total > 0 else { return [url] }
+
+        var urls: [URL] = []
+        var start: Double = 0
+        var index = 0
+        while start < total - 0.25 {
+            let end = min(start + chunkSeconds, total)
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent("watch-voice-chunk-\(UUID().uuidString)-\(index).m4a")
+            try await exportAudioSlice(source: url, start: start, end: end, to: dest)
+            urls.append(dest)
+            start = end
+            index += 1
+        }
+        return urls.isEmpty ? [url] : urls
+    }
+
+    private static func exportAudioSlice(
+        source: URL,
+        start: Double,
+        end: Double,
+        to dest: URL
+    ) async throws {
+        try? FileManager.default.removeItem(at: dest)
+        let asset = AVURLAsset(url: source)
+        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw TranscriptionError.unavailable
+        }
+        session.outputURL = dest
+        session.outputFileType = .m4a
+        let startTime = CMTime(seconds: start, preferredTimescale: 600)
+        let duration = CMTime(seconds: max(0.1, end - start), preferredTimescale: 600)
+        session.timeRange = CMTimeRange(start: startTime, duration: duration)
+
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            session.exportAsynchronously {
+                let status = session.status
+                let exportError = session.error
+                switch status {
+                case .completed:
+                    cont.resume()
+                case .failed, .cancelled:
+                    cont.resume(throwing: exportError ?? TranscriptionError.unavailable)
+                default:
+                    cont.resume(throwing: TranscriptionError.unavailable)
+                }
+            }
+        }
+    }
+
+    private enum TranscriptionError: LocalizedError {
+        case notAuthorized
+        case unavailable
+        case empty
+        case timedOut
+        case copyFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .notAuthorized:
+                return "Allow Speech Recognition on iPhone to save Watch thanks."
+            case .unavailable:
+                return "Speech recognition isn’t available right now."
+            case .empty:
+                return "Didn’t catch that — try speaking a bit longer."
+            case .timedOut:
+                return "Transcription timed out — keep iPhone unlocked nearby and try again."
+            case .copyFailed:
+                return "Couldn’t read the recording from Watch."
+            }
+        }
+    }
+
     private func publishCreateResult(_ reply: WatchRelay.CreateReply) {
         guard WCSession.isSupported(),
               let replyData = WatchRelay.encode(reply) else { return }
+        lastCreateResultData = replyData
+
         let session = WCSession.default
         guard session.activationState == .activated,
               session.isPaired,
@@ -174,6 +451,31 @@ final class WatchConnectivityService: NSObject {
             context[WatchRelay.authContextKey] = authData
         }
         try? session.updateApplicationContext(context)
+
+        // Queued delivery — survives better than application context alone.
+        if let userInfo = WatchRelay.createResultUserInfo(reply) {
+            session.transferUserInfo(userInfo)
+        }
+
+        // Fast path when Watch is reachable right now.
+        if session.isReachable, let userInfo = WatchRelay.createResultUserInfo(reply) {
+            session.sendMessage(userInfo, replyHandler: nil, errorHandler: { _ in })
+        }
+    }
+
+    private func beginVoiceBackgroundTask() {
+        endVoiceBackgroundTask()
+        voiceBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "watch-voice") { [weak self] in
+            Task { @MainActor in
+                self?.endVoiceBackgroundTask()
+            }
+        }
+    }
+
+    private func endVoiceBackgroundTask() {
+        guard voiceBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(voiceBackgroundTask)
+        voiceBackgroundTask = .invalid
     }
 
     private static func parseRecipient(_ raw: String?)
@@ -249,6 +551,41 @@ extension WatchConnectivityService: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         Task { @MainActor in
             _ = await processMessage(userInfo)
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        let fileURL = file.fileURL
+        let metadata = file.metadata ?? [:]
+        let draftId = (metadata[WatchRelay.voiceDraftIdKey] as? String).flatMap { UUID(uuidString: $0) }
+            ?? UUID()
+        let action = metadata[WatchRelay.actionKey] as? String
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("watch-voice-\(draftId.uuidString).m4a")
+        try? FileManager.default.removeItem(at: temp)
+
+        do {
+            try FileManager.default.copyItem(at: fileURL, to: temp)
+        } catch {
+            Task { @MainActor in
+                let reply = WatchRelay.CreateReply.failure(
+                    draftId: draftId,
+                    code: "copyFailed",
+                    message: TranscriptionError.copyFailed.localizedDescription
+                )
+                publishCreateResult(reply)
+            }
+            return
+        }
+
+        Task { @MainActor in
+            beginVoiceBackgroundTask()
+            defer {
+                try? FileManager.default.removeItem(at: temp)
+                endVoiceBackgroundTask()
+            }
+            guard action == WatchRelay.Action.createFromVoice.rawValue else { return }
+            _ = await handleVoiceFile(at: temp, draftId: draftId)
         }
     }
 

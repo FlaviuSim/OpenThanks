@@ -10,7 +10,9 @@ final class DeepLinkRouter {
         case claim(token: UUID)
         case gratitude(id: UUID)
         case slug(String)
-        case profile(username: String)
+        case profile(username: String, tab: ProfileTab?)
+        /// `/profile/{uuid}` (email fallback when username is missing).
+        case profileId(id: UUID, tab: ProfileTab?)
         /// Author's Pending Appreciations (optional `?resend=` highlight).
         case pendingSent(resendId: UUID?)
 
@@ -19,9 +21,27 @@ final class DeepLinkRouter {
             case .claim(let token): "claim-\(token.uuidString)"
             case .gratitude(let id): "gratitude-\(id.uuidString)"
             case .slug(let slug): "slug-\(slug)"
-            case .profile(let username): "profile-\(username)"
+            case .profile(let username, let tab):
+                "profile-\(username)-\(tab?.rawValue ?? "default")"
+            case .profileId(let id, let tab):
+                "profile-id-\(id.uuidString)-\(tab?.rawValue ?? "default")"
             case .pendingSent(let resendId):
                 "pending-sent-\(resendId?.uuidString ?? "all")"
+            }
+        }
+    }
+
+    enum ProfileTab: String, Equatable {
+        case received
+        case given
+        case inspired
+        case ripple
+
+        var profileSection: UserProfileView.Section {
+            switch self {
+            case .received: .received
+            case .given: .sent
+            case .inspired, .ripple: .ripple
             }
         }
     }
@@ -35,6 +55,11 @@ final class DeepLinkRouter {
     ]
 
     var destination: Destination?
+    /// When set, the next appreciation deep-link cover shows a pay-it-forward prompt
+    /// (used after accepting via a claim link).
+    var payItForwardFromName: String?
+    /// Parent appreciation id for ripple attribution when the nudge opens compose.
+    var payItForwardParentId: UUID?
 
     static func isUniversalLink(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(),
@@ -67,6 +92,41 @@ final class DeepLinkRouter {
 
     func clear() {
         destination = nil
+        payItForwardFromName = nil
+        payItForwardParentId = nil
+    }
+
+    /// Replace the current deep link (e.g. `/claim/{token}`) with the public
+    /// appreciation page (`/for/{slug}` or `/gratitude/{id}`).
+    func openAppreciation(
+        _ gratitude: Gratitude,
+        payItForwardFromName: String? = nil
+    ) {
+        // Swap the cover first; defer the nudge so it presents on the new page.
+        self.payItForwardFromName = nil
+        self.payItForwardParentId = nil
+        if let slug = gratitude.slug?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !slug.isEmpty {
+            destination = .slug(slug)
+        } else {
+            destination = .gratitude(id: gratitude.id)
+        }
+        guard let name = payItForwardFromName else { return }
+        let openedId = gratitude.id
+        let openedSlug = gratitude.slug
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            switch destination {
+            case .gratitude(let id) where id == openedId:
+                self.payItForwardParentId = openedId
+                self.payItForwardFromName = name
+            case .slug(let slug) where slug == openedSlug:
+                self.payItForwardParentId = openedId
+                self.payItForwardFromName = name
+            default:
+                break
+            }
+        }
     }
 
     /// `/gratitude/new` opens the create-appreciation sheet (not a detail cover).
@@ -124,13 +184,46 @@ final class DeepLinkRouter {
             // Author reminder emails: /pending?resend=<id> or legacy /sent?resend=<id>
             let resendId = UUID(uuidString: queryValue(url, name: "resend") ?? "")
             return .pendingSent(resendId: resendId)
+        case "profile":
+            guard parts.count >= 2, let id = UUID(uuidString: parts[1]) else { return nil }
+            return .profileId(id: id, tab: profileTab(from: url))
         default:
             guard parts.count == 1,
                   !reservedRoots.contains(first),
                   isPlausibleUsername(parts[0])
             else { return nil }
-            return .profile(username: parts[0].lowercased())
+            return .profile(username: parts[0].lowercased(), tab: profileTab(from: url))
         }
+    }
+
+    /// `?tab=inspired` (or given/received) on profile URLs.
+    static func profileTab(from url: URL) -> ProfileTab? {
+        guard let value = queryValue(url, name: "tab")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased(),
+              !value.isEmpty
+        else { return nil }
+        return ProfileTab(rawValue: value)
+    }
+
+    /// Weekly hearts email: `/{username}?tab=inspired` or `/profile/{id}?tab=inspired`
+    /// for the signed-in user should switch the Profile tab instead of a cover.
+    static func shouldOpenOwnInspiredTab(
+        _ url: URL,
+        username: String?,
+        userId: UUID?
+    ) -> Bool {
+        guard isUniversalLink(url) else { return false }
+        guard profileTab(from: url) == .inspired || profileTab(from: url) == .ripple else { return false }
+        let parts = pathParts(url)
+        guard let first = parts.first?.lowercased() else { return false }
+        if first == "profile" {
+            guard parts.count >= 2, let id = UUID(uuidString: parts[1]) else { return false }
+            return userId == id
+        }
+        guard parts.count == 1, isPlausibleUsername(parts[0]) else { return false }
+        guard let username, !username.isEmpty else { return false }
+        return username.lowercased() == parts[0].lowercased()
     }
 
     private static func pathParts(_ url: URL) -> [String] {

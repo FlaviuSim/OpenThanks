@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shown once after notification permission — evening thank-you nudges default on.
+/// Shown once after notifications + profile — last first-login gate for evening thank-you nudges.
 struct CalendarPermissionView: View {
     var onFinished: () -> Void
 

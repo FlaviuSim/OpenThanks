@@ -149,17 +149,53 @@ struct GratitudeLoaderView: View {
     @Environment(AuthService.self) private var auth
     @State private var gratitude: Gratitude?
     @State private var failed = false
+    @State private var showPayItForward = false
+    @State private var showCompose = false
 
     var body: some View {
         Group {
             if let gratitude {
                 if isPendingForCurrentUser(gratitude) {
-                    PendingAppreciationReviewView(gratitude: gratitude)
+                    PendingAppreciationReviewView(gratitude: gratitude) { accepted in
+                        withAnimation(Motion.note) {
+                            self.gratitude = accepted
+                            showPayItForward = true
+                        }
+                    }
                 } else {
-                    GratitudeDetailView(
-                        gratitude: gratitude,
-                        onOpenProfile: onOpenProfile
-                    )
+                    VStack(spacing: 0) {
+                        if showPayItForward {
+                            PayItForwardNudgeCard(
+                                fromName: gratitude.author?.fullName
+                                    ?? gratitude.author?.displayName,
+                                onThankSomeone: {
+                                    Analytics.capture(
+                                        "pay_it_forward_tapped",
+                                        [
+                                            "source": "claim_accept",
+                                            "parent_gratitude_id": gratitude.id.uuidString.lowercased(),
+                                        ]
+                                    )
+                                    showCompose = true
+                                    AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
+                                },
+                                onDismiss: {
+                                    withAnimation(Motion.note) {
+                                        showPayItForward = false
+                                    }
+                                    AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+                            .padding(.bottom, 4)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                        GratitudeDetailView(
+                            gratitude: gratitude,
+                            onOpenProfile: onOpenProfile
+                        )
+                    }
                 }
             } else if failed {
                 VStack(spacing: 10) {
@@ -175,6 +211,14 @@ struct GratitudeLoaderView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }
+        }
+        .composeCover(isPresented: $showCompose) {
+            ComposeView(
+                inspiredByGratitudeId: gratitude?.id,
+                inspiredByAuthorName: gratitude?.author?.fullName
+                    ?? gratitude?.author?.displayName,
+                analyticsSource: "post_accept_pay_it_forward"
+            )
         }
         .task {
             do { gratitude = try await GratitudeService.gratitude(id: gratitudeId) }

@@ -11,7 +11,6 @@ import FoundationModels
 enum AppreciationAI {
     enum Style: String, CaseIterable, Identifiable {
         case polish
-        case shorten
         case warmer
 
         var id: String { rawValue }
@@ -19,7 +18,6 @@ enum AppreciationAI {
         var buttonTitle: String {
             switch self {
             case .polish: "Polish"
-            case .shorten: "Shorten"
             case .warmer: "Make it warmer"
             }
         }
@@ -27,7 +25,6 @@ enum AppreciationAI {
         var busyTitle: String {
             switch self {
             case .polish: "Polishing…"
-            case .shorten: "Shortening…"
             case .warmer: "Warming up…"
             }
         }
@@ -287,7 +284,6 @@ enum AppreciationAI {
         let verb: String
         switch style {
         case .polish: verb = "Polish"
-        case .shorten: verb = "Shorten"
         case .warmer: verb = "Warm up"
         }
         let mustChange = forceChange
@@ -323,12 +319,6 @@ enum AppreciationAI {
             \(shared)
             Rewrite so it reads clearly and smoothly — polished but not cheesy.
             Fix awkward phrasing and tighten word choice while keeping roughly the same length.
-            """
-        case .shorten:
-            return """
-            \(shared)
-            Make it noticeably shorter and tighter — about half the words when possible.
-            Cut filler and repetition; keep the heart of the thank-you and concrete details.
             """
         case .warmer:
             return """
@@ -778,7 +768,7 @@ final class AppreciationDictation: ObservableObject {
 }
 
 /// Turns raw Apple Speech chunks into readable thank-you prose.
-private enum DictationProse {
+enum DictationProse {
     static func normalize(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }

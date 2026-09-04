@@ -541,8 +541,36 @@ final class OAuthPresentationContext: NSObject, ASWebAuthenticationPresentationC
 // MARK: - OTP + account
 
 extension AuthService {
+    /// App Store / Play Store review account — same as web (`auth-sign-in.tsx`).
+    /// Signs in with a fixed password so reviewers never need an inbox OTP.
+    static let testAccountEmail = "test@test.com"
+    private static let testAccountPassword = "PlayStoreTest2026!"
+
+    static func isTestAccountEmail(_ email: String) -> Bool {
+        normalizedEmail(email) == testAccountEmail
+    }
+
+    /// Password sign-in for the dedicated review account (no OTP email).
+    @discardableResult
+    func signInTestAccount() async -> Bool {
+        do {
+            _ = try await supabase.auth.signIn(
+                email: Self.testAccountEmail,
+                password: Self.testAccountPassword
+            )
+            await handleAuthSuccess(method: "email")
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func sendEmailCode(to email: String) async -> Bool {
         let email = Self.normalizedEmail(email)
+        if Self.isTestAccountEmail(email) {
+            return await signInTestAccount()
+        }
         do {
             try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: true)
             return true

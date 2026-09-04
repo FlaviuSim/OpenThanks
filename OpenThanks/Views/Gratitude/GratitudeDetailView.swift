@@ -34,6 +34,17 @@ struct GratitudeDetailView: View {
         AppreciationShareContent(gratitude: gratitude, voice: shareVoice)
     }
 
+    private var rippleChipTitle: String {
+        if let raw = gratitude.inspiredByParent?.author?.displayName {
+            let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !name.isEmpty {
+                let first = name.split(separator: " ").first.map(String.init) ?? name
+                return "Part of \(first)’s ripple"
+            }
+        }
+        return "Part of a ripple"
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -143,6 +154,28 @@ struct GratitudeDetailView: View {
                 }
             }
 
+            if let parentId = gratitude.inspiredByGratitudeId {
+                NavigationLink(value: GratitudeIdRoute(id: parentId)) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "water.waves")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(rippleChipTitle)
+                            .font(Theme.body(13, weight: .semibold))
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    .foregroundStyle(Theme.coral)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Theme.coral.opacity(0.12), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(rippleChipTitle)
+            }
+
             HStack(spacing: 12) {
                 Button(action: toggleHeart) {
                     HStack(spacing: 5) {
@@ -223,16 +256,16 @@ struct GratitudeDetailView: View {
             .disabled(preparingShare)
 
             Button {
-                UIPasteboard.general.string = shareContent.socialCaption
+                UIPasteboard.general.string = shareContent.url.absoluteString
                 withAnimation { linkCopied = true }
-                flashHint("Caption & link copied")
+                flashHint("Link copied")
                 Task {
                     try? await Task.sleep(for: .seconds(2.5))
                     withAnimation { linkCopied = false }
                 }
             } label: {
                 Label(
-                    linkCopied ? "Caption copied" : "Copy caption & link",
+                    linkCopied ? "Link copied" : "Copy link to appreciation",
                     systemImage: linkCopied ? "checkmark" : "doc.on.doc"
                 )
                 .font(Theme.body(14, weight: .medium))

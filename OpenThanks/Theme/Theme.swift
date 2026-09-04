@@ -406,8 +406,8 @@ struct AppreciationVisibilityNote: View {
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Text(isPrivate
-                     ? "Only you and the sender will see this if you accept."
-                     : "Anyone on OpenThanks can see this if you accept.")
+                     ? "Only you and the sender can see it"
+                     : "In the feed once you accept")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -443,7 +443,7 @@ struct PendingAppreciationsBanner: View {
                          : "\(count) appreciations still pending")
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("They haven't accepted it yet.")
+                    Text("No one has accepted it yet")
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.leading)

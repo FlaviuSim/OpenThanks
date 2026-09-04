@@ -74,6 +74,8 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var recipientName: String?
     var slug: String?
     var claimToken: UUID?
+    /// Parent appreciation that inspired this send (pay-it-forward / ripple).
+    var inspiredByGratitudeId: UUID?
     /// Claim notification delivery: sent | delivered | bounced | failed
     var recipientEmailStatus: String?
     var recipientEmailError: String?
@@ -82,6 +84,9 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var author: Profile?
     var recipient: Profile?
     var hearts: [CountHolder]?
+    /// Parent post when selected with an `inspiredByParent` embed.
+    /// Separate type — a recursive `Gratitude?` would give the struct infinite size.
+    var inspiredByParent: InspiredParent?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -97,9 +102,11 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case recipientPhone = "recipient_phone"
         case recipientName = "recipient_name"
         case claimToken = "claim_token"
+        case inspiredByGratitudeId = "inspired_by_gratitude_id"
         case recipientEmailStatus = "recipient_email_status"
         case recipientEmailError = "recipient_email_error"
         case author, recipient, hearts
+        case inspiredByParent
     }
 
     var emailDeliveryFailed: Bool {
@@ -117,6 +124,27 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var recipientDisplayName: String {
         recipient?.displayName ?? recipientName ?? recipientEmail ?? recipientPhone ?? "Someone"
     }
+
+    /// First name for SMS/email share drafts — never an email address.
+    var shareGreetingFirstName: String? {
+        let candidates = [recipient?.fullName, recipientName]
+        for raw in candidates {
+            guard let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !value.isEmpty,
+                  !value.contains("@")
+            else { continue }
+            return value.split(separator: " ").first.map(String.init)
+        }
+        return nil
+    }
+
+    /// Email for mailto `To:` — only when we have a real address.
+    var shareMailtoEmail: String? {
+        let value = recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value, !value.isEmpty, value.contains("@") else { return nil }
+        return value
+    }
+
     var mediaURL: URL? { AppConfig.mediaURL(from: mediaUrl) }
 
     /// Public post page on openthanks.com (matches the web app's route:
@@ -143,6 +171,30 @@ struct Gratitude: Codable, Identifiable, Hashable {
     }
 }
 
+/// Parent appreciation in a ripple chain (embed only — no nested parent).
+struct InspiredParent: Codable, Identifiable, Hashable {
+    let id: UUID
+    let authorId: UUID
+    let recipientId: UUID?
+    var message: String?
+    var visibility: GratitudeVisibility?
+    var author: Profile?
+    var recipient: Profile?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case authorId = "author_id"
+        case recipientId = "recipient_id"
+        case message, visibility, author, recipient
+    }
+
+    func isVisible(to viewerId: UUID?) -> Bool {
+        if visibility != .private { return true }
+        guard let viewerId else { return false }
+        return authorId == viewerId || recipientId == viewerId
+    }
+}
+
 struct CountHolder: Codable, Hashable { let count: Int }
 
 struct NewGratitude: Encodable {
@@ -156,6 +208,8 @@ struct NewGratitude: Encodable {
     let mediaUrl: String?
     let mediaType: String?
     let source: String
+    /// Parent appreciation for pay-it-forward / ripple attribution.
+    var inspiredByGratitudeId: UUID? = nil
 
     enum CodingKeys: String, CodingKey {
         case authorId = "author_id"
@@ -168,6 +222,7 @@ struct NewGratitude: Encodable {
         case mediaUrl = "media_url"
         case mediaType = "media_type"
         case source
+        case inspiredByGratitudeId = "inspired_by_gratitude_id"
     }
 }
 
@@ -234,7 +289,8 @@ struct AppNotification: Codable, Identifiable, Hashable {
             return "❤️ hearted your appreciation"
         case "gratitude_friday":
             let date = createdAt ?? Date()
-            return "✨ \(FridayPrompts.prompt(for: date).headline)"
+            let prompt = FridayPrompts.prompt(for: date)
+            return "\(prompt.emoji) \(prompt.headline)"
         case "pay_it_forward_reminder":
             return "🫶 Ready to pay it forward?"
         case "reply":
@@ -243,6 +299,16 @@ struct AppNotification: Codable, Identifiable, Hashable {
             return "🏆 You finished the challenge — unlock $30 to give away to a classroom."
         case "email_bounced":
             return "⚠️ Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
+        case "calendar_gratitude_nudge":
+            if let item = CalendarThankSuggestionStore.suggestion(id: id) {
+                let meeting = item.meetingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                if meeting.isEmpty {
+                    return "🤝 You met today — send a quick thanks?"
+                }
+                let short = meeting.count <= 40 ? meeting : String(meeting.prefix(37)) + "…"
+                return "🤝 You met about \(short) — send a quick thanks?"
+            }
+            return "🤝 Someone to thank from today"
         default:
             return type.replacingOccurrences(of: "_", with: " ")
         }
@@ -265,10 +331,11 @@ struct ProfileStats {
     var sent = 0
     var received = 0
     var inspired = 0   // distinct people who hearted accepted posts you sent or received (excl. self)
+    /// Accepted thanks that were inspired by an appreciation involving this profile.
+    var ripplesPassedOn = 0
 }
 
-/// A heart someone left on a post you sent or received — powers the
-/// "Inspired" tab on profiles (who was inspired, newest first).
+/// "Inspired" / Ripple tab — a heart on a post you sent or received.
 struct Inspiration: Codable, Identifiable, Hashable {
     let id: UUID
     let createdAt: Date?

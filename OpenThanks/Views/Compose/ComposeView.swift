@@ -19,6 +19,10 @@ struct ComposeView: View {
     var initialMessagePlaceholder: String? = nil
     /// App Group image from the Share Extension.
     var initialImageFileName: String? = nil
+    /// Parent appreciation for pay-it-forward / ripple attribution.
+    var inspiredByGratitudeId: UUID? = nil
+    /// Display name used when building an inspired-by placeholder.
+    var inspiredByAuthorName: String? = nil
     /// PostHog `source` for the compose funnel (matches web event names).
     var analyticsSource: String = "compose"
     var onSaved: ((Gratitude) -> Void)? = nil
@@ -51,6 +55,8 @@ struct ComposeView: View {
     @State private var activeEditing: Gratitude?
     @State private var polishing: AppreciationAI.Style?
     @State private var messageBeforeAI: String?
+    /// Queued chip insert for `MessageEditor` (places caret after the emoji).
+    @State private var pendingMessageInsert: MessageEditor.PendingInsert?
     @StateObject private var dictation = AppreciationDictation()
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
@@ -72,11 +78,18 @@ struct ComposeView: View {
     @State private var aiAvailable = false
 
     private let maxLength = 1500
-    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨", "💐"]
+    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
 
     private var messagePlaceholderText: String {
         let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let custom, !custom.isEmpty { return custom }
+        if inspiredByGratitudeId != nil {
+            let raw = inspiredByAuthorName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let first = (raw?.isEmpty == false)
+                ? (raw!.split(separator: " ").first.map(String.init) ?? raw!)
+                : "someone"
+            return "Thank someone who deserves it — inspired by \(first)’s appreciation for you."
+        }
         return "Thank you for..."
     }
 
@@ -143,46 +156,43 @@ struct ComposeView: View {
     }
 
     private var form: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                if isEditing {
                     intro
-
-                    recipientSection
-
-                    messageSection
-
-                    photoSection
-
-                    visibilitySection
-
-                    if let error {
-                        Text(error)
-                            .font(Theme.body(13))
-                            .foregroundStyle(.red)
-                            .padding(.horizontal, 4)
-                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 28)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .scrollDismissesKeyboard(.interactively)
-            .photosPicker(
-                isPresented: $showPhotosPicker,
-                selection: $photoItem,
-                matching: .any(of: [.images, .videos]),
-                photoLibrary: .shared()
-            )
 
-            sendBar
+                recipientSection
+
+                messageSection
+
+                photoSection
+
+                visibilitySection
+
+                if let error {
+                    Text(error)
+                        .font(Theme.body(13))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 4)
+                }
+
+                // CTA lives in scroll content so it isn’t pinned above the keyboard
+                // (which left a large empty band mid-screen while editing).
+                sendBar
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // LinkedIn/Google OAuth (and OTP) can leave a phantom keyboard inset that
-        // parks Create Appreciation mid-screen with empty space below. Ignore that
-        // safe-area and pad from real keyboard frames instead.
-        .keyboardBottomPadding()
+        .scrollDismissesKeyboard(.interactively)
+        .photosPicker(
+            isPresented: $showPhotosPicker,
+            selection: $photoItem,
+            matching: .any(of: [.images, .videos]),
+            photoLibrary: .shared()
+        )
         .background(Theme.background)
         .navigationTitle(isEditing ? "Edit Appreciation" : "New Appreciation")
         .navigationBarTitleDisplayMode(.inline)
@@ -191,14 +201,34 @@ struct ComposeView: View {
                 Button("Cancel", action: cancelCompose)
                     .foregroundStyle(Theme.textSecondary)
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                if sending {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Button(isEditing ? "Save Changes" : "Save") {
+                        messageFocused = false
+                        recipientFocused = false
+                        Task { await send() }
+                    }
+                    .font(Theme.body(16, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .disabled(!canSend)
+                }
+            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") {
                     messageFocused = false
                     recipientFocused = false
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
                 }
                 .font(Theme.body(16, weight: .semibold))
                 .foregroundStyle(Theme.coral)
+                .padding(.vertical, 8)
             }
         }
         .onAppear {
@@ -300,8 +330,8 @@ struct ComposeView: View {
     // MARK: Sections
 
     private var intro: some View {
-        Text(isEditing ? "Edit your appreciation" : "A few kind words can make someone's day")
-            .font(Theme.display(isEditing ? 26 : 22, weight: .semibold))
+        Text("Edit your appreciation")
+            .font(Theme.display(26, weight: .semibold))
             .foregroundStyle(Theme.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
@@ -309,19 +339,9 @@ struct ComposeView: View {
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Send To")
-                    .font(Theme.body(14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("Optional")
-                    .font(Theme.body(12, weight: .medium))
-                    .foregroundStyle(Theme.textTertiary)
-            }
-
-            Text("If you put in an email, we'll notify the recipient. Either way, you will get a link to share with the recipient so they can accept the appreciation.")
-                .font(Theme.body(13))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            Text("Recipient")
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
 
             VStack(alignment: .leading, spacing: 8) {
                 recipientFieldChrome
@@ -349,7 +369,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Email, OpenThanks Handle, or leave blank", text: $recipient)
+                TextField("Name or Email", text: $recipient)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.default)
@@ -559,7 +579,16 @@ struct ComposeView: View {
                         showVoice: true,
                         voiceListening: dictation.isListening,
                         voiceEnabled: voiceControlsEnabled,
-                        onToggleVoice: { Task { await toggleVoiceDictation() } }
+                        onToggleVoice: { Task { await toggleVoiceDictation() } },
+                        pendingInsert: pendingMessageInsert,
+                        onPendingInsertConsumed: { id in
+                            if pendingMessageInsert?.id == id {
+                                pendingMessageInsert = nil
+                            }
+                            if message.count > maxLength {
+                                message = String(message.prefix(maxLength))
+                            }
+                        }
                     )
                     .frame(minHeight: 160)
 
@@ -600,28 +629,22 @@ struct ComposeView: View {
                         aiChips
                     }
 
-                    HStack(alignment: .center, spacing: 10) {
-                        if messageBeforeAI != nil {
-                            Button("Undo") {
-                                if let previous = messageBeforeAI {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        message = previous
-                                        messageBeforeAI = nil
-                                    }
+                    if messageBeforeAI != nil {
+                        Button("Undo") {
+                            if let previous = messageBeforeAI {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    message = previous
+                                    messageBeforeAI = nil
                                 }
                             }
-                            .font(Theme.body(13, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
                         }
-
-                        Spacer(minLength: 8)
-
-                        Text("\(message.count)/\(maxLength)")
-                            .font(Theme.body(12).monospacedDigit())
-                            .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
                     }
                 }
-                .padding(12)
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
             }
         }
         .sheet(isPresented: $showAddLinkSheet) {
@@ -697,7 +720,7 @@ struct ComposeView: View {
     }
 
     private var photoSection: some View {
-        field(label: "Photo or video", hint: "Optional") {
+        field(label: nil, hint: nil) {
             if hasAttachedMedia {
                 ZStack(alignment: .topTrailing) {
                     mediaPreviewBody
@@ -759,14 +782,14 @@ struct ComposeView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(loadingPhoto ? "Preparing…" : "Add a photo or video")
+                            Text(loadingPhoto ? "Preparing…" : "Add a photo or video (optional)")
                                 .font(Theme.body(15, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
-                            Text(loadingPhoto
-                                 ? "Hang tight"
-                                 : "Photos can be cropped")
-                                .font(Theme.body(13))
-                                .foregroundStyle(Theme.textSecondary)
+                            if loadingPhoto {
+                                Text("Hang tight")
+                                    .font(Theme.body(13))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
                         }
                         Spacer(minLength: 0)
                         Image(systemName: "chevron.right")
@@ -799,13 +822,13 @@ struct ComposeView: View {
                     if let photoPreview {
                         Image(uiImage: photoPreview)
                             .resizable()
-                            .flexiblePhotoPreview(maxHeight: 420)
+                            .flexiblePhotoPreview(maxHeight: 240)
                             .overlay { Color.black.opacity(0.22) }
                     } else {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(Theme.surfaceRaised)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 220)
+                            .frame(height: 160)
                             .overlay {
                                 Image(systemName: "play.circle.fill")
                                     .font(.system(size: 44))
@@ -826,7 +849,7 @@ struct ComposeView: View {
             } label: {
                 Image(uiImage: photoPreview)
                     .resizable()
-                    .flexiblePhotoPreview(maxHeight: 420)
+                    .flexiblePhotoPreview(maxHeight: 240)
                     .overlay(alignment: .bottomLeading) {
                         Label("Tap to adjust", systemImage: "crop")
                             .font(Theme.body(12, weight: .semibold))
@@ -844,7 +867,7 @@ struct ComposeView: View {
             CachedAsyncImage(url: url, maxPixelSize: RemoteImageCache.feedMaxPixelSize) { image in
                 image
                     .resizable()
-                    .flexiblePhotoPreview(maxHeight: 420)
+                    .flexiblePhotoPreview(maxHeight: 240)
             } placeholder: {
                 ProgressView().tint(Theme.coral)
                     .frame(maxWidth: .infinity)
@@ -875,8 +898,8 @@ struct ComposeView: View {
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(visibility == .public
-                         ? "After the recipient accepts, anyone can see the post"
-                         : "Only you and the recipient can see this")
+                         ? "In the feed once they accept"
+                         : "Only you and the recipient can see")
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.leading)
@@ -901,57 +924,55 @@ struct ComposeView: View {
     }
 
     private var sendBar: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(Theme.hairline)
-                .frame(height: 0.5)
-
-            Button {
-                messageFocused = false
-                recipientFocused = false
-                Task { await send() }
-            } label: {
-                HStack(spacing: 8) {
-                    if sending {
-                        ProgressView()
-                            .tint(Color(hex: 0x2B1209))
-                    } else {
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 14, weight: .bold))
-                    }
-                    Text(sending
-                         ? (isEditing ? "Saving…" : "Sending…")
-                         : (isEditing ? "Save Changes" : "Create Appreciation"))
+        Button {
+            messageFocused = false
+            recipientFocused = false
+            Task { await send() }
+        } label: {
+            HStack(spacing: 8) {
+                if sending {
+                    ProgressView()
+                        .tint(Color(hex: 0x2B1209))
+                } else {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 14, weight: .bold))
                 }
+                Text(sending
+                     ? "Saving…"
+                     : (isEditing ? "Save Changes" : "Save Appreciation"))
             }
-            .buttonStyle(CTAButtonStyle(isLoading: sending))
-            .disabled(!canSend || sending)
-            .opacity(canSend || sending ? 1 : 0.45)
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 10)
         }
-        .background(Theme.background.opacity(0.96))
+        .buttonStyle(CTAButtonStyle(isLoading: sending))
+        .disabled(!canSend || sending)
+        .opacity(canSend || sending ? 1 : 0.45)
+        .padding(.top, 4)
     }
 
     // MARK: Message tools
 
     private var emojiShortcuts: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(quickEmojis, id: \.self) { emoji in
-                    Button {
-                        insertEmoji(emoji)
-                    } label: {
-                        Text(emoji)
-                            .font(.system(size: 22))
-                            .frame(width: 40, height: 40)
-                            .background(Theme.coralPale.opacity(0.5), in: Circle())
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(quickEmojis, id: \.self) { emoji in
+                        Button {
+                            insertEmoji(emoji)
+                        } label: {
+                            Text(emoji)
+                                .font(.system(size: 22))
+                                .frame(width: 40, height: 40)
+                                .background(Theme.coralPale.opacity(0.5), in: Circle())
+                        }
+                        .buttonStyle(ScalePressButtonStyle())
+                        .accessibilityLabel("Insert \(emoji)")
                     }
-                    .buttonStyle(ScalePressButtonStyle())
-                    .accessibilityLabel("Insert \(emoji)")
                 }
             }
+
+            Text("\(message.count)/\(maxLength)")
+                .font(Theme.body(12).monospacedDigit())
+                .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
+                .accessibilityLabel("\(message.count) of \(maxLength) characters")
         }
         .disabled(sending || polishing != nil || dictation.isListening)
     }
@@ -1061,19 +1082,21 @@ struct ComposeView: View {
     // MARK: Chrome helpers
 
     private func field(
-        label: String,
+        label: String? = nil,
         hint: String? = nil,
         @ViewBuilder content: () -> some View
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(label)
-                    .font(Theme.body(14, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                if let hint {
-                    Text(hint)
-                        .font(Theme.body(12, weight: .medium))
-                        .foregroundStyle(Theme.textTertiary)
+            if let label, !label.isEmpty {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(label)
+                        .font(Theme.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    if let hint {
+                        Text(hint)
+                            .font(Theme.body(12, weight: .medium))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
                 }
             }
             content()
@@ -1085,9 +1108,15 @@ struct ComposeView: View {
         }
     }
 
+    private var hasRecipient: Bool {
+        linkedRecipient != nil
+            || !recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var canSend: Bool {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty
+        return hasRecipient
+            && !trimmed.isEmpty
             && trimmed.count <= maxLength
             && !loadingPhoto
             && polishing == nil
@@ -1095,15 +1124,10 @@ struct ComposeView: View {
     }
 
     private func insertEmoji(_ emoji: String) {
+        guard polishing == nil, !dictation.isListening, !sending else { return }
         messageFocused = true
-        if message.isEmpty || message.hasSuffix(" ") || message.hasSuffix("\n") {
-            message += emoji
-        } else {
-            message += " \(emoji)"
-        }
-        if message.count > maxLength {
-            message = String(message.prefix(maxLength))
-        }
+        // Insert at the caret via MessageEditor so the cursor lands after the emoji.
+        pendingMessageInsert = MessageEditor.PendingInsert(text: emoji)
     }
 
     private func runAI(_ style: AppreciationAI.Style) async {
@@ -1529,7 +1553,8 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     mediaUrl: mediaUrl,
                     mediaType: mediaType,
-                    source: "ios"
+                    source: "ios",
+                    inspiredByGratitudeId: inspiredByGratitudeId
                 )
                 var result = try await GratitudeService.create(new)
                 if result.recipient == nil, let linked {
@@ -1553,6 +1578,13 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     source: analyticsSource
                 )
+                if let parentId = inspiredByGratitudeId {
+                    Analytics.capture("ripple_created", [
+                        "parent_gratitude_id": parentId.uuidString.lowercased(),
+                        "depth": 1,
+                        "source": analyticsSource,
+                    ])
+                }
                 sent = true
                 await refreshWidgetAfterSend()
                 if let userId = auth.userId {
@@ -1686,9 +1718,7 @@ struct SuccessView: View {
     }
 
     private var shareMessage: String {
-        let name = gratitude.recipientName?.split(separator: " ").first.map(String.init)
-            ?? gratitude.recipient?.fullName?.split(separator: " ").first.map(String.init)
-        let greeting = name.map { "Hey \($0)! " } ?? "Hey! "
+        let greeting = gratitude.shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
         let preview = Self.messagePreview(gratitude.message)
         let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
         return greeting
@@ -1717,13 +1747,13 @@ struct SuccessView: View {
 
     private var headline: String {
         hasDeliverableRecipient
-            ? "Your appreciation has been shared!"
-            : "Your appreciation has been created!"
+            ? "Your appreciation has been created!"
+            : "Your appreciation has been saved!"
     }
 
     private var subtitle: String {
         if hasDeliverableRecipient {
-            return "Send your own personalized note below so they can accept your appreciation."
+            return "We've notified the recipient but it would help if you share a personalized note with the link so they can accept it."
         }
         return "Share the link so they can open and accept your appreciation."
     }
@@ -1760,7 +1790,7 @@ struct SuccessView: View {
                                 title: "WhatsApp",
                                 systemImage: "phone.bubble.fill",
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
-                                    ?? "Share the link to accept"
+                                    ?? "Opens Whatsapp with the link"
                             ) {
                                 openWhatsApp()
                             }
@@ -1866,11 +1896,11 @@ struct SuccessView: View {
     }
 
     private func openMail() {
-        // Blank To is intentional when we only know the username — Mail lets
-        // the sender pick an address while keeping subject/body filled in.
+        // Email in To when known; name-only leaves To blank so Mail can pick an address.
+        // Body greets by name only — never by email address.
         var components = URLComponents()
         components.scheme = "mailto"
-        if let email = recipientEmail {
+        if let email = gratitude.shareMailtoEmail {
             components.path = email
         }
         components.queryItems = [
