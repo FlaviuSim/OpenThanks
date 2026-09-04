@@ -35,11 +35,11 @@ struct ProfileView: View {
 }
 
 /// Any user's profile: header, nonprofit spotlight, stats, and
-/// Ripple / Appreciations received / given — accepted posts only,
+/// Ripple Effect / Appreciations received / given — accepted posts only,
 /// private posts shown only to the people involved in them.
 struct UserProfileView: View {
     enum Section: String, CaseIterable {
-        case ripple = "Ripple"
+        case ripple = "Ripple Effect"
         case received = "Appreciations received"
         case sent = "Appreciations given"
     }
@@ -170,13 +170,13 @@ struct UserProfileView: View {
         ])
     }
 
-    private func openComposeFromRippleEmpty() {
+    private func openComposeFromRipple(source: String) {
         if isOwnProfile {
             composeUsesProfileRecipient = false
-            composeAnalyticsSource = "profile_ripple_empty"
+            composeAnalyticsSource = source
         } else {
             composeUsesProfileRecipient = true
-            composeAnalyticsSource = "profile_ripple_empty_thank"
+            composeAnalyticsSource = source
         }
         showCompose = true
     }
@@ -505,16 +505,14 @@ struct UserProfileView: View {
     }
 
     private var rippleList: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             if loaded && inspirations.isEmpty && ripplePassOns.isEmpty {
                 rippleEmptyState
             } else {
-                if !inspirations.isEmpty || !ripplePassOns.isEmpty {
-                    rippleHero
-                }
+                rippleStoryCard
 
                 if !inspirations.isEmpty {
-                    rippleSectionHeader("Inspired", systemImage: "heart.fill")
+                    rippleSectionHeader("Inspired", count: inspirations.count, systemImage: "heart.fill")
                     ForEach(inspirations) { ins in
                         HStack(alignment: .top, spacing: 12) {
                             ProfileAvatarLink(profile: ins.user, size: 40)
@@ -532,8 +530,10 @@ struct UserProfileView: View {
                     }
                 }
 
-                if !ripplePassOns.isEmpty {
-                    rippleSectionHeader("Passed on", systemImage: "water.waves")
+                rippleSectionHeader("Ripples", count: ripplePassOns.count, systemImage: "water.waves")
+                if ripplePassOns.isEmpty {
+                    rippleZeroExplainer
+                } else {
                     ForEach(ripplePassOns) { child in
                         HStack(alignment: .top, spacing: 12) {
                             ProfileAvatarLink(profile: child.author, size: 40)
@@ -545,55 +545,100 @@ struct UserProfileView: View {
                         .padding(14)
                         .card()
                     }
+                    if isOwnProfile {
+                        rippleKeepGoingCTA
+                    }
                 }
             }
         }
     }
 
-    private var rippleHero: some View {
+    /// Compact intro — story + chips, no tall empty hero.
+    private var rippleStoryCard: some View {
         let inspiredCount = inspirations.count
-        let passedCount = ripplePassOns.count
+        let rippleCount = ripplePassOns.count
         let reachedCount = ripplePassOns.filter { $0.inspiredByParent?.authorId == profile.id }.count
 
-        return VStack(spacing: 12) {
-            ZStack {
-                GratitudeRipple(trigger: loaded, size: 72)
-                Image(systemName: "water.waves")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
-            }
-            .frame(height: 88)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    GratitudeRipple(trigger: loaded, size: 44)
+                    Image(systemName: "water.waves")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                }
+                .frame(width: 44, height: 44)
 
-            HStack(spacing: 18) {
-                rippleStat(value: inspiredCount, label: "inspired")
-                rippleStat(value: passedCount, label: "passed on")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Kindness that keeps moving")
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(rippleStorySubtitle(inspired: inspiredCount, ripples: rippleCount, reached: reachedCount))
+                        .font(Theme.body(13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
-            if isOwnProfile, reachedCount > 0 {
-                Text(reachedCount == 1
-                     ? "Your thanks reached 1 more person"
-                     : "Your thanks reached \(reachedCount) more people")
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
+            HStack(spacing: 8) {
+                rippleChip(value: inspiredCount, label: "inspired", systemImage: "heart.fill")
+                rippleChip(value: rippleCount, label: rippleCount == 1 ? "ripple" : "ripples", systemImage: "water.waves")
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Theme.coral.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Theme.coral.opacity(0.18), lineWidth: 1)
+        )
     }
 
-    private func rippleStat(value: Int, label: String) -> some View {
-        VStack(spacing: 2) {
+    private func rippleStorySubtitle(inspired: Int, ripples: Int, reached: Int) -> String {
+        if isOwnProfile {
+            if ripples > 0, reached > 0 {
+                return reached == 1
+                    ? "Your thanks already reached 1 more person."
+                    : "Your thanks already reached \(reached) more people."
+            }
+            if inspired > 0 {
+                return "People are lighting up from your thanks — pass it on to grow the wave."
+            }
+            return "Hearts mean inspired. New thanks sparked by yours are ripples."
+        }
+        if ripples > 0 {
+            return "Thanks that grew from \(firstName)’s appreciations."
+        }
+        if inspired > 0 {
+            return "People inspired by \(firstName) — ripples appear when thanks spark new thanks."
+        }
+        return "Hearts mean inspired. New thanks sparked by theirs are ripples."
+    }
+
+    private func rippleChip(value: Int, label: String, systemImage: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.coral)
             Text("\(value)")
-                .font(Theme.display(22, weight: .semibold))
+                .font(Theme.body(13, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
+                .monospacedDigit()
             Text(label)
                 .font(Theme.body(12))
-                .foregroundStyle(Theme.textTertiary)
+                .foregroundStyle(Theme.textSecondary)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity)
+        .background(Theme.surface, in: Capsule())
+        .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
     }
 
-    private func rippleSectionHeader(_ title: String, systemImage: String) -> some View {
+    private func rippleSectionHeader(_ title: String, count: Int, systemImage: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
                 .font(.system(size: 12, weight: .semibold))
@@ -601,54 +646,147 @@ struct UserProfileView: View {
             Text(title)
                 .font(Theme.body(13, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
+            Text("\(count)")
+                .font(Theme.body(12, weight: .semibold))
+                .foregroundStyle(Theme.textTertiary)
+                .monospacedDigit()
             Spacer(minLength: 0)
         }
-        .padding(.top, 4)
+        .padding(.top, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(count)")
+    }
+
+    /// Shown when there are zero ripples — explains the idea + invites action.
+    private var rippleZeroExplainer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(isOwnProfile ? "What’s a ripple?" : "No ripples yet")
+                .font(Theme.body(15, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+
+            Text(isOwnProfile
+                 ? "A ripple is when someone receives thanks and then thanks someone new. That next appreciation carries the chain forward — one kind act becoming many."
+                 : "Ripples show up when thanks linked to \(firstName) inspire someone to thank someone new. It’s gratitude traveling person to person.")
+                .font(Theme.body(13))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                openComposeFromRipple(source: isOwnProfile ? "profile_ripple_zero" : "profile_ripple_zero_thank")
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(isOwnProfile ? "Start a ripple — thank someone" : "Thank \(firstName)")
+                        .font(Theme.body(14, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(Theme.ctaGradient, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+            .accessibilityLabel(isOwnProfile ? "Start a ripple — thank someone" : "Thank \(shownProfile.displayName)")
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private var rippleKeepGoingCTA: some View {
+        Button {
+            openComposeFromRipple(source: "profile_ripple_keep_going")
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Keep the ripple going")
+                        .font(Theme.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Thank someone new — grow the wave.")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .padding(14)
+            .card()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Keep the ripple going")
     }
 
     private var rippleEmptyState: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 16) {
             ZStack {
-                Circle()
-                    .stroke(Theme.coral.opacity(0.25), lineWidth: 1.5)
-                    .frame(width: 64, height: 64)
-                Circle()
-                    .stroke(Theme.coral.opacity(0.15), lineWidth: 1)
-                    .frame(width: 84, height: 84)
+                GratitudeRipple(trigger: loaded, size: 72)
                 Image(systemName: "water.waves")
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(Theme.coral)
             }
-            .padding(.top, 12)
+            .frame(height: 72)
+            .padding(.top, 4)
 
-            Text(isOwnProfile ? "Your ripple starts here" : "No ripple yet")
+            Text(isOwnProfile ? "Start your ripple effect" : "No ripple effect yet")
                 .font(Theme.display(20, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.center)
 
-            Text(isOwnProfile
-                 ? "When someone hearts an appreciation you sent or received, they show up as inspired. When you (or they) pass thanks to someone new after receiving one, that becomes part of the ripple — kindness that keeps moving."
-                 : "Hearts on \(shownProfile.displayName)’s appreciations and thanks passed on from them will collect here — a living trail of gratitude.")
-                .font(Theme.body(14))
-                .foregroundStyle(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 10) {
+                rippleExplainRow(
+                    icon: "heart.fill",
+                    title: "Inspired",
+                    body: "When someone hearts an appreciation you sent or received."
+                )
+                rippleExplainRow(
+                    icon: "water.waves",
+                    title: "Ripples",
+                    body: "When thanks spark new thanks — kindness passed person to person."
+                )
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
 
-            Button(action: openComposeFromRippleEmpty) {
+            Button {
+                openComposeFromRipple(source: isOwnProfile ? "profile_ripple_empty" : "profile_ripple_empty_thank")
+            } label: {
                 Text(isOwnProfile ? "Send an appreciation" : "Thank \(firstName)")
                     .font(Theme.body(15, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 10)
-                    .background(Theme.coral.opacity(0.12), in: Capsule())
-                    .overlay(Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Theme.ctaGradient, in: Capsule())
             }
             .buttonStyle(.plain)
-            .padding(.top, 4)
-            .padding(.bottom, 16)
+            .padding(.bottom, 8)
             .accessibilityLabel(isOwnProfile ? "Send an appreciation" : "Thank \(shownProfile.displayName)")
         }
-        .padding(.horizontal, 8)
+    }
+
+    private func rippleExplainRow(icon: String, title: String, body: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+                .frame(width: 22, height: 22)
+                .background(Theme.coral.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(body)
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func inspirationRow(_ ins: Inspiration) -> some View {

@@ -351,7 +351,7 @@ enum GratitudeService {
     }
 
     /// Accepted thanks that were inspired by an appreciation involving this profile
-    /// (parent author or recipient). Powers the Ripple tab “Passed on” list.
+    /// (parent author or recipient). Powers the Ripple Effect tab “Ripples” list.
     static func ripples(userId: UUID, viewerId: UUID?, limit: Int = 100) async throws -> [Gratitude] {
         // 1) Parent posts this profile sent or received (ids only).
         struct IdRow: Decodable { let id: UUID }
