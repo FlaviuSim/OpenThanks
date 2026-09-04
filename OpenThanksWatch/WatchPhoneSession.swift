@@ -130,7 +130,7 @@ final class WatchPhoneSession: NSObject {
         pendingVoiceFiles[draftId] = durable
 
         let transferWait = Task { await waitForFileTransfer(draftId: draftId, timeoutSeconds: 45) }
-        let resultWait = Task { await waitForCreateResult(draftId: draftId, timeoutSeconds: 90) }
+        let resultWait = Task { await waitForCreateResult(draftId: draftId, timeoutSeconds: 150) }
 
         session.transferFile(
             durable,

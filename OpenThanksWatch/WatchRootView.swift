@@ -311,9 +311,9 @@ struct WatchRecordView: View {
         ) { didSave, error in
             Task { @MainActor in
                 guard generation == self.inputGeneration else { return }
-                self.isPresentingRecorder = false
 
                 if let error {
+                    self.isPresentingRecorder = false
                     self.status = .failed(error.localizedDescription)
                     WKInterfaceDevice.current().play(.failure)
                     try? FileManager.default.removeItem(at: url)
@@ -321,12 +321,16 @@ struct WatchRecordView: View {
                 }
                 guard didSave else {
                     // User cancelled.
+                    self.isPresentingRecorder = false
                     self.status = .idle
                     try? FileManager.default.removeItem(at: url)
                     return
                 }
 
+                // Set Saving before dismissing the system recorder so the
+                // Record button doesn't flash underneath.
                 self.status = .saving
+                self.isPresentingRecorder = false
                 WKInterfaceDevice.current().play(.click)
                 let outcome = await self.session.sendVoiceAppreciation(fileURL: url)
                 // Session keeps a durable copy until transfer finishes.

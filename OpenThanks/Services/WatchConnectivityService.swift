@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 import Speech
 import UIKit
 import WatchConnectivity
@@ -99,7 +100,10 @@ final class WatchConnectivityService: NSObject {
 
     // MARK: - Create
 
-    private func handleCreate(_ request: WatchRelay.CreateRequest) async -> WatchRelay.CreateReply {
+    private func handleCreate(
+        _ request: WatchRelay.CreateRequest,
+        lightCleanup: Bool = false
+    ) async -> WatchRelay.CreateReply {
         guard let auth, let userId = auth.userId else {
             return .failure(
                 draftId: request.id,
@@ -117,8 +121,17 @@ final class WatchConnectivityService: NSObject {
             )
         }
 
-        // Run the same dictation cleanup as iOS compose before saving.
-        let cleaned = await DictationProse.reconcileFullText(message)
+        // Watch voice uses lightCleanup; text drafts get full reconcile.
+        // Guard against AI cleanup returning a stub of a long message.
+        let cleaned: String
+        if lightCleanup {
+            cleaned = DictationProse.polish(message)
+        } else {
+            let reconciled = await DictationProse.reconcileFullText(message)
+            cleaned = (reconciled.count < max(12, message.count / 4))
+                ? DictationProse.polish(message)
+                : reconciled
+        }
         let clipped = String(cleaned.prefix(1_500))
         let contact = Self.parseRecipient(request.recipient)
         let new = NewGratitude(
@@ -176,11 +189,13 @@ final class WatchConnectivityService: NSObject {
     /// Watch recorded audio → speech-to-text → same create path.
     private func handleVoiceFile(at url: URL, draftId: UUID) async -> WatchRelay.CreateReply {
         do {
+            let duration = await Self.audioDurationSeconds(at: url)
+            // Long clips: prefer cloud; on-device often keeps only the last phrase.
+            let preferOnDevice = duration > 0 && duration < 28
             let transcript: String
             do {
-                transcript = try await Self.transcribeAudioFile(at: url, preferOnDevice: true)
+                transcript = try await Self.transcribeAudioFile(at: url, preferOnDevice: preferOnDevice)
             } catch {
-                // On-device models may be missing — fall back to cloud once.
                 transcript = try await Self.transcribeAudioFile(at: url, preferOnDevice: false)
             }
             let request = WatchRelay.CreateRequest(
@@ -188,7 +203,7 @@ final class WatchConnectivityService: NSObject {
                 message: transcript,
                 recipient: nil
             )
-            return await handleCreate(request)
+            return await handleCreate(request, lightCleanup: true)
         } catch {
             let reply = WatchRelay.CreateReply.failure(
                 draftId: draftId,
@@ -200,6 +215,8 @@ final class WatchConnectivityService: NSObject {
         }
     }
 
+    /// Transcribe a Watch voice file. Long clips are split — SFSpeech often only
+    /// returns the last utterance for multi-minute URL requests.
     private static func transcribeAudioFile(at url: URL, preferOnDevice: Bool = true) async throws -> String {
         let status = await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
             SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
@@ -207,55 +224,188 @@ final class WatchConnectivityService: NSObject {
         guard status == .authorized else {
             throw TranscriptionError.notAuthorized
         }
+
+        let duration = await audioDurationSeconds(at: url)
+        let chunkLimit: Double = 45
+        if duration <= chunkLimit + 5 {
+            return try await transcribeSingleFile(at: url, preferOnDevice: preferOnDevice, timeoutSeconds: 120)
+        }
+
+        let chunkURLs = try await splitAudio(at: url, chunkSeconds: chunkLimit)
+        defer {
+            for chunk in chunkURLs {
+                try? FileManager.default.removeItem(at: chunk)
+            }
+        }
+
+        var combined = ""
+        for chunk in chunkURLs {
+            let piece = try await transcribeSingleFile(
+                at: chunk,
+                preferOnDevice: preferOnDevice,
+                timeoutSeconds: 90
+            )
+            combined = DictationProse.stitchPauseChunk(base: combined, addition: piece)
+        }
+        let trimmed = combined.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TranscriptionError.empty }
+        return trimmed
+    }
+
+    private static func transcribeSingleFile(
+        at url: URL,
+        preferOnDevice: Bool,
+        timeoutSeconds: Double
+    ) async throws -> String {
         guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
             throw TranscriptionError.unavailable
         }
 
         let request = SFSpeechURLRecognitionRequest(url: url)
-        request.shouldReportPartialResults = false
+        // Partials keep a growing cumulative string; finals alone can be per-phrase.
+        request.shouldReportPartialResults = true
         request.taskHint = .dictation
-        // Prefer on-device when available — more reliable while iPhone is backgrounded.
         if preferOnDevice, recognizer.supportsOnDeviceRecognition {
             request.requiresOnDeviceRecognition = true
         } else {
             request.requiresOnDeviceRecognition = false
         }
 
+        final class Box: @unchecked Sendable {
+            var task: SFSpeechRecognitionTask?
+            var best = ""
+            var settled = false
+            var finishWork: DispatchWorkItem?
+        }
+        let box = Box()
+
         let text: String = try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
                 try await withCheckedThrowingContinuation { (cont: CheckedContinuation<String, Error>) in
-                    final class Box {
-                        var task: SFSpeechRecognitionTask?
-                        var settled = false
-                    }
-                    let box = Box()
-                    box.task = recognizer.recognitionTask(with: request) { result, error in
+                    let finish: (Result<String, Error>) -> Void = { result in
                         guard !box.settled else { return }
+                        box.settled = true
+                        box.finishWork?.cancel()
+                        box.task?.cancel()
+                        cont.resume(with: result)
+                    }
+
+                    box.task = recognizer.recognitionTask(with: request) { result, error in
+                        if let result {
+                            let formatted = result.bestTranscription.formattedString
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            if formatted.count >= box.best.count {
+                                box.best = formatted
+                            }
+                        }
+
                         if let error {
-                            box.settled = true
-                            cont.resume(throwing: error)
+                            let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !best.isEmpty {
+                                finish(.success(best))
+                            } else {
+                                finish(.failure(error))
+                            }
                             return
                         }
+
                         guard let result, result.isFinal else { return }
-                        box.settled = true
-                        cont.resume(returning: result.bestTranscription.formattedString)
+                        // Debounce — long files emit multiple finals; keep the longest.
+                        box.finishWork?.cancel()
+                        let work = DispatchWorkItem {
+                            let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !best.isEmpty {
+                                finish(.success(best))
+                            } else {
+                                finish(.failure(TranscriptionError.empty))
+                            }
+                        }
+                        box.finishWork = work
+                        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.45, execute: work)
                     }
                 }
             }
             group.addTask {
-                try await Task.sleep(for: .seconds(40))
+                try await Task.sleep(for: .seconds(timeoutSeconds))
+                let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !best.isEmpty { return best }
                 throw TranscriptionError.timedOut
             }
             guard let value = try await group.next() else {
                 throw TranscriptionError.unavailable
             }
             group.cancelAll()
+            box.finishWork?.cancel()
+            box.task?.cancel()
             return value
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw TranscriptionError.empty }
         return trimmed
+    }
+
+    private static func audioDurationSeconds(at url: URL) async -> Double {
+        let asset = AVURLAsset(url: url)
+        do {
+            let duration = try await asset.load(.duration)
+            let seconds = CMTimeGetSeconds(duration)
+            return seconds.isFinite ? seconds : 0
+        } catch {
+            return 0
+        }
+    }
+
+    private static func splitAudio(at url: URL, chunkSeconds: Double) async throws -> [URL] {
+        let total = await audioDurationSeconds(at: url)
+        guard total > 0 else { return [url] }
+
+        var urls: [URL] = []
+        var start: Double = 0
+        var index = 0
+        while start < total - 0.25 {
+            let end = min(start + chunkSeconds, total)
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent("watch-voice-chunk-\(UUID().uuidString)-\(index).m4a")
+            try await exportAudioSlice(source: url, start: start, end: end, to: dest)
+            urls.append(dest)
+            start = end
+            index += 1
+        }
+        return urls.isEmpty ? [url] : urls
+    }
+
+    private static func exportAudioSlice(
+        source: URL,
+        start: Double,
+        end: Double,
+        to dest: URL
+    ) async throws {
+        try? FileManager.default.removeItem(at: dest)
+        let asset = AVURLAsset(url: source)
+        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw TranscriptionError.unavailable
+        }
+        session.outputURL = dest
+        session.outputFileType = .m4a
+        let startTime = CMTime(seconds: start, preferredTimescale: 600)
+        let duration = CMTime(seconds: max(0.1, end - start), preferredTimescale: 600)
+        session.timeRange = CMTimeRange(start: startTime, duration: duration)
+
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            session.exportAsynchronously {
+                let status = session.status
+                let exportError = session.error
+                switch status {
+                case .completed:
+                    cont.resume()
+                case .failed, .cancelled:
+                    cont.resume(throwing: exportError ?? TranscriptionError.unavailable)
+                default:
+                    cont.resume(throwing: TranscriptionError.unavailable)
+                }
+            }
+        }
     }
 
     private enum TranscriptionError: LocalizedError {
