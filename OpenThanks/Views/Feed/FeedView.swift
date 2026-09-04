@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct FeedView: View {
     enum Scope: String, CaseIterable {
@@ -51,10 +52,13 @@ struct FeedView: View {
     /// Collapses when scrolling down the feed; reveals on scroll up (Messages/Safari-style).
     @State private var searchBarVisible = true
     @State private var lastScrollOffset: CGFloat = 0
+    /// Skip direction changes caused by the bar itself collapsing/expanding.
+    @State private var ignoreScrollUntil: Date = .distantPast
     /// Non-empty query keeps the bar visible even while scrolling.
     @State private var searchHasQuery = false
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
+    private var isSearchChromeVisible: Bool { searchBarVisible || searchFocused || searchHasQuery }
     private var shouldKeepSearchVisible: Bool { searchFocused || searchHasQuery }
     private var usesSplitDetail: Bool { splitSelection != nil }
     private var showPayItForward: Binding<Bool> {
@@ -206,16 +210,14 @@ struct FeedView: View {
                 }
             )
             .padding(.horizontal, 20)
-            .padding(.top, (searchBarVisible || shouldKeepSearchVisible)
-                     ? (pendingSentCount > 0 ? 6 : 10)
-                     : 0)
-            .padding(.bottom, (searchBarVisible || shouldKeepSearchVisible) ? 2 : 0)
-            .frame(maxHeight: searchBarVisible || shouldKeepSearchVisible ? nil : 0, alignment: .top)
-            .opacity(searchBarVisible || shouldKeepSearchVisible ? 1 : 0)
+            .padding(.top, isSearchChromeVisible ? (pendingSentCount > 0 ? 6 : 10) : 0)
+            .padding(.bottom, isSearchChromeVisible ? 2 : 0)
+            .frame(maxHeight: isSearchChromeVisible ? nil : 0, alignment: .top)
+            .opacity(isSearchChromeVisible ? 1 : 0)
             .clipped()
-            .allowsHitTesting(searchBarVisible || shouldKeepSearchVisible)
-            .animation(.spring(response: 0.28, dampingFraction: 0.88), value: searchBarVisible)
-            .animation(.spring(response: 0.28, dampingFraction: 0.88), value: shouldKeepSearchVisible)
+            .allowsHitTesting(isSearchChromeVisible)
+            // No spring here — animating height fights UIScrollView offset tracking.
+            .animation(.easeInOut(duration: 0.18), value: isSearchChromeVisible)
             .zIndex(2)
 
             picker
@@ -411,20 +413,14 @@ struct FeedView: View {
                     .readableWidth()
                     .opacity(loading && !isEmpty ? 0.78 : 1)
                     .animation(.easeInOut(duration: 0.28), value: loading)
+                    // UIScrollView KVO — PreferenceKey on LazyVStack often never moves on iOS 17.
                     .background {
-                        GeometryReader { geo in
-                            Color.clear.preference(
-                                key: FeedScrollOffsetKey.self,
-                                value: -geo.frame(in: .named("homeFeedScroll")).minY
-                            )
+                        FeedScrollOffsetReader { offset in
+                            handleFeedScroll(to: offset)
                         }
                     }
                 }
-                .coordinateSpace(name: "homeFeedScroll")
                 .scrollDismissesKeyboard(.immediately)
-                .onPreferenceChange(FeedScrollOffsetKey.self) { newOffset in
-                    handleFeedScroll(from: lastScrollOffset, to: newOffset)
-                }
                 .onChange(of: scrollToPendingToken) { _, _ in
                     withAnimation(.easeInOut(duration: 0.35)) {
                         proxy.scrollTo("pendingThanks", anchor: .top)
@@ -440,7 +436,7 @@ struct FeedView: View {
     }
 
     /// Hide search while scrolling down; reveal on scroll up or at the top.
-    private func handleFeedScroll(from oldOffset: CGFloat, to newOffset: CGFloat) {
+    private func handleFeedScroll(to newOffset: CGFloat) {
         // Empty / loading states don't use this ScrollView — still keep bar up if active.
         if shouldKeepSearchVisible {
             if !searchBarVisible { searchBarVisible = true }
@@ -449,24 +445,36 @@ struct FeedView: View {
         }
 
         // Near the top — always show.
-        if newOffset <= 8 {
-            if !searchBarVisible { searchBarVisible = true }
+        if newOffset <= 12 {
+            setSearchBarVisible(true, trackingOffset: newOffset)
+            return
+        }
+
+        // Collapsing the chrome resizes the ScrollView and can fake a direction change.
+        if Date() < ignoreScrollUntil {
             lastScrollOffset = newOffset
             return
         }
 
         let delta = newOffset - lastScrollOffset
         // Ignore tiny jitter / rubber-band.
-        guard abs(delta) >= 12 else { return }
+        guard abs(delta) >= 8 else { return }
         lastScrollOffset = newOffset
 
         if delta > 0 {
             // Scrolling down (content moves up) — tuck search away.
-            if searchBarVisible { searchBarVisible = false }
+            setSearchBarVisible(false, trackingOffset: newOffset)
         } else {
             // Scrolling up — bring it back.
-            if !searchBarVisible { searchBarVisible = true }
+            setSearchBarVisible(true, trackingOffset: newOffset)
         }
+    }
+
+    private func setSearchBarVisible(_ visible: Bool, trackingOffset: CGFloat) {
+        lastScrollOffset = trackingOffset
+        guard searchBarVisible != visible else { return }
+        searchBarVisible = visible
+        ignoreScrollUntil = Date().addingTimeInterval(0.28)
     }
 
     private func selectPost(_ item: Gratitude) {
@@ -841,10 +849,66 @@ struct AvatarView: View {
 
 // MARK: - Home people search
 
-private struct FeedScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+/// Observes the enclosing UIScrollView contentOffset (reliable on iOS 17; PreferenceKey
+/// on LazyVStack often never updates while scrolling).
+private struct FeedScrollOffsetReader: UIViewRepresentable {
+    var onChange: (CGFloat) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onChange: onChange)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.isHidden = true
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.onChange = onChange
+        context.coordinator.attach(from: uiView)
+    }
+
+    final class Coordinator {
+        var onChange: (CGFloat) -> Void
+        private weak var scrollView: UIScrollView?
+        private var observation: NSKeyValueObservation?
+
+        init(onChange: @escaping (CGFloat) -> Void) {
+            self.onChange = onChange
+        }
+
+        func attach(from view: UIView) {
+            DispatchQueue.main.async { [weak self, weak view] in
+                guard let self, let view else { return }
+                guard self.scrollView == nil else { return }
+                guard let scroll = view.enclosingScrollView() else { return }
+                self.scrollView = scroll
+                self.observation = scroll.observe(\.contentOffset, options: [.new]) { [weak self] scrollView, _ in
+                    self?.onChange(scrollView.contentOffset.y)
+                }
+                self.onChange(scroll.contentOffset.y)
+            }
+        }
+
+        deinit {
+            observation?.invalidate()
+        }
+    }
+}
+
+private extension UIView {
+    func enclosingScrollView() -> UIScrollView? {
+        var current: UIView? = self
+        while let view = current {
+            if let scroll = view as? UIScrollView {
+                return scroll
+            }
+            current = view.superview
+        }
+        return nil
     }
 }
 

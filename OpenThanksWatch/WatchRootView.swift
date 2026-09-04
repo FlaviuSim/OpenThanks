@@ -51,6 +51,8 @@ struct WatchRecordView: View {
     @State private var inputGeneration = 0
     @State private var status: Status = .idle
     @State private var pendingWaiting = 0
+    /// Shown only if WatchKit can't present the dictation sheet.
+    @State private var showTypeFallback = false
 
     private enum Status: Equatable {
         case idle
@@ -121,28 +123,39 @@ struct WatchRecordView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
 
-            // TextFieldLink is the reliable SwiftUI path on watchOS 10+
-            // (no dependency on WKInterfaceController being non-nil).
-            TextFieldLink(prompt: Text("Say your thanks")) {
-                VStack(spacing: 8) {
-                    Image(systemName: "waveform")
-                        .font(.system(size: 28, weight: .semibold))
-                    Text("Record a thanks")
-                        .font(.system(.headline, design: .rounded))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-                .background(watchCoral, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            } onSubmit: { spoken in
-                let text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !text.isEmpty else { return }
-                Task { await saveMessage(text) }
+            // Prefer WatchKit dictation sheet (mic-first). TextFieldLink opens the
+            // QWERTY / scribble keyboard and is only a last-resort fallback.
+            Button(action: startRecording) {
+                recordButtonLabel
             }
             .buttonStyle(.plain)
             .disabled(isPresentingInput)
             .accessibilityLabel("Record a thanks")
+
+            if showTypeFallback {
+                TextFieldLink(prompt: Text("Say your thanks")) {
+                    Text("Or type instead")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } onSubmit: { spoken in
+                    handleSpokenInput(spoken)
+                }
+                .buttonStyle(.plain)
+            }
         }
+    }
+
+    private var recordButtonLabel: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "waveform")
+                .font(.system(size: 28, weight: .semibold))
+            Text("Record a thanks")
+                .font(.system(.headline, design: .rounded))
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(watchCoral, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var savingContent: some View {
@@ -219,16 +232,21 @@ struct WatchRecordView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextFieldLink(prompt: Text("Say your thanks")) {
-                Text("Try again")
-                    .font(.caption)
-                    .foregroundStyle(watchCoral)
-            } onSubmit: { spoken in
-                let text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !text.isEmpty else { return }
-                Task { await saveMessage(text) }
+            Button("Try again", action: startRecording)
+                .font(.caption)
+                .foregroundStyle(watchCoral)
+                .buttonStyle(.plain)
+
+            if showTypeFallback {
+                TextFieldLink(prompt: Text("Say your thanks")) {
+                    Text("Or type instead")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } onSubmit: { spoken in
+                    handleSpokenInput(spoken)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -289,19 +307,33 @@ struct WatchRecordView: View {
         try? await Task.sleep(for: .milliseconds(350))
         guard scenePhase == .active, !isPresentingInput else { return }
         if case .saving = status { return }
+        startRecording()
+    }
+
+    /// Mic-first dictation sheet (product intent). Keyboard is only a fallback.
+    private func startRecording() {
+        status = .idle
         presentSystemDictation()
     }
 
-    /// Used for notification auto-start. Manual taps use TextFieldLink (more reliable on older watches).
+    private func handleSpokenInput(_ spoken: String) {
+        let text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        showTypeFallback = false
+        Task { await saveMessage(text) }
+    }
+
     private func presentSystemDictation() {
         guard !isPresentingInput else { return }
         guard scenePhase == .active else { return }
         guard let controller = textInputController() else {
-            // Can't auto-present — leave idle so the person can tap Record.
+            // Rare on modern watchOS hosting — offer type-in as a backup.
+            showTypeFallback = true
             status = .idle
             return
         }
 
+        showTypeFallback = false
         isPresentingInput = true
         inputGeneration += 1
         let generation = inputGeneration
