@@ -86,7 +86,7 @@ struct UserProfileView: View {
                 header
                 if shownProfile.favoriteNonprofitName != nil { nonprofitCard }
                 sectionSwitcher
-                if isOwnProfile, pendingSentCount > 0 {
+                if section != .ripple, isOwnProfile, pendingSentCount > 0 {
                     PendingAppreciationsBanner(count: pendingSentCount)
                 }
                 sectionContent
