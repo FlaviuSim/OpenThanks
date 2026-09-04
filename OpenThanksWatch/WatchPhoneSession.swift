@@ -88,6 +88,74 @@ final class WatchPhoneSession: NSObject {
         }
     }
 
+    /// Sends recorded voice to iPhone for transcription + Pending save.
+    func sendVoiceAppreciation(fileURL: URL) async -> SendOutcome {
+        guard isSignedIn else {
+            return .failed("Sign in on iPhone to save thanks.")
+        }
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            return .failed("Recording missing — try again.")
+        }
+
+        let draftId = UUID()
+        let session = WCSession.default
+        guard session.activationState == .activated else {
+            return .failed("Watch isn’t connected yet — open OpenThanks on iPhone.")
+        }
+
+        sendingIds.insert(draftId)
+        defer { sendingIds.remove(draftId) }
+
+        let waitTask = Task { await waitForCreateResult(draftId: draftId, timeoutSeconds: 75) }
+        session.transferFile(
+            fileURL,
+            metadata: [
+                WatchRelay.actionKey: WatchRelay.Action.createFromVoice.rawValue,
+                WatchRelay.voiceDraftIdKey: draftId.uuidString,
+            ]
+        )
+
+        if let reply = await waitTask.value {
+            if reply.ok {
+                WatchDraftQueue.remove(draftId)
+                return .sent
+            }
+            return .failed(reply.errorMessage ?? "Couldn't save. Try again.")
+        }
+
+        // File is queued to the phone — result may arrive later via application context.
+        return .queued("Sending to iPhone — keep OpenThanks open nearby.")
+    }
+
+    enum SendOutcome: Equatable {
+        case sent
+        case queued(String)
+        case failed(String)
+    }
+
+    private var createResultWaiters: [UUID: CheckedContinuation<WatchRelay.CreateReply?, Never>] = [:]
+
+    private func waitForCreateResult(draftId: UUID, timeoutSeconds: Double) async -> WatchRelay.CreateReply? {
+        await withCheckedContinuation { (cont: CheckedContinuation<WatchRelay.CreateReply?, Never>) in
+            createResultWaiters[draftId] = cont
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(timeoutSeconds))
+                if let pending = createResultWaiters.removeValue(forKey: draftId) {
+                    pending.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    private func fulfillCreateResult(_ reply: WatchRelay.CreateReply) {
+        if let waiter = createResultWaiters.removeValue(forKey: reply.draftId) {
+            waiter.resume(returning: reply)
+        }
+        if reply.ok {
+            WatchDraftQueue.remove(reply.draftId)
+        }
+    }
+
     func flushQueueIfPossible() async {
         guard isSignedIn, WCSession.default.isReachable else { return }
         for draft in WatchDraftQueue.all() {
@@ -102,12 +170,6 @@ final class WatchPhoneSession: NSObject {
                 break
             }
         }
-    }
-
-    enum SendOutcome: Equatable {
-        case sent
-        case queued(String)
-        case failed(String)
     }
 
     private func sendCreateMessage(_ draft: WatchRelay.CreateRequest) async throws -> WatchRelay.CreateReply {
@@ -144,9 +206,8 @@ final class WatchPhoneSession: NSObject {
         if let auth = WatchRelay.decode(WatchRelay.AuthContext.self, fromAny: context[WatchRelay.authContextKey]) {
             self.auth = auth
         }
-        if let result = WatchRelay.decode(WatchRelay.CreateReply.self, fromAny: context[WatchRelay.createResultKey]),
-           result.ok {
-            WatchDraftQueue.remove(result.draftId)
+        if let result = WatchRelay.decode(WatchRelay.CreateReply.self, fromAny: context[WatchRelay.createResultKey]) {
+            fulfillCreateResult(result)
         }
     }
 }

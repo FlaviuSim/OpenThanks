@@ -1,4 +1,5 @@
 import Foundation
+import Speech
 import WatchConnectivity
 
 /// iPhone side of Watch Connectivity: pushes auth context and creates appreciations.
@@ -158,6 +159,82 @@ final class WatchConnectivityService: NSObject {
         }
     }
 
+    /// Watch recorded audio → speech-to-text → same create path.
+    private func handleVoiceFile(at url: URL, draftId: UUID) async -> WatchRelay.CreateReply {
+        do {
+            let transcript = try await Self.transcribeAudioFile(at: url)
+            let request = WatchRelay.CreateRequest(
+                id: draftId,
+                message: transcript,
+                recipient: nil
+            )
+            return await handleCreate(request)
+        } catch {
+            let reply = WatchRelay.CreateReply.failure(
+                draftId: draftId,
+                code: "transcription",
+                message: error.localizedDescription
+            )
+            publishCreateResult(reply)
+            return reply
+        }
+    }
+
+    private static func transcribeAudioFile(at url: URL) async throws -> String {
+        let status = await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+            SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0) }
+        }
+        guard status == .authorized else {
+            throw TranscriptionError.notAuthorized
+        }
+        guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
+            throw TranscriptionError.unavailable
+        }
+
+        let request = SFSpeechURLRecognitionRequest(url: url)
+        request.shouldReportPartialResults = false
+        request.taskHint = .dictation
+        if recognizer.supportsOnDeviceRecognition {
+            request.requiresOnDeviceRecognition = false
+        }
+
+        let text: String = try await withCheckedThrowingContinuation { cont in
+            var settled = false
+            recognizer.recognitionTask(with: request) { result, error in
+                guard !settled else { return }
+                if let error {
+                    settled = true
+                    cont.resume(throwing: error)
+                    return
+                }
+                guard let result, result.isFinal else { return }
+                settled = true
+                cont.resume(returning: result.bestTranscription.formattedString)
+            }
+        }
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TranscriptionError.empty }
+        return trimmed
+    }
+
+    private enum TranscriptionError: LocalizedError {
+        case notAuthorized
+        case unavailable
+        case empty
+
+        var errorDescription: String? {
+            switch self {
+            case .notAuthorized:
+                return "Allow Speech Recognition on iPhone to save Watch thanks."
+            case .unavailable:
+                return "Speech recognition isn’t available right now."
+            case .empty:
+                return "Didn’t catch that — try speaking a bit longer."
+            }
+        }
+    }
+
     private func publishCreateResult(_ reply: WatchRelay.CreateReply) {
         guard WCSession.isSupported(),
               let replyData = WatchRelay.encode(reply) else { return }
@@ -251,6 +328,25 @@ extension WatchConnectivityService: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         Task { @MainActor in
             _ = await processMessage(userInfo)
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        let fileURL = file.fileURL
+        let metadata = file.metadata ?? [:]
+        // Copy out of the incoming inbox before returning — system may delete it.
+        let draftId = (metadata[WatchRelay.voiceDraftIdKey] as? String).flatMap { UUID(uuidString: $0) }
+            ?? UUID()
+        let action = metadata[WatchRelay.actionKey] as? String
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("watch-voice-\(draftId.uuidString).m4a")
+        try? FileManager.default.removeItem(at: temp)
+        try? FileManager.default.copyItem(at: fileURL, to: temp)
+
+        Task { @MainActor in
+            defer { try? FileManager.default.removeItem(at: temp) }
+            guard action == WatchRelay.Action.createFromVoice.rawValue else { return }
+            _ = await handleVoiceFile(at: temp, draftId: draftId)
         }
     }
 

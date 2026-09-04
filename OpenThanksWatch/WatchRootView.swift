@@ -46,16 +46,13 @@ struct WatchRecordView: View {
     @Environment(WatchPhoneSession.self) private var session
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Prevents overlapping `presentTextInputController` calls.
-    @State private var isPresentingInput = false
-    @State private var inputGeneration = 0
+    @State private var capture = WatchVoiceCapture()
     @State private var status: Status = .idle
     @State private var pendingWaiting = 0
-    /// Shown only if WatchKit can't present the dictation sheet.
-    @State private var showTypeFallback = false
 
     private enum Status: Equatable {
         case idle
+        case recording
         case saving
         case saved
         case queued(String)
@@ -68,6 +65,8 @@ struct WatchRecordView: View {
                 switch status {
                 case .idle:
                     idleContent
+                case .recording:
+                    recordingContent
                 case .saving:
                     savingContent
                 case .saved:
@@ -122,33 +121,43 @@ struct WatchRecordView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
 
-            // Prefer WatchKit dictation sheet (mic-first). TextFieldLink opens the
-            // QWERTY / scribble keyboard and is only a last-resort fallback.
-            Button(action: startRecording) {
-                recordButtonLabel
+            Button {
+                Task { await startRecording() }
+            } label: {
+                recordButtonLabel(title: "Record a thanks", systemImage: "waveform")
             }
             .buttonStyle(.plain)
-            .disabled(isPresentingInput)
             .accessibilityLabel("Record a thanks")
-
-            if showTypeFallback {
-                TextFieldLink(prompt: Text("Say your thanks")) {
-                    Text("Or type instead")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } onSubmit: { spoken in
-                    handleSpokenInput(spoken)
-                }
-                .buttonStyle(.plain)
-            }
         }
     }
 
-    private var recordButtonLabel: some View {
+    private var recordingContent: some View {
+        VStack(spacing: 14) {
+            Text("Listening…")
+                .font(.system(.headline, design: .rounded))
+                .foregroundStyle(watchCoral)
+
+            Text("Tap when you’re done.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                Task { await finishRecording() }
+            } label: {
+                recordButtonLabel(title: "Stop & save", systemImage: "stop.fill")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Stop recording and save")
+        }
+    }
+
+    private func recordButtonLabel(title: String, systemImage: String) -> some View {
         VStack(spacing: 8) {
-            Image(systemName: "waveform")
+            Image(systemName: systemImage)
                 .font(.system(size: 28, weight: .semibold))
-            Text("Record a thanks")
+                .symbolEffect(.pulse, isActive: status == .recording)
+            Text(title)
                 .font(.system(.headline, design: .rounded))
         }
         .foregroundStyle(.white)
@@ -165,6 +174,10 @@ struct WatchRecordView: View {
             Text("Saving…")
                 .font(.system(.headline, design: .rounded))
                 .foregroundStyle(.secondary)
+            Text("iPhone is turning your voice into text.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
@@ -231,21 +244,12 @@ struct WatchRecordView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button("Try again", action: startRecording)
-                .font(.caption)
-                .foregroundStyle(watchCoral)
-                .buttonStyle(.plain)
-
-            if showTypeFallback {
-                TextFieldLink(prompt: Text("Say your thanks")) {
-                    Text("Or type instead")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } onSubmit: { spoken in
-                    handleSpokenInput(spoken)
-                }
-                .buttonStyle(.plain)
+            Button("Try again") {
+                Task { await startRecording() }
             }
+            .font(.caption)
+            .foregroundStyle(watchCoral)
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -280,112 +284,68 @@ struct WatchRecordView: View {
     private func handleScenePhase(_ phase: ScenePhase) {
         switch phase {
         case .active:
-            isPresentingInput = false
             if case .saving = status { status = .failed("Interrupted — please try again.") }
             Task { await session.flushQueueIfPossible() }
             Task { await autoStartRecordingIfNeeded() }
-        case .inactive, .background:
-            dismissVoiceInputIfNeeded()
+        case .inactive:
+            break
+        case .background:
+            if status == .recording {
+                capture.stopDiscarding()
+                status = .idle
+            }
         @unknown default:
             break
         }
     }
 
-    private func dismissVoiceInputIfNeeded() {
-        guard isPresentingInput else { return }
-        textInputController()?.dismissTextInputController()
-        isPresentingInput = false
-    }
-
     // MARK: - Recording
 
-    /// Notification / widget / deep link — jump straight into dictation when possible.
     private func autoStartRecordingIfNeeded() async {
         guard session.pendingAutoRecord else { return }
         session.pendingAutoRecord = false
         try? await Task.sleep(for: .milliseconds(350))
-        guard scenePhase == .active, !isPresentingInput else { return }
-        if case .saving = status { return }
-        startRecording()
-    }
-
-    /// Mic-first dictation sheet (product intent). Keyboard is only a fallback.
-    private func startRecording() {
-        status = .idle
-        Task { @MainActor in
-            await presentSystemDictationWithRetry()
-        }
-    }
-
-    private func handleSpokenInput(_ spoken: String) {
-        let text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        showTypeFallback = false
-        Task { await saveMessage(text) }
-    }
-
-    /// Retries finding the WatchKit host — SwiftUI can briefly report nil right after appear.
-    private func presentSystemDictationWithRetry() async {
-        guard !isPresentingInput else { return }
         guard scenePhase == .active else { return }
+        if case .saving = status { return }
+        if status == .recording { return }
+        await startRecording()
+    }
 
-        for attempt in 0..<6 {
-            if let controller = textInputController() {
-                presentSystemDictation(on: controller)
-                return
-            }
-            if attempt < 5 {
-                try? await Task.sleep(for: .milliseconds(120))
-            }
-        }
-
-        // Last resort only — TextFieldLink is the keyboard / scribble path.
-        showTypeFallback = true
+    private func startRecording() async {
+        guard status != .recording, status != .saving else { return }
         status = .idle
-    }
 
-    private func presentSystemDictation(on controller: WKInterfaceController) {
-        showTypeFallback = false
-        isPresentingInput = true
-        inputGeneration += 1
-        let generation = inputGeneration
+        let granted = await WatchVoiceCapture.requestPermission()
+        guard granted else {
+            status = .failed(WatchVoiceCapture.CaptureError.micDenied.localizedDescription)
+            return
+        }
 
-        // `nil` suggestions + `.plain` is what tells WatchKit to open dictation
-        // (not the input picker / TextFieldLink keyboard). Empty array `[]` is wrong.
-        let suggestions: [String]? = nil
-        controller.presentTextInputController(
-            withSuggestions: suggestions,
-            allowedInputMode: .plain
-        ) { result in
-            Task { @MainActor in
-                guard generation == self.inputGeneration else { return }
-                self.isPresentingInput = false
-                guard let items = result as? [String],
-                      let text = items.first?
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
-                      !text.isEmpty
-                else { return }
-                await self.saveMessage(text)
-            }
+        do {
+            try capture.start()
+            status = .recording
+            WKInterfaceDevice.current().play(.start)
+        } catch {
+            status = .failed(error.localizedDescription)
+            WKInterfaceDevice.current().play(.failure)
         }
     }
 
-    /// Prefer the modern app controller; fall back for older watchOS hosting.
-    private func textInputController() -> WKInterfaceController? {
-        if let controller = WKApplication.shared().visibleInterfaceController {
-            return controller
+    private func finishRecording() async {
+        guard status == .recording else { return }
+        guard let url = capture.stop() else {
+            status = .failed("Didn’t catch that — try speaking a bit longer.")
+            WKInterfaceDevice.current().play(.failure)
+            return
         }
-        return WKExtension.shared().visibleInterfaceController
-    }
 
-    // MARK: - Save
-
-    private func saveMessage(_ raw: String) async {
-        let clipped = String(raw.prefix(WatchRelay.watchMessageMaxLength))
         status = .saving
         WKInterfaceDevice.current().play(.click)
 
-        let outcome = await session.sendAppreciation(message: clipped, recipient: nil)
+        let outcome = await session.sendVoiceAppreciation(fileURL: url)
+        // Best-effort cleanup of temp audio.
+        try? FileManager.default.removeItem(at: url)
+
         switch outcome {
         case .sent:
             status = .saved
