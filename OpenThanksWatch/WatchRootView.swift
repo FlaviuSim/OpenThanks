@@ -313,7 +313,9 @@ struct WatchRecordView: View {
     /// Mic-first dictation sheet (product intent). Keyboard is only a fallback.
     private func startRecording() {
         status = .idle
-        presentSystemDictation()
+        Task { @MainActor in
+            await presentSystemDictationWithRetry()
+        }
     }
 
     private func handleSpokenInput(_ spoken: String) {
@@ -323,23 +325,37 @@ struct WatchRecordView: View {
         Task { await saveMessage(text) }
     }
 
-    private func presentSystemDictation() {
+    /// Retries finding the WatchKit host — SwiftUI can briefly report nil right after appear.
+    private func presentSystemDictationWithRetry() async {
         guard !isPresentingInput else { return }
         guard scenePhase == .active else { return }
-        guard let controller = textInputController() else {
-            // Rare on modern watchOS hosting — offer type-in as a backup.
-            showTypeFallback = true
-            status = .idle
-            return
+
+        for attempt in 0..<6 {
+            if let controller = textInputController() {
+                presentSystemDictation(on: controller)
+                return
+            }
+            if attempt < 5 {
+                try? await Task.sleep(for: .milliseconds(120))
+            }
         }
 
+        // Last resort only — TextFieldLink is the keyboard / scribble path.
+        showTypeFallback = true
+        status = .idle
+    }
+
+    private func presentSystemDictation(on controller: WKInterfaceController) {
         showTypeFallback = false
         isPresentingInput = true
         inputGeneration += 1
         let generation = inputGeneration
 
+        // `nil` suggestions + `.plain` is what tells WatchKit to open dictation
+        // (not the input picker / TextFieldLink keyboard). Empty array `[]` is wrong.
+        let suggestions: [String]? = nil
         controller.presentTextInputController(
-            withSuggestions: nil,
+            withSuggestions: suggestions,
             allowedInputMode: .plain
         ) { result in
             Task { @MainActor in
