@@ -65,8 +65,6 @@ struct WatchRecordView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                brandRow
-
                 switch status {
                 case .idle:
                     idleContent
@@ -84,8 +82,21 @@ struct WatchRecordView: View {
             }
             .padding(.vertical, 4)
         }
-        .navigationTitle("OpenThanks")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(watchCoral)
+                    Text("OpenThanks")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(watchCoral)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("OpenThanks")
+            }
+        }
         .onAppear {
             pendingWaiting = WidgetSnapshotStore.load().pendingToAccept
             Task { await session.flushQueueIfPossible() }
@@ -102,18 +113,6 @@ struct WatchRecordView: View {
     }
 
     // MARK: - Sub-views
-
-    private var brandRow: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(watchCoral)
-            Text("OpenThanks")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(watchCoral)
-            Spacer(minLength: 0)
-        }
-    }
 
     private var idleContent: some View {
         VStack(spacing: 14) {

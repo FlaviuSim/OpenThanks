@@ -657,12 +657,15 @@ enum GratitudeService {
     }
 
     static func notifications(userId: UUID, limit: Int = 50) async throws -> [AppNotification] {
-        try await supabase.from("notifications")
+        await expireStaleFridayNotifications(userId: userId)
+        let notes: [AppNotification] = try await supabase.from("notifications")
             .select("*, from_user:profiles!notifications_from_user_id_fkey(*)")
             .eq("user_id", value: userId)
+            .or(Self.activeNotificationsOrFilter)
             .order("created_at", ascending: false)
             .limit(limit)
             .execute().value
+        return notes
     }
 
     /// Badge count only — avoids loading notification rows + profile embeds.
@@ -671,7 +674,36 @@ enum GratitudeService {
             .select("id", head: true, count: .exact)
             .eq("user_id", value: userId)
             .eq("read", value: false)
+            .or(Self.activeNotificationsOrFilter)
             .execute().count ?? 0
+    }
+
+    /// Weekly Friday prompts older than this leave the inbox.
+    static let fridayNotificationMaxAgeDays = 21
+
+    /// PostgREST `or`: keep non-Friday rows, or Friday rows within the retention window.
+    private static var activeNotificationsOrFilter: String {
+        // Quote the timestamp — unquoted ISO8601 colons break PostgREST parsing.
+        "type.neq.gratitude_friday,created_at.gte.\"\(fridayNotificationCutoffISO8601)\""
+    }
+
+    private static var fridayNotificationCutoffISO8601: String {
+        let cutoff = Calendar.current.date(
+            byAdding: .day,
+            value: -fridayNotificationMaxAgeDays,
+            to: Date()
+        ) ?? Date().addingTimeInterval(-TimeInterval(fridayNotificationMaxAgeDays * 86_400))
+        return ISO8601DateFormatter().string(from: cutoff)
+    }
+
+    /// Deletes this user's Friday prompts older than three weeks (don't wait for cron).
+    private static func expireStaleFridayNotifications(userId: UUID) async {
+        _ = try? await supabase.from("notifications")
+            .delete()
+            .eq("user_id", value: userId)
+            .eq("type", value: "gratitude_friday")
+            .lt("created_at", value: fridayNotificationCutoffISO8601)
+            .execute()
     }
 
     static func markRead(id: UUID) async throws {
