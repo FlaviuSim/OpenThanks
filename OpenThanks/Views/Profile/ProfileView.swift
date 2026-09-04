@@ -511,7 +511,7 @@ struct UserProfileView: View {
             } else {
                 rippleStoryCard
 
-                rippleSectionHeader("Ripples", count: ripplePassOns.count, systemImage: "water.waves")
+                rippleSectionHeader("Ripple Effect", count: ripplePassOns.count, systemImage: "water.waves")
                 if ripplePassOns.isEmpty {
                     rippleZeroExplainer
                 } else {
