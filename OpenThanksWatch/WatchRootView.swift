@@ -121,7 +121,9 @@ struct WatchRecordView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
 
-            Button(action: startRecording) {
+            // TextFieldLink is the reliable SwiftUI path on watchOS 10+
+            // (no dependency on WKInterfaceController being non-nil).
+            TextFieldLink(prompt: Text("Say your thanks")) {
                 VStack(spacing: 8) {
                     Image(systemName: "waveform")
                         .font(.system(size: 28, weight: .semibold))
@@ -132,6 +134,10 @@ struct WatchRecordView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
                 .background(watchCoral, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            } onSubmit: { spoken in
+                let text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { return }
+                Task { await saveMessage(text) }
             }
             .buttonStyle(.plain)
             .disabled(isPresentingInput)
@@ -213,10 +219,16 @@ struct WatchRecordView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button("Try again", action: startRecording)
-                .font(.caption)
-                .foregroundStyle(watchCoral)
-                .buttonStyle(.plain)
+            TextFieldLink(prompt: Text("Say your thanks")) {
+                Text("Try again")
+                    .font(.caption)
+                    .foregroundStyle(watchCoral)
+            } onSubmit: { spoken in
+                let text = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { return }
+                Task { await saveMessage(text) }
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -264,26 +276,31 @@ struct WatchRecordView: View {
 
     private func dismissVoiceInputIfNeeded() {
         guard isPresentingInput else { return }
-        WKApplication.shared().visibleInterfaceController?.dismissTextInputController()
+        textInputController()?.dismissTextInputController()
         isPresentingInput = false
     }
 
     // MARK: - Recording
 
-    /// Notification / widget / deep link — jump straight into dictation.
+    /// Notification / widget / deep link — jump straight into dictation when possible.
     private func autoStartRecordingIfNeeded() async {
         guard session.pendingAutoRecord else { return }
         session.pendingAutoRecord = false
         try? await Task.sleep(for: .milliseconds(350))
         guard scenePhase == .active, !isPresentingInput else { return }
         if case .saving = status { return }
-        startRecording()
+        presentSystemDictation()
     }
 
-    private func startRecording() {
+    /// Used for notification auto-start. Manual taps use TextFieldLink (more reliable on older watches).
+    private func presentSystemDictation() {
         guard !isPresentingInput else { return }
         guard scenePhase == .active else { return }
-        guard let controller = WKApplication.shared().visibleInterfaceController else { return }
+        guard let controller = textInputController() else {
+            // Can't auto-present — leave idle so the person can tap Record.
+            status = .idle
+            return
+        }
 
         isPresentingInput = true
         inputGeneration += 1
@@ -304,6 +321,14 @@ struct WatchRecordView: View {
                 await self.saveMessage(text)
             }
         }
+    }
+
+    /// Prefer the modern app controller; fall back for older watchOS hosting.
+    private func textInputController() -> WKInterfaceController? {
+        if let controller = WKApplication.shared().visibleInterfaceController {
+            return controller
+        }
+        return WKExtension.shared().visibleInterfaceController
     }
 
     // MARK: - Save

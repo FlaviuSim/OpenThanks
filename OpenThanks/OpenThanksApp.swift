@@ -49,7 +49,13 @@ struct OpenThanksApp: App {
             } else if let destination = WidgetDeepLink.parse(url) {
                 switch destination {
                 case .compose:
-                    ComposeShareHandoff.queuePendingShareOrBlank()
+                    let fromControl = ControlCenterHandoff.consumeCompose()
+                    if ComposeShareHandoff.applyPendingShare() {
+                        break
+                    }
+                    ComposeLaunchBridge.shared.queue(
+                        analyticsSource: fromControl ? "control_center" : "deep_link_compose"
+                    )
                 case .received:
                     TabLaunchBridge.shared.queue(.received)
                 case .gratitude(let id):
@@ -100,6 +106,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             WatchConnectivityService.shared.pushAuthContext()
         }
         Task { @MainActor in
+            // Control Center may launch us without delivering openthanks://compose.
+            if ControlCenterHandoff.consumeCompose() {
+                ComposeLaunchBridge.shared.queue(analyticsSource: "control_center")
+            }
             // Any foreground — schedule-first start, then full streak sync.
             await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
         }

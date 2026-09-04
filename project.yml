@@ -40,6 +40,8 @@ targets:
     sources:
       - path: OpenThanks
       - path: OpenThanksShared
+      # Intent must also compile into the app so Control Center can launch it.
+      - path: OpenThanksWidget/ThankSomeoneControl.swift
     dependencies:
       - package: Supabase
         product: Supabase

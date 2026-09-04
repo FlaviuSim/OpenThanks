@@ -48,8 +48,14 @@ struct FeedView: View {
     @State private var scopeSlideSign: CGFloat = 1
     @Namespace private var scopePickerNamespace
     @FocusState private var searchFocused: Bool
+    /// Collapses when scrolling down the feed; reveals on scroll up (Messages/Safari-style).
+    @State private var searchBarVisible = true
+    @State private var lastScrollOffset: CGFloat = 0
+    /// Non-empty query keeps the bar visible even while scrolling.
+    @State private var searchHasQuery = false
 
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
+    private var shouldKeepSearchVisible: Bool { searchFocused || searchHasQuery }
     private var usesSplitDetail: Bool { splitSelection != nil }
     private var showPayItForward: Binding<Bool> {
         Binding(
@@ -79,9 +85,10 @@ struct FeedView: View {
                 }
             }
             .background(Theme.background)
-            // Dismiss search keyboard when the user scrolls/drags anywhere on Home.
+            // Only while searching — otherwise this fights scroll-direction hide/show.
             .simultaneousGesture(
                 DragGesture(minimumDistance: 8).onChanged { _ in
+                    guard searchFocused else { return }
                     dismissSearchKeyboard()
                 }
             )
@@ -97,6 +104,13 @@ struct FeedView: View {
                     initialRecipient: composeRecipient,
                     analyticsSource: composeAnalyticsSource
                 )
+            }
+            .onChange(of: searchFocused) { _, focused in
+                searchActive = focused
+                if focused { searchBarVisible = true }
+            }
+            .onChange(of: isEmpty) { _, empty in
+                if empty { searchBarVisible = true }
             }
             .sheet(isPresented: showPayItForward) {
                 PayItForwardSheet(
@@ -116,9 +130,6 @@ struct FeedView: View {
                     composeRecipient = nil
                     composeAnalyticsSource = "home_thank_someone"
                 }
-            }
-            .onChange(of: searchFocused) { _, focused in
-                searchActive = focused
             }
             .onChange(of: isSelected) { _, selected in
                 if !selected { dismissSearchKeyboard() }
@@ -179,6 +190,10 @@ struct FeedView: View {
             }
             HomeProfileSearch(
                 focused: $searchFocused,
+                onQueryChange: { hasQuery in
+                    searchHasQuery = hasQuery
+                    if hasQuery { searchBarVisible = true }
+                },
                 onSelect: { profile in
                     Analytics.capture("home_search_profile_opened")
                     path.append(profile)
@@ -191,8 +206,16 @@ struct FeedView: View {
                 }
             )
             .padding(.horizontal, 20)
-            .padding(.top, pendingSentCount > 0 ? 6 : 10)
-            .padding(.bottom, 2)
+            .padding(.top, (searchBarVisible || shouldKeepSearchVisible)
+                     ? (pendingSentCount > 0 ? 6 : 10)
+                     : 0)
+            .padding(.bottom, (searchBarVisible || shouldKeepSearchVisible) ? 2 : 0)
+            .frame(maxHeight: searchBarVisible || shouldKeepSearchVisible ? nil : 0, alignment: .top)
+            .opacity(searchBarVisible || shouldKeepSearchVisible ? 1 : 0)
+            .clipped()
+            .allowsHitTesting(searchBarVisible || shouldKeepSearchVisible)
+            .animation(.spring(response: 0.28, dampingFraction: 0.88), value: searchBarVisible)
+            .animation(.spring(response: 0.28, dampingFraction: 0.88), value: shouldKeepSearchVisible)
             .zIndex(2)
 
             picker
@@ -307,6 +330,8 @@ struct FeedView: View {
             error = nil
             loading = true
             scope = next
+            searchBarVisible = true
+            lastScrollOffset = 0
         }
     }
 
@@ -386,8 +411,20 @@ struct FeedView: View {
                     .readableWidth()
                     .opacity(loading && !isEmpty ? 0.78 : 1)
                     .animation(.easeInOut(duration: 0.28), value: loading)
+                    .background {
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: FeedScrollOffsetKey.self,
+                                value: -geo.frame(in: .named("homeFeedScroll")).minY
+                            )
+                        }
+                    }
                 }
+                .coordinateSpace(name: "homeFeedScroll")
                 .scrollDismissesKeyboard(.immediately)
+                .onPreferenceChange(FeedScrollOffsetKey.self) { newOffset in
+                    handleFeedScroll(from: lastScrollOffset, to: newOffset)
+                }
                 .onChange(of: scrollToPendingToken) { _, _ in
                     withAnimation(.easeInOut(duration: 0.35)) {
                         proxy.scrollTo("pendingThanks", anchor: .top)
@@ -400,6 +437,36 @@ struct FeedView: View {
     private func dismissSearchKeyboard() {
         if searchFocused { searchFocused = false }
         if searchActive { searchActive = false }
+    }
+
+    /// Hide search while scrolling down; reveal on scroll up or at the top.
+    private func handleFeedScroll(from oldOffset: CGFloat, to newOffset: CGFloat) {
+        // Empty / loading states don't use this ScrollView — still keep bar up if active.
+        if shouldKeepSearchVisible {
+            if !searchBarVisible { searchBarVisible = true }
+            lastScrollOffset = newOffset
+            return
+        }
+
+        // Near the top — always show.
+        if newOffset <= 8 {
+            if !searchBarVisible { searchBarVisible = true }
+            lastScrollOffset = newOffset
+            return
+        }
+
+        let delta = newOffset - lastScrollOffset
+        // Ignore tiny jitter / rubber-band.
+        guard abs(delta) >= 12 else { return }
+        lastScrollOffset = newOffset
+
+        if delta > 0 {
+            // Scrolling down (content moves up) — tuck search away.
+            if searchBarVisible { searchBarVisible = false }
+        } else {
+            // Scrolling up — bring it back.
+            if !searchBarVisible { searchBarVisible = true }
+        }
     }
 
     private func selectPost(_ item: Gratitude) {
@@ -774,10 +841,19 @@ struct AvatarView: View {
 
 // MARK: - Home people search
 
+private struct FeedScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 /// Compact people search under the Home brand row — opens profiles or invites
 /// someone who isn't on OpenThanks yet (matches the web home search).
 private struct HomeProfileSearch: View {
     var focused: FocusState<Bool>.Binding
+    /// Reports whether the field has a non-empty query (keeps the bar visible while typing).
+    var onQueryChange: ((Bool) -> Void)? = nil
     var onSelect: (Profile) -> Void
     var onInvite: (String) -> Void
 
@@ -805,6 +881,14 @@ private struct HomeProfileSearch: View {
         }
         .animation(.easeInOut(duration: 0.18), value: showResults)
         .animation(.easeInOut(duration: 0.18), value: results.map(\.id))
+        .onChange(of: trimmed) { _, value in
+            onQueryChange?(!value.isEmpty)
+        }
+        .onChange(of: focused.wrappedValue) { _, isFocused in
+            if isFocused {
+                onQueryChange?(!trimmed.isEmpty)
+            }
+        }
         .task(id: trimmed) {
             await runSearch(for: trimmed)
         }
@@ -964,6 +1048,7 @@ private struct HomeProfileSearch: View {
         searching = false
         didSearch = false
         focused.wrappedValue = false
+        onQueryChange?(false)
     }
 
     private func runSearch(for current: String) async {
