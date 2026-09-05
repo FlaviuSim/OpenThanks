@@ -508,7 +508,7 @@ final class AuthService {
         let lower = raw.lowercased()
         if lower.contains("unacceptable audience")
             || (lower.contains("audience") && lower.contains("id_token")) {
-            return "Apple sign-in isn’t configured for this app yet. In Supabase → Authentication → Providers → Apple, add Client ID “com.openthanks.app” (keep your web Services ID first)."
+            return "Apple sign-in isn’t configured for this app yet. In Supabase → Authentication → Providers → Apple, add Client ID “com.openthanks.ios” (keep your web Services ID first)."
         }
         return raw
     }

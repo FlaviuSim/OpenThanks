@@ -10,7 +10,7 @@ Native SwiftUI app for openthanks.com, wired directly to the production `open-th
 ## Build
 
 1. Open `OpenThanks.xcodeproj` in Xcode. First open resolves the `supabase-swift` package (2.x) automatically.
-2. Select your team under Signing & Capabilities (bundle ID `com.openthanks.app`, change if needed).
+2. Select your team under Signing & Capabilities (bundle ID `com.openthanks.ios`, change if needed).
 3. Run.
 
 If the project file ever fails to open on a newer Xcode, regenerate it: `brew install xcodegen && xcodegen` (a `project.yml` is included).
@@ -30,7 +30,7 @@ If the project file ever fails to open on a newer Xcode, regenerate it: `brew in
 3. **Auth providers:**
    - **Apple** (Authentication → Providers → Apple): Client IDs must include **both**
      1. Web **Services ID** first (required for web OAuth), then
-     2. iOS bundle ID `com.openthanks.app` (required for native Sign in with Apple).
+     2. iOS bundle ID `com.openthanks.ios` (required for native Sign in with Apple).
      Comma- or newline-separated is fine. If the bundle ID is missing you get
      `unacceptable audience in id_token` from the app.
    - **Google / LinkedIn (OIDC):** confirm enabled in Authentication → Providers.
@@ -48,7 +48,7 @@ Separate from Supabase “Sign in with Google”. Tokens stay in the device Keyc
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create (or reuse) a project and enable **Google Calendar API**.
 2. **Credentials → Create credentials → OAuth client ID → Application type: iOS**
-   - Bundle ID: `com.openthanks.app`
+   - Bundle ID: `com.openthanks.ios`
    - Google does **not** ask you to paste a redirect URI for iOS; it uses the reversed client ID automatically.
 3. Put the Client ID in `AppConfig.googleCalendarClientID`.
 4. Register the **reversed client ID** as a URL scheme in `Info.plist` / `project.yml`  
@@ -65,7 +65,7 @@ The design can use Fraunces (display) and DM Sans (body), but the font files are
 ## Not built (deliberately)
 
 - Video attachments: schema supports `media_type`; UI supports photo + video upload.
-- Universal Links require Associated Domains enabled on App ID `com.openthanks.app` in the Apple Developer portal (entitlements already include `applinks:openthanks.com` + www). After a TestFlight/App Store install, long-press a share link in Notes — you should see “Open in OpenThanks”.
+- Universal Links require Associated Domains enabled on App ID `com.openthanks.ios` in the Apple Developer portal (entitlements already include `applinks:openthanks.com` + www). After a TestFlight/App Store install, long-press a share link in Notes — you should see “Open in OpenThanks”.
 - Realtime feed updates: pull-to-refresh only in v1.
 
 ## Push notifications (APNs via Supabase)
@@ -75,7 +75,7 @@ The design can use Fraunces (display) and DM Sans (body), but the font files are
 **Server (ready to wire):** Edge Function `supabase/functions/send-apns` talks to APNs with a `.p8` key. It does **not** auto-fire until you set secrets and deploy it.
 
 1. Apply migration `supabase/migrations/20260731_device_push_tokens_apns.sql` (if not already).
-2. Create an APNs Auth Key in Apple Developer; enable Push on `com.openthanks.app`.
+2. Create an APNs Auth Key in Apple Developer; enable Push on `com.openthanks.ios`.
 3. Set secrets and deploy — see [`supabase/functions/send-apns/README.md`](supabase/functions/send-apns/README.md).
 4. Later: Database Webhook on `notifications` INSERT, or call the function from Next.js/cron with the service role key.
 

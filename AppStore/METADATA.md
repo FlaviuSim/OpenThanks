@@ -8,7 +8,7 @@ Use these fields when creating the listing in [App Store Connect](https://appsto
 |--------|--------|
 | Name | OpenThanks |
 | Subtitle (30 chars) | Share real appreciation |
-| Bundle ID | `com.openthanks.app` |
+| Bundle ID | `com.openthanks.ios` |
 | SKU | `openthanks-ios` |
 | Primary language | English (U.S.) |
 | Category (Primary) | Social Networking |

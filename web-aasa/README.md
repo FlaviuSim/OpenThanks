@@ -1,11 +1,10 @@
 # Apple App Site Association (deploy to openthanks.com)
 
-Copy `public/.well-known/apple-app-site-association` into the Next.js web app's `public/.well-known/` folder (no `.json` extension).
+Replace `YOUR_APPLE_TEAM_ID` with the new Apple Developer Team ID before deploy.
 
-- Team ID: `53CL59ATX8` (Flavma Inc. / App Store signing team)
-- App ID: `53CL59ATX8.com.openthanks.app`
-- Paths: `/claim/*`, `/for/*`, `/gratitude/*`, and `/{username}` profiles (marketing paths excluded)
+- App ID: `YOUR_APPLE_TEAM_ID.com.openthanks.ios`
 
-Serve with `Content-Type: application/json` and **no redirects**. Apex and www must both return 200 for this file.
+Canonical copies also live in the web repo:
+`v0-gratitude-network/public/.well-known/apple-app-site-association`
 
 Validate: https://app-site-association.cdn-apple.com/a/v1/openthanks.com

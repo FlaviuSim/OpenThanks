@@ -488,7 +488,7 @@ enum SocialShare {
         linkSticker: UIImage?,
         openURL: OpenURLAction
     ) async -> Outcome {
-        let source = Bundle.main.bundleIdentifier ?? "com.openthanks.app"
+        let source = Bundle.main.bundleIdentifier ?? "com.openthanks.ios"
         let storiesURL = URL(string: "instagram-stories://share?source_application=\(source)")!
 
         if let cardImage,
