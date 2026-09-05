@@ -7,6 +7,8 @@ extension Notification.Name {
     static let gratitudeAccepted = Notification.Name("openthanks.gratitudeAccepted")
     /// Posted with a `Profile` object after the signed-in user saves profile edits.
     static let profileDidUpdate = Notification.Name("openthanks.profileDidUpdate")
+    /// Posted after the signed-in user blocks someone (object = blocked UUID).
+    static let userDidBlock = Notification.Name("openthanks.userDidBlock")
 }
 
 struct Profile: Codable, Identifiable, Hashable {

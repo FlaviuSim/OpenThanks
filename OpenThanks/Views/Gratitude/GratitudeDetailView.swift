@@ -13,6 +13,8 @@ struct GratitudeDetailView: View {
     /// When set (iPad two-pane), open profiles via the parent NavigationPath.
     var onOpenProfile: ((Profile) -> Void)? = nil
     @Environment(AuthService.self) private var auth
+    @Environment(UserBlockService.self) private var userBlocks
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
     @State private var isHearted = false
@@ -25,9 +27,21 @@ struct GratitudeDetailView: View {
     @State private var preparingPreview = false
     @State private var systemSharePayload: SystemSharePayload?
     @State private var showReportSheet = false
+    @State private var confirmBlock = false
+    @State private var blocking = false
+    @State private var blockError: String?
 
     private var shareVoice: AppreciationShareVoice {
         AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
+    }
+
+    private var canBlockAuthor: Bool {
+        guard let userId = auth.userId else { return false }
+        return gratitude.authorId != userId
+    }
+
+    private var authorDisplayName: String {
+        gratitude.author?.displayName ?? "author"
     }
 
     private var shareContent: AppreciationShareContent {
@@ -64,6 +78,13 @@ struct GratitudeDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    if canBlockAuthor {
+                        Button(role: .destructive) {
+                            confirmBlock = true
+                        } label: {
+                            Label("Block \(authorDisplayName)", systemImage: "hand.raised")
+                        }
+                    }
                     Button(role: .destructive) {
                         showReportSheet = true
                     } label: {
@@ -81,6 +102,22 @@ struct GratitudeDetailView: View {
                 target: .gratitude(gratitude.id),
                 title: "Report this appreciation if it violates our community standards."
             )
+        }
+        .alert("Block \(authorDisplayName)?", isPresented: $confirmBlock) {
+            Button("Cancel", role: .cancel) {}
+            Button("Block", role: .destructive) {
+                Task { await blockAuthor() }
+            }
+        } message: {
+            Text("You won’t see their appreciations or profile in your feeds. They won’t be notified.")
+        }
+        .alert("Couldn’t block", isPresented: Binding(
+            get: { blockError != nil },
+            set: { if !$0 { blockError = nil } }
+        )) {
+            Button("OK", role: .cancel) { blockError = nil }
+        } message: {
+            Text(blockError ?? "")
         }
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
@@ -444,6 +481,18 @@ struct GratitudeDetailView: View {
     }
 
     // MARK: Hearts
+
+    private func blockAuthor() async {
+        guard let blockerId = auth.userId, canBlockAuthor, !blocking else { return }
+        blocking = true
+        defer { blocking = false }
+        do {
+            try await userBlocks.block(userId: gratitude.authorId, blockerId: blockerId)
+            dismiss()
+        } catch {
+            blockError = error.localizedDescription
+        }
+    }
 
     private func loadHearted() async {
         guard let userId = auth.userId else { return }

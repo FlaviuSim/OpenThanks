@@ -7,6 +7,7 @@ struct OpenThanksApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var auth = AuthService()
     @State private var deepLinks = DeepLinkRouter()
+    @State private var userBlocks = UserBlockService()
 
     var body: some Scene {
         WindowGroup {
@@ -17,12 +18,14 @@ struct OpenThanksApp: App {
                     WatchConnectivityService.shared.activate(auth: auth)
                     Task { @MainActor in
                         await StreakLiveActivityController.authDidBecomeReady(userId: auth.userId)
+                        await userBlocks.refresh(for: auth.userId)
                     }
                 }
                 .onChange(of: auth.userId) { _, userId in
                     WatchConnectivityService.shared.pushAuthContext()
                     Task { @MainActor in
                         await StreakLiveActivityController.authDidBecomeReady(userId: userId)
+                        await userBlocks.refresh(for: userId)
                     }
                 }
                 .onChange(of: auth.currentProfile?.displayName) { _, _ in
@@ -30,6 +33,7 @@ struct OpenThanksApp: App {
                 }
                 .environment(auth)
                 .environment(deepLinks)
+                .environment(userBlocks)
                 .syncAppAppearance()
                 .tint(Theme.coral)
                 .onOpenURL { url in

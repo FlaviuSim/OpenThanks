@@ -1,5 +1,6 @@
 import AuthenticationServices
 import SwiftUI
+import UIKit
 
 struct WelcomeView: View {
     private enum OAuthBusy: Equatable {
@@ -10,6 +11,8 @@ struct WelcomeView: View {
     @State private var showEmailSheet = false
     @State private var showPhoneSheet = false
     @State private var oauthBusy: OAuthBusy?
+    @State private var ageConfirmed = false
+    @State private var showAgeHint = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,55 +34,80 @@ struct WelcomeView: View {
                 .font(Theme.body(15))
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.top, 6)
-                .padding(.bottom, 36)
+                .padding(.bottom, 28)
+
+            AgeConfirmationToggle(
+                isConfirmed: $ageConfirmed,
+                showHint: $showAgeHint
+            )
+            .padding(.horizontal, 24)
+            .padding(.bottom, 16)
 
             VStack(spacing: 12) {
-                SignInWithAppleButton(.continue) { request in
-                    request.requestedScopes = [.email, .fullName]
-                } onCompletion: { result in
-                    handleAppleResult(result)
+                ZStack {
+                    SignInWithAppleButton(.continue) { request in
+                        request.requestedScopes = [.email, .fullName]
+                    } onCompletion: { result in
+                        handleAppleResult(result)
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .disabled(!ageConfirmed || oauthBusy != nil)
+                    .opacity(ageConfirmed ? 1 : 0.45)
+
+                    if !ageConfirmed {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { nudgeAgeConfirmation() }
+                    }
                 }
-                .signInWithAppleButtonStyle(.black)
                 .frame(height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .disabled(oauthBusy != nil)
 
                 authButton(
                     iconView: AnyView(GoogleGlyph()),
                     label: oauthBusy == .google ? "Opening Google…" : "Continue with Google"
                 ) {
-                    Task { await signInWithOAuth(.google) }
+                    guardRequireAge {
+                        Task { await signInWithOAuth(.google) }
+                    }
                 }
                 .disabled(oauthBusy != nil)
-                .opacity(oauthBusy != nil ? 0.7 : 1)
+                .opacity(authControlOpacity)
 
                 authButton(
                     iconView: AnyView(LinkedInGlyph()),
                     label: oauthBusy == .linkedin ? "Opening LinkedIn…" : "Continue with LinkedIn"
                 ) {
-                    Task { await signInWithOAuth(.linkedin) }
+                    guardRequireAge {
+                        Task { await signInWithOAuth(.linkedin) }
+                    }
                 }
                 .disabled(oauthBusy != nil)
-                .opacity(oauthBusy != nil ? 0.7 : 1)
+                .opacity(authControlOpacity)
 
                 authButton(
                     icon: "person.badge.key.fill",
                     label: oauthBusy == .passkey ? "Waiting for passkey…" : "Continue with Passkey"
                 ) {
-                    Task { await signInWithPasskey() }
+                    guardRequireAge {
+                        Task { await signInWithPasskey() }
+                    }
                 }
                 .disabled(oauthBusy != nil)
-                .opacity(oauthBusy != nil ? 0.7 : 1)
+                .opacity(authControlOpacity)
 
                 authButton(icon: "envelope.fill", label: "Continue with Email") {
-                    showEmailSheet = true
+                    guardRequireAge { showEmailSheet = true }
                 }
                 .disabled(oauthBusy != nil)
+                .opacity(authControlOpacity)
 
                 authButton(icon: "phone.fill", label: "Continue with Phone") {
-                    showPhoneSheet = true
+                    guardRequireAge { showPhoneSheet = true }
                 }
                 .disabled(oauthBusy != nil)
+                .opacity(authControlOpacity)
             }
             .padding(.horizontal, 24)
 
@@ -101,6 +129,26 @@ struct WelcomeView: View {
         .background(Theme.background)
         .sheet(isPresented: $showEmailSheet) { OTPSheet(mode: .email) }
         .sheet(isPresented: $showPhoneSheet) { OTPSheet(mode: .phone) }
+    }
+
+    private var authControlOpacity: Double {
+        if oauthBusy != nil { return 0.7 }
+        return ageConfirmed ? 1 : 0.55
+    }
+
+    private func guardRequireAge(_ action: () -> Void) {
+        guard ageConfirmed else {
+            nudgeAgeConfirmation()
+            return
+        }
+        action()
+    }
+
+    private func nudgeAgeConfirmation() {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            showAgeHint = true
+        }
+        WarmHaptics.selection()
     }
 
     private var legalFooter: some View {
@@ -165,6 +213,10 @@ struct WelcomeView: View {
             }
             auth.errorMessage = error.localizedDescription
         case .success(let authorization):
+            guard ageConfirmed else {
+                nudgeAgeConfirmation()
+                return
+            }
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
                   let tokenData = credential.identityToken,
                   let idToken = String(data: tokenData, encoding: .utf8)
@@ -193,6 +245,90 @@ struct WelcomeView: View {
                 )
             }
         }
+    }
+}
+
+/// Polished 18+ confirmation used on the welcome / OTP auth surfaces.
+struct AgeConfirmationToggle: View {
+    @Binding var isConfirmed: Bool
+    @Binding var showHint: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isConfirmed.toggle()
+                    if isConfirmed { showHint = false }
+                }
+                WarmHaptics.selection()
+            } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(isConfirmed ? Theme.coral : Theme.surfaceRaised)
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(
+                                        isConfirmed ? Theme.coral : Theme.hairline,
+                                        lineWidth: 1.5
+                                    )
+                            )
+                        if isConfirmed {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    .padding(.top, 1)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("I confirm I am 18 or older")
+                            .font(Theme.body(14, weight: .medium))
+                            .foregroundStyle(Theme.textPrimary)
+                            .multilineTextAlignment(.leading)
+                        Text("Required by our Terms of Service")
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("I confirm I am 18 or older")
+            .accessibilityAddTraits(isConfirmed ? [.isSelected] : [])
+
+            Button {
+                if let url = URL(string: "https://openthanks.com/terms") {
+                    UIApplication.shared.open(url)
+                }
+            } label: {
+                Text("Read Terms of Service")
+                    .font(Theme.body(12, weight: .medium))
+                    .foregroundStyle(Theme.coral)
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 36)
+
+            if showHint {
+                Text("Confirm you are 18 or older to continue.")
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.coral)
+                    .padding(.leading, 36)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    showHint ? Theme.coral.opacity(0.45) : Theme.hairline,
+                    lineWidth: 1
+                )
+        )
     }
 }
 

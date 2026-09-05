@@ -92,6 +92,7 @@
 		945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */; };
 		97160E3FCE100F6C9EA664AB /* AppIcon-Ember@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */; };
 		985D66E76E069167F1534690 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24196DBDF1449EB46FBF5DD /* SettingsView.swift */; };
+		99340879F5641D13DC32F2E6 /* UserBlockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */; };
 		9D48EEC345E826F5D2104A86 /* KeyboardAvoidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3AF4417F7AEAB08341BC14 /* KeyboardAvoidance.swift */; };
 		9DECC067D96EE41B315394FE /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
 		A2E19DB593F46137CD01A6FF /* AppIcon-Dawn@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 770E8C35EF74B63F51439119 /* AppIcon-Dawn@3x.png */; };
@@ -328,6 +329,7 @@
 		CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x~ipad.png"; sourceTree = "<group>"; };
 		D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareSheet.swift; sourceTree = "<group>"; };
 		D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchBridge.swift; sourceTree = "<group>"; };
+		D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserBlockService.swift; sourceTree = "<group>"; };
 		D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropper.swift; sourceTree = "<group>"; };
 		D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarService.swift; sourceTree = "<group>"; };
 		DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMeetingService.swift; sourceTree = "<group>"; };
@@ -420,6 +422,7 @@
 				6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */,
 				45105695C56A05D8C6192577 /* StreakMath.swift */,
 				B863B534795C67594B79C1DC /* TabLaunchBridge.swift */,
+				D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */,
 				34C1B132702899893D08B37C /* VideoProcessing.swift */,
 				1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */,
 				EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */,
@@ -995,6 +998,7 @@
 				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				51AD9FD3314DFF645DF01D96 /* ThankSomeoneControl.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,
+				99340879F5641D13DC32F2E6 /* UserBlockService.swift in Sources */,
 				B6C3DBD7181AD1C36ABEB924 /* VideoProcessing.swift in Sources */,
 				FDD318014FDE724E16267431 /* WatchConnectivityService.swift in Sources */,
 				DB55A08FDC17F22B1E931B1D /* WatchRelay.swift in Sources */,

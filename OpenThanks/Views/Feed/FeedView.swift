@@ -22,6 +22,7 @@ struct FeedView: View {
     /// When set (iPad sidebar shell), card taps fill the detail column instead of pushing.
     var splitSelection: Binding<Gratitude?>? = nil
     @Environment(AuthService.self) private var auth
+    @Environment(UserBlockService.self) private var userBlocks
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
     @State private var pendingToAccept: [Gratitude] = []
@@ -169,6 +170,15 @@ struct FeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: .profileDidUpdate)) { note in
                 guard let updated = note.object as? Profile else { return }
                 applyProfileUpdate(updated)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .userDidBlock)) { note in
+                guard let blockedId = note.object as? UUID else { return }
+                items = userBlocks.filterGratitudes(items)
+                pendingToAccept = userBlocks.filterGratitudes(pendingToAccept)
+                if splitSelection?.wrappedValue?.authorId == blockedId
+                    || splitSelection?.wrappedValue?.recipientId == blockedId {
+                    splitSelection?.wrappedValue = nil
+                }
             }
             .syncAppAppearance()
         }
@@ -577,8 +587,8 @@ struct FeedView: View {
             )
             async let pendingSentTask = GratitudeService.pendingCount(authorId: userId)
 
-            let result = try await feedTask
-            let pending = (try? await pendingTask) ?? []
+            let result = userBlocks.filterGratitudes(try await feedTask)
+            let pending = userBlocks.filterGratitudes((try? await pendingTask) ?? [])
             let pendingSent = (try? await pendingSentTask) ?? pendingSentCount
 
             guard generation == loadGeneration else { return }
@@ -939,6 +949,7 @@ private struct HomeProfileSearch: View {
     var onSelect: (Profile) -> Void
     var onInvite: (String) -> Void
 
+    @Environment(UserBlockService.self) private var userBlocks
     @State private var query = ""
     @State private var results: [Profile] = []
     @State private var searching = false
@@ -1149,7 +1160,7 @@ private struct HomeProfileSearch: View {
         do {
             let found = try await GratitudeService.searchProfiles(query: current)
             guard !Task.isCancelled else { return }
-            results = found
+            results = userBlocks.filterProfiles(found)
             didSearch = true
         } catch {
             if !error.isCancellation {

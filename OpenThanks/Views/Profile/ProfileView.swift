@@ -47,6 +47,8 @@ struct UserProfileView: View {
     let profile: Profile
     var initialSection: Section? = nil
     @Environment(AuthService.self) private var auth
+    @Environment(UserBlockService.self) private var userBlocks
+    @Environment(\.dismiss) private var dismiss
 
     @State private var freshProfile: Profile?
     @State private var section: Section
@@ -62,6 +64,9 @@ struct UserProfileView: View {
     @State private var composeUsesProfileRecipient = true
     @State private var pendingSentCount = 0
     @State private var showReportSheet = false
+    @State private var confirmBlock = false
+    @State private var blocking = false
+    @State private var blockError: String?
     @State private var didTrackRippleTab = false
 
     init(profile: Profile, initialSection: Section? = nil) {
@@ -103,6 +108,11 @@ struct UserProfileView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button(role: .destructive) {
+                            confirmBlock = true
+                        } label: {
+                            Label("Block", systemImage: "hand.raised")
+                        }
+                        Button(role: .destructive) {
                             showReportSheet = true
                         } label: {
                             Label("Report", systemImage: "flag")
@@ -120,6 +130,22 @@ struct UserProfileView: View {
                 target: .profile(shownProfile.id),
                 title: "Report \(shownProfile.displayName)’s profile if it violates our community standards."
             )
+        }
+        .alert("Block \(shownProfile.displayName)?", isPresented: $confirmBlock) {
+            Button("Cancel", role: .cancel) {}
+            Button("Block", role: .destructive) {
+                Task { await blockUser() }
+            }
+        } message: {
+            Text("You won’t see their appreciations or profile in your feeds. They won’t be notified.")
+        }
+        .alert("Couldn’t block", isPresented: Binding(
+            get: { blockError != nil },
+            set: { if !$0 { blockError = nil } }
+        )) {
+            Button("OK", role: .cancel) { blockError = nil }
+        } message: {
+            Text(blockError ?? "")
         }
         .task(id: profile.id) { await load() }
         .refreshable { await load() }
@@ -837,6 +863,18 @@ struct UserProfileView: View {
     }
 
     // MARK: Data
+
+    private func blockUser() async {
+        guard let blockerId = auth.userId, !blocking else { return }
+        blocking = true
+        defer { blocking = false }
+        do {
+            try await userBlocks.block(userId: shownProfile.id, blockerId: blockerId)
+            dismiss()
+        } catch {
+            blockError = error.localizedDescription
+        }
+    }
 
     private func load() async {
         let viewerId = auth.userId

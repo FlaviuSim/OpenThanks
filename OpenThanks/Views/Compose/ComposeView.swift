@@ -4,6 +4,7 @@ import AVKit
 
 struct ComposeView: View {
     @Environment(AuthService.self) private var auth
+    @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -547,7 +548,7 @@ struct ComposeView: View {
             let found = try await GratitudeService.searchProfiles(query: query)
             guard !Task.isCancelled else { return }
             let selfId = auth.userId
-            recipientResults = found.filter { $0.id != selfId }
+            recipientResults = userBlocks.filterProfiles(found).filter { $0.id != selfId }
         } catch {
             if !error.isCancellation {
                 recipientResults = []

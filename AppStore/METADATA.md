@@ -76,10 +76,13 @@ To demo the core flow:
 
 Payments (Guideline 3.1.1): There are NO in-app purchases and NO external purchase links in the iOS app. We do not sell subscriptions or digital unlocks from Settings. Nonprofit honor donations exist only on the website (openthanks.com/donate) and are not linked from the iOS purchase path.
 
-UGC / reporting (Guideline 1.2): Users can report content in-app —
-• Appreciation → ⋯ menu → Report
-• Someone else’s profile → ⋯ menu → Report
+UGC / reporting & blocking (Guideline 1.2): Users can report and block in-app —
+• Appreciation → ⋯ menu → Block (author) + Report
+• Someone else’s profile → ⋯ menu → Block + Report
 Reports are reviewed by our team (founders@openthanks.com). Privacy policy also covers CSAE reporting.
+Blocked users are hidden from the blocker’s feeds and people search.
+
+Age gate: Sign-in requires confirming “I am 18 or older” (matches Terms / Privacy).
 
 Account deletion (Guideline 5.1.1v): Settings → Delete Account (below Log Out).
 This permanently deletes the profile and associated data via our API — no email required.
