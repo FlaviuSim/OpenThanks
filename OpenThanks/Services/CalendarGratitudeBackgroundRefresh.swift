@@ -4,7 +4,7 @@ import Foundation
 /// Best-effort late-day refresh so the 8pm calendar nudge can be scheduled
 /// even if the user doesn’t open the app.
 enum CalendarGratitudeBackgroundRefresh {
-    static let taskIdentifier = "com.openthanks.ios.calendar-gratitude-refresh"
+    static let taskIdentifier = "com.openthanks.gratitude.calendar-gratitude-refresh"
 
     static func register() {
         BGTaskScheduler.shared.register(

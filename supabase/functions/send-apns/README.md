@@ -5,7 +5,7 @@ Delivers iOS remote notifications through APNs using tokens in `device_push_toke
 ## One-time Apple setup
 
 1. [Apple Developer](https://developer.apple.com/account) → **Certificates, Identifiers & Profiles**
-2. Enable **Push Notifications** on App ID `com.openthanks.ios`
+2. Enable **Push Notifications** on App ID `com.openthanks.gratitude`
 3. **Keys** → create a key with **Apple Push Notifications service (APNs)** → download the `.p8` (once)
 4. Note **Key ID**, **Team ID** (`53CL59ATX8` for OpenThanks), and keep the `.p8` contents
 
@@ -16,7 +16,7 @@ supabase secrets set \
   APNS_KEY="$(cat AuthKey_XXXXXX.p8 | sed ':a;N;$!ba;s/\n/\\n/g')" \
   APNS_KEY_ID="YOUR_KEY_ID" \
   APNS_TEAM_ID="53CL59ATX8" \
-  APNS_TOPIC="com.openthanks.ios"
+  APNS_TOPIC="com.openthanks.gratitude"
 ```
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are usually injected automatically for Edge Functions.

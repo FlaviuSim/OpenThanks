@@ -23,7 +23,7 @@ struct OpenComposeFromControlIntent: AppIntent {
 
 @available(iOS 18.0, *)
 struct ThankSomeoneControl: ControlWidget {
-    static let kind = "com.openthanks.ios.thankSomeoneControl"
+    static let kind = "com.openthanks.gratitude.thankSomeoneControl"
 
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: Self.kind) {

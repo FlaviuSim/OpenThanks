@@ -3,7 +3,7 @@ import Security
 
 /// Minimal Keychain helper for Google Calendar tokens (device-local only).
 enum KeychainStore {
-    private static let service = "com.openthanks.ios.google-calendar"
+    private static let service = "com.openthanks.gratitude.google-calendar"
 
     static func set(_ value: String, forKey key: String) {
         let data = Data(value.utf8)

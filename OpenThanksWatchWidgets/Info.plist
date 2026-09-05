@@ -26,6 +26,6 @@
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
 	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.openthanks.ios</string>
+	<string>com.openthanks.gratitude</string>
 </dict>
 </plist>

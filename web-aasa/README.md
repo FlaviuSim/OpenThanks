@@ -2,7 +2,7 @@
 
 Replace `YOUR_APPLE_TEAM_ID` with the new Apple Developer Team ID before deploy.
 
-- App ID: `YOUR_APPLE_TEAM_ID.com.openthanks.ios`
+- App ID: `YOUR_APPLE_TEAM_ID.com.openthanks.gratitude`
 
 Canonical copies also live in the web repo:
 `v0-gratitude-network/public/.well-known/apple-app-site-association`

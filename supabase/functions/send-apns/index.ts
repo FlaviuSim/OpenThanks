@@ -5,7 +5,7 @@
  *   APNS_KEY      Full .p8 contents (use \n for newlines in the secret value)
  *   APNS_KEY_ID   Key ID from Apple Developer → Keys
  *   APNS_TEAM_ID  Apple Team ID (e.g. 53CL59ATX8)
- *   APNS_TOPIC    Bundle ID, default com.openthanks.ios
+ *   APNS_TOPIC    Bundle ID, default com.openthanks.gratitude
  *
  * Auth: Authorization: Bearer <service_role OR anon JWT of an authenticated user
  *       calling for themselves is NOT enough — require service role or
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     }
 
     const jwt = await getApnsJwt();
-    const topic = Deno.env.get("APNS_TOPIC") ?? "com.openthanks.ios";
+    const topic = Deno.env.get("APNS_TOPIC") ?? "com.openthanks.gratitude";
 
     let sent = 0;
     const errors: Array<{ token: string; status: number; reason: string }> = [];

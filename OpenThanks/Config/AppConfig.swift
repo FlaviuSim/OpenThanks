@@ -29,7 +29,7 @@ enum AppConfig {
     static let oauthRedirectURL = URL(string: "https://openthanks.com/auth/mobile")!
 
     /// Google Cloud **iOS** OAuth client ID for Calendar readonly (separate from Supabase Google login).
-    /// Create Credentials → OAuth client ID → Application type **iOS**, bundle ID `com.openthanks.ios`.
+    /// Create Credentials → OAuth client ID → Application type **iOS**, bundle ID `com.openthanks.gratitude`.
     /// Web clients cannot use custom-scheme redirects; see README.
     static let googleCalendarClientID = "55218854228-c40e4qrr04u042rbaoeaq4dhdpq53jgu.apps.googleusercontent.com"
 
