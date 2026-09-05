@@ -190,8 +190,9 @@ final class WatchConnectivityService: NSObject {
     private func handleVoiceFile(at url: URL, draftId: UUID) async -> WatchRelay.CreateReply {
         do {
             let duration = await Self.audioDurationSeconds(at: url)
-            // Long clips: prefer cloud; on-device often keeps only the last phrase.
-            let preferOnDevice = duration > 0 && duration < 28
+            // Prefer cloud when there’s room for thinking pauses — on-device
+            // often finalizes the first utterance and drops the rest.
+            let preferOnDevice = duration > 0 && duration < 12
             let transcript: String
             do {
                 transcript = try await Self.transcribeAudioFile(at: url, preferOnDevice: preferOnDevice)
@@ -262,7 +263,9 @@ final class WatchConnectivityService: NSObject {
         }
 
         let request = SFSpeechURLRecognitionRequest(url: url)
-        // Partials keep a growing cumulative string; finals alone can be per-phrase.
+        // Thinking pauses produce multiple `isFinal` results for one file.
+        // Keep listening through them — finishing on the first final cut off
+        // everything after a pause (only the beginning was saved).
         request.shouldReportPartialResults = true
         request.taskHint = .dictation
         if preferOnDevice, recognizer.supportsOnDeviceRecognition {
@@ -273,11 +276,31 @@ final class WatchConnectivityService: NSObject {
 
         final class Box: @unchecked Sendable {
             var task: SFSpeechRecognitionTask?
-            var best = ""
+            var bestCumulative = ""
+            var finalizedSegments: [String] = []
             var settled = false
-            var finishWork: DispatchWorkItem?
+            var idleFinishWork: DispatchWorkItem?
         }
         let box = Box()
+
+        let assembled: () -> String = {
+            var combined = ""
+            for segment in box.finalizedSegments {
+                combined = DictationProse.stitchPauseChunk(base: combined, addition: segment)
+            }
+            let cumulative = box.bestCumulative.trimmingCharacters(in: .whitespacesAndNewlines)
+            let fromSegments = combined.trimmingCharacters(in: .whitespacesAndNewlines)
+            if fromSegments.isEmpty { return cumulative }
+            if cumulative.isEmpty { return fromSegments }
+            // Prefer whichever is longer; if cumulative already contains the
+            // segments, use it (engine kept a running transcript).
+            if cumulative.count >= fromSegments.count { return cumulative }
+            if cumulative.localizedCaseInsensitiveContains(fromSegments)
+                || fromSegments.localizedCaseInsensitiveContains(cumulative) {
+                return cumulative.count >= fromSegments.count ? cumulative : fromSegments
+            }
+            return DictationProse.stitchPauseChunk(base: fromSegments, addition: cumulative)
+        }
 
         let text: String = try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
@@ -285,49 +308,65 @@ final class WatchConnectivityService: NSObject {
                     let finish: (Result<String, Error>) -> Void = { result in
                         guard !box.settled else { return }
                         box.settled = true
-                        box.finishWork?.cancel()
+                        box.idleFinishWork?.cancel()
                         box.task?.cancel()
                         cont.resume(with: result)
                     }
 
-                    box.task = recognizer.recognitionTask(with: request) { result, error in
-                        if let result {
-                            let formatted = result.bestTranscription.formattedString
-                                .trimmingCharacters(in: .whitespacesAndNewlines)
-                            if formatted.count >= box.best.count {
-                                box.best = formatted
-                            }
-                        }
-
-                        if let error {
-                            let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if !best.isEmpty {
-                                finish(.success(best))
-                            } else {
-                                finish(.failure(error))
-                            }
-                            return
-                        }
-
-                        guard let result, result.isFinal else { return }
-                        // Debounce — long files emit multiple finals; keep the longest.
-                        box.finishWork?.cancel()
+                    let bumpIdleFinish: () -> Void = {
+                        box.idleFinishWork?.cancel()
                         let work = DispatchWorkItem {
-                            let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let best = assembled()
                             if !best.isEmpty {
                                 finish(.success(best))
                             } else {
                                 finish(.failure(TranscriptionError.empty))
                             }
                         }
-                        box.finishWork = work
-                        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.45, execute: work)
+                        box.idleFinishWork = work
+                        // Wait for later utterances after a thinking pause in the file.
+                        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 2.5, execute: work)
+                    }
+
+                    box.task = recognizer.recognitionTask(with: request) { result, error in
+                        if let result {
+                            let formatted = result.bestTranscription.formattedString
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !formatted.isEmpty {
+                                if formatted.count >= box.bestCumulative.count {
+                                    box.bestCumulative = formatted
+                                }
+                                if result.isFinal {
+                                    let joined = box.finalizedSegments.joined(separator: " ")
+                                    if joined.isEmpty {
+                                        box.finalizedSegments = [formatted]
+                                    } else if formatted.count > joined.count,
+                                              formatted.localizedCaseInsensitiveContains(joined) {
+                                        // Cumulative final covering prior segments.
+                                        box.finalizedSegments = [formatted]
+                                    } else if !joined.localizedCaseInsensitiveContains(formatted) {
+                                        // New utterance after a pause.
+                                        box.finalizedSegments.append(formatted)
+                                    }
+                                }
+                                bumpIdleFinish()
+                            }
+                        }
+
+                        if let error {
+                            let best = assembled()
+                            if !best.isEmpty {
+                                finish(.success(best))
+                            } else {
+                                finish(.failure(error))
+                            }
+                        }
                     }
                 }
             }
             group.addTask {
                 try await Task.sleep(for: .seconds(timeoutSeconds))
-                let best = box.best.trimmingCharacters(in: .whitespacesAndNewlines)
+                let best = assembled()
                 if !best.isEmpty { return best }
                 throw TranscriptionError.timedOut
             }
@@ -335,7 +374,7 @@ final class WatchConnectivityService: NSObject {
                 throw TranscriptionError.unavailable
             }
             group.cancelAll()
-            box.finishWork?.cancel()
+            box.idleFinishWork?.cancel()
             box.task?.cancel()
             return value
         }
