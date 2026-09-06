@@ -3,7 +3,10 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["YOUR_APPLE_TEAM_ID.com.openthanks.gratitude"],
+        "appIDs": [
+          "XA73L5SR8P.com.openthanks.gratitude",
+          "53CL59ATX8.com.openthanks.app"
+        ],
         "components": [
           { "/": "/claim/*" },
           { "/": "/for/*" },
@@ -34,6 +37,9 @@
     ]
   },
   "webcredentials": {
-    "apps": ["YOUR_APPLE_TEAM_ID.com.openthanks.gratitude"]
+    "apps": [
+      "XA73L5SR8P.com.openthanks.gratitude",
+      "53CL59ATX8.com.openthanks.app"
+    ]
   }
 }

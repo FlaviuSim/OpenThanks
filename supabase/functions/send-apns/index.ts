@@ -4,7 +4,7 @@
  * Secrets (Dashboard → Edge Functions → Secrets, or `supabase secrets set`):
  *   APNS_KEY      Full .p8 contents (use \n for newlines in the secret value)
  *   APNS_KEY_ID   Key ID from Apple Developer → Keys
- *   APNS_TEAM_ID  Apple Team ID (e.g. 53CL59ATX8)
+ *   APNS_TEAM_ID  Apple Team ID (e.g. XA73L5SR8P)
  *   APNS_TOPIC    Bundle ID, default com.openthanks.gratitude
  *
  * Auth: Authorization: Bearer <service_role OR anon JWT of an authenticated user

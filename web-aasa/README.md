@@ -1,10 +1,19 @@
 # Apple App Site Association (deploy to openthanks.com)
 
-Replace `YOUR_APPLE_TEAM_ID` with the new Apple Developer Team ID before deploy.
+Canonical production copies live in the web repo:
 
-- App ID: `YOUR_APPLE_TEAM_ID.com.openthanks.gratitude`
+`v0-gratitude-network/public/.well-known/apple-app-site-association`  
+`v0-gratitude-network/public/apple-app-site-association`
 
-Canonical copies also live in the web repo:
-`v0-gratitude-network/public/.well-known/apple-app-site-association`
+## Current App IDs
 
-Validate: https://app-site-association.cdn-apple.com/a/v1/openthanks.com
+| App | `appID` (`TEAMID.bundle`) |
+| --- | --- |
+| **New** (this Xcode project) | `XA73L5SR8P.com.openthanks.gratitude` |
+| Old TestFlight (kept for transition) | `53CL59ATX8.com.openthanks.app` |
+
+After changing AASA, deploy the web app, then validate:
+
+https://app-site-association.cdn-apple.com/a/v1/openthanks.com
+
+Apple caches aggressively — allow minutes to hours, then delete/reinstall the app if links still open in Safari.
