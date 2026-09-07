@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D46581779A544946BBD9982E /* WatchVoiceDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 358317469C114877929918DC /* WatchVoiceDraftStore.swift */; };
+
 		00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9116D291352DD94BE647DB15 /* Theme.swift */; };
 		03ACE0F6325591D8F322DD3A /* AppIcon-Night@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = F2AE333A7E42E07D09F3D05E /* AppIcon-Night@2x.png */; };
 		06EE4316D00DEEF35B015B7D /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
@@ -227,11 +229,12 @@
 		0B6169C26020D6156BA7352D /* OpenThanksWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksWatchApp.swift; sourceTree = "<group>"; };
 		0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeService.swift; sourceTree = "<group>"; };
 		10DB2CB8FB90F9FB20873687 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OpenThanksShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1492832F51480664FA868B1F /* WatchPhoneSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchPhoneSession.swift; sourceTree = "<group>"; };
 		167153BE2EE275F81D5D2A05 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
 		1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityService.swift; sourceTree = "<group>"; };
+		358317469C114877929918DC /* WatchVoiceDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceDraftStore.swift; sourceTree = "<group>"; };
 		1BCD3D6D4207C94DE001B284 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1EC0A8CDE94660605C46C812 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		200E9036D46AAE66F6F99936 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -267,7 +270,7 @@
 		5ED8265E3321D2A5A0E4170D /* AppIcon-Ember@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x.png"; sourceTree = "<group>"; };
 		610609351AABD36808642608 /* AppearanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceView.swift; sourceTree = "<group>"; };
 		6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityController.swift; sourceTree = "<group>"; };
-		619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OpenThanksWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6386C42954F7E470B63181A1 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeOpportunityRanker.swift; sourceTree = "<group>"; };
 		6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeDetailView.swift; sourceTree = "<group>"; };
@@ -336,11 +339,11 @@
 		DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationAI.swift; sourceTree = "<group>"; };
 		E127445E45EA6D660852EB3D /* AppIcon-Ember.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember.png"; sourceTree = "<group>"; };
 		E2A9BEF3F82CD8A4E723CE2D /* AppIcon-Dawn@3x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@3x~ipad.png"; sourceTree = "<group>"; };
-		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeSharePayload.swift; sourceTree = "<group>"; };
 		ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayItForwardNudge.swift; sourceTree = "<group>"; };
 		EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotRefresher.swift; sourceTree = "<group>"; };
-		EE58C9232B92D8AAD5346A26 /* OpenThanks.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenThanks.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE58C9232B92D8AAD5346A26 /* OpenThanks.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenThanks.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2AE333A7E42E07D09F3D05E /* AppIcon-Night@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night@2x.png"; sourceTree = "<group>"; };
 		F2F9C5D2E49314B2E04B5E8A /* AppIcon-Dawn@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@2x~ipad.png"; sourceTree = "<group>"; };
 		F3F96BC2DE837FAC91410810 /* WatchRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelay.swift; sourceTree = "<group>"; };
@@ -425,6 +428,7 @@
 				D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */,
 				34C1B132702899893D08B37C /* VideoProcessing.swift */,
 				1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */,
+				358317469C114877929918DC /* WatchVoiceDraftStore.swift */,
 				EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */,
 			);
 			path = Services;
@@ -804,26 +808,21 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					0F7C3727F8C791747906562B = {
-						DevelopmentTeam = 53CL59ATX8;
 						ProvisioningStyle = Automatic;
 					};
 					1374A04F9D4D1060CA6A70F7 = {
-						DevelopmentTeam = 53CL59ATX8;
 						ProvisioningStyle = Automatic;
 					};
 					23C3E00573C837BA91005762 = {
-						DevelopmentTeam = 53CL59ATX8;
 						ProvisioningStyle = Automatic;
 					};
 					646676C1E86929FB282E90F8 = {
-						DevelopmentTeam = 53CL59ATX8;
 						ProvisioningStyle = Automatic;
 					};
 					73C4A89C152CCB91D002DA95 = {
-						DevelopmentTeam = 53CL59ATX8;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -1001,6 +1000,7 @@
 				99340879F5641D13DC32F2E6 /* UserBlockService.swift in Sources */,
 				B6C3DBD7181AD1C36ABEB924 /* VideoProcessing.swift in Sources */,
 				FDD318014FDE724E16267431 /* WatchConnectivityService.swift in Sources */,
+				D46581779A544946BBD9982E /* WatchVoiceDraftStore.swift in Sources */,
 				DB55A08FDC17F22B1E931B1D /* WatchRelay.swift in Sources */,
 				4F58BD3C4A545441F523C7A3 /* WelcomeView.swift in Sources */,
 				5FFBE5EF70EF711928166478 /* WidgetDeepLink.swift in Sources */,
@@ -1092,14 +1092,13 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1140,9 +1139,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = XA73L5SR8P;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -1162,6 +1164,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -1176,13 +1179,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatch/OpenThanksWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1196,12 +1198,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatchWidgets/OpenThanksWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.0.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch.widgets;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1216,13 +1221,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatch/OpenThanksWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
@@ -1236,12 +1240,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.0.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1254,13 +1261,16 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.0.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1274,12 +1284,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatchWidgets/OpenThanksWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.0.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch.widgets;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1292,13 +1305,16 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.0.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1314,14 +1330,13 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1334,12 +1349,15 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
-				DEVELOPMENT_TEAM = 53CL59ATX8;
+				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.0.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1381,9 +1399,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = XA73L5SR8P;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1396,6 +1417,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;

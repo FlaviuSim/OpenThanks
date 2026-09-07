@@ -15,20 +15,27 @@ struct SiriIntroView: View {
     private let ways: [ShareWay] = [
         .init(
             id: "app",
-            icon: "plus.circle.fill",
+            icon: "heart.fill",
             title: "In the app",
-            body: "Tap the + button anytime to write and send a thank-you."
+            body: "Tap the heart button anytime to write and send a thank-you."
+        ),
+        .init(
+            id: "photos",
+            icon: "square.and.arrow.up",
+            title: "From Photos",
+            body: "Open a photo → Share → OpenThanks to attach it to an appreciation."
         ),
         .init(
             id: "watch",
             icon: "applewatch",
             title: "On Apple Watch",
-            body: "Dictate or type a quick appreciation from your wrist."
+            body: "Dictate a quick appreciation from your wrist."
         ),
         .init(
             id: "siri",
             icon: "waveform",
             title: "With Siri",
+            // Phrases registered in OpenThanksShortcuts (OpenCompose + DraftAppreciation).
             body: "Say “Send an appreciation on OpenThanks” or “Thank Maria on OpenThanks.”"
         ),
         .init(
@@ -36,12 +43,6 @@ struct SiriIntroView: View {
             icon: "rectangle.grid.2x2.fill",
             title: "Home Screen widget",
             body: "Add the OpenThanks widget for a one-tap jump into compose."
-        ),
-        .init(
-            id: "photos",
-            icon: "square.and.arrow.up",
-            title: "From Photos",
-            body: "Open a photo → Share → OpenThanks to attach it to an appreciation."
         ),
     ]
 
@@ -58,7 +59,7 @@ struct SiriIntroView: View {
                                 .font(Theme.display(28, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                                 .multilineTextAlignment(.center)
-                            Text("OpenThanks meets you wherever the moment is — app, Watch, Siri, widget, or a photo you already have.")
+                            Text("OpenThanks meets you wherever the moment is")
                                 .font(Theme.body(15))
                                 .foregroundStyle(Theme.textSecondary)
                                 .multilineTextAlignment(.center)

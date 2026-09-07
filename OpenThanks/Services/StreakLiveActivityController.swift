@@ -3,7 +3,8 @@ import Foundation
 
 /// Starts a Lock Screen Live Activity on the grace day after a send, keeps it
 /// running until the person posts again (ended immediately) or Apple’s 8-hour
-/// active limit (whichever comes first). Streak midnight is still the countdown.
+/// active limit (whichever comes first). Streak midnight is the countdown target;
+/// dismissal never outlives that midnight so a stale tile can’t count *up*.
 @MainActor
 enum StreakLiveActivityController {
     /// Apple’s maximum active Live Activity duration.
@@ -199,6 +200,12 @@ enum StreakLiveActivityController {
     private static func ensureStarted(streak: Int, deadline: Date, reminderDay: Date) async {
         guard areActivitiesAvailable else { return }
         guard streak > 0 else { return }
+        // Never keep a tile up once midnight has passed — a past deadline makes
+        // `Text(..., style: .timer)` count *up* (looks like the clock time).
+        guard deadline > Date() else {
+            await endAll(dismissal: .immediate)
+            return
+        }
 
         let state = StreakLiveActivityAttributes.ContentState(
             streakCount: streak,
@@ -254,8 +261,9 @@ enum StreakLiveActivityController {
         }
     }
 
-    /// End when the 8-hour (or midnight) active window ends. Use `.default`
-    /// dismissal so the Lock Screen can keep it up to ~4 more hours (Apple max).
+    /// End when the 8-hour (or midnight) active window ends.
+    /// Dismiss by streak midnight at latest so a stale tile can’t sit past
+    /// the deadline and show a count-up timer.
     private static func scheduleLocalEnd(at activeUntil: Date, streakDeadline: Date) {
         let delay = activeUntil.timeIntervalSinceNow
         guard delay > 0, delay <= maxActiveDuration + 60 else { return }
@@ -271,11 +279,15 @@ enum StreakLiveActivityController {
                         postedToday: false
                     )
                     let content = ActivityContent(state: state, staleDate: nil)
-                    // `.default` → Lock Screen can linger up to 4 hours after end.
-                    await activity.end(content, dismissalPolicy: .default)
+                    let dismissal: ActivityUIDismissalPolicy =
+                        Date() >= streakDeadline
+                        ? .immediate
+                        : .after(streakDeadline)
+                    await activity.end(content, dismissalPolicy: dismissal)
                     Analytics.capture("streak_live_activity_expired", [:])
                 }
             }
         }
     }
 }
+

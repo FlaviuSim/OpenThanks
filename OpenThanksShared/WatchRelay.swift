@@ -115,6 +115,17 @@ enum WatchRelay {
             )
         }
 
+        /// Voice landed on iPhone for review — not created yet.
+        static func readyForReview(draftId: UUID) -> CreateReply {
+            CreateReply(
+                ok: true,
+                draftId: draftId,
+                gratitudeId: nil,
+                errorCode: "reviewQueued",
+                errorMessage: nil
+            )
+        }
+
         static func failure(draftId: UUID, code: String, message: String) -> CreateReply {
             CreateReply(
                 ok: false,
@@ -124,6 +135,8 @@ enum WatchRelay {
                 errorMessage: message
             )
         }
+
+        var isReadyForReview: Bool { ok && errorCode == "reviewQueued" }
     }
 
     /// Soft max for Watch readability; API still allows longer messages from phone.

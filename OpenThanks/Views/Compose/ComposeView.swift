@@ -26,6 +26,8 @@ struct ComposeView: View {
     var inspiredByAuthorName: String? = nil
     /// PostHog `source` for the compose funnel (matches web event names).
     var analyticsSource: String = "compose"
+    /// Watch voice drafts can save without choosing a recipient yet.
+    var allowsEmptyRecipient: Bool = false
     var onSaved: ((Gratitude) -> Void)? = nil
 
     @State private var recipient = ""
@@ -159,6 +161,10 @@ struct ComposeView: View {
     private var form: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                if allowsEmptyRecipient && analyticsSource == "watch" {
+                    watchDraftBanner
+                }
+
                 if isEditing {
                     intro
                 }
@@ -207,7 +213,7 @@ struct ComposeView: View {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Button(isEditing ? "Save Changes" : "Save") {
+                    Button(isEditing ? "Save Changes" : (allowsEmptyRecipient ? "Save to Pending" : "Save")) {
                         messageFocused = false
                         recipientFocused = false
                         Task { await send() }
@@ -336,6 +342,31 @@ struct ComposeView: View {
             .foregroundStyle(Theme.textPrimary)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
+    }
+
+    private var watchDraftBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "applewatch")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("From your Watch")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("We cleaned up punctuation the same way as phone dictation. Add who it’s for if you want, then save to Pending.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Theme.coral.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Theme.coral.opacity(0.22), lineWidth: 1)
+        )
     }
 
     private var recipientSection: some View {
@@ -534,7 +565,7 @@ struct ComposeView: View {
         }
 
         recipientSearching = true
-        try? await Task.sleep(for: .milliseconds(280))
+        try? await Task.sleep(for: .milliseconds(180))
         guard !Task.isCancelled else { return }
 
         let query = current.hasPrefix("@") ? String(current.dropFirst()) : current
@@ -940,7 +971,9 @@ struct ComposeView: View {
                 }
                 Text(sending
                      ? "Saving…"
-                     : (isEditing ? "Save Changes" : "Save Appreciation"))
+                     : (isEditing
+                        ? "Save Changes"
+                        : (allowsEmptyRecipient ? "Save to Pending" : "Save Appreciation")))
             }
         }
         .buttonStyle(CTAButtonStyle(isLoading: sending))
@@ -1116,7 +1149,8 @@ struct ComposeView: View {
 
     private var canSend: Bool {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        return hasRecipient
+        let recipientOK = allowsEmptyRecipient || hasRecipient
+        return recipientOK
             && !trimmed.isEmpty
             && trimmed.count <= maxLength
             && !loadingPhoto
@@ -1341,10 +1375,10 @@ struct ComposeView: View {
         autofocusMessageIfNeeded()
     }
 
-    /// Auto-opening compose on app launch shouldn't steal the first Cancel tap
+    /// Auto-opening compose after login shouldn't steal the first Cancel tap
     /// to the keyboard.
     private var shouldAutofocusMessage: Bool {
-        analyticsSource != "app_open"
+        analyticsSource != "app_open" && analyticsSource != "post_login"
     }
 
     private func autofocusMessageIfNeeded() {
@@ -1554,7 +1588,7 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     mediaUrl: mediaUrl,
                     mediaType: mediaType,
-                    source: "ios",
+                    source: analyticsSource == "watch" ? "watch" : "ios",
                     inspiredByGratitudeId: inspiredByGratitudeId
                 )
                 var result = try await GratitudeService.create(new)
@@ -1569,6 +1603,9 @@ struct ComposeView: View {
                 }
                 created = result
                 didCompleteSend = true
+                if analyticsSource == "watch" {
+                    WatchVoiceDraftStore.clear()
+                }
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
                     hasMedia: mediaUrl != nil,

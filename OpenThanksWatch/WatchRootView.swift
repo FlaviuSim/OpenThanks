@@ -151,10 +151,10 @@ struct WatchRecordView: View {
             ProgressView()
                 .tint(watchCoral)
                 .scaleEffect(1.4)
-            Text("Saving…")
+            Text("Sending to iPhone…")
                 .font(.system(.headline, design: .rounded))
                 .foregroundStyle(.secondary)
-            Text("Sending to iPhone to turn into text. Keep the phone nearby.")
+            Text("Keep the phone nearby — it’ll polish the words like dictation.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -165,12 +165,12 @@ struct WatchRecordView: View {
 
     private var savedContent: some View {
         VStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
+            Image(systemName: "iphone")
                 .font(.system(size: 36))
                 .foregroundStyle(watchCoral)
-            Text("Saved")
+            Text("Sent to iPhone")
                 .font(.system(.headline, design: .rounded))
-            Text("On iPhone in Pending — send it to the recipient when ready.")
+            Text("Open OpenThanks on iPhone to review punctuation and save.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -190,10 +190,10 @@ struct WatchRecordView: View {
 
     private func queuedContent(_ note: String) -> some View {
         VStack(spacing: 10) {
-            Image(systemName: "clock.arrow.circlepath")
+            Image(systemName: "iphone")
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(watchCoral)
-            Text("Queued")
+            Text("Sent to iPhone")
                 .font(.system(.headline, design: .rounded))
             Text(note)
                 .font(.caption2)
@@ -299,7 +299,7 @@ struct WatchRecordView: View {
         let generation = inputGeneration
 
         let options: [String: Any] = [
-            WKAudioRecorderControllerOptionsActionTitleKey: "Save thanks",
+            WKAudioRecorderControllerOptionsActionTitleKey: "Send to iPhone",
             WKAudioRecorderControllerOptionsAutorecordKey: true,
             WKAudioRecorderControllerOptionsMaximumDurationKey: 90.0,
         ]

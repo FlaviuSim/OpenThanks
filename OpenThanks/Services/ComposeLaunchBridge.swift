@@ -30,6 +30,8 @@ final class ComposeLaunchBridge {
         var inspiredByAuthorName: String?
         /// PostHog compose funnel `source`.
         var analyticsSource: String
+        /// Watch voice drafts can save to Pending without a recipient.
+        var allowsEmptyRecipient: Bool
 
         init(
             id: UUID = UUID(),
@@ -40,7 +42,8 @@ final class ComposeLaunchBridge {
             imageFileName: String? = nil,
             inspiredByGratitudeId: UUID? = nil,
             inspiredByAuthorName: String? = nil,
-            analyticsSource: String = "compose_launch"
+            analyticsSource: String = "compose_launch",
+            allowsEmptyRecipient: Bool = false
         ) {
             self.id = id
             self.recipientName = recipientName
@@ -51,11 +54,12 @@ final class ComposeLaunchBridge {
             self.inspiredByGratitudeId = inspiredByGratitudeId
             self.inspiredByAuthorName = inspiredByAuthorName
             self.analyticsSource = analyticsSource
+            self.allowsEmptyRecipient = allowsEmptyRecipient || analyticsSource == "watch"
         }
 
-        /// Blank cold-start / icon-open compose — must lose to notification / calendar / share launches.
+        /// Blank post-login / legacy app_open compose — richer launches replace these.
         var isWeakDefault: Bool {
-            analyticsSource == "app_open"
+            (analyticsSource == "app_open" || analyticsSource == "post_login")
                 && recipientName == nil
                 && message == nil
                 && messagePlaceholder == nil
@@ -75,7 +79,8 @@ final class ComposeLaunchBridge {
         imageFileName: String? = nil,
         inspiredByGratitudeId: UUID? = nil,
         inspiredByAuthorName: String? = nil,
-        analyticsSource: String = "compose_launch"
+        analyticsSource: String = "compose_launch",
+        allowsEmptyRecipient: Bool = false
     ) {
         let trimmedName = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -91,7 +96,8 @@ final class ComposeLaunchBridge {
             imageFileName: (trimmedImage?.isEmpty == false) ? trimmedImage : nil,
             inspiredByGratitudeId: inspiredByGratitudeId,
             inspiredByAuthorName: (trimmedInspiredName?.isEmpty == false) ? trimmedInspiredName : nil,
-            analyticsSource: analyticsSource
+            analyticsSource: analyticsSource,
+            allowsEmptyRecipient: allowsEmptyRecipient
         )
         // Never let blank app_open clobber a calendar / notification / share prefill
         // that landed milliseconds earlier on cold start.

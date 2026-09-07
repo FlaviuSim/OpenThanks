@@ -71,7 +71,8 @@ struct MainTabView: View {
         }
         .task { await refreshUnread() }
         .onAppear {
-            presentLaunchSurfaces(includeDefaultCompose: true)
+            // Pending CTAs only — do not auto-open blank compose on every launch.
+            presentLaunchSurfaces()
         }
         .onReceive(NotificationCenter.default.publisher(for: .composeLaunchQueued)) { _ in
             presentPendingComposeIfNeeded()
@@ -79,14 +80,14 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .tabLaunchQueued)) { _ in
             presentPendingTabIfNeeded()
         }
-        .onChange(of: scenePhase) { oldPhase, phase in
+        .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { @MainActor in
                 await StreakLiveActivityController.handleAppBecameActive(userId: auth.userId)
             }
-            // Returning from the background (icon tap) should land on compose.
-            // Control Center / a quick inactive flicker should not.
-            presentLaunchSurfaces(includeDefaultCompose: oldPhase == .background)
+            // Resume any queued compose/tab from notifications / deep links / share.
+            // Do not open blank compose just because the icon was tapped.
+            presentLaunchSurfaces()
             if fridayReminderEnabled {
                 Task { await NotificationService.refreshFridayReminderIfEnabled(true) }
             }
@@ -305,7 +306,8 @@ struct MainTabView: View {
                 initialImageFileName: request.imageFileName,
                 inspiredByGratitudeId: request.inspiredByGratitudeId,
                 inspiredByAuthorName: request.inspiredByAuthorName,
-                analyticsSource: request.analyticsSource
+                analyticsSource: request.analyticsSource,
+                allowsEmptyRecipient: request.allowsEmptyRecipient
             )
         }
     }
@@ -320,36 +322,13 @@ struct MainTabView: View {
         return true
     }
 
-    /// Login, cold start, and icon-open land on compose — the primary action —
-    /// unless a widget, notification, or deep link already chose a destination.
-    private func presentLaunchSurfaces(includeDefaultCompose: Bool) {
-        let openedQueuedCompose = presentPendingComposeIfNeeded()
-        let hadExplicitTab = TabLaunchBridge.shared.pending != nil
+    /// Apply any queued compose / tab destinations from login, notifications,
+    /// widgets, Siri, share, deep links, etc. Does **not** invent a blank
+    /// compose on ordinary icon opens.
+    private func presentLaunchSurfaces() {
+        WatchVoiceDraftStore.restorePendingComposeIfNeeded()
+        presentPendingComposeIfNeeded()
         presentPendingTabIfNeeded()
-        guard includeDefaultCompose else { return }
-        guard !openedQueuedCompose else { return }
-        guard composeSheet == nil else { return }
-        guard !hadExplicitTab else { return }
-        guard deepLinks.destination == nil else { return }
-        guard !showProfileSettings else { return }
-
-        // Cold-start from a notification: AppDelegate may still be queuing the
-        // calendar/Friday prefill. Wait briefly so blank `app_open` doesn't win.
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(250))
-            if ComposeLaunchBridge.shared.pending != nil {
-                presentPendingComposeIfNeeded()
-                return
-            }
-            // Richer compose already up, or a calendar/notification present is mid-delay.
-            if !composePresentIntentIsWeak { return }
-            if let sheet = composeSheet, !sheet.isWeakDefault { return }
-            guard composeSheet == nil else { return }
-            guard deepLinks.destination == nil else { return }
-            guard !showProfileSettings else { return }
-            ComposeLaunchBridge.shared.queue(analyticsSource: "app_open")
-            presentPendingComposeIfNeeded()
-        }
     }
 
     /// Clears overlapping sheets/keyboard, then presents compose so it isn’t

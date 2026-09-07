@@ -165,8 +165,8 @@ final class WatchPhoneSession: NSObject {
             return .failed(reply.errorMessage ?? "Couldn't save. Try again.")
         }
 
-        // File left the Watch; phone may still be transcribing / creating.
-        return .queued("Sent to iPhone — open OpenThanks there to finish saving.")
+        // File reached the phone; it’s polishing / opening review there.
+        return .queued("Sent to iPhone — open OpenThanks to review and save.")
     }
 
     enum SendOutcome: Equatable {

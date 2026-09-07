@@ -2,8 +2,9 @@ import SwiftUI
 import UIKit
 
 enum AppAppearance: String, CaseIterable, Identifiable {
-    case light
+    /// Shipping default — also the `@AppStorage` fallback when unset.
     case dark
+    case light
     case system
 
     var id: String { rawValue }
@@ -115,7 +116,7 @@ private struct SyncAppAppearanceModifier: ViewModifier {
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
 
     private var colorScheme: ColorScheme? {
-        AppAppearance(rawValue: appearance)?.colorScheme
+        (AppAppearance(rawValue: appearance) ?? .dark).colorScheme
     }
 
     func body(content: Content) -> some View {

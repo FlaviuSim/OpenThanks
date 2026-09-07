@@ -186,8 +186,19 @@ final class WatchConnectivityService: NSObject {
         }
     }
 
-    /// Watch recorded audio → speech-to-text → same create path.
+    /// Watch recorded audio → speech-to-text → same polish as stopping iPhone
+    /// dictation → open Compose for review (do not auto-create).
     private func handleVoiceFile(at url: URL, draftId: UUID) async -> WatchRelay.CreateReply {
+        guard auth?.userId != nil else {
+            let reply = WatchRelay.CreateReply.failure(
+                draftId: draftId,
+                code: "notSignedIn",
+                message: "Sign in on iPhone to finish your Watch thanks."
+            )
+            publishCreateResult(reply)
+            return reply
+        }
+
         do {
             let duration = await Self.audioDurationSeconds(at: url)
             // Prefer cloud when there’s room for thinking pauses — on-device
@@ -199,12 +210,39 @@ final class WatchConnectivityService: NSObject {
             } catch {
                 transcript = try await Self.transcribeAudioFile(at: url, preferOnDevice: false)
             }
-            let request = WatchRelay.CreateRequest(
-                id: draftId,
-                message: transcript,
-                recipient: nil
-            )
-            return await handleCreate(request, lightCleanup: true)
+
+            let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                let reply = WatchRelay.CreateReply.failure(
+                    draftId: draftId,
+                    code: "emptyTranscript",
+                    message: "Didn’t catch that — try speaking a bit longer."
+                )
+                publishCreateResult(reply)
+                return reply
+            }
+
+            // Same polish path as tapping stop on iPhone dictation.
+            let reconciled = await DictationProse.reconcileFullText(trimmed)
+            let cleaned = (reconciled.count < max(12, trimmed.count / 4))
+                ? DictationProse.polish(trimmed)
+                : reconciled
+            let clipped = String(cleaned.prefix(1_500))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !clipped.isEmpty else {
+                let reply = WatchRelay.CreateReply.failure(
+                    draftId: draftId,
+                    code: "emptyTranscript",
+                    message: "Didn’t catch that — try speaking a bit longer."
+                )
+                publishCreateResult(reply)
+                return reply
+            }
+
+            WatchVoiceDraftStore.presentForReview(message: clipped, draftId: draftId)
+            let reply = WatchRelay.CreateReply.readyForReview(draftId: draftId)
+            publishCreateResult(reply)
+            return reply
         } catch {
             let reply = WatchRelay.CreateReply.failure(
                 draftId: draftId,

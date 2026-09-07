@@ -5,8 +5,11 @@ import WidgetKit
 struct StreakLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: StreakLiveActivityAttributes.self) { context in
-            StreakLiveActivityLockScreenView(state: context.state)
-                .widgetURL(WidgetDeepLink.compose)
+            StreakLiveActivityLockScreenView(
+                reminderDay: context.attributes.reminderDay,
+                state: context.state
+            )
+            .widgetURL(WidgetDeepLink.compose)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -15,11 +18,14 @@ struct StreakLiveActivityWidget: Widget {
                         .foregroundStyle(WidgetPalette.coral)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(context.state.deadline, style: .timer)
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.trailing)
-                        .frame(minWidth: 56, alignment: .trailing)
+                    StreakCountdownText(
+                        reminderDay: context.attributes.reminderDay,
+                        deadline: context.state.deadline
+                    )
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(minWidth: 56, alignment: .trailing)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(expandedTitle(for: context.state))
@@ -40,9 +46,12 @@ struct StreakLiveActivityWidget: Widget {
                 Image(systemName: "flame.fill")
                     .foregroundStyle(WidgetPalette.coral)
             } compactTrailing: {
-                Text(context.state.deadline, style: .timer)
-                    .monospacedDigit()
-                    .frame(minWidth: 44, alignment: .trailing)
+                StreakCountdownText(
+                    reminderDay: context.attributes.reminderDay,
+                    deadline: context.state.deadline
+                )
+                .monospacedDigit()
+                .frame(minWidth: 44, alignment: .trailing)
             } minimal: {
                 Image(systemName: "flame.fill")
                     .foregroundStyle(WidgetPalette.coral)
@@ -60,7 +69,24 @@ struct StreakLiveActivityWidget: Widget {
     }
 }
 
+/// Countdown to local midnight. Prefer `timerInterval` over `Text(..., style: .timer)`:
+/// once the deadline is in the past, `.timer` counts *up* (elapsed since midnight),
+/// which looks like the clock time — the bug Jonny hit.
+private struct StreakCountdownText: View {
+    let reminderDay: Date
+    let deadline: Date
+
+    var body: some View {
+        if deadline > reminderDay {
+            Text(timerInterval: reminderDay...deadline, countsDown: true, showsHours: true)
+        } else {
+            Text("0:00")
+        }
+    }
+}
+
 private struct StreakLiveActivityLockScreenView: View {
+    let reminderDay: Date
     let state: StreakLiveActivityAttributes.ContentState
 
     var body: some View {
@@ -86,7 +112,7 @@ private struct StreakLiveActivityLockScreenView: View {
             Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 2) {
-                Text(state.deadline, style: .timer)
+                StreakCountdownText(reminderDay: reminderDay, deadline: state.deadline)
                     .font(.system(size: 20, weight: .semibold).monospacedDigit())
                     .foregroundStyle(WidgetPalette.coral)
                     .multilineTextAlignment(.trailing)

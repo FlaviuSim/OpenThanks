@@ -283,6 +283,14 @@ struct ShareComposeRoot: View {
     private func load() async {
         let parsed = await ShareInboxParser.parse(extensionItems: extensionItems)
         await MainActor.run {
+            // Photos: skip the confirmation sheet and open compose with the
+            // image attached. Other share kinds still show the interim UI.
+            if let parsed, parsed.kind == .photo, !opening {
+                draft = parsed
+                opening = true
+                onOpen(makePayload(from: parsed))
+                return
+            }
             draft = parsed
             loading = false
         }

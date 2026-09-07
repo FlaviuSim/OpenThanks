@@ -176,6 +176,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                     analyticsSource: "notification_friday"
                 )
             }
+        case WatchVoiceDraftStore.notificationTypeValue:
+            await MainActor.run {
+                WatchVoiceDraftStore.restorePendingComposeIfNeeded()
+                NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
+            }
         case NotificationService.calendarNudgeTypeValue:
             let name = (info[NotificationService.calendarNudgeNameKey] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -241,6 +246,10 @@ struct RootView: View {
     @State private var homeGate: HomeGate = .checking
     /// Keeps the deferred Siri tip from appearing again during the same process.
     @State private var deferredSiriThisProcess = false
+    /// User hit the signed-out screen this process — next sign-in should open compose once.
+    @State private var sawSignedOutThisProcess = false
+    /// After an explicit sign-in this session, open compose once when Home is ready.
+    @State private var pendingPostLoginCompose = false
 
     var body: some View {
         ZStack {
@@ -279,6 +288,43 @@ struct RootView: View {
         .task(id: homeGateTaskID) {
             await resolveHomeGate()
         }
+        .onChange(of: authPhase) { _, phase in
+            switch phase {
+            case "signedOut":
+                sawSignedOutThisProcess = true
+                pendingPostLoginCompose = false
+            case "signedIn":
+                // Only after Welcome/sign-in — not cold-start `.loading` → `.signedIn`.
+                if sawSignedOutThisProcess {
+                    pendingPostLoginCompose = true
+                    sawSignedOutThisProcess = false
+                }
+            default:
+                break
+            }
+        }
+        .onChange(of: effectiveHomeGateReady) { _, ready in
+            guard ready, pendingPostLoginCompose else { return }
+            pendingPostLoginCompose = false
+            ComposeLaunchBridge.shared.queue(analyticsSource: "post_login")
+        }
+    }
+
+    /// Coarse auth phase for post-login compose (avoids Equatable on associated values).
+    private var authPhase: String {
+        switch auth.state {
+        case .loading: "loading"
+        case .signedOut: "signedOut"
+        case .signedIn: "signedIn"
+        }
+    }
+
+    /// True when the main tab shell is what the user sees.
+    private var effectiveHomeGateReady: Bool {
+        if case .signedIn = auth.state, auth.hasResolvedProfile {
+            return effectiveHomeGate == .ready
+        }
+        return false
     }
 
     @ViewBuilder
