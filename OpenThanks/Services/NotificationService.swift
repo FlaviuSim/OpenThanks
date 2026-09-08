@@ -246,63 +246,6 @@ enum NotificationService {
         return content
     }
 
-    private static let calendarNudgePreviewId = "calendar-gratitude-nudge-preview"
-
-    /// Google verification / reviewer helper: fire the same nudge ~5s from now so you can
-    /// screen-record without waiting until 8:00 PM. Uses live calendar data.
-    enum CalendarNudgePreviewResult: Equatable {
-        case scheduled(personName: String, meetingTitle: String)
-        case notificationsDenied
-        case noCalendar
-        case noCandidate
-        case schedulingFailed
-    }
-
-    @discardableResult
-    static func scheduleImmediateCalendarNudgePreview(
-        authorId: UUID?,
-        selfEmails: Set<String>
-    ) async -> CalendarNudgePreviewResult {
-        guard await isAuthorized() else { return .notificationsDenied }
-        guard CalendarMeetingAggregator.hasAnyConnectedSource else { return .noCalendar }
-
-        let resolvedAuthorId: UUID?
-        if let authorId {
-            resolvedAuthorId = authorId
-        } else if let session = try? await supabase.auth.session {
-            resolvedAuthorId = session.user.id
-        } else {
-            resolvedAuthorId = nil
-        }
-
-        guard let nudge = await GratitudeOpportunityRanker.pickNudgeForPreview(
-            authorId: resolvedAuthorId,
-            selfEmails: selfEmails
-        ) else {
-            return .noCandidate
-        }
-
-        UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [calendarNudgePreviewId])
-        UNUserNotificationCenter.current()
-            .removeDeliveredNotifications(withIdentifiers: [calendarNudgePreviewId])
-
-        let content = calendarNudgeContent(for: nudge)
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
-        let request = UNNotificationRequest(
-            identifier: calendarNudgePreviewId,
-            content: content,
-            trigger: trigger
-        )
-        do {
-            try await UNUserNotificationCenter.current().add(request)
-            CalendarThankSuggestionStore.upsert(from: nudge)
-            return .scheduled(personName: nudge.personName, meetingTitle: nudge.meetingTitle)
-        } catch {
-            return .schedulingFailed
-        }
-    }
-
     /// Enables the evening nudge: notification permission + any calendar source, then schedule.
     /// Returns nil on success. Preference can stay on even when there’s no candidate tonight.
     /// - Parameter requestAppleIfNeeded: When true and no source is connected, prompts EventKit.

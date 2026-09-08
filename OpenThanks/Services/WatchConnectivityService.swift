@@ -186,10 +186,9 @@ final class WatchConnectivityService: NSObject {
         }
     }
 
-    /// Watch recorded audio → speech-to-text → same polish as stopping iPhone
-    /// dictation → open Compose for review (do not auto-create).
+    /// Watch recorded audio → speech-to-text → polish → save Pending + open Compose once.
     private func handleVoiceFile(at url: URL, draftId: UUID) async -> WatchRelay.CreateReply {
-        guard auth?.userId != nil else {
+        guard let userId = auth?.userId else {
             let reply = WatchRelay.CreateReply.failure(
                 draftId: draftId,
                 code: "notSignedIn",
@@ -239,7 +238,11 @@ final class WatchConnectivityService: NSObject {
                 return reply
             }
 
-            WatchVoiceDraftStore.presentForReview(message: clipped, draftId: draftId)
+            await WatchVoiceDraftStore.presentForReview(
+                message: clipped,
+                draftId: draftId,
+                authorId: userId
+            )
             let reply = WatchRelay.CreateReply.readyForReview(draftId: draftId)
             publishCreateResult(reply)
             return reply
@@ -469,19 +472,13 @@ final class WatchConnectivityService: NSObject {
         let duration = CMTime(seconds: max(0.1, end - start), preferredTimescale: 600)
         session.timeRange = CMTimeRange(start: startTime, duration: duration)
 
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             session.exportAsynchronously {
-                let status = session.status
-                let exportError = session.error
-                switch status {
-                case .completed:
-                    cont.resume()
-                case .failed, .cancelled:
-                    cont.resume(throwing: exportError ?? TranscriptionError.unavailable)
-                default:
-                    cont.resume(throwing: TranscriptionError.unavailable)
-                }
+                continuation.resume()
             }
+        }
+        guard session.status == .completed else {
+            throw session.error ?? TranscriptionError.unavailable
         }
     }
 

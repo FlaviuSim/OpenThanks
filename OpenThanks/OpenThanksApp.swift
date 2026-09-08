@@ -177,8 +177,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 )
             }
         case WatchVoiceDraftStore.notificationTypeValue:
+            await WatchVoiceDraftStore.restorePendingComposeIfNeeded()
             await MainActor.run {
-                WatchVoiceDraftStore.restorePendingComposeIfNeeded()
                 NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
             }
         case NotificationService.calendarNudgeTypeValue:

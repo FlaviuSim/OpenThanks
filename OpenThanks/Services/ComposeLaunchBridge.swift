@@ -32,6 +32,8 @@ final class ComposeLaunchBridge {
         var analyticsSource: String
         /// Watch voice drafts can save to Pending without a recipient.
         var allowsEmptyRecipient: Bool
+        /// Watch voice: edit the pending appreciation that was auto-created.
+        var editingGratitude: Gratitude?
 
         init(
             id: UUID = UUID(),
@@ -43,7 +45,8 @@ final class ComposeLaunchBridge {
             inspiredByGratitudeId: UUID? = nil,
             inspiredByAuthorName: String? = nil,
             analyticsSource: String = "compose_launch",
-            allowsEmptyRecipient: Bool = false
+            allowsEmptyRecipient: Bool = false,
+            editingGratitude: Gratitude? = nil
         ) {
             self.id = id
             self.recipientName = recipientName
@@ -55,6 +58,7 @@ final class ComposeLaunchBridge {
             self.inspiredByAuthorName = inspiredByAuthorName
             self.analyticsSource = analyticsSource
             self.allowsEmptyRecipient = allowsEmptyRecipient || analyticsSource == "watch"
+            self.editingGratitude = editingGratitude
         }
 
         /// Blank post-login / legacy app_open compose — richer launches replace these.
@@ -66,6 +70,7 @@ final class ComposeLaunchBridge {
                 && profile == nil
                 && imageFileName == nil
                 && inspiredByGratitudeId == nil
+                && editingGratitude == nil
         }
     }
 
@@ -80,7 +85,8 @@ final class ComposeLaunchBridge {
         inspiredByGratitudeId: UUID? = nil,
         inspiredByAuthorName: String? = nil,
         analyticsSource: String = "compose_launch",
-        allowsEmptyRecipient: Bool = false
+        allowsEmptyRecipient: Bool = false,
+        editingGratitude: Gratitude? = nil
     ) {
         let trimmedName = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -97,7 +103,8 @@ final class ComposeLaunchBridge {
             inspiredByGratitudeId: inspiredByGratitudeId,
             inspiredByAuthorName: (trimmedInspiredName?.isEmpty == false) ? trimmedInspiredName : nil,
             analyticsSource: analyticsSource,
-            allowsEmptyRecipient: allowsEmptyRecipient
+            allowsEmptyRecipient: allowsEmptyRecipient,
+            editingGratitude: editingGratitude
         )
         // Never let blank app_open clobber a calendar / notification / share prefill
         // that landed milliseconds earlier on cold start.

@@ -36,7 +36,7 @@ struct SiriIntroView: View {
             icon: "waveform",
             title: "With Siri",
             // Phrases registered in OpenThanksShortcuts (OpenCompose + DraftAppreciation).
-            body: "Say “Send an appreciation on OpenThanks” or “Thank Maria on OpenThanks.”"
+            body: "Say “Send an appreciation on OpenThanks.”"
         ),
         .init(
             id: "widget",

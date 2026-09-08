@@ -22,7 +22,7 @@ struct OnboardingView: View {
         .init(headline: ["Say it", "while it", "matters"],
               points: [
                 ("paperplane.fill", "Send in seconds",
-                 "A name and a few honest words. That's the whole product."),
+                 "A name and a few honest words. That's the whole product"),
                 ("lock.fill", "Public or private",
                  "The recipient has to accept before anything is posted on OpenThanks"),
               ]),

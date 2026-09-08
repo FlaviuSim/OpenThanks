@@ -299,6 +299,7 @@ struct MainTabView: View {
             ComposeView(analyticsSource: "tab_compose")
         case .launch(let request):
             ComposeView(
+                editing: request.editingGratitude,
                 initialRecipient: request.recipientName,
                 initialRecipientProfile: request.profile,
                 initialMessage: request.message,
@@ -326,9 +327,11 @@ struct MainTabView: View {
     /// widgets, Siri, share, deep links, etc. Does **not** invent a blank
     /// compose on ordinary icon opens.
     private func presentLaunchSurfaces() {
-        WatchVoiceDraftStore.restorePendingComposeIfNeeded()
-        presentPendingComposeIfNeeded()
-        presentPendingTabIfNeeded()
+        Task { @MainActor in
+            await WatchVoiceDraftStore.restorePendingComposeIfNeeded()
+            presentPendingComposeIfNeeded()
+            presentPendingTabIfNeeded()
+        }
     }
 
     /// Clears overlapping sheets/keyboard, then presents compose so it isn’t

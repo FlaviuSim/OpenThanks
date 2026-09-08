@@ -38,18 +38,16 @@ enum GratitudeOpportunityRanker {
     }
 
     /// Picks at most one nudge for `day`. Returns nil on weekends, low confidence, or empty calendars.
-    /// - Parameter ignoreWeekdayGate: When true (DEBUG preview only), still ranks weekend meetings.
     static func pickNudge(
         for day: Date = Date(),
         authorId: UUID?,
         selfEmails: Set<String> = [],
-        now: Date = Date(),
-        ignoreWeekdayGate: Bool = false
+        now: Date = Date()
     ) async -> GratitudeNudge? {
         let cal = Calendar.current
         let weekday = cal.component(.weekday, from: day)
         // 1 = Sunday, 7 = Saturday
-        if !ignoreWeekdayGate, weekday == 1 || weekday == 7 { return nil }
+        if weekday == 1 || weekday == 7 { return nil }
 
         guard CalendarMeetingAggregator.hasAnyConnectedSource else { return nil }
 
@@ -117,21 +115,6 @@ enum GratitudeOpportunityRanker {
 
         nudge.messageDraft = await makeDraft(for: nudge)
         return nudge
-    }
-
-    /// Same ranking as production, but skips the weekday gate so DEBUG demos work on weekends.
-    static func pickNudgeForPreview(
-        authorId: UUID?,
-        selfEmails: Set<String> = [],
-        now: Date = Date()
-    ) async -> GratitudeNudge? {
-        await pickNudge(
-            for: now,
-            authorId: authorId,
-            selfEmails: selfEmails,
-            now: now,
-            ignoreWeekdayGate: true
-        )
     }
 
     // MARK: Filters & scoring

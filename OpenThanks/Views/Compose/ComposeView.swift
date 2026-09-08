@@ -317,6 +317,13 @@ struct ComposeView: View {
             recipientType: recipientKind,
             hasMedia: hasAttachedMedia
         )
+        // Watch: dismiss = keep Pending on server, stop auto-opening compose.
+        if analyticsSource == "watch" {
+            let authorId = auth.userId
+            Task { @MainActor in
+                await WatchVoiceDraftStore.finishReviewSession(authorId: authorId)
+            }
+        }
     }
 
     /// member | email | phone | name | none — shared by submit + abandon analytics.
@@ -354,7 +361,7 @@ struct ComposeView: View {
                 Text("From your Watch")
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("We cleaned up punctuation the same way as phone dictation. Add who it’s for if you want, then save to Pending.")
+                Text("Saved to Pending from your Watch. Add who it’s for if you want, then save — or Cancel and finish later from Pending.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1560,6 +1567,9 @@ struct ComposeView: View {
                 created = updated
                 activeEditing = nil
                 didCompleteSend = true
+                if analyticsSource == "watch" {
+                    WatchVoiceDraftStore.clear()
+                }
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
                     hasMedia: mediaUrl != nil,

@@ -51,7 +51,8 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 | Field | URL |
 |--------|-----|
 | Privacy Policy | https://openthanks.com/privacy |
-| Support / Marketing | https://openthanks.com |
+| Support URL | https://openthanks.com/support |
+| Marketing | https://openthanks.com |
 | Terms | https://openthanks.com/terms |
 
 ## What’s New (1.0.2)
@@ -65,49 +66,18 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 ## App Review notes
 
-```
-Sign in with email OTP (or phone SMS) using a test account you create before review.
-Sign in with Apple is also available on the welcome screen (required alongside Google/LinkedIn).
-
-To demo the core flow:
-1. Create an appreciation to a second email you control
-2. Open the link to accept from the Home “waiting for you” card
-3. Confirm it appears under Profile → Received
-
-Payments (Guideline 3.1.1): There are NO in-app purchases and NO external purchase links in the iOS app. We do not sell subscriptions or digital unlocks from Settings. Nonprofit honor donations exist only on the website (openthanks.com/donate) and are not linked from the iOS purchase path.
-
-UGC / reporting & blocking (Guideline 1.2): Users can report and block in-app —
-• Appreciation → ⋯ menu → Block (author) + Report
-• Someone else’s profile → ⋯ menu → Block + Report
-Reports are reviewed by our team (founders@openthanks.com). Privacy policy also covers CSAE reporting.
-Blocked users are hidden from the blocker’s feeds and people search.
-
-Age gate: Sign-in requires confirming “I am 18 or older” (matches Terms / Privacy).
-
-Account deletion (Guideline 5.1.1v): Settings → Delete Account (below Log Out).
-This permanently deletes the profile and associated data via our API — no email required.
-
-Optional permissions (decline does not block core use):
-• Photo Library — attach a photo to an appreciation or set a profile photo
-• Microphone / Speech — optional Speak-to-write on compose
-• Notifications — Friday reminders and evening thank-you nudges
-• Apple Calendar / Google Calendar — evening thank-you suggestions only; calendar data stays on device (Google: readonly today’s events; tokens in Keychain). See https://openthanks.com/privacy#google-user-data
-• Siri — App Shortcuts to start an appreciation
-
-Universal Links: openthanks.com claim/for/profile routes open in-app when installed.
-Export compliance: ITSAppUsesNonExemptEncryption = false (HTTPS only).
-```
+**Paste-ready notes + day-of-submit click order:** see [`REVIEW_NOTES.md`](REVIEW_NOTES.md).
 
 ## Screenshots
 
-Ready-to-upload PNGs (marketing frames):
+Real simulator captures, sized for Connect — see `AppStore/Screenshots/README.md`.
 
-- `AppStore/Screenshots/iPhone-6.7-inch/` — 1290×2796 (required for modern iPhones)
-- `AppStore/Screenshots/iPhone-6.5-inch/` — 1284×2778
+**Upload first:**
 
-Upload **at least 3** (up to 10) per size. Suggested order matches filenames `01`–`05`.
+- `AppStore/Screenshots/iPhone-6.9-inch/` — **1320×2868** (primary iPhone)
+- `AppStore/Screenshots/iPad-13-inch/` — **2064×2752** (required; universal app)
 
-For highest conversion, replace these with real device captures from TestFlight after you have sample content, keeping the same headlines.
+Also generated: 6.7" / 6.5" iPhone and 12.9" iPad sets. Order by filename `01`…
 
 ## Icons
 
