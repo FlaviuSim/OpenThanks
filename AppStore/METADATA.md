@@ -9,6 +9,7 @@ Use these fields when creating the listing in [App Store Connect](https://appsto
 | Name | OpenThanks |
 | Subtitle (30 chars) | Share real appreciation |
 | Bundle ID | `com.openthanks.gratitude` |
+| Devices (1.1) | **iPhone only** — re-enable iPad in a later update |
 | SKU | `openthanks-ios` |
 | Primary language | English (U.S.) |
 | Category (Primary) | Social Networking |
@@ -72,12 +73,13 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 Real simulator captures, sized for Connect — see `AppStore/Screenshots/README.md`.
 
-**Upload first:**
+**Upload first (iPhone-only release for 1.1):**
 
 - `AppStore/Screenshots/iPhone-6.9-inch/` — **1320×2868** (primary iPhone)
-- `AppStore/Screenshots/iPad-13-inch/` — **2064×2752** (required; universal app)
 
-Also generated: 6.7" / 6.5" iPhone and 12.9" iPad sets. Order by filename `01`…
+Do **not** upload iPad screenshots while the binary is iPhone-only (`TARGETED_DEVICE_FAMILY = 1`). iPad sets remain in the repo for a later universal update.
+
+Also generated: 6.7" / 6.5" iPhone and 12.9" / 13" iPad sets. Order by filename `01`…
 
 ## Icons
 

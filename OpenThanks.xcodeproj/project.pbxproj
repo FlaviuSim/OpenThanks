@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D46581779A544946BBD9982E /* WatchVoiceDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 358317469C114877929918DC /* WatchVoiceDraftStore.swift */; };
-
 		00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9116D291352DD94BE647DB15 /* Theme.swift */; };
 		03ACE0F6325591D8F322DD3A /* AppIcon-Night@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = F2AE333A7E42E07D09F3D05E /* AppIcon-Night@2x.png */; };
 		06EE4316D00DEEF35B015B7D /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
@@ -128,6 +126,7 @@
 		D0ACBBB2315E0DCF5F289DF8 /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		D114CD44AF748B2FE6CCBCAB /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		D306E53D13DB665D6FCC6CF6 /* GoogleCalendarAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */; };
+		D46581779A544946BBD9982E /* WatchVoiceDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 358317469C114877929918DC /* WatchVoiceDraftStore.swift */; };
 		D53447D17D5B6C753839B3D2 /* AppIcon-Ember@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = ACE734EF8985A181EF2C08D5 /* AppIcon-Ember@3x.png */; };
 		D7AF72D5C38D29EAF4E070F7 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		DB55A08FDC17F22B1E931B1D /* WatchRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F96BC2DE837FAC91410810 /* WatchRelay.swift */; };
@@ -234,7 +233,6 @@
 		167153BE2EE275F81D5D2A05 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
 		1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityService.swift; sourceTree = "<group>"; };
-		358317469C114877929918DC /* WatchVoiceDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceDraftStore.swift; sourceTree = "<group>"; };
 		1BCD3D6D4207C94DE001B284 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1EC0A8CDE94660605C46C812 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		200E9036D46AAE66F6F99936 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -251,6 +249,7 @@
 		3272C7AE13EA6BBA98BFC8C7 /* OpenThanksWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWidget.entitlements; sourceTree = "<group>"; };
 		34C1B132702899893D08B37C /* VideoProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessing.swift; sourceTree = "<group>"; };
 		3503FCA888C8E244D2C73F4F /* AppreciationShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationShare.swift; sourceTree = "<group>"; };
+		358317469C114877929918DC /* WatchVoiceDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceDraftStore.swift; sourceTree = "<group>"; };
 		39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		3BBB847CC3698D40E17D709A /* CalendarPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPermissionView.swift; sourceTree = "<group>"; };
 		3BE658B352B3D0555586BCD7 /* AppIcon-Dawn-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn-Preview.png"; sourceTree = "<group>"; };
@@ -1092,7 +1091,7 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1101,7 +1100,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -1179,7 +1178,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatch/OpenThanksWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
@@ -1198,7 +1197,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatchWidgets/OpenThanksWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1221,7 +1220,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatch/OpenThanksWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
@@ -1240,7 +1239,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1252,7 +1251,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -1261,7 +1260,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
@@ -1274,7 +1273,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -1284,7 +1283,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatchWidgets/OpenThanksWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1305,7 +1304,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
@@ -1318,7 +1317,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -1330,7 +1329,7 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1339,7 +1338,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -1349,7 +1348,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1361,7 +1360,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
