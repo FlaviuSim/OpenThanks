@@ -64,6 +64,7 @@ struct NotificationPermissionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background.ignoresSafeArea())
         .syncAppAppearance()
+        .readableWidth()
     }
 
     private func allowNotifications() async {

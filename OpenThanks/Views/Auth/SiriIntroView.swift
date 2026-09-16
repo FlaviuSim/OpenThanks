@@ -111,6 +111,7 @@ struct SiriIntroView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background.ignoresSafeArea())
         .syncAppAppearance()
+        .readableWidth()
         .onAppear {
             OpenThanksShortcuts.updateAppShortcutParameters()
         }

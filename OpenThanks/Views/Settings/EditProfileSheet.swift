@@ -24,6 +24,8 @@ struct EditProfileSheet: View {
     @State private var searching = false
     @State private var saving = false
     @State private var errorMessage: String?
+    /// When Sign in with Apple already supplied the name, keep it and only ask for username.
+    @State private var nameLockedFromApple = false
 
     private struct CropItem: Identifiable {
         let id = UUID()
@@ -38,8 +40,43 @@ struct EditProfileSheet: View {
         fullName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var canContinue: Bool {
+        !cleanUsername.isEmpty && !cleanFullName.isEmpty
+    }
+
+    private var continueBlockedHint: String {
+        if cleanFullName.isEmpty && cleanUsername.isEmpty {
+            return "Enter your name and username to continue"
+        }
+        if cleanFullName.isEmpty { return "Enter your name to continue" }
+        if cleanUsername.isEmpty { return "Enter a username to continue" }
+        return ""
+    }
+
+    private var requiredHelperCopy: String {
+        if nameLockedFromApple {
+            return "Your name came from Sign in with Apple. Choose a username to finish — photo and headline are optional."
+        }
+        if !cleanFullName.isEmpty {
+            return "Choose a username to enter OpenThanks. Photo and headline are optional."
+        }
+        return "Add your name and username to enter OpenThanks. Photo and headline are optional."
+    }
+
     private var hasAvatar: Bool {
         photoData != nil || auth.currentProfile?.avatarURL != nil
+    }
+
+    private func applyProfileFields(from p: Profile?) {
+        fullName = p?.fullName ?? fullName
+        username = p?.username ?? username
+        headline = p?.headline ?? headline
+        nonprofitEin = p?.favoriteNonprofitEin
+        nonprofitName = p?.favoriteNonprofitName
+        nonprofitWebsite = p?.favoriteNonprofitWebsite
+        nonprofitWhy = p?.favoriteNonprofitHeadline ?? ""
+        // Apple already provided the name — don't make reviewers re-type it.
+        nameLockedFromApple = required && !cleanFullName.isEmpty
     }
 
     var body: some View {
@@ -48,6 +85,8 @@ struct EditProfileSheet: View {
                 Section {
                     profilePhotoRow
                     TextField("Full name", text: $fullName)
+                        .disabled(nameLockedFromApple)
+                        .foregroundStyle(nameLockedFromApple ? Theme.textSecondary : Theme.textPrimary)
                     HStack(spacing: 2) {
                         Text("@").foregroundStyle(Theme.textSecondary)
                         TextField("username", text: $username)
@@ -73,7 +112,7 @@ struct EditProfileSheet: View {
 
                 if required {
                     Section {
-                        Text("Add your name and username to enter OpenThanks. Photo and headline are optional.")
+                        Text(requiredHelperCopy)
                             .font(Theme.body(13))
                             .foregroundStyle(Theme.textSecondary)
                     }
@@ -91,20 +130,62 @@ struct EditProfileSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(required ? "Continue" : "Save") { Task { await save() } }
-                        .disabled(saving || loadingPhoto || cleanUsername.isEmpty || cleanFullName.isEmpty)
-                        .foregroundStyle(Theme.coral)
+                    if !required {
+                        Button("Save") { Task { await save() } }
+                            .disabled(saving || loadingPhoto || !canContinue)
+                            .foregroundStyle(canContinue ? Theme.coral : Theme.textTertiary)
+                    }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                if required {
+                    VStack(spacing: 8) {
+                        if !canContinue, !continueBlockedHint.isEmpty {
+                            Text(continueBlockedHint)
+                                .font(Theme.body(13))
+                                .foregroundStyle(Theme.textSecondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        Button {
+                            Task { await save() }
+                        } label: {
+                            HStack(spacing: 10) {
+                                if saving {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .tint(Color(hex: 0x2B1209))
+                                }
+                                Text(saving ? "Saving…" : "Continue")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(CTAButtonStyle(isLoading: saving))
+                        .disabled(saving || loadingPhoto || !canContinue)
+                        .opacity(canContinue || saving ? 1 : 0.45)
+                        .accessibilityHint(canContinue ? "" : continueBlockedHint)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 12)
+                    .background(Theme.background.opacity(0.96))
+                }
+            }
+            .readableWidth()
             .onAppear {
-                let p = auth.currentProfile
-                fullName = p?.fullName ?? ""
-                username = p?.username ?? ""
-                headline = p?.headline ?? ""
-                nonprofitEin = p?.favoriteNonprofitEin
-                nonprofitName = p?.favoriteNonprofitName
-                nonprofitWebsite = p?.favoriteNonprofitWebsite
-                nonprofitWhy = p?.favoriteNonprofitHeadline ?? ""
+                applyProfileFields(from: auth.currentProfile)
+            }
+            .onChange(of: auth.currentProfile?.fullName) { _, newName in
+                // Late Apple name/email sync — unlock Continue without retyping.
+                guard required else { return }
+                let incoming = newName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard !incoming.isEmpty else { return }
+                if cleanFullName.isEmpty {
+                    fullName = incoming
+                }
+                if !cleanFullName.isEmpty {
+                    nameLockedFromApple = true
+                }
             }
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }

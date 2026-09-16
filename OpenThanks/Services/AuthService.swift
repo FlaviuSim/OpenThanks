@@ -38,6 +38,10 @@ final class AuthService {
     }
 
     private var authTask: Task<Void, Never>?
+    /// Name/email from Sign in with Apple / OAuth for the in-flight sign-in.
+    /// Applied when the profile row is created so we never ask again (App Review 4.0).
+    private var pendingOAuthFullName: String?
+    private var pendingOAuthEmail: String?
 
     init() {
         // Warm start: show last profile immediately while the session resolves.
@@ -145,17 +149,37 @@ final class AuthService {
             if let profile = existing.first {
                 guard self.userId == userId else { return }
                 var resolved = profile
+                var patch: [String: String] = [:]
                 // Backfill email from auth session (Apple/Google) when the profile row is empty.
                 let sessionEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let pendingEmail = pendingOAuthEmail?.trimmingCharacters(in: .whitespacesAndNewlines)
                 let profileEmail = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines)
-                if (profileEmail == nil || profileEmail?.isEmpty == true),
-                   let sessionEmail, !sessionEmail.isEmpty {
-                    let normalized = Self.normalizedEmail(sessionEmail)
+                if (profileEmail == nil || profileEmail?.isEmpty == true) {
+                    let candidate = [pendingEmail, sessionEmail]
+                        .compactMap { $0 }
+                        .first { !$0.isEmpty }
+                    if let candidate {
+                        let normalized = Self.normalizedEmail(candidate)
+                        patch["email"] = normalized
+                        resolved.email = normalized
+                    }
+                }
+                let profileName = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if profileName == nil || profileName?.isEmpty == true {
+                    let fromMeta = Self.metadataString(metadata, keys: ["full_name", "name"])
+                    let candidate = [pendingOAuthFullName, fromMeta]
+                        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .first { !$0.isEmpty }
+                    if let candidate {
+                        patch["full_name"] = candidate
+                        resolved.fullName = candidate
+                    }
+                }
+                if !patch.isEmpty {
                     _ = try? await supabase.from("profiles")
-                        .update(["email": normalized])
+                        .update(patch)
                         .eq("id", value: userId)
                         .execute()
-                    resolved.email = normalized
                 }
                 currentProfile = resolved
                 Analytics.identify(
@@ -168,13 +192,29 @@ final class AuthService {
                 return
             }
             // First sign-in on this backend from mobile: create a minimal row.
-            let username = Self.suggestUsername(email: email, phone: phone)
+            let username = Self.suggestUsername(
+                email: pendingOAuthEmail ?? email,
+                phone: phone
+            )
+            let resolvedName = [
+                pendingOAuthFullName,
+                Self.metadataString(metadata, keys: ["full_name", "name"]),
+            ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+            let resolvedEmail = [
+                pendingOAuthEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
+                email?.trimmingCharacters(in: .whitespacesAndNewlines),
+            ]
+            .compactMap { $0 }
+            .first { !$0.isEmpty }
+            .map { Self.normalizedEmail($0) }
             let row = NewProfileRow(
                 id: userId.uuidString,
-                email: email,
+                email: resolvedEmail,
                 phone: phone,
                 username: username,
-                fullName: Self.metadataString(metadata, keys: ["full_name", "name"]),
+                fullName: resolvedName,
                 avatarUrl: Self.metadataString(metadata, keys: ["avatar_url", "picture"])
             )
             let inserted: Profile = try await supabase
@@ -437,10 +477,16 @@ final class AuthService {
     }
 
     /// Native Sign in with Apple → Supabase `signInWithIdToken`.
-    /// `email` is only present on first Apple authorization; still sync from the session JWT.
+    /// `email` / `fullName` are only present on first Apple authorization; still sync from the session JWT.
+    /// Hints are stashed *before* `signInWithIdToken` so `loadOrCreateProfile` (auth listener)
+    /// never creates a nameless row that forces a redundant Complete Profile screen (Guideline 4).
     @discardableResult
     func signInWithApple(idToken: String, fullName: String?, email: String? = nil) async -> Bool {
         errorMessage = nil
+        let trimmedName = fullName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+        pendingOAuthFullName = (trimmedName?.isEmpty == false) ? trimmedName : nil
+        pendingOAuthEmail = (trimmedEmail?.isEmpty == false) ? trimmedEmail : nil
         do {
             _ = try await supabase.auth.signInWithIdToken(
                 credentials: OpenIDConnectCredentials(
@@ -449,27 +495,61 @@ final class AuthService {
                 )
             )
             // Apple only sends the person's name on the first authorization.
-            if let fullName, !fullName.isEmpty {
+            if let trimmedName, !trimmedName.isEmpty {
                 _ = try? await supabase.auth.update(
-                    user: UserAttributes(data: ["full_name": .string(fullName)])
+                    user: UserAttributes(data: ["full_name": .string(trimmedName)])
                 )
-                if var profile = currentProfile,
-                   (profile.fullName == nil || profile.fullName?.isEmpty == true) {
-                    profile.fullName = fullName
-                    currentProfile = profile
-                    _ = try? await supabase.from("profiles")
-                        .update(["full_name": fullName])
-                        .eq("id", value: profile.id)
-                        .execute()
-                }
             }
-            await syncAppleEmailIfNeeded(credentialEmail: email)
+            // Ensure profile reflects Apple identity even if the auth listener raced ahead.
+            if let session = try? await supabase.auth.session {
+                await loadOrCreateProfile(
+                    userId: session.user.id,
+                    email: session.user.email,
+                    phone: session.user.phone,
+                    metadata: session.user.userMetadata
+                )
+            }
+            await ensureAppleIdentityOnProfile(fullName: trimmedName, email: trimmedEmail)
+            await syncAppleEmailIfNeeded(credentialEmail: trimmedEmail)
             await handleAuthSuccess(method: "apple")
+            // Keep hints briefly so a late auth-listener profile load can still apply them.
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                self?.pendingOAuthFullName = nil
+                self?.pendingOAuthEmail = nil
+            }
             return true
         } catch {
+            pendingOAuthFullName = nil
+            pendingOAuthEmail = nil
             errorMessage = Self.friendlyAuthError(error)
             return false
         }
+    }
+
+    /// Writes Apple-provided name/email onto `profiles` when still empty.
+    private func ensureAppleIdentityOnProfile(fullName: String?, email: String?) async {
+        guard var profile = currentProfile else { return }
+        var patch: [String: String] = [:]
+        let existingName = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (existingName == nil || existingName?.isEmpty == true),
+           let fullName, !fullName.isEmpty {
+            patch["full_name"] = fullName
+            profile.fullName = fullName
+        }
+        let existingEmail = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (existingEmail == nil || existingEmail?.isEmpty == true),
+           let email, !email.isEmpty {
+            let normalized = Self.normalizedEmail(email)
+            patch["email"] = normalized
+            profile.email = normalized
+        }
+        guard !patch.isEmpty else { return }
+        _ = try? await supabase.from("profiles")
+            .update(patch)
+            .eq("id", value: profile.id)
+            .execute()
+        currentProfile = profile
     }
 
     /// Persists Apple's email (or Hide My Email relay) onto `profiles.email` when missing.

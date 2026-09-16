@@ -60,13 +60,23 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
 
-            TabView(selection: $page) {
-                ForEach(slides.indices, id: \.self) { i in
-                    slideView(slides[i], index: i).tag(i)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(Motion.breathe, value: page)
+            // Avoid `.tabViewStyle(.page)` — on iPad it can intercept taps meant for
+            // the Continue button below (App Review: unresponsive Continue).
+            slideView(slides[page], index: page)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .id(page)
+                .transition(.opacity)
+                .animation(Motion.breathe, value: page)
+                .gesture(
+                    DragGesture(minimumDistance: 40)
+                        .onEnded { value in
+                            if value.translation.width < -60, page < slides.count - 1 {
+                                withAnimation(Motion.breathe) { page += 1 }
+                            } else if value.translation.width > 60, page > 0 {
+                                withAnimation(Motion.breathe) { page -= 1 }
+                            }
+                        }
+                )
 
             Button(page == slides.count - 1 ? "Get Started" : "Continue") {
                 WarmHaptics.selection()
@@ -78,6 +88,8 @@ struct OnboardingView: View {
             }
             .buttonStyle(CTAButtonStyle())
             .padding(.horizontal, 24)
+            .contentShape(Rectangle())
+            .accessibilityLabel(page == slides.count - 1 ? "Get Started" : "Continue")
             .sensoryFeedback(.selection, trigger: page)
 
             HStack(spacing: 6) {
@@ -92,7 +104,9 @@ struct OnboardingView: View {
             .padding(.bottom, 8)
         }
         .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
+        .readableWidth()
     }
 
     private func slideView(_ slide: Slide, index: Int) -> some View {
@@ -130,7 +144,7 @@ struct OnboardingView: View {
                     .softNoteReveal(delay: 0.08 + Double(pointIndex) * 0.06)
                 }
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)

@@ -59,7 +59,7 @@ struct CalendarPermissionView: View {
 
                 CalendarSourceChoice(
                     title: "Apple Calendar",
-                    subtitle: "Meetings stay on this iPhone",
+                    subtitle: "Meetings stay on this device",
                     systemImage: "apple.logo",
                     isBusy: busyApple,
                     disabled: busy
@@ -104,6 +104,7 @@ struct CalendarPermissionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background.ignoresSafeArea())
         .syncAppAppearance()
+        .readableWidth()
         .animation(.easeOut(duration: 0.2), value: errorMessage)
         .onAppear {
             withAnimation(.easeOut(duration: 0.45)) {

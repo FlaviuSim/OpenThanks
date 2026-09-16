@@ -167,7 +167,7 @@ struct NotificationsSettingsView: View {
 
             calendarSourceRow(
                 title: "Apple Calendar",
-                detail: "Meetings stay on this iPhone",
+                detail: "Meetings stay on this device",
                 status: appleStatus,
                 isReady: appleReady,
                 actionTitle: appleReady ? nil : appleActionTitle,

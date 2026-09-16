@@ -8,6 +8,8 @@ struct WelcomeView: View {
     }
 
     @Environment(AuthService.self) private var auth
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var showEmailSheet = false
     @State private var showPhoneSheet = false
     @State private var oauthBusy: OAuthBusy?
@@ -15,118 +17,124 @@ struct WelcomeView: View {
     @State private var showAgeHint = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            HStack(spacing: 10) {
-                Image(systemName: "heart.fill")
-                    .foregroundStyle(Theme.heartGradient)
-                    .font(.system(size: 24))
-                Text("OpenThanks")
-                    .font(Theme.display(24, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-            }
-            .padding(.bottom, 28)
+        ScrollView {
+            VStack(spacing: 0) {
+                Spacer(minLength: sizeClass == .regular ? 48 : 24)
 
-            Text("Welcome back")
-                .font(Theme.display(32, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-            Text("Sign in to continue sharing appreciation.")
-                .font(Theme.body(15))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.top, 6)
+                HStack(spacing: 10) {
+                    Image(systemName: "heart.fill")
+                        .foregroundStyle(Theme.heartGradient)
+                        .font(.system(size: 24))
+                    Text("OpenThanks")
+                        .font(Theme.display(24, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
                 .padding(.bottom, 28)
 
-            AgeConfirmationToggle(
-                isConfirmed: $ageConfirmed,
-                showHint: $showAgeHint
-            )
-            .padding(.horizontal, 24)
-            .padding(.bottom, 16)
-
-            VStack(spacing: 12) {
-                ZStack {
-                    SignInWithAppleButton(.continue) { request in
-                        request.requestedScopes = [.email, .fullName]
-                    } onCompletion: { result in
-                        handleAppleResult(result)
-                    }
-                    .signInWithAppleButtonStyle(.black)
-                    .frame(height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .disabled(!ageConfirmed || oauthBusy != nil)
-                    .opacity(ageConfirmed ? 1 : 0.45)
-
-                    if !ageConfirmed {
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .onTapGesture { nudgeAgeConfirmation() }
-                    }
-                }
-                .frame(height: 52)
-
-                authButton(
-                    iconView: AnyView(GoogleGlyph()),
-                    label: oauthBusy == .google ? "Opening Google…" : "Continue with Google"
-                ) {
-                    guardRequireAge {
-                        Task { await signInWithOAuth(.google) }
-                    }
-                }
-                .disabled(oauthBusy != nil)
-                .opacity(authControlOpacity)
-
-                authButton(
-                    iconView: AnyView(LinkedInGlyph()),
-                    label: oauthBusy == .linkedin ? "Opening LinkedIn…" : "Continue with LinkedIn"
-                ) {
-                    guardRequireAge {
-                        Task { await signInWithOAuth(.linkedin) }
-                    }
-                }
-                .disabled(oauthBusy != nil)
-                .opacity(authControlOpacity)
-
-                authButton(
-                    icon: "person.badge.key.fill",
-                    label: oauthBusy == .passkey ? "Waiting for passkey…" : "Continue with Passkey"
-                ) {
-                    guardRequireAge {
-                        Task { await signInWithPasskey() }
-                    }
-                }
-                .disabled(oauthBusy != nil)
-                .opacity(authControlOpacity)
-
-                authButton(icon: "envelope.fill", label: "Continue with Email") {
-                    guardRequireAge { showEmailSheet = true }
-                }
-                .disabled(oauthBusy != nil)
-                .opacity(authControlOpacity)
-
-                authButton(icon: "phone.fill", label: "Continue with Phone") {
-                    guardRequireAge { showPhoneSheet = true }
-                }
-                .disabled(oauthBusy != nil)
-                .opacity(authControlOpacity)
-            }
-            .padding(.horizontal, 24)
-
-            if let error = auth.errorMessage {
-                Text(error)
-                    .font(Theme.body(13))
-                    .foregroundStyle(.red)
+                Text("Welcome back")
+                    .font(Theme.display(32, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Sign in to continue sharing appreciation.")
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.top, 16)
-                    .padding(.horizontal, 24)
-            }
+                    .padding(.top, 6)
+                    .padding(.bottom, 28)
 
-            Spacer()
-
-            legalFooter
-                .padding(.horizontal, 40)
+                AgeConfirmationToggle(
+                    isConfirmed: $ageConfirmed,
+                    showHint: $showAgeHint
+                )
                 .padding(.bottom, 16)
+
+                VStack(spacing: 12) {
+                    // Sign in with Apple — system control, correct style for light/dark (HIG).
+                    ZStack {
+                        SignInWithAppleButton(.continue) { request in
+                            request.requestedScopes = [.email, .fullName]
+                        } onCompletion: { result in
+                            handleAppleResult(result)
+                        }
+                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .disabled(!ageConfirmed || oauthBusy != nil)
+                        .opacity(ageConfirmed ? 1 : 0.45)
+                        .accessibilityLabel("Continue with Apple")
+
+                        if !ageConfirmed {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture { nudgeAgeConfirmation() }
+                                .accessibilityLabel("Confirm you are 18 or older to use Sign in with Apple")
+                        }
+                    }
+                    .frame(height: 52)
+
+                    authButton(
+                        iconView: AnyView(GoogleGlyph()),
+                        label: oauthBusy == .google ? "Opening Google…" : "Continue with Google"
+                    ) {
+                        guardRequireAge {
+                            Task { await signInWithOAuth(.google) }
+                        }
+                    }
+                    .disabled(oauthBusy != nil)
+                    .opacity(authControlOpacity)
+
+                    authButton(
+                        iconView: AnyView(LinkedInGlyph()),
+                        label: oauthBusy == .linkedin ? "Opening LinkedIn…" : "Continue with LinkedIn"
+                    ) {
+                        guardRequireAge {
+                            Task { await signInWithOAuth(.linkedin) }
+                        }
+                    }
+                    .disabled(oauthBusy != nil)
+                    .opacity(authControlOpacity)
+
+                    authButton(
+                        icon: "person.badge.key.fill",
+                        label: oauthBusy == .passkey ? "Waiting for passkey…" : "Continue with Passkey"
+                    ) {
+                        guardRequireAge {
+                            Task { await signInWithPasskey() }
+                        }
+                    }
+                    .disabled(oauthBusy != nil)
+                    .opacity(authControlOpacity)
+
+                    authButton(icon: "envelope.fill", label: "Continue with Email") {
+                        guardRequireAge { showEmailSheet = true }
+                    }
+                    .disabled(oauthBusy != nil)
+                    .opacity(authControlOpacity)
+
+                    authButton(icon: "phone.fill", label: "Continue with Phone") {
+                        guardRequireAge { showPhoneSheet = true }
+                    }
+                    .disabled(oauthBusy != nil)
+                    .opacity(authControlOpacity)
+                }
+
+                if let error = auth.errorMessage {
+                    Text(error)
+                        .font(Theme.body(13))
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 16)
+                }
+
+                legalFooter
+                    .padding(.top, 28)
+                    .padding(.bottom, 24)
+            }
+            .padding(.horizontal, 24)
+            .frame(maxWidth: 480)
+            .frame(maxWidth: .infinity)
         }
-        .background(Theme.background)
+        .scrollDismissesKeyboard(.interactively)
+        .background(Theme.background.ignoresSafeArea())
         .sheet(isPresented: $showEmailSheet) { OTPSheet(mode: .email) }
         .sheet(isPresented: $showPhoneSheet) { OTPSheet(mode: .phone) }
     }
@@ -178,9 +186,11 @@ struct WelcomeView: View {
             .foregroundStyle(Theme.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
+            .contentShape(Rectangle())
             .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.hairline))
         }
+        .buttonStyle(.plain)
     }
 
     private func signInWithOAuth(_ provider: OAuthBusy) async {
@@ -226,11 +236,25 @@ struct WelcomeView: View {
             }
             var appleFullName: String?
             if let components = credential.fullName {
-                let formatted = PersonNameComponentsFormatter.localizedString(
-                    from: components,
-                    style: .default
-                ).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !formatted.isEmpty { appleFullName = formatted }
+                var parts: [String] = []
+                if let given = components.givenName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !given.isEmpty {
+                    parts.append(given)
+                }
+                if let family = components.familyName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !family.isEmpty {
+                    parts.append(family)
+                }
+                let joined = parts.joined(separator: " ")
+                if !joined.isEmpty {
+                    appleFullName = joined
+                } else {
+                    let formatted = PersonNameComponentsFormatter.localizedString(
+                        from: components,
+                        style: .default
+                    ).trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !formatted.isEmpty { appleFullName = formatted }
+                }
             }
             // Apple only returns email on the first authorization (or after revoke).
             let appleEmail = credential.email?
@@ -278,21 +302,23 @@ struct AgeConfirmationToggle: View {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(.white)
-                                .transition(.scale.combined(with: .opacity))
                         }
                     }
                     .padding(.top, 1)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("I confirm I am 18 or older")
-                            .font(Theme.body(14, weight: .medium))
+                            .font(Theme.body(15, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.leading)
                         Text("Required by our Terms of Service")
-                            .font(Theme.body(12))
+                            .font(Theme.body(13))
                             .foregroundStyle(Theme.textSecondary)
+                        Link("Read Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
+                            .font(Theme.body(13, weight: .medium))
+                            .foregroundStyle(Theme.coral)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
             }
@@ -300,23 +326,10 @@ struct AgeConfirmationToggle: View {
             .accessibilityLabel("I confirm I am 18 or older")
             .accessibilityAddTraits(isConfirmed ? [.isSelected] : [])
 
-            Button {
-                if let url = URL(string: "https://openthanks.com/terms") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                Text("Read Terms of Service")
-                    .font(Theme.body(12, weight: .medium))
-                    .foregroundStyle(Theme.coral)
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 36)
-
-            if showHint {
+            if showHint && !isConfirmed {
                 Text("Confirm you are 18 or older to continue.")
-                    .font(Theme.body(12))
+                    .font(Theme.body(13, weight: .medium))
                     .foregroundStyle(Theme.coral)
-                    .padding(.leading, 36)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -372,6 +385,7 @@ struct OTPSheet: View {
 
     @Environment(AuthService.self) private var auth
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var destination = ""
     @State private var code = ""
     @State private var codeSent = false
@@ -380,65 +394,71 @@ struct OTPSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Text(codeSent ? "Enter the 6-digit code" :
-                        (mode == .email ? "What's your email?" : "What's your number?"))
-                    .font(Theme.display(24, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-
-                if codeSent {
-                    // Plain label — a hidden email TextField steals QuickType taps.
-                    Text(destination)
-                        .font(Theme.body(14))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    OneTimeCodeField(text: $code, isFocused: true)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .padding(16)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-                        // Fresh UITextField when the code step appears so AutoFill
-                        // binds to this first responder (not the email field).
-                        .id("otp-code-\(mode)-\(destination)")
-                } else {
-                    TextField(mode == .email ? "you@example.com" : "+1 555 123 4567",
-                              text: $destination)
-                        .keyboardType(mode == .email ? .emailAddress : .phonePad)
-                        .textContentType(mode == .email ? .emailAddress : .telephoneNumber)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .focused($destinationFocused)
-                        .padding(16)
-                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(codeSent ? "Enter the 6-digit code" :
+                            (mode == .email ? "What's your email?" : "What's your number?"))
+                        .font(Theme.display(24, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                }
 
-                if let error = auth.errorMessage {
-                    Text(error).font(Theme.body(13)).foregroundStyle(.red)
-                }
+                    if codeSent {
+                        // Plain label — a hidden email TextField steals QuickType taps.
+                        Text(destination)
+                            .font(Theme.body(14))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                Button {
-                    Task { await submit() }
-                } label: {
-                    HStack(spacing: 10) {
-                        if busy {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(Color(hex: 0x2B1209))
-                        }
-                        Text(submitLabel)
+                        OneTimeCodeField(text: $code, isFocused: true)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .padding(16)
+                            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                            // Fresh UITextField when the code step appears so AutoFill
+                            // binds to this first responder (not the email field).
+                            .id("otp-code-\(mode)-\(destination)")
+                    } else {
+                        TextField(mode == .email ? "you@example.com" : "+1 555 123 4567",
+                                  text: $destination)
+                            .keyboardType(mode == .email ? .emailAddress : .phonePad)
+                            .textContentType(mode == .email ? .emailAddress : .telephoneNumber)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .focused($destinationFocused)
+                            .padding(16)
+                            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                            .foregroundStyle(Theme.textPrimary)
                     }
-                }
-                .buttonStyle(CTAButtonStyle(isLoading: busy))
-                .disabled(busy || !canSubmit)
-                .opacity(canSubmit || busy ? 1 : 0.45)
-                .animation(.easeInOut(duration: 0.15), value: busy)
-                .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: busy)
 
-                Spacer()
+                    if let error = auth.errorMessage {
+                        Text(error).font(Theme.body(13)).foregroundStyle(.red)
+                    }
+
+                    Button {
+                        Task { await submit() }
+                    } label: {
+                        HStack(spacing: 10) {
+                            if busy {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(Color(hex: 0x2B1209))
+                            }
+                            Text(submitLabel)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(CTAButtonStyle(isLoading: busy))
+                    .disabled(busy || !canSubmit)
+                    .opacity(canSubmit || busy ? 1 : 0.45)
+                    .animation(.easeInOut(duration: 0.15), value: busy)
+                    .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: busy)
+
+                    Spacer(minLength: 24)
+                }
+                .padding(24)
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity)
             }
-            .padding(24)
             .background(Theme.background)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -453,7 +473,9 @@ struct OTPSheet: View {
                 Task { await submit() }
             }
         }
-        .presentationDetents([.medium])
+        // Medium-only clips the CTA on iPad / Stage Manager — allow large.
+        .presentationDetents(sizeClass == .regular ? [.large] : [.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 
     private var canSubmit: Bool {
@@ -481,10 +503,14 @@ struct OTPSheet: View {
             destination = trimmedDestination
         }
         if codeSent {
+            guard let phone = AuthService.normalizedPhone(destination) else {
+                auth.errorMessage = "Enter a valid phone number."
+                return
+            }
             if mode == .email {
                 await auth.verifyEmailCode(email: destination, code: code)
             } else {
-                await auth.verifyPhoneCode(phone: normalizedPhone, code: code)
+                await auth.verifyPhoneCode(phone: phone, code: code)
             }
             if case .signedIn = auth.state { dismiss() }
         } else {
@@ -494,28 +520,20 @@ struct OTPSheet: View {
                 let ok = await auth.signInTestAccount()
                 if ok, case .signedIn = auth.state {
                     dismiss()
-                } else {
-                    destinationFocused = true
                 }
                 return
             }
-            let ok = mode == .email
-                ? await auth.sendEmailCode(to: destination)
-                : await auth.sendPhoneCode(to: normalizedPhone)
-            if ok {
-                // Test account may have signed in inside sendEmailCode — dismiss.
-                if case .signedIn = auth.state {
-                    dismiss()
-                } else {
-                    codeSent = true
-                }
+            let ok: Bool
+            if mode == .email {
+                ok = await auth.sendEmailCode(to: destination)
             } else {
-                destinationFocused = true
+                guard let phone = AuthService.normalizedPhone(destination) else {
+                    auth.errorMessage = "Enter a valid phone number."
+                    return
+                }
+                ok = await auth.sendPhoneCode(to: phone)
             }
+            if ok { codeSent = true }
         }
-    }
-
-    private var normalizedPhone: String {
-        AuthService.normalizedPhone(destination) ?? destination
     }
 }
