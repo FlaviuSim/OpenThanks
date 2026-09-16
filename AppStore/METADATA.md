@@ -56,13 +56,13 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 | Marketing | https://openthanks.com |
 | Terms | https://openthanks.com/terms |
 
-## What’s New (1.0.2)
+## What’s New (1.1)
 
 ```
-• Share appreciation with photos
-• Accept pending thanks from Home
-• Phone sign-in and profile causes
-• Faster Home feed and clearer notifications
+• Sign in with Apple now keeps your name and email after first sign-in
+• Report and Block from appreciations and profiles
+• 18+ confirmation at signup
+• iPhone-focused release (iPad support coming later)
 ```
 
 ## App Review notes

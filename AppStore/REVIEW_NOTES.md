@@ -68,10 +68,10 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 
 1. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → **Apps** → **OpenThanks**  
 2. Left sidebar → version under **iOS App** (e.g. **1.0.0** Prepare for Submission)  
-3. Fill / confirm: screenshots, description, keywords, support URL, marketing URL, privacy URL  
+3. Fill / confirm: **iPhone** screenshots only (remove iPad media if present), description, keywords, support URL, marketing URL, privacy URL  
 4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info)  
 5. **App Privacy** → nutrition labels (see `METADATA.md`) → **Tracking = No**  
-6. **Build** → **+** → select the processed build → Done  
+6. **Build** → **+** → select processed **1.1 (6)** (iPhone-only) → Done  
 
 ### C. App Review Information (this page)
 
@@ -91,8 +91,26 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 4. **Submit to App Review**  
 5. Status should move to **Waiting for Review**
 
-### E. Do not
+### E. Resolution Center reply (rejection resubmit)
+
+Paste after uploading **1.1 (6)** and selecting that build:
+
+```
+Thank you for the feedback.
+
+1) Sign in with Apple (Guideline 4)
+We fixed the post-SIWA profile gate so Apple-provided name and email are applied before the profile-completion check. Reviewers should no longer be prompted to re-enter name/email after a successful Sign in with Apple.
+
+2) iPad Continue / layout (Guideline 2.1)
+This resubmission is iPhone-only (TARGETED_DEVICE_FAMILY = 1). iPad support is deferred to a later update, so the previous iPad Continue issue is out of scope for this binary. Please review on iPhone.
+
+Demo account unchanged: test@test.com / PlayStoreTest2026!
+```
+
+### F. Do not
 
 - Delete or change password on `test@test.com` until review finishes  
 - Ship a build that still points at old bundle / TestFlight-only secrets  
-- Leave Stripe / donate / IAP UI in Settings (should already be gone)
+- Leave Stripe / donate / IAP UI in Settings (should already be gone)  
+- Upload or leave iPad screenshots while the binary is iPhone-only  
+- Archive a universal (`1,2`) binary by mistake — confirm Devices = iPhone in the archive’s Info before upload
