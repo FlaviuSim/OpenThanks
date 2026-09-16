@@ -7,7 +7,8 @@ Real simulator captures, resized to App Store Connect exact pixel sizes.
 | Slot in Connect | Folder | Size | Count |
 |-----------------|--------|------|-------|
 | **iPhone 6.9"** (primary) | `iPhone-6.9-inch/` | **1320 × 2868** | 8 |
-| **iPad 13"** (required — app is universal) | `iPad-13-inch/` | **2064 × 2752** | 7 |
+
+**1.1 is iPhone-only** — do not upload iPad screenshots until the binary is universal again.
 
 Optional extras (only if Connect asks / you want device-specific sets):
 
@@ -15,7 +16,8 @@ Optional extras (only if Connect asks / you want device-specific sets):
 |------|--------|------|
 | iPhone 6.7" | `iPhone-6.7-inch/` | 1290 × 2796 |
 | iPhone 6.5" | `iPhone-6.5-inch/` | 1284 × 2778 |
-| iPad 12.9" | `iPad-12.9-inch/` | 2048 × 2732 |
+| iPad 13" (later) | `iPad-13-inch/` | 2064 × 2752 |
+| iPad 12.9" (later) | `iPad-12.9-inch/` | 2048 × 2732 |
 
 ## Suggested upload order (iPhone)
 
