@@ -227,7 +227,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 struct RootView: View {
     enum HomeGate {
-        case checking, needsNotifications, needsCalendar, needsProfile, needsSiriTip, ready
+        case checking, needsNotifications, needsCalendar, needsProfile, needsTrustIntro, needsSiriTip, ready
     }
 
     @Environment(AuthService.self) private var auth
@@ -237,6 +237,8 @@ struct RootView: View {
     @AppStorage("hasCompletedNotificationPrompt") private var hasCompletedNotificationPrompt = false
     /// One-time gate for calendar access (evening thank-you nudges).
     @AppStorage("hasCompletedCalendarPrompt") private var hasCompletedCalendarPrompt = false
+    /// One-time trust intro after first-login gates (what OpenThanks is / not spam).
+    @AppStorage("hasSeenTrustIntro") private var hasSeenTrustIntro = false
     /// One-time tip so people discover App Shortcuts / Siri phrases.
     @AppStorage("hasCompletedSiriPrompt") private var hasCompletedSiriPrompt = false
     /// True after the first session that reached the main app — Siri tip waits until the next launch.
@@ -246,10 +248,6 @@ struct RootView: View {
     @State private var homeGate: HomeGate = .checking
     /// Keeps the deferred Siri tip from appearing again during the same process.
     @State private var deferredSiriThisProcess = false
-    /// User hit the signed-out screen this process — next sign-in should open compose once.
-    @State private var sawSignedOutThisProcess = false
-    /// After an explicit sign-in this session, open compose once when Home is ready.
-    @State private var pendingPostLoginCompose = false
 
     var body: some View {
         ZStack {
@@ -273,7 +271,7 @@ struct RootView: View {
                     HeartMark(size: 64)
                         .transition(.opacity)
                 } else {
-                    // After login: notifications → profile → calendar → app
+                    // After login: notifications → profile → calendar → trust → app
                     // (Siri tip on the second open).
                     signedInHome
                         .transition(.opacity)
@@ -288,43 +286,6 @@ struct RootView: View {
         .task(id: homeGateTaskID) {
             await resolveHomeGate()
         }
-        .onChange(of: authPhase) { _, phase in
-            switch phase {
-            case "signedOut":
-                sawSignedOutThisProcess = true
-                pendingPostLoginCompose = false
-            case "signedIn":
-                // Only after Welcome/sign-in — not cold-start `.loading` → `.signedIn`.
-                if sawSignedOutThisProcess {
-                    pendingPostLoginCompose = true
-                    sawSignedOutThisProcess = false
-                }
-            default:
-                break
-            }
-        }
-        .onChange(of: effectiveHomeGateReady) { _, ready in
-            guard ready, pendingPostLoginCompose else { return }
-            pendingPostLoginCompose = false
-            ComposeLaunchBridge.shared.queue(analyticsSource: "post_login")
-        }
-    }
-
-    /// Coarse auth phase for post-login compose (avoids Equatable on associated values).
-    private var authPhase: String {
-        switch auth.state {
-        case .loading: "loading"
-        case .signedOut: "signedOut"
-        case .signedIn: "signedIn"
-        }
-    }
-
-    /// True when the main tab shell is what the user sees.
-    private var effectiveHomeGateReady: Bool {
-        if case .signedIn = auth.state, auth.hasResolvedProfile {
-            return effectiveHomeGate == .ready
-        }
-        return false
     }
 
     @ViewBuilder
@@ -344,6 +305,11 @@ struct RootView: View {
             }
         case .needsProfile:
             EditProfileSheet(required: true)
+        case .needsTrustIntro:
+            TrustIntroView {
+                hasSeenTrustIntro = true
+                homeGate = gateAfterTrustOrReady()
+            }
         case .needsSiriTip:
             SiriIntroView {
                 hasCompletedSiriPrompt = true
@@ -360,7 +326,7 @@ struct RootView: View {
         return nextGateAfterProfile()
     }
 
-    /// Calendar is the last first-login gate before the main app.
+    /// Calendar is the last permission gate before trust intro / main app.
     private func nextGateAfterProfile() -> HomeGate {
         if !hasCompletedCalendarPrompt { return .needsCalendar }
         return gateAfterCalendarOrReady()
@@ -375,7 +341,16 @@ struct RootView: View {
         !hasCompletedSiriPrompt && hasEnteredMainAppOnce && !deferredSiriThisProcess
     }
 
+    private var shouldShowTrustIntroNow: Bool {
+        !hasSeenTrustIntro
+    }
+
     private func gateAfterCalendarOrReady() -> HomeGate {
+        if shouldShowTrustIntroNow { return .needsTrustIntro }
+        return gateAfterTrustOrReady()
+    }
+
+    private func gateAfterTrustOrReady() -> HomeGate {
         if shouldShowSiriTipNow { return .needsSiriTip }
         if !hasEnteredMainAppOnce {
             hasEnteredMainAppOnce = true
@@ -397,6 +372,9 @@ struct RootView: View {
         if homeGate == .checking {
             return .checking
         }
+        if shouldShowTrustIntroNow {
+            return .needsTrustIntro
+        }
         if shouldShowSiriTipNow {
             return .needsSiriTip
         }
@@ -408,7 +386,7 @@ struct RootView: View {
         let user = auth.userId?.uuidString ?? "out"
         let resolved = auth.hasResolvedProfile
         let complete = auth.currentProfile?.isCompleteForApp == true
-        return "\(user)-\(resolved)-\(complete)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)"
+        return "\(user)-\(resolved)-\(complete)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasSeenTrustIntro)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)"
     }
 
     private func resolveHomeGate() async {
@@ -453,7 +431,7 @@ struct RootView: View {
                     selfEmails: emails
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
-                // Fall through — do not return; continue to ready/Siri below.
+                // Fall through — do not return; continue to trust/ready/Siri below.
             } else {
                 // Last first-login step — which calendar to use for evening nudges.
                 homeGate = .needsCalendar

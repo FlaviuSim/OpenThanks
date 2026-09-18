@@ -6,6 +6,8 @@ extension Notification.Name {
     static let focusReceivedThanks = Notification.Name("openthanks.focusReceivedThanks")
     /// Tear down share / nudge sheets before opening compose from a notification.
     static let dismissTransientSheets = Notification.Name("openthanks.dismissTransientSheets")
+    /// Home feed posts pending-to-accept count so first-send coachmark can wait.
+    static let homePendingAcceptCount = Notification.Name("openthanks.homePendingAcceptCount")
 }
 
 /// Queues a compose sheet from Siri / App Intents / widgets / Share Extension.

@@ -48,8 +48,19 @@ struct MainTabView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
+    /// One-time Home tip pointing at the heart compose button.
+    @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
+    @State private var pendingAcceptCount = 0
+    @State private var didLogFirstSendTipShown = false
 
     private var usesSidebar: Bool { sizeClass == .regular }
+    private var shouldShowFirstSendTip: Bool {
+        !hasSeenFirstSendTip
+            && tab == .feed
+            && composeSheet == nil
+            && !homeSearchActive
+            && pendingAcceptCount == 0
+    }
 
     var body: some View {
         Group {
@@ -118,10 +129,24 @@ struct MainTabView: View {
             // Fallback if pay-it-forward isn't shown; delayed so it stays gentle.
             AppStoreReviewPrompt.scheduleAfterReceivingAppreciation()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .homePendingAcceptCount)) { note in
+            if let count = note.userInfo?["count"] as? Int {
+                pendingAcceptCount = count
+            }
+        }
         .onChange(of: composeSheet != nil) { _, open in
             if open {
                 homeSearchActive = false
                 resignKeyboard()
+                if !hasSeenFirstSendTip {
+                    hasSeenFirstSendTip = true
+                }
+            }
+        }
+        .onChange(of: shouldShowFirstSendTip) { _, show in
+            if show, !didLogFirstSendTipShown {
+                didLogFirstSendTipShown = true
+                Analytics.capture("first_send_tip_shown")
             }
         }
     }
@@ -278,8 +303,18 @@ struct MainTabView: View {
                     .transition(.opacity)
             }
         }
+        .overlay(alignment: .bottom) {
+            if shouldShowFirstSendTip {
+                firstSendTipOverlay
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .padding(.bottom, 88)
+                    .padding(.horizontal, 20)
+                    .zIndex(20)
+            }
+        }
         .ignoresSafeArea(.keyboard)
         .animation(.easeInOut(duration: 0.2), value: homeSearchActive)
+        .animation(.easeInOut(duration: 0.22), value: shouldShowFirstSendTip)
     }
 
     /// Ends editing app-wide — needed because Home stays mounted under other tabs.
@@ -404,6 +439,10 @@ struct MainTabView: View {
                 .frame(maxWidth: .infinity)
 
             Button {
+                if !hasSeenFirstSendTip {
+                    Analytics.capture("first_send_tip_tapped", ["via": "heart_button"])
+                    hasSeenFirstSendTip = true
+                }
                 presentCompose(.blank)
             } label: {
                 Image(systemName: "heart.fill")
@@ -413,6 +452,7 @@ struct MainTabView: View {
                     .background(Theme.ctaGradient, in: Circle())
                     .shadow(color: Theme.coral.opacity(0.5), radius: 12, y: 4)
             }
+            .accessibilityLabel("Send an appreciation")
             .offset(y: -12)
             .frame(width: 72)
 
@@ -428,6 +468,59 @@ struct MainTabView: View {
         .padding(.bottom, 4)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) { Rectangle().fill(Theme.hairline).frame(height: 0.5) }
+    }
+
+    private var firstSendTipOverlay: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "arrow.down")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Theme.coral)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Start sending your first appreciation")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Tap the heart button below")
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 0)
+            Button {
+                Analytics.capture("first_send_tip_dismissed")
+                hasSeenFirstSendTip = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss tip")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Theme.surface)
+                .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Theme.coral.opacity(0.35), lineWidth: 1)
+        )
+        .onTapGesture {
+            Analytics.capture("first_send_tip_tapped", ["via": "tooltip"])
+            hasSeenFirstSendTip = true
+            presentCompose(
+                .launch(
+                    ComposeLaunchBridge.Request(
+                        analyticsSource: "first_send_tip"
+                    )
+                )
+            )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Start sending your first appreciation")
     }
 
     private func tabItem(icon: String, label: String, value: Tab, badge: Int = 0) -> some View {

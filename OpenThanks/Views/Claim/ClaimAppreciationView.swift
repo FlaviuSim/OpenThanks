@@ -104,6 +104,11 @@ struct PendingAppreciationReviewView: View {
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
 
+                Text("OpenThanks is for real thank-yous — not ads or spam. Nothing posts publicly until you accept.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 VStack(alignment: .leading, spacing: 14) {
                     ProfilePersonLink(profile: authorProfile, size: 48) {
                         if let date = gratitude.displayDate {

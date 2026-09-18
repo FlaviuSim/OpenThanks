@@ -31,6 +31,10 @@ struct AcceptPendingCard: View {
                 Spacer()
             }
 
+            Text("Private until you accept · not spam")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textTertiary)
+
             ProfilePersonLink(
                 profile: authorProfile,
                 size: 40,

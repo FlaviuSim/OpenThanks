@@ -64,6 +64,7 @@
 		615BF97EA9A221E7697366CB /* StreakLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE9CA5E2BE144C4DFCC2F38 /* StreakLiveActivityWidget.swift */; };
 		63E69EA329C6E4FBDD18277C /* StreakMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45105695C56A05D8C6192577 /* StreakMath.swift */; };
 		652CB389E2FF994DB08D335E /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D8C7F32754CD80C153ECA5 /* WidgetSnapshot.swift */; };
+		68BBA2AD766A47CD7E2E3C51 /* TrustIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FE98003270A823AA19C903E /* TrustIntroView.swift */; };
 		69B4F6E0C080880220BFF632 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AA066FE29E589A34FD32C5E /* StatsView.swift */; };
 		6C31438E31C6D9FBDD646645 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097424F66444F25FE6651FE0 /* Motion.swift */; };
 		6C538E48BED0F8D5D2DF4472 /* PostMediaViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F0BE629D251F856F14F577 /* PostMediaViews.swift */; };
@@ -255,6 +256,7 @@
 		3C1AD9E88CC304D5BC720562 /* WidgetPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPalette.swift; sourceTree = "<group>"; };
 		3CE9CA5E2BE144C4DFCC2F38 /* StreakLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityWidget.swift; sourceTree = "<group>"; };
 		3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppGroup+Files.swift"; sourceTree = "<group>"; };
+		3FE98003270A823AA19C903E /* TrustIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustIntroView.swift; sourceTree = "<group>"; };
 		432D87DB1FBDF467DB01585D /* SiriIntroView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntroView.swift; sourceTree = "<group>"; };
 		446585D437E05A38AD0D2F0E /* MessageEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageEditor.swift; sourceTree = "<group>"; };
 		45105695C56A05D8C6192577 /* StreakMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakMath.swift; sourceTree = "<group>"; };
@@ -460,6 +462,7 @@
 				A25AD150B863DF00ABC41E23 /* OnboardingView.swift */,
 				2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */,
 				432D87DB1FBDF467DB01585D /* SiriIntroView.swift */,
+				3FE98003270A823AA19C903E /* TrustIntroView.swift */,
 				9E451C434563DD8702080E34 /* WelcomeView.swift */,
 			);
 			path = Auth;
@@ -1001,6 +1004,7 @@
 				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				51AD9FD3314DFF645DF01D96 /* ThankSomeoneControl.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,
+				68BBA2AD766A47CD7E2E3C51 /* TrustIntroView.swift in Sources */,
 				99340879F5641D13DC32F2E6 /* UserBlockService.swift in Sources */,
 				B6C3DBD7181AD1C36ABEB924 /* VideoProcessing.swift in Sources */,
 				FDD318014FDE724E16267431 /* WatchConnectivityService.swift in Sources */,

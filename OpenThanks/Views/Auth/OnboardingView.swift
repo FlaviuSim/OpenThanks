@@ -22,9 +22,9 @@ struct OnboardingView: View {
         .init(headline: ["Say it", "while it", "matters"],
               points: [
                 ("paperplane.fill", "Send in seconds",
-                 "A name and a few honest words. That's the whole product"),
-                ("lock.fill", "Public or private",
-                 "The recipient has to accept before anything is posted on OpenThanks"),
+                 "A name and a few honest words. That's the whole product."),
+                ("lock.fill", "Accept before anything is public",
+                 "Recipients must accept before a thank-you can appear on OpenThanks — this isn't marketing spam."),
               ]),
     ]
 
@@ -54,7 +54,10 @@ struct OnboardingView: View {
                     .contentTransition(.numericText())
 
                 Spacer()
-                Button("Skip") { onFinish() }
+                Button("Skip") {
+                    Analytics.capture("prelogin_onboarding_skipped")
+                    onFinish()
+                }
                     .font(Theme.body(15, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -81,6 +84,7 @@ struct OnboardingView: View {
             Button(page == slides.count - 1 ? "Get Started" : "Continue") {
                 WarmHaptics.selection()
                 if page == slides.count - 1 {
+                    Analytics.capture("prelogin_onboarding_completed")
                     onFinish()
                 } else {
                     withAnimation(Motion.breathe) { page += 1 }

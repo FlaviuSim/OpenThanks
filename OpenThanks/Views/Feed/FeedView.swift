@@ -122,6 +122,13 @@ struct FeedView: View {
             .onChange(of: isEmpty) { _, empty in
                 if empty { searchBarVisible = true }
             }
+            .onChange(of: pendingToAccept.count) { _, count in
+                NotificationCenter.default.post(
+                    name: .homePendingAcceptCount,
+                    object: nil,
+                    userInfo: ["count": count]
+                )
+            }
             .sheet(isPresented: showPayItForward) {
                 PayItForwardSheet(
                     fromName: payItForwardFromName,
@@ -377,13 +384,31 @@ struct FeedView: View {
             Spacer()
         } else if isEmpty {
             Spacer()
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 HeartMark(size: 48)
                 Text(scope == .personal
                      ? "No appreciations yet. Send your first one."
                      : "Nothing public yet — be the first.")
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                if scope == .personal {
+                    Button {
+                        Analytics.capture("home_empty_first_send_tapped")
+                        ComposeLaunchBridge.shared.queue(analyticsSource: "home_empty_first_send")
+                    } label: {
+                        Text("Send your first appreciation")
+                            .font(Theme.body(15, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Theme.ctaGradient, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 40)
+                    .accessibilityLabel("Send your first appreciation")
+                }
             }
             Spacer()
         } else {
@@ -1154,7 +1179,7 @@ private struct HomeProfileSearch: View {
 
         searching = true
         didSearch = false
-        try? await Task.sleep(for: .milliseconds(280))
+        try? await Task.sleep(for: .milliseconds(180))
         guard !Task.isCancelled else { return }
 
         do {
