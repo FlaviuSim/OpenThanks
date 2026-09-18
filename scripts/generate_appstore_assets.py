@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ICON_DIR = ROOT / "OpenThanks/Assets.xcassets/AppIcon.appiconset"
+WATCH_ICON_DIR = ROOT / "OpenThanksWatch/Assets.xcassets/AppIcon.appiconset"
 STORE = ROOT / "AppStore"
 SHOTS_67 = STORE / "Screenshots/iPhone-6.7-inch"
 SHOTS_65 = STORE / "Screenshots/iPhone-6.5-inch"
@@ -330,13 +331,19 @@ def main() -> None:
     icon_light = make_icon((24, 15, 12))
     icon_dark = make_icon((0, 0, 0))
     icon_tinted = make_icon((0, 0, 0), white=True)
+    # watchOS: light background so the circular mask is visible on a black Watch face
+    # (Guideline 4 — black icon backgrounds blend into the Watch UI).
+    icon_watch = make_icon(CREAM)
 
     icon_light.save(ICON_DIR / "AppIcon.png", "PNG")
     icon_dark.save(ICON_DIR / "AppIcon-Dark.png", "PNG")
     icon_tinted.save(ICON_DIR / "AppIcon-Tinted.png", "PNG")
     icon_light.save(STORE / "Icons/AppStore-Icon-1024.png", "PNG")
     icon_dark.save(STORE / "Icons/AppStore-Icon-1024-Dark.png", "PNG")
-    print("icons OK (opaque RGB 1024)")
+    WATCH_ICON_DIR.mkdir(parents=True, exist_ok=True)
+    icon_watch.save(WATCH_ICON_DIR / "AppIcon.png", "PNG")
+    icon_watch.save(STORE / "Icons/Watch-AppIcon-1024.png", "PNG")
+    print("icons OK (opaque RGB 1024; Watch uses light cream background)")
 
     write_screenshots()
     print("done → see AppStore/README.md")

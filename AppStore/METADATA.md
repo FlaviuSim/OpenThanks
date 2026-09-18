@@ -15,28 +15,30 @@ Use these fields when creating the listing in [App Store Connect](https://appsto
 | Category (Primary) | Social Networking |
 | Category (Secondary) | Lifestyle |
 | Content rights | Yes — you own / have rights to the content |
-| Age rating | **18+** — Social Networking with unrestricted UGC (messages, photos). In App Store Connect, answer the age questionnaire accordingly (user-generated content, sharing personal info). Privacy/Terms require users **18+**. |
+| Age rating | Answer the questionnaire for Social Networking + UGC (messages; optional photos of thank-yous). **Do not** market the app as adult/18+ content. Terms still require users 18+ in-app; keep that as a product rule, not App Store promo copy. |
 
 ## Description
 
-```
-OpenThanks is a simple way to thank the people who make your life better — and let that kindness travel.
+Paste this into App Store Connect **Description** (replaces any prior text). Keep it gratitude-only — no adult, dating, or unrestricted-media framing.
 
-Write a heartfelt appreciation, add a photo if you want, and send it by email, text, or link. When they accept, it becomes part of both of your stories.
+```
+OpenThanks helps you thank the people who make your life better.
+
+Write a short appreciation and send it by email, text, or link. The recipient reviews it and chooses whether to accept. Nothing is shared publicly until they accept.
 
 WHY OPENTHANKS
-• Share appreciation that feels personal, not performative
-• Recipients choose when to accept — their moment, their choice
-• Public posts inspire others; private ones stay between you
-• Champion a nonprofit cause on your profile
-• Gentle Friday reminders to thank someone who made your week
+• Personal thank-yous, not performative posts
+• Recipients decide what to accept
+• Keep notes private, or share accepted ones with the community
+• Optional nonprofit cause on your profile
+• Gentle Friday reminders to thank someone who helped you
 
 HOW IT WORKS
-1. Thank someone — write a short note (and optional photo)
-2. Send them the link to accept by text, email, or copy/paste
-3. They accept — and the appreciation can brighten the World feed
+1. Write a thank-you note
+2. Send the link by text, email, or copy/paste
+3. They accept — and kindness can travel
 
-Sign in with email or phone. No ads. Built for real gratitude.
+Sign in with Apple, email, or phone. No ads. Built for real gratitude.
 ```
 
 ## Keywords (100 characters max, comma-separated, no spaces after commas preferred)
@@ -58,11 +60,13 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 ## What’s New (1.1)
 
+Do **not** mention age gates, 18+, adult content, or unrestricted media in What’s New / promotional text.
+
 ```
-• Sign in with Apple now keeps your name and email after first sign-in
+• Sign in with Apple keeps your name and email after first sign-in
 • Report and Block from appreciations and profiles
-• 18+ confirmation at signup
-• iPhone-focused release (iPad support coming later)
+• Clearer thank-you claim flow
+• iPhone-focused release (Watch icon updated)
 ```
 
 ## App Review notes
@@ -84,7 +88,8 @@ Also generated: 6.7" / 6.5" iPhone and 12.9" / 13" iPad sets. Order by filename 
 ## Icons
 
 - Xcode asset catalog: `OpenThanks/Assets.xcassets/AppIcon.appiconset/` (light / dark / tinted, 1024×1024, **no alpha**)
-- Standalone upload copy: `AppStore/Icons/AppStore-Icon-1024.png`
+- Watch: `OpenThanksWatch/Assets.xcassets/AppIcon.appiconset/AppIcon.png` — **light cream background** (not black) so the icon reads circular on watchOS
+- Standalone upload copy: `AppStore/Icons/AppStore-Icon-1024.png`; Watch preview: `AppStore/Icons/Watch-AppIcon-1024.png`
 - Alternate icons (Appearance settings): `OpenThanks/AlternateIcons/`
   - iPhone: `AppIcon-{Ember,Dawn,Night}@2x.png` (120) / `@3x.png` (180)
   - iPad (TMS-90892): `@2x~ipad.png` (152) / `@3x~ipad.png` (167), RGB PNG, no alpha
@@ -115,11 +120,13 @@ Declare accurately (PostHog analytics + account data):
 
 Complete in App Store Connect before submit:
 
-- [ ] Age rating questionnaire: mark **User-Generated Content**, **Social Networking**, sharing personal info; set rating to **18+** (policy: 18+)
+- [ ] Age rating questionnaire: mark Social Networking + UGC accurately; **do not** use Description / What’s New / screenshots to market the app as adult or “18+ content”
 - [ ] Privacy Nutrition Labels match the table above (Analytics + App Functionality; Tracking = No)
 - [ ] Sign in with Apple works on device alongside Google / LinkedIn / email / phone
 - [ ] Settings → Delete Account works (use a spare test account — keep the reviewer demo account intact)
 - [ ] Confirm Settings has **no** Stripe / Subscribe / donate / external payment CTA
+- [ ] Description + What’s New match the gratitude-only copy above (no 18+ / adult / dating language)
+- [ ] Screenshots: **do not** upload the welcome screen that shows the “I am 18 or older” checkbox
 
 ## Checklist before Submit
 

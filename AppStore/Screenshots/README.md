@@ -21,14 +21,17 @@ Optional extras (only if Connect asks / you want device-specific sets):
 
 ## Suggested upload order (iPhone)
 
+**Skip `02-welcome-signin.png` for Connect** — it shows the in-app “I am 18 or older” checkbox and can trigger Guideline 1.1 marketing flags. Keep that gate in the app; do not market it.
+
 1. `01-onboarding.png` — Gratitude changes everything  
-2. `02-welcome-signin.png` — Sign-in + 18+ age gate  
-3. `03-world-feed-accept.png` — World feed + accept pending  
-4. `04-compose.png` — New Appreciation (filled)  
-5. `05-share-link.png` — Share / copy link after save  
-6. `06-profile-cause.png` — Profile + cause  
-7. `07-appearance.png` — Theme + alternate icons  
-8. `08-stats-challenge.png` — Streak / 30 Days of Thanks  
+2. `03-world-feed-accept.png` — World feed + accept pending  
+3. `04-compose.png` — New Appreciation (filled)  
+4. `05-share-link.png` — Share / copy link after save  
+5. `06-profile-cause.png` — Profile + cause  
+6. `07-appearance.png` — Theme + alternate icons  
+7. `08-stats-challenge.png` — Streak / 30 Days of Thanks  
+
+(Optional later: a welcome/sign-in capture **without** the age checkbox visible.) 
 
 ## Suggested upload order (iPad)
 
@@ -42,6 +45,7 @@ Optional extras (only if Connect asks / you want device-specific sets):
 
 ## Intentionally omitted from store gallery
 
+- `02-welcome-signin.png` (shows “I am 18 or older” — do not upload)  
 - Empty compose screen  
 - Notifications list with “Test” sender  
 - Notifications **settings** with **“Preview for reviewers”** (dev/review-only UI — fine on device, not for the public listing)

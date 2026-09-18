@@ -91,18 +91,18 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 4. **Submit to App Review**  
 5. Status should move to **Waiting for Review**
 
-### E. Resolution Center reply (rejection resubmit)
+### E. Resolution Center reply (rejection resubmit — Watch icon + metadata)
 
-Paste after uploading **1.1 (6)** and selecting that build:
+Paste after uploading **1.1 (7)**, updating Connect **Description** + **What’s New** from `METADATA.md`, and selecting that build:
 
 ```
 Thank you for the feedback.
 
-1) Sign in with Apple (Guideline 4)
-We fixed the post-SIWA profile gate so Apple-provided name and email are applied before the profile-completion check. Reviewers should no longer be prompted to re-enter name/email after a successful Sign in with Apple.
+1) Apple Watch icon (Guideline 4)
+We replaced the Watch app icon background with a light cream color so the icon reads as a clear circle on watchOS (no longer blends into the black Watch face). Please review build 1.1 (7).
 
-2) iPad Continue / layout (Guideline 2.1)
-This resubmission is iPhone-only (TARGETED_DEVICE_FAMILY = 1). iPad support is deferred to a later update, so the previous iPad Continue issue is out of scope for this binary. Please review on iPhone.
+2) Marketing / description (Guideline 1.1)
+OpenThanks is a gratitude app for sending thank-you notes — not adult, dating, or objectionable content. We revised the App Store description and What’s New to describe only thank-you notes, recipient accept-before-share, and community kindness. There is no marketing of objectionable content or services. In-app Report and Block are available for UGC safety.
 
 Demo account unchanged: test@test.com / PlayStoreTest2026!
 ```
@@ -113,4 +113,6 @@ Demo account unchanged: test@test.com / PlayStoreTest2026!
 - Ship a build that still points at old bundle / TestFlight-only secrets  
 - Leave Stripe / donate / IAP UI in Settings (should already be gone)  
 - Upload or leave iPad screenshots while the binary is iPhone-only  
-- Archive a universal (`1,2`) binary by mistake — confirm Devices = iPhone in the archive’s Info before upload
+- Archive a universal (`1,2`) binary by mistake — confirm Devices = iPhone in the archive’s Info before upload  
+- Leave “18+”, adult, dating, or unrestricted-media language in Description / What’s New / promo text  
+- Resubmit without replacing the Watch icon (black background will fail Guideline 4 again)
