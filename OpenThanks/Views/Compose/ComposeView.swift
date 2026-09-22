@@ -161,7 +161,7 @@ struct ComposeView: View {
     private var form: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                if allowsEmptyRecipient && analyticsSource == "watch" {
+                if allowsEmptyRecipient {
                     watchDraftBanner
                 }
 
@@ -186,6 +186,13 @@ struct ComposeView: View {
 
                 // CTA lives in scroll content so it isn’t pinned above the keyboard
                 // (which left a large empty band mid-screen while editing).
+                if let saveBlockedReason, !sending {
+                    Text(saveBlockedReason)
+                        .font(Theme.body(13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
+                }
                 sendBar
             }
             .padding(.horizontal, 20)
@@ -219,8 +226,10 @@ struct ComposeView: View {
                         Task { await send() }
                     }
                     .font(Theme.body(16, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(canSend ? Theme.coral : Theme.textTertiary)
+                    .opacity(canSend ? 1 : 0.45)
                     .disabled(!canSend)
+                    .accessibilityHint(saveBlockedReason ?? "Saves this appreciation")
                 }
             }
             ToolbarItemGroup(placement: .keyboard) {
@@ -361,7 +370,7 @@ struct ComposeView: View {
                 Text("From your Watch")
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Saved to Pending from your Watch. Add who it’s for if you want, then save — or Cancel and finish later from Pending.")
+                Text("Saved to Pending from your Watch. You can save without a recipient — add who it’s for whenever you’re ready, or Cancel and finish later from Pending Appreciations.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1165,6 +1174,21 @@ struct ComposeView: View {
             && !dictation.isListening
     }
 
+    /// Explains why Save is disabled (toolbar can look active when only `.disabled`).
+    private var saveBlockedReason: String? {
+        guard !canSend, !sending else { return nil }
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if polishing != nil { return "Wait for rewriting to finish." }
+        if dictation.isListening { return "Stop dictation to save." }
+        if loadingPhoto { return "Wait for the photo to finish loading." }
+        if trimmed.isEmpty { return "Add a message to save." }
+        if trimmed.count > maxLength { return "Shorten the message to \(maxLength) characters." }
+        if !allowsEmptyRecipient && !hasRecipient {
+            return "Add a recipient name or email to save."
+        }
+        return nil
+    }
+
     private func insertEmoji(_ emoji: String) {
         guard polishing == nil, !dictation.isListening, !sending else { return }
         messageFocused = true
@@ -1582,6 +1606,11 @@ struct ComposeView: View {
                 )
                 onSaved?(updated)
                 if self.editing != nil {
+                    // Opened as Edit from Pending — return to the list.
+                    dismiss()
+                } else if allowsEmptyRecipient, updated.hasNoRecipient {
+                    // Watch / pending draft still has no recipient — don't bounce
+                    // back to the share Success screen (confusing after Edit).
                     dismiss()
                 } else {
                     // Came from the success screen — show success again with the update.
@@ -1796,12 +1825,15 @@ struct SuccessView: View {
     private var headline: String {
         hasDeliverableRecipient
             ? "Your appreciation has been created!"
-            : "Your appreciation has been saved!"
+            : "Saved to Pending"
     }
 
     private var subtitle: String {
         if hasDeliverableRecipient {
             return "We've notified the recipient but it would help if you share a personalized note with the link so they can accept it."
+        }
+        if gratitude.hasNoRecipient {
+            return "Add who it’s for with Edit, then share the link — or Done and finish later from Pending Appreciations."
         }
         return "Share the link so they can open and accept your appreciation."
     }

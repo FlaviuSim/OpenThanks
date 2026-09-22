@@ -341,7 +341,13 @@ struct PendingAppreciationsView: View {
                 .presentationDetents([.medium])
         }
         .composeCover(item: $editing) { g in
-            ComposeView(editing: g, analyticsSource: "edit_pending") { updated in
+            // Watch drafts (and any pending with no recipient yet) must stay savable
+            // without a name/email — same as the initial Watch → phone compose path.
+            ComposeView(
+                editing: g,
+                analyticsSource: g.hasNoRecipient ? "watch" : "edit_pending",
+                allowsEmptyRecipient: g.hasNoRecipient
+            ) { updated in
                 if let index = pending.firstIndex(where: { $0.id == updated.id }) {
                     pending[index] = updated
                 }
@@ -377,10 +383,7 @@ struct PendingAppreciationsView: View {
 
     /// True when the appreciation has no recipient at all (Watch one-tap drafts).
     private func hasNoRecipient(_ g: Gratitude) -> Bool {
-        g.recipientId == nil
-            && (g.recipientEmail ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && (g.recipientPhone ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && (g.recipientName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        g.hasNoRecipient
     }
 
     private func pendingCard(_ g: Gratitude) -> some View {

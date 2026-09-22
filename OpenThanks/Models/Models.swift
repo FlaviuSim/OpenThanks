@@ -127,6 +127,15 @@ struct Gratitude: Codable, Identifiable, Hashable {
         recipient?.displayName ?? recipientName ?? recipientEmail ?? recipientPhone ?? "Someone"
     }
 
+    /// True when no recipient identity is set (typical Watch one-tap drafts).
+    var hasNoRecipient: Bool {
+        recipientId == nil
+            && (recipientEmail ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (recipientPhone ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && (recipientName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && recipient == nil
+    }
+
     /// First name for SMS/email share drafts — never an email address.
     var shareGreetingFirstName: String? {
         let candidates = [recipient?.fullName, recipientName]
