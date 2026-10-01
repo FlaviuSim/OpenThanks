@@ -75,4 +75,27 @@ enum WidgetDeepLink {
         let path = url.path.lowercased()
         return host == "auth-callback" || path.contains("auth-callback")
     }
+
+    /// Maps content custom-scheme links from the website (`openthanks://claim/…`)
+    /// to `https://openthanks.com/…` so Universal Link routing can handle them.
+    /// Auth callbacks and widget destinations (`compose`, `home`, …) return nil.
+    static func httpsMirror(of url: URL) -> URL? {
+        guard url.scheme?.lowercased() == scheme else { return nil }
+        if isAuthCallback(url) { return nil }
+        if parse(url) != nil { return nil }
+
+        let host = (url.host ?? "").lowercased()
+        guard !host.isEmpty else { return nil }
+
+        var path = url.path
+        if path.isEmpty { path = "/" }
+        if !path.hasPrefix("/") { path = "/" + path }
+
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "openthanks.com"
+        components.path = "/" + host + (path == "/" ? "" : path)
+        components.query = url.query
+        return components.url
+    }
 }

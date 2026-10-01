@@ -85,6 +85,12 @@ final class DeepLinkRouter {
             return true
         }
 
+        // Web `/feed` → Home tab in the app.
+        if Self.isFeedPath(url) {
+            TabLaunchBridge.shared.queue(.feed)
+            return true
+        }
+
         guard let parsed = Self.parse(url) else { return false }
         destination = parsed
         return true
@@ -141,6 +147,13 @@ final class DeepLinkRouter {
         let parts = pathParts(url)
         guard let first = parts.first?.lowercased() else { return false }
         return first == "notifications"
+    }
+
+    /// `/feed` opens the in-app Home tab.
+    static func isFeedPath(_ url: URL) -> Bool {
+        let parts = pathParts(url)
+        guard let first = parts.first?.lowercased() else { return false }
+        return first == "feed"
     }
 
     static func queueCompose(from url: URL) {

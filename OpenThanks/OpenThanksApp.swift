@@ -69,6 +69,18 @@ struct OpenThanksApp: App {
                 case .notifications:
                     TabLaunchBridge.shared.queue(.notifications)
                 }
+            } else if let https = WidgetDeepLink.httpsMirror(of: url) {
+                // Website “Open in the iOS app” buttons use openthanks://claim/…
+                // Mirror to HTTPS so claim / for / profile routing stays shared.
+                if DeepLinkRouter.shouldOpenOwnInspiredTab(
+                    https,
+                    username: auth.currentProfile?.username,
+                    userId: auth.userId
+                ) {
+                    TabLaunchBridge.shared.queue(.profileInspired)
+                } else {
+                    _ = deepLinks.handle(https)
+                }
             } else {
                 // Unknown custom-scheme URLs — try auth (Supabase variants).
                 auth.handleDeepLink(url)
