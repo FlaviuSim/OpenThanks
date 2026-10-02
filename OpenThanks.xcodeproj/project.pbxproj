@@ -87,10 +87,12 @@
 		8388BA22A31E18A68F9A622F /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88382B39EC95AA443DDE696C /* ShareViewController.swift */; };
 		856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B863B534795C67594B79C1DC /* TabLaunchBridge.swift */; };
 		87E3E62EF67CABA629297F7B /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
+		8919BA37DE030A47ABF439B9 /* EnjoyingOpenThanksSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */; };
 		8D9BF6AE672BFC3C51751D04 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F3FD90C322331B012FD48F /* AppNavigation.swift */; };
 		9334F241FD77D164F8A1CE22 /* OpenThanksWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4C588F44EBB34A7E61FF5 /* OneTimeCodeField.swift */; };
+		96975EF9542C62C03AC0FBBE /* SupportFeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D5F41416E45CC6A5720FAC /* SupportFeedbackService.swift */; };
 		97160E3FCE100F6C9EA664AB /* AppIcon-Ember@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */; };
 		985D66E76E069167F1534690 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24196DBDF1449EB46FBF5DD /* SettingsView.swift */; };
 		99340879F5641D13DC32F2E6 /* UserBlockService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */; };
@@ -135,6 +137,7 @@
 		E5261ECE9E0D6C053E1BA064 /* WidgetSnapshotRefresher.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */; };
 		E532D4D7154D4251FC00E5A3 /* OpenThanksShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E572E04E435299778F0B0B98 /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
+		E92A44E68681638A822A948D /* EnjoymentPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */; };
 		E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */; };
 		EA81503A5D6E988AB4201319 /* CalendarMeetingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */; };
 		EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */; };
@@ -309,6 +312,7 @@
 		A25AD150B863DF00ABC41E23 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A3A63267707F904BE79C2365 /* AppIcon-Default@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Default@2x.png"; sourceTree = "<group>"; };
 		A4C1F5AF689FF4B940FFDD36 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
+		A4D5F41416E45CC6A5720FAC /* SupportFeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportFeedbackService.swift; sourceTree = "<group>"; };
 		A56F72311BC9752D833B4C08 /* AppStoreReviewPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreReviewPrompt.swift; sourceTree = "<group>"; };
 		A7100E64F1ACD16964F60A63 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudePromptWidget.swift; sourceTree = "<group>"; };
@@ -342,6 +346,7 @@
 		E2A9BEF3F82CD8A4E723CE2D /* AppIcon-Dawn@3x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@3x~ipad.png"; sourceTree = "<group>"; };
 		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeSharePayload.swift; sourceTree = "<group>"; };
+		EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnjoymentPrompt.swift; sourceTree = "<group>"; };
 		ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayItForwardNudge.swift; sourceTree = "<group>"; };
 		EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotRefresher.swift; sourceTree = "<group>"; };
 		EE58C9232B92D8AAD5346A26 /* OpenThanks.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenThanks.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -355,6 +360,7 @@
 		FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		FD4546F9384987CE5C913CD0 /* EditProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileSheet.swift; sourceTree = "<group>"; };
 		FDCF02D5DBBDC8B993DFEE74 /* LoggingInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingInView.swift; sourceTree = "<group>"; };
+		FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnjoyingOpenThanksSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -416,6 +422,7 @@
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
+				EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */,
 				96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */,
 				D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */,
 				65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */,
@@ -425,6 +432,7 @@
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
 				6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */,
 				45105695C56A05D8C6192577 /* StreakMath.swift */,
+				A4D5F41416E45CC6A5720FAC /* SupportFeedbackService.swift */,
 				B863B534795C67594B79C1DC /* TabLaunchBridge.swift */,
 				D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */,
 				34C1B132702899893D08B37C /* VideoProcessing.swift */,
@@ -560,6 +568,7 @@
 				3503FCA888C8E244D2C73F4F /* AppreciationShare.swift */,
 				1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */,
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
+				FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
 				2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */,
 				CE3AF4417F7AEAB08341BC14 /* KeyboardAvoidance.swift */,
@@ -964,6 +973,8 @@
 				DF5DD2D1A0CF2C9B30E53033 /* DeepLinkHost.swift in Sources */,
 				C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */,
 				B44A3CEFF76027AF0F586362 /* EditProfileSheet.swift in Sources */,
+				8919BA37DE030A47ABF439B9 /* EnjoyingOpenThanksSheet.swift in Sources */,
+				E92A44E68681638A822A948D /* EnjoymentPrompt.swift in Sources */,
 				F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */,
 				EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */,
 				1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */,
@@ -1001,6 +1012,7 @@
 				60EDE6F10A714F46F0AAA4C6 /* StreakLiveActivityAttributes.swift in Sources */,
 				474DDEA20ECB5BCF2BC75529 /* StreakLiveActivityController.swift in Sources */,
 				63E69EA329C6E4FBDD18277C /* StreakMath.swift in Sources */,
+				96975EF9542C62C03AC0FBBE /* SupportFeedbackService.swift in Sources */,
 				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				51AD9FD3314DFF645DF01D96 /* ThankSomeoneControl.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,

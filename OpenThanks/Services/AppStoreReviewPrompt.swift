@@ -43,6 +43,7 @@ enum AppStoreReviewPrompt {
         else { return }
 
         UserDefaults.standard.set(true, forKey: requestedKey)
+        EnjoymentPrompt.recordReceiveSideReviewRequested()
         AppStore.requestReview(in: scene)
         Analytics.capture("app_store_review_requested", ["trigger": "received_appreciation"])
     }

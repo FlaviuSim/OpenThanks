@@ -54,6 +54,8 @@ struct ComposeView: View {
     @State private var error: String?
     @State private var sent = false
     @State private var created: Gratitude?
+    /// True only after a fresh create — not when returning to Success after Edit.
+    @State private var offerEnjoymentPrompt = false
     /// Edit target after a successful send (or the incoming `editing` value).
     @State private var activeEditing: Gratitude?
     @State private var polishing: AppreciationAI.Style?
@@ -126,6 +128,9 @@ struct ComposeView: View {
             if sent, let created, activeEditing == nil {
                 SuccessView(
                     gratitude: created,
+                    preferredEmail: auth.currentProfile?.email,
+                    preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
+                    offerEnjoymentPrompt: offerEnjoymentPrompt,
                     onEdit: { beginEditing(created) },
                     onDone: { dismiss() }
                 )
@@ -1443,6 +1448,9 @@ struct ComposeView: View {
     }
 
     private func beginEditing(_ gratitude: Gratitude) {
+        // Clear create-only offer first so SuccessView can dismiss the sheet
+        // without treating Edit as a “Not now” cooldown.
+        offerEnjoymentPrompt = false
         sent = false
         activeEditing = gratitude
         didPrefill = true
@@ -1645,6 +1653,8 @@ struct ComposeView: View {
                 if analyticsSource == "watch" {
                     WatchVoiceDraftStore.clear()
                 }
+                EnjoymentPrompt.recordSuccessfulSend()
+                offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
                     hasMedia: mediaUrl != nil,
@@ -1779,11 +1789,16 @@ private struct ScalePressButtonStyle: ButtonStyle {
 
 struct SuccessView: View {
     let gratitude: Gratitude
+    var preferredEmail: String? = nil
+    var preferredName: String? = nil
+    /// Create-path only; false when Success is shown again after an in-flow Edit.
+    var offerEnjoymentPrompt: Bool = false
     var onEdit: () -> Void
     var onDone: () -> Void
 
     @Environment(\.openURL) private var openURL
     @State private var copied = false
+    @State private var showEnjoymentPrompt = false
 
     private var shareURL: URL {
         gratitude.claimURL ?? gratitude.webURL
@@ -1915,6 +1930,28 @@ struct SuccessView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showEnjoymentPrompt) {
+            EnjoyingOpenThanksSheet(
+                preferredEmail: preferredEmail,
+                preferredName: preferredName,
+                onFinished: { showEnjoymentPrompt = false }
+            )
+            .syncAppAppearance()
+        }
+        .onChange(of: offerEnjoymentPrompt) { _, offer in
+            guard !offer, showEnjoymentPrompt else { return }
+            EnjoymentPrompt.ignoreNextSheetDismiss = true
+            showEnjoymentPrompt = false
+        }
+        .task(id: "\(gratitude.id.uuidString)-\(offerEnjoymentPrompt)") {
+            guard offerEnjoymentPrompt else { return }
+            guard EnjoymentPrompt.shouldPresent(for: gratitude) else { return }
+            try? await Task.sleep(for: .milliseconds(1200))
+            guard !Task.isCancelled else { return }
+            // Re-check after delay in case eligibility changed.
+            guard offerEnjoymentPrompt, EnjoymentPrompt.shouldPresent(for: gratitude) else { return }
+            showEnjoymentPrompt = true
+        }
     }
 
     private var hero: some View {
