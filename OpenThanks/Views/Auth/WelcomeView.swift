@@ -503,13 +503,13 @@ struct OTPSheet: View {
             destination = trimmedDestination
         }
         if codeSent {
-            guard let phone = AuthService.normalizedPhone(destination) else {
-                auth.errorMessage = "Enter a valid phone number."
-                return
-            }
             if mode == .email {
                 await auth.verifyEmailCode(email: destination, code: code)
             } else {
+                guard let phone = AuthService.normalizedPhone(destination) else {
+                    auth.errorMessage = "Enter a valid phone number."
+                    return
+                }
                 await auth.verifyPhoneCode(phone: phone, code: code)
             }
             if case .signedIn = auth.state { dismiss() }
