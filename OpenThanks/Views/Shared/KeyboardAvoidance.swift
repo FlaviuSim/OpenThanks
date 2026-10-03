@@ -29,15 +29,30 @@ struct KeyboardBottomPaddingModifier: ViewModifier {
             let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
         else { return }
 
-        let screen = UIScreen.main.bounds
-        // Off-screen / dismissed keyboards report a frame below the display.
-        let overlap = frame.minY >= screen.maxY - 0.5
-            ? 0
-            : max(0, screen.maxY - frame.minY)
+        // Prefer the key window so Stage Manager / Split View overlap is correct
+        // (UIScreen.main is the full display, not the app’s scene).
+        let overlap: CGFloat
+        if let window = Self.keyWindow {
+            let keyboardInWindow = window.convert(frame, from: nil)
+            overlap = keyboardInWindow.minY >= window.bounds.maxY - 0.5
+                ? 0
+                : max(0, window.bounds.maxY - keyboardInWindow.minY)
+        } else {
+            let screen = UIScreen.main.bounds
+            overlap = frame.minY >= screen.maxY - 0.5
+                ? 0
+                : max(0, screen.maxY - frame.minY)
+        }
 
         let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?
             .doubleValue ?? 0.25
         setOverlap(overlap, duration: duration)
+    }
+
+    private static var keyWindow: UIWindow? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let active = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+        return active?.windows.first(where: \.isKeyWindow) ?? active?.windows.first
     }
 
     private func setOverlap(_ value: CGFloat, duration: Double) {

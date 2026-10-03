@@ -203,13 +203,11 @@ struct FeedView: View {
                 onOpenProfile: { path.append($0) }
             )
         } else {
-            ContentUnavailableView(
-                "Select an appreciation",
-                systemImage: "heart",
-                description: Text("Choose a note from Home to read it here.")
+            SplitDetailPlaceholder(
+                title: "Select an appreciation",
+                systemImage: "heart.fill",
+                message: "Choose a note from Home to read it here."
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.background)
         }
     }
 

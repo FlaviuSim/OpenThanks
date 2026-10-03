@@ -3,6 +3,8 @@
 Copy everything inside the box below into **App Review Information → Notes**.
 
 ```
+UNIVERSAL APP — iPhone + iPad (build 1.2). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
+
 DEMO ACCOUNT (no OTP / no inbox needed)
 1. On welcome → Continue with Email
 2. Enter: test@test.com
@@ -13,7 +15,7 @@ DEMO ACCOUNT (no OTP / no inbox needed)
 Confirm 18+ on the age checkbox if shown.
 
 CORE FLOW TO DEMO
-1. Home → compose (+) → write a short appreciation → send (email / text / copy link).
+1. Home → compose (+) / Thank Someone → write a short appreciation → send (email / text / copy link).
 2. Accept: open a pending “waiting for you” card on Home, or open an openthanks.com claim link.
 3. Profile → Received to confirm it landed.
 
@@ -68,10 +70,10 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 
 1. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → **Apps** → **OpenThanks**  
 2. Left sidebar → version under **iOS App** (e.g. **1.0.0** Prepare for Submission)  
-3. Fill / confirm: **iPhone** screenshots only (remove iPad media if present), description, keywords, support URL, marketing URL, privacy URL  
-4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info)  
+3. Fill / confirm: **iPhone + iPad** screenshots (skip age-gate welcome frames), description, keywords, support URL, marketing URL, privacy URL  
+4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info) — do **not** market as adult content in Description  
 5. **App Privacy** → nutrition labels (see `METADATA.md`) → **Tracking = No**  
-6. **Build** → **+** → select processed **1.1 (6)** (iPhone-only) → Done  
+6. **Build** → **+** → select processed **1.2 (1)** (universal iPhone + iPad) → Done  
 
 ### C. App Review Information (this page)
 
@@ -112,7 +114,7 @@ Demo account unchanged: test@test.com / PlayStoreTest2026!
 - Delete or change password on `test@test.com` until review finishes  
 - Ship a build that still points at old bundle / TestFlight-only secrets  
 - Leave Stripe / donate / IAP UI in Settings (should already be gone)  
-- Upload or leave iPad screenshots while the binary is iPhone-only  
-- Archive a universal (`1,2`) binary by mistake — confirm Devices = iPhone in the archive’s Info before upload  
+- Upload welcome/sign-in screenshots that show the “I am 18 or older” checkbox (Guideline 1.1)  
+- Archive an iPhone-only (`1`) binary by mistake — confirm Devices = **iPhone + iPad** in the archive’s Info before upload  
 - Leave “18+”, adult, dating, or unrestricted-media language in Description / What’s New / promo text  
-- Resubmit without replacing the Watch icon (black background will fail Guideline 4 again)
+- Resubmit without the cream Watch icon (black background will fail Guideline 4 again)

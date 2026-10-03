@@ -24,28 +24,32 @@ struct EnjoyingOpenThanksSheet: View {
     @FocusState private var feedbackFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            Capsule()
-                .fill(Theme.hairline)
-                .frame(width: 36, height: 4)
-                .padding(.top, 10)
-                .padding(.bottom, 16)
+        ScrollView {
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Theme.hairline)
+                    .frame(width: 36, height: 4)
+                    .padding(.top, 10)
+                    .padding(.bottom, 16)
 
-            Group {
-                switch step {
-                case .ask: askStep
-                case .love: loveStep
-                case .feedback: feedbackStep
-                case .feedbackThanks: thanksStep
+                Group {
+                    switch step {
+                    case .ask: askStep
+                    case .love: loveStep
+                    case .feedback: feedbackStep
+                    case .feedbackThanks: thanksStep
+                    }
                 }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
+                .animation(Motion.breathe, value: step)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 20)
-            .animation(Motion.breathe, value: step)
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
+        .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
-        .presentationDetents([.height(step == .feedback ? 440 : 340)])
+        // Fixed heights clip under the iPad keyboard; allow growth to large.
+        .presentationDetents([.height(step == .feedback ? 480 : 360), .large])
         .presentationDragIndicator(.hidden)
         .onAppear {
             if email.isEmpty {

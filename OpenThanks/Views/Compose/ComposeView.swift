@@ -738,7 +738,8 @@ struct ComposeView: View {
             }
             .syncAppAppearance()
         }
-        .presentationDetents([.medium])
+        // Medium alone clips fields + Add under the iPad keyboard; allow large.
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 

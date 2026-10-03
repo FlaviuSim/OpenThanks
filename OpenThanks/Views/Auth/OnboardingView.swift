@@ -63,8 +63,9 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
 
-            // Avoid `.tabViewStyle(.page)` — on iPad it can intercept taps meant for
-            // the Continue button below (App Review: unresponsive Continue).
+            // REVIEWER LOCK (iPad): never reintroduce `.tabViewStyle(.page)` here —
+            // it intercepts taps meant for Continue (App Review rejection).
+            // Prefer id+transition + DragGesture paging as below.
             slideView(slides[page], index: page)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .id(page)

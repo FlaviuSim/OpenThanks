@@ -188,8 +188,11 @@ private struct ComposeCoverModifier<SheetContent: View>: ViewModifier {
     @Binding var isPresented: Bool
     @ViewBuilder var content: () -> SheetContent
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// Locked for the lifetime of an open compose so Stage Manager size-class
+    /// flips don’t tear sheet ↔ fullScreenCover mid-draft.
+    @State private var lockedUseSheet: Bool?
 
-    private var useSheet: Bool { sizeClass == .regular }
+    private var useSheet: Bool { lockedUseSheet ?? (sizeClass == .regular) }
 
     func body(content: Content) -> some View {
         content
@@ -203,6 +206,15 @@ private struct ComposeCoverModifier<SheetContent: View>: ViewModifier {
             }
             .fullScreenCover(isPresented: fullScreenPresented) {
                 self.content().syncAppAppearance()
+            }
+            .onChange(of: isPresented) { _, open in
+                if open {
+                    if lockedUseSheet == nil {
+                        lockedUseSheet = sizeClass == .regular
+                    }
+                } else {
+                    lockedUseSheet = nil
+                }
             }
     }
 
@@ -225,8 +237,10 @@ private struct ComposeCoverItemModifier<Item: Identifiable, SheetContent: View>:
     @Binding var item: Item?
     @ViewBuilder var content: (Item) -> SheetContent
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var lockedUseSheet: Bool?
 
-    private var useSheet: Bool { sizeClass == .regular }
+    private var useSheet: Bool { lockedUseSheet ?? (sizeClass == .regular) }
+    private var isOpen: Bool { item != nil }
 
     func body(content: Content) -> some View {
         content
@@ -240,6 +254,15 @@ private struct ComposeCoverItemModifier<Item: Identifiable, SheetContent: View>:
             }
             .fullScreenCover(item: fullScreenItem) { value in
                 self.content(value).syncAppAppearance()
+            }
+            .onChange(of: isOpen) { _, open in
+                if open {
+                    if lockedUseSheet == nil {
+                        lockedUseSheet = sizeClass == .regular
+                    }
+                } else {
+                    lockedUseSheet = nil
+                }
             }
     }
 
@@ -255,6 +278,35 @@ private struct ComposeCoverItemModifier<Item: Identifiable, SheetContent: View>:
             get: { useSheet ? nil : item },
             set: { if !useSheet { item = $0 } }
         )
+    }
+}
+
+/// Soft empty column for iPad list↔detail shells.
+struct SplitDetailPlaceholder: View {
+    let title: String
+    let systemImage: String
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 18) {
+            ActionGlyph(systemImage: systemImage, size: 72)
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(Theme.display(22, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .multilineTextAlignment(.center)
+                Text(message)
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(40)
+        .frame(maxWidth: 420)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.background)
+        .accessibilityElement(children: .combine)
     }
 }
 

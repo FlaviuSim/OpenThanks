@@ -171,8 +171,14 @@ struct MessageEditor: UIViewRepresentable {
         }
 
         func makeAccessory() -> PaddedKeyboardToolbar {
+            let width = textView?.window?.bounds.width
+                ?? UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first(where: { $0.activationState == .foregroundActive })?
+                .screen.bounds.width
+                ?? UIScreen.main.bounds.width
             let bar = PaddedKeyboardToolbar(
-                frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: PaddedKeyboardToolbar.preferredHeight)
+                frame: CGRect(x: 0, y: 0, width: width, height: PaddedKeyboardToolbar.preferredHeight)
             )
             bar.tintColor = UIColor(Theme.coral)
             accessory = bar
@@ -302,7 +308,8 @@ final class IntrinsicTextView: UITextView {
     private var lastMeasuredWidth: CGFloat = 0
 
     override var intrinsicContentSize: CGSize {
-        let width = bounds.width > 0 ? bounds.width : UIScreen.main.bounds.width - 64
+        let fallbackWidth = (window?.bounds.width ?? UIScreen.main.bounds.width) - 64
+        let width = bounds.width > 0 ? bounds.width : fallbackWidth
         let fitting = sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         return CGSize(width: UIView.noIntrinsicMetric, height: max(160, fitting.height))
     }

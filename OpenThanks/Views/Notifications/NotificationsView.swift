@@ -81,13 +81,11 @@ struct NotificationsView: View {
                 onOpenProfile: { path.append($0) }
             )
         } else {
-            ContentUnavailableView(
-                "Select a notification",
-                systemImage: "bell",
-                description: Text("Choose a notification to open the appreciation here.")
+            SplitDetailPlaceholder(
+                title: "Select a notification",
+                systemImage: "bell.fill",
+                message: "Choose a notification to open the appreciation here."
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.background)
         }
     }
 

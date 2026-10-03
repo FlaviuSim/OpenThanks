@@ -2,26 +2,24 @@
 
 Real simulator captures, resized to App Store Connect exact pixel sizes.
 
-## Upload these first (required)
+## Upload these (universal 1.2)
 
 | Slot in Connect | Folder | Size | Count |
 |-----------------|--------|------|-------|
-| **iPhone 6.9"** (primary) | `iPhone-6.9-inch/` | **1320 × 2868** | 8 |
+| **iPhone 6.9"** (primary) | `iPhone-6.9-inch/` | **1320 × 2868** | see folder |
+| **iPad 13"** | `iPad-13-inch/` | **2064 × 2752** | 6 |
+| iPad 12.9" (if Connect asks) | `iPad-12.9-inch/` | **2048 × 2732** | 6 |
 
-**1.1 is iPhone-only** — do not upload iPad screenshots until the binary is universal again.
-
-Optional extras (only if Connect asks / you want device-specific sets):
+Optional extras:
 
 | Slot | Folder | Size |
 |------|--------|------|
 | iPhone 6.7" | `iPhone-6.7-inch/` | 1290 × 2796 |
 | iPhone 6.5" | `iPhone-6.5-inch/` | 1284 × 2778 |
-| iPad 13" (later) | `iPad-13-inch/` | 2064 × 2752 |
-| iPad 12.9" (later) | `iPad-12.9-inch/` | 2048 × 2732 |
 
 ## Suggested upload order (iPhone)
 
-**Skip `02-welcome-signin.png` for Connect** — it shows the in-app “I am 18 or older” checkbox and can trigger Guideline 1.1 marketing flags. Keep that gate in the app; do not market it.
+**Skip any welcome/sign-in frame that shows “I am 18 or older”** — Guideline 1.1 marketing risk. Keep the gate in the app; do not market it.
 
 1. `01-onboarding.png` — Gratitude changes everything  
 2. `03-world-feed-accept.png` — World feed + accept pending  
@@ -31,27 +29,28 @@ Optional extras (only if Connect asks / you want device-specific sets):
 6. `07-appearance.png` — Theme + alternate icons  
 7. `08-stats-challenge.png` — Streak / 30 Days of Thanks  
 
-(Optional later: a welcome/sign-in capture **without** the age checkbox visible.) 
-
 ## Suggested upload order (iPad)
 
-1. `01-world-feed-share.png`  
-2. `02-say-thanks-ways.png`  
-3. `03-welcome-signin.png`  
-4. `04-profile.png`  
-5. `05-appearance.png`  
-6. `06-stats.png`  
-7. `07-compose.png`  
+**Do not upload welcome/sign-in with the age checkbox.** That asset lives under `_excluded/`.
+
+1. `01-world-feed-share.png` — Home / feed (sidebar if captured)  
+2. `07-compose.png` — Compose / thank someone  
+3. `02-say-thanks-ways.png` — Share ways  
+4. `04-profile.png` — Profile  
+5. `06-stats.png` — Stats / streak  
+6. `05-appearance.png` — Appearance  
+
+Prefer a fresh native capture on **iPad Pro 13"** (2064×2752) when possible: Home sidebar + feed, compose sheet, success/share, accept pending, profile — gratitude-only frames.
 
 ## Intentionally omitted from store gallery
 
-- `02-welcome-signin.png` (shows “I am 18 or older” — do not upload)  
+- Welcome / sign-in with “I am 18 or older” (see `_excluded/`)  
 - Empty compose screen  
 - Notifications list with “Test” sender  
-- Notifications **settings** with **“Preview for reviewers”** (dev/review-only UI — fine on device, not for the public listing)
+- Notifications **settings** with **“Preview for reviewers”** (dev/review-only UI)
 
 ## Notes
 
-- Source captures were iPhone 16/17 Pro (1206×2622) and 11" iPad class (1640×2360); resized with cover+center crop (tiny crop on iPad aspect change).  
-- Status bar still shows real simulator time (not 9:41). Apple accepts this; optional polish later via `xcrun simctl status_bar … override`.  
-- For sharper native pixels later: capture on **iPhone 17 Pro Max** (1320×2868) and **iPad Pro 13"** (2064×2752) with File → Save Screen.
+- Status bar may show real simulator time (not 9:41). Apple accepts this.  
+- For sharper native pixels: capture on **iPhone 17 Pro Max** (1320×2868) and **iPad Pro 13"** (2064×2752) with File → Save Screen.  
+- Rehearsal notes: `AppStore/IPAD_REVIEW_REHEARSAL.md`
