@@ -544,8 +544,10 @@ enum GratitudeService {
             .execute().value
     }
 
-    /// Fills recipient_id / email / phone / name from profiles when thanking
-    /// a member (e.g. from their profile) or when only an email/phone was typed.
+    /// Fills recipient_id / email / name from profiles when thanking a member
+    /// (e.g. from their profile) or when only an email/phone was typed.
+    /// Never copies the member's account phone onto the gratitude — that number
+    /// is private unless the sender typed it themselves.
     private static func resolveRecipientContact(_ payload: inout NewGratitude) async {
         if let recipientId = payload.recipientId {
             if let row = try? await profileContact(id: recipientId) {
@@ -553,11 +555,6 @@ enum GratitudeService {
                    let email = row.email?.trimmingCharacters(in: .whitespacesAndNewlines),
                    !email.isEmpty {
                     payload.recipientEmail = AuthService.normalizedEmail(email)
-                }
-                if isBlank(payload.recipientPhone),
-                   let phone = row.phone?.trimmingCharacters(in: .whitespacesAndNewlines),
-                   !phone.isEmpty {
-                    payload.recipientPhone = phone
                 }
                 if isBlank(payload.recipientName),
                    let name = row.fullName?.trimmingCharacters(in: .whitespacesAndNewlines),

@@ -1433,8 +1433,9 @@ struct ComposeView: View {
         dismiss()
     }
 
-    /// Pull the member's email/phone from profiles so claim email can send
+    /// Pull the member's email from profiles so claim email can send
     /// without relying on the web API to fill recipient_email.
+    /// Does not load phone — account phone numbers stay private to the member.
     private func loadLinkedRecipientContact(profileId: UUID) async {
         guard linkedRecipient?.id == profileId else { return }
         guard let contact = try? await GratitudeService.profileContact(id: profileId) else { return }
@@ -1589,7 +1590,8 @@ struct ComposeView: View {
                     update: GratitudeUpdate(
                         message: message.trimmingCharacters(in: .whitespacesAndNewlines),
                         recipientEmail: contact.email ?? linkedRecipientEmail ?? linked?.email,
-                        recipientPhone: contact.phone ?? linked?.phone,
+                        // Only a phone the sender typed — never the member's private account phone.
+                        recipientPhone: contact.phone,
                         recipientName: contact.name ?? linked?.fullName ?? linked?.displayName,
                         visibility: visibility.rawValue,
                         mediaUrl: mediaUrl,
@@ -1629,7 +1631,8 @@ struct ComposeView: View {
                     authorId: userId,
                     message: message.trimmingCharacters(in: .whitespacesAndNewlines),
                     recipientEmail: contact.email ?? linkedRecipientEmail ?? linked?.email,
-                    recipientPhone: contact.phone ?? linked?.phone,
+                    // Only a phone the sender typed — never the member's private account phone.
+                    recipientPhone: contact.phone,
                     recipientName: contact.name ?? linked?.fullName ?? linked?.displayName,
                     recipientId: linked?.id,
                     visibility: visibility.rawValue,
