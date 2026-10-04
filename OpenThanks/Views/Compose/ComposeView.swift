@@ -1250,7 +1250,7 @@ struct ComposeView: View {
     }
 
     private func insertEmoji(_ emoji: String) {
-        guard polishing == nil, !dictation.isListening, !sending else { return }
+        guard polishing == nil, !dictation.isListening, !dictation.isTransitioning, !sending else { return }
         messageFocused = true
         // Insert at the caret via MessageEditor so the cursor lands after the emoji.
         pendingMessageInsert = MessageEditor.PendingInsert(text: emoji)
