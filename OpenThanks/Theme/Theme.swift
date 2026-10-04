@@ -93,6 +93,27 @@ enum Theme {
         return .system(size: size, weight: weight)
     }
 
+    /// UIKit face matching ``body`` — keeps UITextView caret aligned with glyphs.
+    static func uiBodyFont(size: CGFloat = 16, weight: UIFont.Weight = .regular) -> UIFont {
+        let baseName: String? = {
+            switch weight {
+            case .semibold, .bold, .heavy, .black:
+                if UIFont(name: "DMSans-SemiBold", size: size) != nil { return "DMSans-SemiBold" }
+                if UIFont(name: "DMSans-Bold", size: size) != nil { return "DMSans-Bold" }
+                return UIFont(name: "DMSans-Regular", size: size) != nil ? "DMSans-Regular" : nil
+            case .medium:
+                if UIFont(name: "DMSans-Medium", size: size) != nil { return "DMSans-Medium" }
+                return UIFont(name: "DMSans-Regular", size: size) != nil ? "DMSans-Regular" : nil
+            default:
+                return UIFont(name: "DMSans-Regular", size: size) != nil ? "DMSans-Regular" : nil
+            }
+        }()
+        if let baseName, let font = UIFont(name: baseName, size: size) {
+            return font
+        }
+        return .systemFont(ofSize: size, weight: weight)
+    }
+
     /// Centered reading column on iPad / regular width — keeps notes note-sized.
     static let readableMaxWidth: CGFloat = 600
 

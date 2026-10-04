@@ -24,12 +24,18 @@ struct MessageEditor: UIViewRepresentable {
     var onAI: ((AppreciationAI.Style) -> Void)?
     var showVoice: Bool = false
     var voiceListening: Bool = false
+    /// True while mic permission / engine spin-up or stop cleanup runs.
+    var voiceBusy: Bool = false
     var voiceEnabled: Bool = false
     var onToggleVoice: (() -> Void)?
     /// When set, insert at the caret (replacing any selection), move the cursor
     /// after the inserted text, then call `onPendingInsertConsumed`.
     var pendingInsert: PendingInsert? = nil
     var onPendingInsertConsumed: ((UUID) -> Void)? = nil
+
+    /// Keep in sync with ComposeView placeholder padding.
+    static let textInsets = UIEdgeInsets(top: 12, left: 12, bottom: 8, right: 12)
+    static let textInsetsWithVoice = UIEdgeInsets(top: 12, left: 12, bottom: 44, right: 12)
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -41,14 +47,9 @@ struct MessageEditor: UIViewRepresentable {
         view.backgroundColor = .clear
         view.textColor = .label
         view.tintColor = UIColor(Theme.coral)
-        view.font = .preferredFont(forTextStyle: .body)
-        view.textContainerInset = UIEdgeInsets(
-            top: 10,
-            left: 8,
-            bottom: showVoice ? 44 : 6,
-            right: showVoice ? 12 : 8
-        )
-        view.textContainer.lineFragmentPadding = 4
+        applyTypography(to: view)
+        view.textContainerInset = showVoice ? Self.textInsetsWithVoice : Self.textInsets
+        view.textContainer.lineFragmentPadding = 0
         // Nested in a SwiftUI ScrollView — avoid dual scrolling (a common freeze cause).
         view.isScrollEnabled = false
         view.keyboardDismissMode = .interactive
@@ -67,11 +68,14 @@ struct MessageEditor: UIViewRepresentable {
         context.coordinator.parent = self
         context.coordinator.textView = uiView
 
+        applyTypography(to: uiView)
+
         if let pending = pendingInsert, !pending.text.isEmpty {
             context.coordinator.applyPendingInsert(pending, in: uiView)
         } else if uiView.text != text {
             let selected = uiView.selectedRange
             uiView.text = text
+            applyTypography(to: uiView)
             let maxLen = (text as NSString).length
             let loc = min(selected.location, maxLen)
             uiView.selectedRange = NSRange(
@@ -85,18 +89,30 @@ struct MessageEditor: UIViewRepresentable {
             uiView.isEditable = isEditable
         }
 
-        let insets = UIEdgeInsets(
-            top: 10,
-            left: 8,
-            bottom: showVoice ? 44 : 6,
-            right: showVoice ? 12 : 8
-        )
+        let insets = showVoice ? Self.textInsetsWithVoice : Self.textInsets
         if uiView.textContainerInset != insets {
             uiView.textContainerInset = insets
             uiView.invalidateIntrinsicContentSize()
         }
+        if uiView.textContainer.lineFragmentPadding != 0 {
+            uiView.textContainer.lineFragmentPadding = 0
+        }
 
         context.coordinator.syncAccessoryIfNeeded()
+    }
+
+    private func applyTypography(to textView: UITextView) {
+        let font = Theme.uiBodyFont(size: 16, weight: .regular)
+        if textView.font != font {
+            textView.font = font
+        }
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: UIColor.label,
+        ]
+        if textView.typingAttributes[.font] as? UIFont != font {
+            textView.typingAttributes = attrs
+        }
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
@@ -108,6 +124,7 @@ struct MessageEditor: UIViewRepresentable {
         private var lastShowAI: Bool?
         private var lastShowVoice: Bool?
         private var lastVoiceListening: Bool?
+        private var lastVoiceBusy: Bool?
         private var lastVoiceEnabled: Bool?
         private var lastHandledInsertID: UUID?
 
@@ -192,6 +209,7 @@ struct MessageEditor: UIViewRepresentable {
                 || lastAIEnabled != parent.aiEnabled
                 || lastShowVoice != parent.showVoice
                 || lastVoiceListening != parent.voiceListening
+                || lastVoiceBusy != parent.voiceBusy
                 || lastVoiceEnabled != parent.voiceEnabled
             else { return }
             rebuildAccessory()
@@ -204,6 +222,7 @@ struct MessageEditor: UIViewRepresentable {
             lastAIEnabled = parent.aiEnabled
             lastShowVoice = parent.showVoice
             lastVoiceListening = parent.voiceListening
+            lastVoiceBusy = parent.voiceBusy
             lastVoiceEnabled = parent.voiceEnabled
 
             var items: [UIBarButtonItem] = [
@@ -216,14 +235,24 @@ struct MessageEditor: UIViewRepresentable {
             ]
 
             if parent.showVoice {
+                let symbol: String = {
+                    if parent.voiceBusy { return "ellipsis.circle" }
+                    return parent.voiceListening ? "mic.fill" : "mic"
+                }()
                 let mic = UIBarButtonItem(
-                    image: UIImage(systemName: parent.voiceListening ? "mic.fill" : "mic"),
+                    image: UIImage(systemName: symbol),
                     style: .plain,
                     target: self,
                     action: #selector(voiceTapped)
                 )
-                mic.isEnabled = parent.voiceEnabled
-                mic.accessibilityLabel = parent.voiceListening ? "Stop dictation" : "Dictate appreciation"
+                // Tappable only when idle (start) or listening (stop) — not while busy.
+                mic.isEnabled = parent.voiceEnabled && !parent.voiceBusy
+                mic.accessibilityLabel = {
+                    if parent.voiceBusy {
+                        return parent.voiceListening ? "Processing dictation" : "Starting dictation"
+                    }
+                    return parent.voiceListening ? "Stop dictation" : "Dictate appreciation"
+                }()
                 items.append(mic)
             }
 
@@ -271,6 +300,7 @@ struct MessageEditor: UIViewRepresentable {
         }
 
         @objc private func voiceTapped() {
+            guard !parent.voiceBusy else { return }
             parent.onToggleVoice?()
         }
 

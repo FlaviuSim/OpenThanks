@@ -337,10 +337,17 @@ enum AppreciationAI {
 @MainActor
 final class AppreciationDictation: ObservableObject {
     @Published private(set) var isListening = false
+    /// Mic permission / audio engine spin-up after the user taps start.
+    @Published private(set) var isStarting = false
+    /// Finalizing transcript after the user taps stop.
+    @Published private(set) var isStopping = false
     @Published private(set) var isAvailable = false
     /// Bumped when committed dictation text changes (pause chunks or stop cleanup).
     @Published private(set) var textEpoch = 0
     @Published var errorMessage: String?
+
+    /// True while the mic control should ignore taps (start-up or stop cleanup).
+    var isTransitioning: Bool { isStarting || isStopping }
 
     /// Text already in the field when the current utterance started (used to splice live partials).
     private(set) var baseText = ""
@@ -388,6 +395,8 @@ final class AppreciationDictation: ObservableObject {
     }
 
     func toggle(baseText: String) async {
+        // Ignore double-taps while permission / cleanup is in flight.
+        guard !isTransitioning else { return }
         // Drive stop/start from the visible Listening state so a desynced
         // `wantsListening` flag can't swallow taps.
         if isListening {
@@ -399,7 +408,7 @@ final class AppreciationDictation: ObservableObject {
 
     func start(baseText: String) async {
         errorMessage = nil
-        guard !isListening else { return }
+        guard !isListening, !isStarting, !isStopping else { return }
 
         guard speechRecognizer != nil else {
             errorMessage = "Speech recognition isn’t available on this device."
@@ -410,10 +419,13 @@ final class AppreciationDictation: ObservableObject {
             return
         }
 
+        isStarting = true
+        // Show Starting… immediately — authorization sheets can take a few seconds.
         do {
             try await ensureAuthorized()
         } catch {
             errorMessage = error.localizedDescription
+            isStarting = false
             return
         }
 
@@ -423,6 +435,7 @@ final class AppreciationDictation: ObservableObject {
         tearDownRecognition(cancelTask: true)
         wantsListening = true
         isListening = true
+        isStarting = false
         self.baseText = baseText
         transcript = ""
         lastUtteranceLength = 0
@@ -468,6 +481,9 @@ final class AppreciationDictation: ObservableObject {
     /// User tapped stop — end audio so Apple can finalize (with punctuation) without canceling mid-stream.
     func finishListening() async {
         guard wantsListening || isListening else { return }
+        guard !isStopping else { return }
+        isStopping = true
+        isStarting = false
         wantsListening = false
         isRestartingRecognition = false
         restartToken = UUID()
@@ -484,6 +500,7 @@ final class AppreciationDictation: ObservableObject {
            errorMessage == nil {
             errorMessage = "Didn’t catch that. Tap the mic and try again."
         }
+        isStopping = false
     }
 
     /// Fold live partials into `baseText` so a late empty final result can't wipe the field.
@@ -503,6 +520,8 @@ final class AppreciationDictation: ObservableObject {
     private func abortStart() {
         wantsListening = false
         isListening = false
+        isStarting = false
+        isStopping = false
         isRestartingRecognition = false
         restartToken = UUID()
         setIdleTimerDisabled(false)

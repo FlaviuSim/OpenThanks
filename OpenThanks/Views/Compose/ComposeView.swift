@@ -616,7 +616,7 @@ struct ComposeView: View {
                     MessageEditor(
                         text: $message,
                         minHeight: 160,
-                        isEditable: !(loadingPhoto || sending || polishing != nil || dictation.isListening),
+                        isEditable: !(loadingPhoto || sending || polishing != nil || dictation.isListening || dictation.isStopping),
                         onAddLink: { label, range in
                             beginAddLink(label: label, range: range)
                         },
@@ -625,12 +625,14 @@ struct ComposeView: View {
                         aiEnabled: polishing == nil
                             && !sending
                             && !dictation.isListening
+                            && !dictation.isTransitioning
                             && !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                         onAI: aiAvailable
                             ? { style in Task { await runAI(style) } }
                             : nil,
                         showVoice: true,
                         voiceListening: dictation.isListening,
+                        voiceBusy: dictation.isTransitioning,
                         voiceEnabled: voiceControlsEnabled,
                         onToggleVoice: { Task { await toggleVoiceDictation() } },
                         pendingInsert: pendingMessageInsert,
@@ -649,8 +651,9 @@ struct ComposeView: View {
                         Text(messagePlaceholderText)
                             .font(Theme.body(16))
                             .foregroundStyle(Theme.textTertiary)
-                            .padding(.top, 18)
-                            .padding(.leading, 16)
+                            // Match MessageEditor.textInsets so caret/glyphs line up.
+                            .padding(.top, 12)
+                            .padding(.leading, 12)
                             .padding(.trailing, 72)
                             .allowsHitTesting(false)
                             .accessibilityLabel(messagePlaceholderText)
@@ -662,7 +665,25 @@ struct ComposeView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
-                if dictation.isListening {
+                if dictation.isStarting {
+                    Text("Starting microphone…")
+                        .font(Theme.body(12, weight: .medium))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityHidden(true)
+                } else if dictation.isStopping {
+                    Text("Finishing up…")
+                        .font(Theme.body(12, weight: .medium))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityHidden(true)
+                } else if dictation.isListening {
                     Text("Pauses are fine — tap Listening to stop.")
                         .font(Theme.body(12, weight: .medium))
                         .foregroundStyle(Theme.textTertiary)
@@ -1030,40 +1051,68 @@ struct ComposeView: View {
                 .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
                 .accessibilityLabel("\(message.count) of \(maxLength) characters")
         }
-        .disabled(sending || polishing != nil || dictation.isListening)
+        .disabled(sending || polishing != nil || dictation.isListening || dictation.isTransitioning)
     }
 
     private var voiceOverlayButton: some View {
-        Button {
+        let busy = dictation.isTransitioning
+        let listening = dictation.isListening
+        let showFilledChrome = listening || busy
+        return Button {
             Task { await toggleVoiceDictation() }
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: dictation.isListening ? "mic.fill" : "mic")
-                    .font(.system(size: 13, weight: .bold))
-                    .symbolEffect(.pulse, isActive: dictation.isListening)
-                if dictation.isListening {
+                if busy {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(showFilledChrome ? Color.white : Theme.coral)
+                } else {
+                    Image(systemName: listening ? "mic.fill" : "mic")
+                        .font(.system(size: 13, weight: .bold))
+                        .symbolEffect(.pulse, isActive: listening)
+                }
+                if dictation.isStarting {
+                    Text("Starting…")
+                        .font(Theme.body(12, weight: .semibold))
+                        .lineLimit(1)
+                } else if dictation.isStopping {
+                    Text("Processing…")
+                        .font(Theme.body(12, weight: .semibold))
+                        .lineLimit(1)
+                } else if listening {
                     Text("Listening…")
                         .font(Theme.body(12, weight: .semibold))
                         .lineLimit(1)
                 }
             }
-            .foregroundStyle(dictation.isListening ? Color.white : Theme.coral)
-            .padding(.horizontal, dictation.isListening ? 12 : 10)
+            .foregroundStyle(showFilledChrome ? Color.white : Theme.coral)
+            .padding(.horizontal, showFilledChrome ? 12 : 10)
             .padding(.vertical, 8)
             .background {
                 Capsule()
-                    .fill(dictation.isListening ? Theme.coral : Theme.surface.opacity(0.92))
+                    .fill(showFilledChrome ? Theme.coral : Theme.surface.opacity(0.92))
                     .shadow(color: Color.black.opacity(0.08), radius: 4, y: 1)
             }
             .overlay {
                 Capsule()
-                    .strokeBorder(dictation.isListening ? Color.clear : Theme.hairline, lineWidth: 1)
+                    .strokeBorder(showFilledChrome ? Color.clear : Theme.hairline, lineWidth: 1)
             }
         }
         .buttonStyle(ScalePressButtonStyle())
-        .disabled(!voiceControlsEnabled)
-        .accessibilityLabel(dictation.isListening ? "Stop dictation" : "Dictate appreciation")
-        .accessibilityHint(dictation.isListening ? "Recording continues through pauses until you tap stop." : "Speak your appreciation. Recording stays on until you tap stop.")
+        // Idle → start; Listening → stop; Starting/Processing → ignore taps.
+        .disabled(!voiceControlsEnabled || busy)
+        .accessibilityLabel(voiceAccessibilityLabel)
+        .accessibilityHint(
+            listening
+                ? "Recording continues through pauses until you tap stop."
+                : "Speak your appreciation. Recording stays on until you tap stop."
+        )
+    }
+
+    private var voiceAccessibilityLabel: String {
+        if dictation.isStarting { return "Starting dictation" }
+        if dictation.isStopping { return "Processing dictation" }
+        return dictation.isListening ? "Stop dictation" : "Dictate appreciation"
     }
 
     private var aiChips: some View {
@@ -1104,6 +1153,7 @@ struct ComposeView: View {
             polishing != nil
                 || sending
                 || dictation.isListening
+                || dictation.isTransitioning
                 || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         )
         .accessibilityLabel(style.buttonTitle)
@@ -1125,6 +1175,7 @@ struct ComposeView: View {
     }
 
     private func toggleVoiceDictation() async {
+        guard !dictation.isTransitioning else { return }
         error = nil
         dictation.errorMessage = nil
         messageFocused = true
@@ -1178,6 +1229,7 @@ struct ComposeView: View {
             && !loadingPhoto
             && polishing == nil
             && !dictation.isListening
+            && !dictation.isTransitioning
     }
 
     /// Explains why Save is disabled (toolbar can look active when only `.disabled`).
@@ -1185,6 +1237,8 @@ struct ComposeView: View {
         guard !canSend, !sending else { return nil }
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         if polishing != nil { return "Wait for rewriting to finish." }
+        if dictation.isStarting { return "Wait for the microphone to start." }
+        if dictation.isStopping { return "Finishing dictation…" }
         if dictation.isListening { return "Stop dictation to save." }
         if loadingPhoto { return "Wait for the photo to finish loading." }
         if trimmed.isEmpty { return "Add a message to save." }
