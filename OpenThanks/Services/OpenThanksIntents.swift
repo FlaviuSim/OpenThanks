@@ -226,7 +226,9 @@ struct RemindToThankIntent: AppIntent {
         let requested = when ?? Date().addingTimeInterval(60 * 60)
         let fireDate = max(requested, Date().addingTimeInterval(45))
 
-        let granted = await NotificationService.requestAuthorizationAndRegisterForPushes()
+        let granted = await NotificationService.requestAuthorizationAndRegisterForPushes(
+            analyticsSource: "nudge"
+        )
         guard granted else {
             return .result(
                 dialog: "Notifications are off. Enable them in Settings, then ask me again."

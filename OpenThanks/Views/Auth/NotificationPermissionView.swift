@@ -65,12 +65,15 @@ struct NotificationPermissionView: View {
         .background(Theme.background.ignoresSafeArea())
         .syncAppAppearance()
         .readableWidth()
+        .onAppear {
+            Analytics.pushPermissionPrompted(source: "onboarding", prePrompt: true)
+        }
     }
 
     private func allowNotifications() async {
         busy = true
         defer { busy = false }
-        let failure = await NotificationService.enableFridayReminder()
+        let failure = await NotificationService.enableFridayReminder(analyticsSource: "onboarding")
         fridayReminderEnabled = failure == nil
         onFinished()
     }

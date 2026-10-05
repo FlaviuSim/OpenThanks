@@ -19,10 +19,12 @@ struct FeedView: View {
     var isSelected: Bool = true
     /// Mirrors search focus so the tab bar can hide during search (native search-mode).
     @Binding var searchActive: Bool
-    /// When set (iPad sidebar shell), card taps fill the detail column instead of pushing.
+    /// When set (iPad sidebar shell), card taps can fill a detail column instead of pushing.
+    /// Side-by-side detail is landscape-only — portrait keeps a full-width feed.
     var splitSelection: Binding<Gratitude?>? = nil
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
     @State private var pendingToAccept: [Gratitude] = []
@@ -64,7 +66,13 @@ struct FeedView: View {
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
     private var isSearchChromeVisible: Bool { searchBarVisible || searchFocused || searchHasQuery }
     private var shouldKeepSearchVisible: Bool { searchFocused || searchHasQuery }
-    private var usesSplitDetail: Bool { splitSelection != nil }
+    /// iPad sidebar shell (portrait or landscape) — hides the duplicate Thank Someone CTA.
+    private var isSplitShell: Bool { splitSelection != nil }
+    /// List + detail columns: only when the shell is active and we're in landscape
+    /// (`verticalSizeClass == .compact` on iPad). Portrait stays sidebar + full feed.
+    private var usesSplitDetail: Bool {
+        isSplitShell && verticalSizeClass == .compact
+    }
     private var showPayItForward: Binding<Bool> {
         Binding(
             get: { payItForwardFromName != nil },
@@ -158,6 +166,12 @@ struct FeedView: View {
             }
             .onChange(of: isSelected) { _, selected in
                 if !selected { dismissSearchKeyboard() }
+            }
+            .onChange(of: usesSplitDetail) { _, enabled in
+                // Rotating to portrait: show the open post as a push, free the feed width.
+                guard !enabled, let gratitude = splitSelection?.wrappedValue else { return }
+                splitSelection?.wrappedValue = nil
+                path.append(gratitude)
             }
             .onChange(of: path.count) { _, _ in
                 // Pushing a profile (or any destination) should end search.
@@ -291,7 +305,7 @@ struct FeedView: View {
             Spacer(minLength: 8)
 
             // Sidebar already has Thank someone — avoid a second CTA on iPad.
-            if !usesSplitDetail {
+            if !isSplitShell {
                 Button {
                     dismissSearchKeyboard()
                     composeRecipient = nil

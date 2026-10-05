@@ -22,8 +22,9 @@ enum GoogleCalendarAuth {
     }
 
     /// Opens Google consent; stores tokens in Keychain on success.
+    /// - Parameter analyticsSource: `onboarding` / `settings` (PostHog).
     @MainActor
-    static func connect() async throws {
+    static func connect(analyticsSource: String = "settings") async throws {
         guard hasClientConfigured else {
             throw GoogleCalendarError.clientNotConfigured
         }
@@ -64,6 +65,11 @@ enum GoogleCalendarAuth {
         }
 
         try await exchangeCode(code, verifier: verifier)
+        Analytics.calendarConnected(
+            provider: "google",
+            accessLevel: "full",
+            source: analyticsSource
+        )
     }
 
     static func isUserCancellation(_ error: Error) -> Bool {
@@ -77,6 +83,7 @@ enum GoogleCalendarAuth {
     }
 
     static func disconnect() async {
+        let wasConnected = isConnected
         if let token = KeychainStore.string(forKey: accessTokenKey)
             ?? KeychainStore.string(forKey: refreshTokenKey) {
             var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/revoke")!)
@@ -86,6 +93,9 @@ enum GoogleCalendarAuth {
             _ = try? await URLSession.shared.data(for: request)
         }
         KeychainStore.removeAll(keys: [accessTokenKey, refreshTokenKey, expiryKey])
+        if wasConnected {
+            Analytics.calendarDisconnected(provider: "google")
+        }
     }
 
     /// Valid access token, refreshing if needed.

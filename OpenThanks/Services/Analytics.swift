@@ -12,7 +12,10 @@ import PostHog
 /// Exclusion (no product events):
 /// - iOS Simulator (unless DEBUG “Send Analytics” is on)
 /// - DEBUG builds (unless that toggle is on)
-/// - Known internal emails → SDK opt-out after identify
+/// - Known internal emails are tagged `is_internal: true` — filter them out
+///   in PostHog insights. We do **not** SDK-`optOut()` founders: that was
+///   persisted across launches and blocked later `identify` calls, so iOS
+///   installs never got a person profile for those UUIDs.
 enum Analytics {
     private static let forceEnableKey = "ot_analytics_force_enable"
 
@@ -23,6 +26,7 @@ enum Analytics {
     ]
 
     private static var didSetup = false
+    private static let iso8601 = ISO8601DateFormatter()
 
     private static var forceEnabled: Bool {
         UserDefaults.standard.bool(forKey: forceEnableKey)
@@ -59,8 +63,11 @@ enum Analytics {
         config.captureApplicationLifecycleEvents = true
         config.personProfiles = .identifiedOnly
         PostHogSDK.shared.setup(config)
+        // Clear stale founder opt-out from older app builds so identify can run.
+        PostHogSDK.shared.optIn()
         didSetup = true
         capture("app_opened", ["platform": "ios"])
+        Task { await syncPermissionPersonProperties() }
     }
 
     /// DEBUG Settings: allow sending from Simulator / Debug builds.
@@ -77,20 +84,20 @@ enum Analytics {
     static func identify(userId: UUID, email: String? = nil, name: String? = nil) {
         guard !shouldSkipCapture else { return }
         guard didSetup else { return }
+        // Identify must always be allowed — even for founders — or PostHog
+        // never creates a person for the UUID / never merges Application Installed.
+        PostHogSDK.shared.optIn()
+
         var props: [String: Any] = ["platform": "ios"]
         if let email, !email.isEmpty { props["email"] = email }
         if let name, !name.isEmpty { props["name"] = name }
         let isInternal = isInternalEmail(email)
         props["is_internal"] = isInternal
-        PostHogSDK.shared.identify(userId.uuidString.lowercased(), userProperties: props)
-
-        // Founder / test accounts: stop capturing so device testing
-        // on Release builds doesn't pollute product metrics.
-        if isInternal {
-            PostHogSDK.shared.optOut()
-        } else {
-            PostHogSDK.shared.optIn()
-        }
+        let distinctId = userId.uuidString.lowercased()
+        PostHogSDK.shared.identify(distinctId, userProperties: props)
+        // Flush promptly so `$identify` lands even if the app is backgrounded.
+        PostHogSDK.shared.flush()
+        Task { await syncPermissionPersonProperties() }
     }
 
     static func reset() {
@@ -101,11 +108,184 @@ enum Analytics {
     }
 
     static func capture(_ event: String, _ properties: [String: Any] = [:]) {
+        capture(
+            event,
+            properties,
+            userProperties: nil,
+            userPropertiesSetOnce: nil
+        )
+    }
+
+    static func capture(
+        _ event: String,
+        _ properties: [String: Any] = [:],
+        userProperties: [String: Any]?,
+        userPropertiesSetOnce: [String: Any]?
+    ) {
         guard !shouldSkipCapture else { return }
         guard didSetup else { return }
         var props = properties
         props["platform"] = props["platform"] ?? "ios"
-        PostHogSDK.shared.capture(event, properties: props)
+        PostHogSDK.shared.capture(
+            event,
+            properties: props,
+            userProperties: userProperties,
+            userPropertiesSetOnce: userPropertiesSetOnce
+        )
+    }
+
+    static func setPersonProperties(
+        _ set: [String: Any],
+        setOnce: [String: Any] = [:]
+    ) {
+        guard !shouldSkipCapture else { return }
+        guard didSetup else { return }
+        PostHogSDK.shared.setPersonProperties(
+            userPropertiesToSet: set.isEmpty ? nil : set,
+            userPropertiesToSetOnce: setOnce.isEmpty ? nil : setOnce
+        )
+    }
+
+    // MARK: - Push / calendar permission state
+
+    /// Re-reads system notification + calendar linkage and `$set`s person properties.
+    /// Safe to call on every launch / foreground — catches flips made in iOS Settings.
+    static func syncPermissionPersonProperties() async {
+        guard !shouldSkipCapture else { return }
+        guard didSetup else { return }
+
+        let status = await NotificationService.authorizationStatus()
+        let pushEnabled = NotificationService.isEnabledStatus(status)
+        let statusLabel = NotificationService.authorizationStatusLabel(status)
+
+        let appleLinked = CalendarMeetingService.hasFullAccess
+        let googleLinked = GoogleCalendarService.isConnected
+        let calendarLinked = appleLinked || googleLinked
+        let provider = calendarProviderLabel(apple: appleLinked, google: googleLinked)
+        let accessLevel = calendarAccessLevelLabel()
+
+        var set: [String: Any] = [
+            "push_enabled": pushEnabled,
+            "push_authorization_status": statusLabel,
+            "calendar_linked": calendarLinked,
+        ]
+        if let provider {
+            set["calendar_provider"] = provider
+        } else {
+            set["calendar_provider"] = ""
+        }
+        if let accessLevel {
+            set["calendar_access_level"] = accessLevel
+        }
+
+        var setOnce: [String: Any] = [:]
+        let now = iso8601.string(from: Date())
+        if pushEnabled {
+            setOnce["first_push_enabled_at"] = now
+        }
+        if calendarLinked {
+            setOnce["first_calendar_linked_at"] = now
+        }
+
+        setPersonProperties(set, setOnce: setOnce)
+    }
+
+    static func pushPermissionPrompted(source: String, prePrompt: Bool) {
+        capture("push_permission_prompted", [
+            "source": source,
+            "pre_prompt": prePrompt,
+        ])
+    }
+
+    static func pushPermissionGranted(source: String, authorizationStatus: String) {
+        let now = iso8601.string(from: Date())
+        capture(
+            "push_permission_granted",
+            [
+                "source": source,
+                "authorization_status": authorizationStatus,
+            ],
+            userProperties: [
+                "push_enabled": true,
+                "push_authorization_status": authorizationStatus,
+            ],
+            userPropertiesSetOnce: ["first_push_enabled_at": now]
+        )
+    }
+
+    static func pushPermissionDenied(source: String) {
+        capture(
+            "push_permission_denied",
+            ["source": source],
+            userProperties: [
+                "push_enabled": false,
+                "push_authorization_status": "denied",
+            ],
+            userPropertiesSetOnce: nil
+        )
+    }
+
+    /// APNs registration succeeded — never include the token value.
+    static func pushTokenRegistered() {
+        capture("push_token_registered")
+    }
+
+    static func calendarPermissionPrompted(source: String) {
+        capture("calendar_permission_prompted", ["source": source])
+    }
+
+    static func calendarConnected(
+        provider: String,
+        accessLevel: String,
+        source: String
+    ) {
+        let now = iso8601.string(from: Date())
+        capture(
+            "calendar_connected",
+            [
+                "provider": provider,
+                "access_level": accessLevel,
+                "source": source,
+            ],
+            userProperties: [
+                "calendar_linked": true,
+                "calendar_provider": provider,
+                "calendar_access_level": accessLevel,
+            ],
+            userPropertiesSetOnce: ["first_calendar_linked_at": now]
+        )
+        Task { await syncPermissionPersonProperties() }
+    }
+
+    static func calendarPermissionDenied(source: String) {
+        capture("calendar_permission_denied", ["source": source])
+        Task { await syncPermissionPersonProperties() }
+    }
+
+    static func calendarDisconnected(provider: String) {
+        capture(
+            "calendar_disconnected",
+            ["provider": provider],
+            userProperties: nil,
+            userPropertiesSetOnce: nil
+        )
+        Task { await syncPermissionPersonProperties() }
+    }
+
+    private static func calendarProviderLabel(apple: Bool, google: Bool) -> String? {
+        switch (apple, google) {
+        case (true, true): return "apple_eventkit+google"
+        case (true, false): return "apple_eventkit"
+        case (false, true): return "google"
+        case (false, false): return nil
+        }
+    }
+
+    private static func calendarAccessLevelLabel() -> String? {
+        if CalendarMeetingService.hasFullAccess { return "full" }
+        if CalendarMeetingService.accessState == .writeOnly { return "write_only" }
+        if GoogleCalendarService.isConnected { return "full" }
+        return nil
     }
 
     /// Successful sign-in (all methods). Includes `platform: ios` automatically.

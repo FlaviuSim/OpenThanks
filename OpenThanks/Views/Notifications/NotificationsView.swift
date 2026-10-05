@@ -4,9 +4,11 @@ struct NotificationsView: View {
     @Binding var path: NavigationPath
     @Binding var unreadCount: Int
     var isSelected = true
-    /// When set (iPad sidebar shell), post taps fill the detail pane instead of pushing.
+    /// When set (iPad sidebar shell), post taps can fill a detail pane instead of pushing.
+    /// Side-by-side detail is landscape-only — portrait keeps a full-width list.
     var splitSelection: Binding<GratitudeIdRoute?>? = nil
     @Environment(AuthService.self) private var auth
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var notes: [AppNotification] = []
     @State private var pendingCount = 0
     @State private var loading = true
@@ -16,7 +18,9 @@ struct NotificationsView: View {
         notes.contains { $0.read != true }
     }
 
-    private var usesSplitDetail: Bool { splitSelection != nil }
+    private var usesSplitDetail: Bool {
+        splitSelection != nil && verticalSizeClass == .compact
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -62,6 +66,11 @@ struct NotificationsView: View {
             .task { await load() }
             .onChange(of: isSelected) { _, selected in
                 if selected { Task { await load() } }
+            }
+            .onChange(of: usesSplitDetail) { _, enabled in
+                guard !enabled, let route = splitSelection?.wrappedValue else { return }
+                splitSelection?.wrappedValue = nil
+                path.append(route)
             }
             .refreshable { await load() }
             .appDestinations()

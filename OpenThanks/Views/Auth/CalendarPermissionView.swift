@@ -118,7 +118,7 @@ struct CalendarPermissionView: View {
         errorMessage = nil
         defer { busyApple = false }
 
-        let granted = await CalendarMeetingService.requestAccess()
+        let granted = await CalendarMeetingService.requestAccess(analyticsSource: "onboarding")
         guard granted else {
             errorMessage = "Apple Calendar wasn’t allowed. Try Google, or turn it on later in Settings."
             return
@@ -132,7 +132,7 @@ struct CalendarPermissionView: View {
         defer { busyGoogle = false }
 
         do {
-            try await GoogleCalendarAuth.connect()
+            try await GoogleCalendarAuth.connect(analyticsSource: "onboarding")
             await finishWithNudge(requestAppleIfNeeded: false)
         } catch {
             if GoogleCalendarAuth.isUserCancellation(error) {
@@ -146,7 +146,8 @@ struct CalendarPermissionView: View {
         let failure = await NotificationService.enableCalendarGratitudeNudge(
             authorId: auth.userId,
             selfEmails: selfEmails,
-            requestAppleIfNeeded: requestAppleIfNeeded
+            requestAppleIfNeeded: requestAppleIfNeeded,
+            analyticsSource: "onboarding"
         )
         calendarNudgeEnabled = failure == nil
         if failure == nil {

@@ -130,6 +130,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             }
             // Any foreground — schedule-first start, then full streak sync.
             await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
+            // Re-check push/calendar person props (users flip these in iOS Settings).
+            await Analytics.syncPermissionPersonProperties()
         }
     }
 
@@ -139,6 +141,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
         Task { @MainActor in auth?.devicePushToken = token }
+        Analytics.pushTokenRegistered()
     }
 
     func application(
@@ -412,7 +415,9 @@ struct RootView: View {
         if !hasCompletedNotificationPrompt {
             if await NotificationService.hasResolvedAuthorization() {
                 if await NotificationService.isAuthorized() {
-                    let failure = await NotificationService.enableFridayReminder()
+                    let failure = await NotificationService.enableFridayReminder(
+                        analyticsSource: "onboarding"
+                    )
                     fridayReminderEnabled = failure == nil
                 }
                 hasCompletedNotificationPrompt = true

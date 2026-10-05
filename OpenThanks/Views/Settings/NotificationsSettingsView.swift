@@ -312,7 +312,7 @@ struct NotificationsSettingsView: View {
 
         fridayToggleTask = Task {
             if enabled {
-                let failure = await NotificationService.enableFridayReminder()
+                let failure = await NotificationService.enableFridayReminder(analyticsSource: "settings")
                 guard !Task.isCancelled, epoch == fridayToggleEpoch else { return }
                 await MainActor.run {
                     if let failure {
@@ -343,7 +343,8 @@ struct NotificationsSettingsView: View {
             if enabled {
                 let failure = await NotificationService.enableCalendarGratitudeNudge(
                     authorId: auth.userId,
-                    selfEmails: selfEmails
+                    selfEmails: selfEmails,
+                    analyticsSource: "settings"
                 )
                 guard !Task.isCancelled, epoch == calendarToggleEpoch else { return }
                 await MainActor.run {
@@ -381,7 +382,7 @@ struct NotificationsSettingsView: View {
                 await MainActor.run { UIApplication.shared.open(url) }
             }
         default:
-            let granted = await CalendarMeetingService.requestAccess()
+            let granted = await CalendarMeetingService.requestAccess(analyticsSource: "settings")
             calendarAccessTick += 1
             if granted {
                 await refreshCalendarNudge()
@@ -399,7 +400,7 @@ struct NotificationsSettingsView: View {
         showOpenSystemSettings = false
         defer { googleBusy = false }
         do {
-            try await GoogleCalendarAuth.connect()
+            try await GoogleCalendarAuth.connect(analyticsSource: "settings")
             calendarAccessTick += 1
             await refreshCalendarNudge()
         } catch {

@@ -32,9 +32,24 @@ enum NotificationService {
 
     /// Already granted (including provisional / ephemeral).
     static func isAuthorized() async -> Bool {
-        switch await authorizationStatus() {
+        isEnabledStatus(await authorizationStatus())
+    }
+
+    static func isEnabledStatus(_ status: UNAuthorizationStatus) -> Bool {
+        switch status {
         case .authorized, .provisional, .ephemeral: true
         default: false
+        }
+    }
+
+    static func authorizationStatusLabel(_ status: UNAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined: "not_determined"
+        case .denied: "denied"
+        case .authorized: "authorized"
+        case .provisional: "provisional"
+        case .ephemeral: "ephemeral"
+        @unknown default: "unknown"
         }
     }
 
@@ -43,16 +58,31 @@ enum NotificationService {
         await authorizationStatus() != .notDetermined
     }
 
-    static func requestAuthorizationAndRegisterForPushes() async -> Bool {
+    /// - Parameter analyticsSource: `onboarding` / `settings` / `nudge` (PostHog).
+    static func requestAuthorizationAndRegisterForPushes(
+        analyticsSource: String = "settings"
+    ) async -> Bool {
         do {
             let status = await authorizationStatus()
+            let promptedSystem = status == .notDetermined
             let granted: Bool
-            if status == .notDetermined {
+            if promptedSystem {
+                Analytics.pushPermissionPrompted(source: analyticsSource, prePrompt: false)
                 granted = try await UNUserNotificationCenter.current()
                     .requestAuthorization(options: [.alert, .badge, .sound])
+                let newStatus = await authorizationStatus()
+                if granted {
+                    Analytics.pushPermissionGranted(
+                        source: analyticsSource,
+                        authorizationStatus: authorizationStatusLabel(newStatus)
+                    )
+                } else {
+                    Analytics.pushPermissionDenied(source: analyticsSource)
+                }
             } else {
-                granted = status == .authorized || status == .provisional || status == .ephemeral
+                granted = isEnabledStatus(status)
             }
+            await Analytics.syncPermissionPersonProperties()
             guard granted else { return false }
             WatchComposeNotification.registerCategories()
             await MainActor.run {
@@ -60,6 +90,7 @@ enum NotificationService {
             }
             return true
         } catch {
+            await Analytics.syncPermissionPersonProperties()
             return false
         }
     }
@@ -76,8 +107,10 @@ enum NotificationService {
         case schedulingFailed
     }
 
-    static func enableFridayReminder() async -> ReminderEnableFailure? {
-        guard await requestAuthorizationAndRegisterForPushes() else {
+    static func enableFridayReminder(
+        analyticsSource: String = "settings"
+    ) async -> ReminderEnableFailure? {
+        guard await requestAuthorizationAndRegisterForPushes(analyticsSource: analyticsSource) else {
             return .notificationsDenied
         }
 
@@ -252,9 +285,10 @@ enum NotificationService {
     static func enableCalendarGratitudeNudge(
         authorId: UUID?,
         selfEmails: Set<String>,
-        requestAppleIfNeeded: Bool = true
+        requestAppleIfNeeded: Bool = true,
+        analyticsSource: String = "settings"
     ) async -> ReminderEnableFailure? {
-        guard await requestAuthorizationAndRegisterForPushes() else {
+        guard await requestAuthorizationAndRegisterForPushes(analyticsSource: analyticsSource) else {
             return .notificationsDenied
         }
 
@@ -266,7 +300,7 @@ enum NotificationService {
             case .fullAccess:
                 break
             case .notDetermined:
-                guard await CalendarMeetingService.requestAccess() else {
+                guard await CalendarMeetingService.requestAccess(analyticsSource: analyticsSource) else {
                     return .calendarDenied
                 }
             case .denied, .restricted, .writeOnly:

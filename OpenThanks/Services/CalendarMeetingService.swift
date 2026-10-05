@@ -65,13 +65,35 @@ enum CalendarMeetingService {
     }
 
     /// Requests full calendar access so we can read attendees.
+    /// - Parameter analyticsSource: `onboarding` / `settings` / `nudge` (PostHog).
     @discardableResult
-    static func requestAccess() async -> Bool {
+    static func requestAccess(analyticsSource: String = "settings") async -> Bool {
         if hasFullAccess { return true }
+        let shouldPrompt = accessState == .notDetermined
+        if shouldPrompt {
+            Analytics.calendarPermissionPrompted(source: analyticsSource)
+        }
         do {
             let granted = try await store.requestFullAccessToEvents()
+            if granted {
+                let level = accessState == .writeOnly ? "write_only" : "full"
+                Analytics.calendarConnected(
+                    provider: "apple_eventkit",
+                    accessLevel: level,
+                    source: analyticsSource
+                )
+            } else if shouldPrompt {
+                Analytics.calendarPermissionDenied(source: analyticsSource)
+            } else {
+                await Analytics.syncPermissionPersonProperties()
+            }
             return granted
         } catch {
+            if shouldPrompt {
+                Analytics.calendarPermissionDenied(source: analyticsSource)
+            } else {
+                await Analytics.syncPermissionPersonProperties()
+            }
             return false
         }
     }
