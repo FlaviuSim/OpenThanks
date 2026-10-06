@@ -6,6 +6,7 @@ import SwiftUI
 struct DeepLinkHostModifier: ViewModifier {
     @Bindable var deepLinks: DeepLinkRouter
     var auth: AuthService
+    @Environment(UserBlockService.self) private var userBlocks
 
     private var showPayItForward: Binding<Bool> {
         Binding(
@@ -20,6 +21,7 @@ struct DeepLinkHostModifier: ViewModifier {
                 destinationView(destination)
                     .environment(auth)
                     .environment(deepLinks)
+                    .environment(userBlocks)
                     .syncAppAppearance()
                     .sheet(isPresented: showPayItForward) {
                         PayItForwardSheet(
@@ -119,13 +121,18 @@ extension View {
 
 struct GratitudeSlugLoaderView: View {
     let slug: String
+    @Environment(AuthService.self) private var auth
     @State private var gratitude: Gratitude?
     @State private var failed = false
 
     var body: some View {
         Group {
             if let gratitude {
-                GratitudeDetailView(gratitude: gratitude)
+                if gratitude.authorShouldManage(viewerId: auth.userId) {
+                    AuthorShareCompose(gratitude: gratitude)
+                } else {
+                    GratitudeDetailView(gratitude: gratitude)
+                }
             } else if failed {
                 unavailable
             } else {

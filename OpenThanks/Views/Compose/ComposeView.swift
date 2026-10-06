@@ -28,7 +28,46 @@ struct ComposeView: View {
     var analyticsSource: String = "compose"
     /// Watch voice drafts can save without choosing a recipient yet.
     var allowsEmptyRecipient: Bool = false
+    /// Open straight on the share screen (author opening their own pending note).
+    var opensOnShareScreen: Bool = false
+    /// Skip the inner NavigationStack when a parent stack already exists.
+    var useParentNavigation: Bool = false
     var onSaved: ((Gratitude) -> Void)? = nil
+
+    init(
+        editing: Gratitude? = nil,
+        initialRecipient: String? = nil,
+        initialRecipientProfile: Profile? = nil,
+        initialMessage: String? = nil,
+        initialMessagePlaceholder: String? = nil,
+        initialImageFileName: String? = nil,
+        inspiredByGratitudeId: UUID? = nil,
+        inspiredByAuthorName: String? = nil,
+        analyticsSource: String = "compose",
+        allowsEmptyRecipient: Bool = false,
+        opensOnShareScreen: Bool = false,
+        useParentNavigation: Bool = false,
+        onSaved: ((Gratitude) -> Void)? = nil
+    ) {
+        self.editing = editing
+        self.initialRecipient = initialRecipient
+        self.initialRecipientProfile = initialRecipientProfile
+        self.initialMessage = initialMessage
+        self.initialMessagePlaceholder = initialMessagePlaceholder
+        self.initialImageFileName = initialImageFileName
+        self.inspiredByGratitudeId = inspiredByGratitudeId
+        self.inspiredByAuthorName = inspiredByAuthorName
+        self.analyticsSource = analyticsSource
+        self.allowsEmptyRecipient = allowsEmptyRecipient
+        self.opensOnShareScreen = opensOnShareScreen
+        self.useParentNavigation = useParentNavigation
+        self.onSaved = onSaved
+        if opensOnShareScreen, let editing {
+            _sent = State(initialValue: true)
+            _created = State(initialValue: editing)
+            _didPrefill = State(initialValue: true)
+        }
+    }
 
     @State private var recipient = ""
     @State private var message = ""
@@ -66,11 +105,15 @@ struct ComposeView: View {
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
     @State private var didCompleteSend = false
+    /// Cancel from the share screen's Edit returns to share without an abandon event.
+    @State private var suppressAbandonTracking = false
     /// Kept so create can set `recipient_id` even if the typed field is a name.
     @State private var linkedRecipient: Profile?
     /// Email for the linked member — loaded eagerly so claim mail can send
     /// even when the profile object passed into compose has no email.
     @State private var linkedRecipientEmail: String?
+    /// User removed the member chip. Distinct from “profile embed still loading”.
+    @State private var didClearRecipient = false
     @State private var recipientResults: [Profile] = []
     @State private var recipientSearching = false
     @FocusState private var messageFocused: Bool
@@ -100,6 +143,24 @@ struct ComposeView: View {
 
     private var editingTarget: Gratitude? { activeEditing ?? editing }
     private var isEditing: Bool { editingTarget != nil }
+    /// Watch / pending row that still has nobody to notify.
+    private var isFirstDelivery: Bool { editingTarget?.hasNoRecipient == true }
+
+    private var toolbarSaveTitle: String {
+        if isEditing {
+            if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
+            return "Save Changes"
+        }
+        return allowsEmptyRecipient ? "Save to Pending" : "Save"
+    }
+
+    private var primarySaveTitle: String {
+        if isEditing {
+            if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
+            return "Save Changes"
+        }
+        return allowsEmptyRecipient ? "Save to Pending" : "Save Appreciation"
+    }
 
     private enum AttachedMediaKind {
         case image
@@ -124,21 +185,8 @@ struct ComposeView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            if sent, let created, activeEditing == nil {
-                SuccessView(
-                    gratitude: created,
-                    preferredEmail: auth.currentProfile?.email,
-                    preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
-                    offerEnjoymentPrompt: offerEnjoymentPrompt,
-                    onEdit: { beginEditing(created) },
-                    onDone: { dismiss() }
-                )
-            } else {
-                form
-            }
-        }
-        .background(Theme.background)
+        composeContainer
+            .background(Theme.background)
         .fullScreenCover(item: $cropItem) { item in
             ImageCropperView(
                 image: item.image,
@@ -161,6 +209,44 @@ struct ComposeView: View {
                 FullScreenVideoView(url: url)
             }
         }
+    }
+
+    @ViewBuilder
+    private var composeContainer: some View {
+        if useParentNavigation {
+            composeRoot
+        } else {
+            NavigationStack { composeRoot }
+        }
+    }
+
+    @ViewBuilder
+    private var composeRoot: some View {
+        if sent, let created, activeEditing == nil {
+            SuccessView(
+                gratitude: created,
+                preferredEmail: auth.currentProfile?.email,
+                preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
+                offerEnjoymentPrompt: offerEnjoymentPrompt,
+                onEdit: { beginEditing(created) },
+                onDone: { dismiss() }
+            )
+            .id(shareScreenIdentity(created))
+        } else {
+            form
+        }
+    }
+
+    /// New identity after edit/save so the share screen can't keep the pre-edit note.
+    private func shareScreenIdentity(_ gratitude: Gratitude) -> String {
+        [
+            gratitude.id.uuidString,
+            gratitude.message,
+            gratitude.recipientDisplayName,
+            gratitude.recipientEmail ?? "",
+            gratitude.recipientPhone ?? "",
+            gratitude.mediaUrl ?? "",
+        ].joined(separator: "|")
     }
 
     private var form: some View {
@@ -226,7 +312,7 @@ struct ComposeView: View {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Button(isEditing ? "Save Changes" : (allowsEmptyRecipient ? "Save to Pending" : "Save")) {
+                    Button(toolbarSaveTitle) {
                         messageFocused = false
                         recipientFocused = false
                         Task { await send() }
@@ -324,6 +410,10 @@ struct ComposeView: View {
     }
 
     private func trackAbandonIfNeeded() {
+        if suppressAbandonTracking {
+            suppressAbandonTracking = false
+            return
+        }
         guard didTrackFormStart, !didCompleteSend, !sent else { return }
         didCompleteSend = true // prevent double-fire from Cancel + onDisappear
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -561,6 +651,7 @@ struct ComposeView: View {
     }
 
     private func selectLinkedRecipient(_ profile: Profile) {
+        didClearRecipient = false
         linkedRecipient = profile
         recipient = ""
         recipientResults = []
@@ -575,6 +666,7 @@ struct ComposeView: View {
     }
 
     private func clearLinkedRecipient(focusField: Bool) {
+        didClearRecipient = true
         linkedRecipient = nil
         linkedRecipientEmail = nil
         recipient = ""
@@ -1027,16 +1119,11 @@ struct ComposeView: View {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 14, weight: .bold))
                 }
-                Text(sending
-                     ? "Saving…"
-                     : (isEditing
-                        ? "Save Changes"
-                        : (allowsEmptyRecipient ? "Save to Pending" : "Save Appreciation")))
+                Text(sending ? "Saving…" : primarySaveTitle)
             }
         }
-        .buttonStyle(CTAButtonStyle(isLoading: sending))
+        .buttonStyle(CTAButtonStyle(isLoading: sending, isEnabled: canSend))
         .disabled(!canSend || sending)
-        .opacity(canSend || sending ? 1 : 0.45)
         .padding(.top, 4)
     }
 
@@ -1499,6 +1586,19 @@ struct ComposeView: View {
         messageFocused = false
         recipientFocused = false
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        // Edit opened from the share screen — go back to that screen, not the one underneath.
+        if created != nil, activeEditing != nil {
+            suppressAbandonTracking = true
+            if let created {
+                applyEditing(created)
+            }
+            activeEditing = nil
+            error = nil
+            polishing = nil
+            messageBeforeAI = nil
+            sent = true
+            return
+        }
         trackAbandonIfNeeded()
         dismiss()
     }
@@ -1599,6 +1699,20 @@ struct ComposeView: View {
         }
     }
 
+    /// First time a Watch / empty pending row gets an email or a member — notify
+    /// the way phone create does. Later edits don't send another claim email.
+    private func deliverIfFirstRecipient(
+        previous: Gratitude,
+        updated: Gratitude,
+        authorId: UUID
+    ) {
+        let hadDelivery = previous.recipientId != nil || !isBlank(previous.recipientEmail)
+        let hasDelivery = updated.recipientId != nil || !isBlank(updated.recipientEmail)
+        guard !hadDelivery, hasDelivery else { return }
+        let author = authorId
+        Task { await GratitudeService.deliverPendingAppreciation(updated, authorId: author) }
+    }
+
     // MARK: Send
 
     private func send() async {
@@ -1655,14 +1769,26 @@ struct ComposeView: View {
             }
 
             if let editing = editingTarget {
+                // Profile embed can still be loading. Don't wipe that member if the
+                // field is empty and the user didn't remove the chip.
+                let typedRecipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+                let preserveExistingMember = linked == nil
+                    && typedRecipient.isEmpty
+                    && !didClearRecipient
+                    && editing.recipientId != nil
                 let updated = try await GratitudeService.update(
                     id: editing.id,
                     update: GratitudeUpdate(
                         message: message.trimmingCharacters(in: .whitespacesAndNewlines),
-                        recipientEmail: contact.email ?? linkedRecipientEmail ?? linked?.email,
+                        recipientEmail: preserveExistingMember
+                            ? editing.recipientEmail
+                            : (contact.email ?? linkedRecipientEmail ?? linked?.email),
                         // Only a phone the sender typed — never the member's private account phone.
-                        recipientPhone: contact.phone,
-                        recipientName: contact.name ?? linked?.fullName ?? linked?.displayName,
+                        recipientPhone: preserveExistingMember ? editing.recipientPhone : contact.phone,
+                        recipientName: preserveExistingMember
+                            ? editing.recipientName
+                            : (contact.name ?? linked?.fullName ?? linked?.displayName),
+                        recipientId: linked?.id ?? (preserveExistingMember ? editing.recipientId : nil),
                         visibility: visibility.rawValue,
                         mediaUrl: mediaUrl,
                         mediaType: mediaType
@@ -1685,15 +1811,12 @@ struct ComposeView: View {
                     source: analyticsSource
                 )
                 onSaved?(updated)
-                if self.editing != nil {
-                    // Opened as Edit from Pending — return to the list.
-                    dismiss()
-                } else if allowsEmptyRecipient, updated.hasNoRecipient {
-                    // Watch / pending draft still has no recipient — don't bounce
-                    // back to the share Success screen (confusing after Edit).
+                deliverIfFirstRecipient(previous: editing, updated: updated, authorId: userId)
+                // Same completion as a note created on the phone: share screen when
+                // someone can receive it. No recipient yet → stay in Pending.
+                if updated.hasNoRecipient {
                     dismiss()
                 } else {
-                    // Came from the success screen — show success again with the update.
                     sent = true
                 }
             } else {
@@ -1777,6 +1900,15 @@ struct ComposeView: View {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 if !handle.isEmpty,
                    let profile = try? await GratitudeService.profile(username: handle) {
+                    selectLinkedRecipient(profile)
+                }
+            }
+            if linkedRecipient == nil {
+                let parsed = parseRecipient(trimmed)
+                if let match = await GratitudeService.matchingProfileId(
+                    email: parsed.email,
+                    phone: parsed.phone
+                ), let profile = try? await GratitudeService.profile(id: match) {
                     selectLinkedRecipient(profile)
                 }
             }
@@ -1869,9 +2001,11 @@ struct SuccessView: View {
     var onEdit: () -> Void
     var onDone: () -> Void
 
+    @Environment(AuthService.self) private var auth
     @Environment(\.openURL) private var openURL
     @State private var copied = false
     @State private var showEnjoymentPrompt = false
+    @State private var systemShareText: String?
 
     private var shareURL: URL {
         gratitude.claimURL ?? gratitude.webURL
@@ -1951,6 +2085,7 @@ struct SuccessView: View {
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
                                     ?? "Opens Messages with the link"
                             ) {
+                                trackShare(channel: "text")
                                 openSMS()
                             }
 
@@ -1960,6 +2095,7 @@ struct SuccessView: View {
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
                                     ?? "Opens Whatsapp with the link"
                             ) {
+                                trackShare(channel: "whatsapp")
                                 openWhatsApp()
                             }
 
@@ -1968,7 +2104,16 @@ struct SuccessView: View {
                                 systemImage: "envelope.fill",
                                 subtitle: "Opens Email client with the link"
                             ) {
+                                trackShare(channel: "email")
                                 openMail()
+                            }
+
+                            ShareActionRow(
+                                title: "Share",
+                                systemImage: "square.and.arrow.up",
+                                subtitle: "Messages, Mail, and more"
+                            ) {
+                                systemShareText = shareMessage
                             }
                         }
                     }
@@ -2003,6 +2148,16 @@ struct SuccessView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: Binding(
+            get: { systemShareText != nil },
+            set: { if !$0 { systemShareText = nil } }
+        )) {
+            if let systemShareText {
+                ActivityShareView(items: [systemShareText]) { activityType in
+                    trackShare(channel: SocialShare.analyticsChannel(for: activityType))
+                }
+            }
+        }
         .sheet(isPresented: $showEnjoymentPrompt) {
             EnjoyingOpenThanksSheet(
                 preferredEmail: preferredEmail,
@@ -2055,6 +2210,7 @@ struct SuccessView: View {
     private var primaryCopyButton: some View {
         Button {
             UIPasteboard.general.string = shareURL.absoluteString
+            trackShare(channel: "copy_link")
             withAnimation(.easeInOut(duration: 0.2)) { copied = true }
             Task {
                 try? await Task.sleep(for: .seconds(2))
@@ -2070,6 +2226,18 @@ struct SuccessView: View {
         .buttonStyle(CTAButtonStyle())
         .sensoryFeedback(.success, trigger: copied)
         .accessibilityHint("Copies the link to accept so you can paste it anywhere")
+    }
+
+    private func trackShare(channel: String) {
+        let voice = AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
+        let content = AppreciationShareContent(gratitude: gratitude, voice: voice)
+        Analytics.appreciationShared(
+            appreciationId: gratitude.id,
+            channel: channel,
+            voice: voice.rawValue,
+            hasCard: false,
+            hasPhoto: content.sharePhotoURL != nil
+        )
     }
 
     private func openSMS() {

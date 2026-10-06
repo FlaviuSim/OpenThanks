@@ -333,9 +333,12 @@ struct SplitDetailPlaceholder: View {
 
 struct CTAButtonStyle: ButtonStyle {
     var isLoading = false
+    /// Pass false when the button is disabled. This style otherwise keeps the
+    /// full coral fill, so Save looks tappable when it isn't.
+    var isEnabled = true
 
     func makeBody(configuration: Configuration) -> some View {
-        let pressed = configuration.isPressed && !isLoading
+        let pressed = configuration.isPressed && !isLoading && isEnabled
         configuration.label
             .font(Theme.body(17, weight: .semibold))
             .foregroundStyle(Color(hex: 0x2B1209))
@@ -347,7 +350,7 @@ struct CTAButtonStyle: ButtonStyle {
                     Capsule().fill(Color.black.opacity(0.12))
                 }
             }
-            .opacity(isLoading ? 0.9 : 1)
+            .opacity(!isEnabled && !isLoading ? 0.4 : (isLoading ? 0.9 : 1))
             .scaleEffect(pressed ? 0.96 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }

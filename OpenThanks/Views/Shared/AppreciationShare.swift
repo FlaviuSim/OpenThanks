@@ -357,10 +357,19 @@ enum AppreciationShareRenderer {
 struct ActivityShareView: UIViewControllerRepresentable {
     let items: [Any]
     var excludedActivityTypes: [UIActivity.ActivityType] = []
+    /// Called only after a share finishes. Cancelled sheets do not call this.
+    var onComplete: ((UIActivity.ActivityType?) -> Void)?
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
         vc.excludedActivityTypes = excludedActivityTypes
+        vc.completionWithItemsHandler = { activityType, completed, _, error in
+            guard completed, error == nil else { return }
+            let type = activityType
+            Task { @MainActor in
+                onComplete?(type)
+            }
+        }
         return vc
     }
 
@@ -418,6 +427,21 @@ enum SocialShare {
         case instagramStories = "instagram_stories"
         case linkedIn = "linkedin"
         case x = "x"
+        case facebook = "facebook"
+    }
+
+    /// Maps a finished system share to the analytics channel.
+    /// Known apps use the short names; anything else keeps the activity type.
+    static func analyticsChannel(for activityType: UIActivity.ActivityType?) -> String {
+        guard let activityType else { return "system_sheet" }
+        let raw = activityType.rawValue.lowercased()
+        if raw.contains("facebook") { return "facebook" }
+        if raw.contains("twitter") || raw.contains("tweet") { return "x" }
+        if raw.contains("linkedin") { return "linkedin" }
+        if raw.contains("whatsapp") { return "whatsapp" }
+        if raw.contains("instagram") { return "instagram_stories" }
+        if raw.contains("copy") { return "copy_link" }
+        return activityType.rawValue
     }
 
     enum Outcome {
@@ -445,6 +469,8 @@ enum SocialShare {
             return shareLinkedIn(content: content)
         case .x:
             return shareX(content: content, openURL: openURL)
+        case .facebook:
+            return shareFacebook(content: content)
         }
     }
 
@@ -461,6 +487,19 @@ enum SocialShare {
         return .opened(
             hint: "Caption copied — paste it into your LinkedIn post. The link preview is already attached."
         )
+    }
+
+    /// Facebook's sharer only takes a URL.
+    @MainActor
+    private static func shareFacebook(content: AppreciationShareContent) -> Outcome {
+        var components = URLComponents(string: "https://www.facebook.com/sharer/sharer.php")!
+        components.queryItems = [URLQueryItem(name: "u", value: content.url.absoluteString)]
+        if let url = components.url {
+            UIApplication.shared.open(url)
+            return .opened(hint: "Facebook opened with your appreciation link.")
+        }
+        UIPasteboard.general.string = content.url.absoluteString
+        return .opened(hint: "Link copied — paste it into Facebook.")
     }
 
     @MainActor

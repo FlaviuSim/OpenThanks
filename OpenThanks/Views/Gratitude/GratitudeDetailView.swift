@@ -123,7 +123,9 @@ struct GratitudeDetailView: View {
             FullScreenImageView(url: url)
         }
         .sheet(item: $systemSharePayload) { payload in
-            ActivityShareView(items: payload.items)
+            ActivityShareView(items: payload.items) { activityType in
+                trackShare(channel: SocialShare.analyticsChannel(for: activityType))
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
             systemSharePayload = nil
@@ -258,27 +260,38 @@ struct GratitudeDetailView: View {
 
             sharePreview
 
-            HStack(spacing: 10) {
-                shareButton(
-                    title: "Instagram",
-                    subtitle: "Stories",
-                    systemImage: "camera.filters"
-                ) {
-                    Task { await share(.instagramStories) }
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    shareButton(
+                        title: "Instagram",
+                        subtitle: "Stories",
+                        systemImage: "camera.filters"
+                    ) {
+                        Task { await share(.instagramStories) }
+                    }
+                    shareButton(
+                        title: "LinkedIn",
+                        subtitle: "Post",
+                        systemImage: "briefcase.fill"
+                    ) {
+                        Task { await share(.linkedIn) }
+                    }
                 }
-                shareButton(
-                    title: "LinkedIn",
-                    subtitle: "Post",
-                    systemImage: "briefcase.fill"
-                ) {
-                    Task { await share(.linkedIn) }
-                }
-                shareButton(
-                    title: "X",
-                    subtitle: "Post",
-                    systemImage: "bird.fill"
-                ) {
-                    Task { await share(.x) }
+                HStack(spacing: 10) {
+                    shareButton(
+                        title: "X",
+                        subtitle: "Post",
+                        systemImage: "bird.fill"
+                    ) {
+                        Task { await share(.x) }
+                    }
+                    shareButton(
+                        title: "Facebook",
+                        subtitle: "Post",
+                        systemImage: "person.2.fill"
+                    ) {
+                        Task { await share(.facebook) }
+                    }
                 }
             }
 
@@ -294,6 +307,7 @@ struct GratitudeDetailView: View {
 
             Button {
                 UIPasteboard.general.string = shareContent.url.absoluteString
+                trackShare(channel: "copy_link")
                 withAnimation { linkCopied = true }
                 flashHint("Link copied")
                 Task {
@@ -440,12 +454,17 @@ struct GratitudeDetailView: View {
         case .opened(let hint):
             flashHint(hint)
         }
-        Analytics.capture("appreciation_shared", [
-            "channel": destination.rawValue,
-            "voice": shareVoice.rawValue,
-            "has_photo": shareContent.sharePhotoURL != nil,
-            "has_card": shareCardImage != nil,
-        ])
+        trackShare(channel: destination.rawValue)
+    }
+
+    private func trackShare(channel: String) {
+        Analytics.appreciationShared(
+            appreciationId: gratitude.id,
+            channel: channel,
+            voice: shareVoice.rawValue,
+            hasCard: shareCardImage != nil,
+            hasPhoto: shareContent.sharePhotoURL != nil
+        )
     }
 
     private func presentSystemShare() async {
@@ -458,13 +477,9 @@ struct GratitudeDetailView: View {
             cardImage: shareCardImage
         )
         // Present via Identifiable payload so the sheet is created with items already set.
+        // `appreciation_shared` fires from the sheet's completion handler, not here,
+        // so a cancelled share is not counted.
         systemSharePayload = SystemSharePayload(items: items)
-        Analytics.capture("appreciation_shared", [
-            "channel": "system_sheet",
-            "voice": shareVoice.rawValue,
-            "has_photo": content.sharePhotoURL != nil,
-            "has_card": shareCardImage != nil,
-        ])
     }
 
     private func flashHint(_ message: String?) {

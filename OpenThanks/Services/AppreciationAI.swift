@@ -154,6 +154,7 @@ enum AppreciationAI {
         homophones, merged or split words, obvious speech-recognition mistakes, \
         and stray mid-sentence capitalization after a pause.
         Keep the same meaning, tone, length, names, and details. Do not rewrite for style.
+        Keep emoji characters exactly as they appear. Do not spell an emoji out as words.
         Return only the corrected message — no preamble, labels, or commentary.
         """
 
@@ -786,12 +787,144 @@ final class AppreciationDictation: ObservableObject {
     }
 }
 
+/// Spoken emoji names → characters, applied before dictation text is shown.
+///
+/// Only phrases that are clearly an emoji request are replaced.
+/// "heart", "fire", and "party" stay words unless the speaker says "emoji".
+/// Names that are emoji on their own ("smiley face", "thumbs up", "party popper") convert either way.
+enum SpokenEmoji {
+    static func apply(to text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return text }
+        var result = text
+        for entry in unambiguous.sorted(by: { $0.phrase.count > $1.phrase.count }) {
+            result = replace(entry.phrase, in: result, with: entry.emoji, requireEmojiWord: false)
+        }
+        for entry in named.sorted(by: { $0.phrase.count > $1.phrase.count }) {
+            result = replace(entry.phrase, in: result, with: entry.emoji, requireEmojiWord: true)
+        }
+        return result
+    }
+
+    private struct Entry {
+        let phrase: String
+        let emoji: String
+    }
+
+    /// Convert even without the word "emoji".
+    private static let unambiguous: [Entry] = [
+        .init(phrase: "smiling face with heart eyes", emoji: "😍"),
+        .init(phrase: "heart eyes", emoji: "😍"),
+        .init(phrase: "smiling face with hearts", emoji: "🥰"),
+        .init(phrase: "face with tears of joy", emoji: "😂"),
+        .init(phrase: "loudly crying face", emoji: "😭"),
+        .init(phrase: "rolling on the floor laughing", emoji: "🤣"),
+        .init(phrase: "grinning face", emoji: "😀"),
+        .init(phrase: "smiley face", emoji: "😊"),
+        .init(phrase: "smiling face", emoji: "😊"),
+        .init(phrase: "winking face", emoji: "😉"),
+        .init(phrase: "thinking face", emoji: "🤔"),
+        .init(phrase: "pleading face", emoji: "🥺"),
+        .init(phrase: "crying face", emoji: "😢"),
+        .init(phrase: "party popper", emoji: "🎉"),
+        .init(phrase: "thumbs up", emoji: "👍"),
+        .init(phrase: "thumbs down", emoji: "👎"),
+        .init(phrase: "folded hands", emoji: "🙏"),
+        .init(phrase: "clapping hands", emoji: "👏"),
+        .init(phrase: "raising hands", emoji: "🙌"),
+        .init(phrase: "waving hand", emoji: "👋"),
+    ]
+
+    /// Convert only when followed by "emoji" / "emojis" — the word alone is normal speech.
+    private static let named: [Entry] = [
+        .init(phrase: "smiling face with heart eyes", emoji: "😍"),
+        .init(phrase: "heart eyes", emoji: "😍"),
+        .init(phrase: "smiling face with hearts", emoji: "🥰"),
+        .init(phrase: "face with tears of joy", emoji: "😂"),
+        .init(phrase: "loudly crying face", emoji: "😭"),
+        .init(phrase: "red heart", emoji: "❤️"),
+        .init(phrase: "blue heart", emoji: "💙"),
+        .init(phrase: "green heart", emoji: "💚"),
+        .init(phrase: "yellow heart", emoji: "💛"),
+        .init(phrase: "orange heart", emoji: "🧡"),
+        .init(phrase: "purple heart", emoji: "💜"),
+        .init(phrase: "black heart", emoji: "🖤"),
+        .init(phrase: "white heart", emoji: "🤍"),
+        .init(phrase: "brown heart", emoji: "🤎"),
+        .init(phrase: "broken heart", emoji: "💔"),
+        .init(phrase: "two hearts", emoji: "💕"),
+        .init(phrase: "growing heart", emoji: "💗"),
+        .init(phrase: "sparkling heart", emoji: "💖"),
+        .init(phrase: "beating heart", emoji: "💓"),
+        .init(phrase: "party popper", emoji: "🎉"),
+        .init(phrase: "thumbs up", emoji: "👍"),
+        .init(phrase: "thumbs down", emoji: "👎"),
+        .init(phrase: "smiley face", emoji: "😊"),
+        .init(phrase: "smiling face", emoji: "😊"),
+        .init(phrase: "grinning face", emoji: "😀"),
+        .init(phrase: "folded hands", emoji: "🙏"),
+        .init(phrase: "clapping hands", emoji: "👏"),
+        .init(phrase: "raising hands", emoji: "🙌"),
+        .init(phrase: "waving hand", emoji: "👋"),
+        .init(phrase: "ok hand", emoji: "👌"),
+        .init(phrase: "okay hand", emoji: "👌"),
+        .init(phrase: "check mark", emoji: "✅"),
+        .init(phrase: "checkmark", emoji: "✅"),
+        .init(phrase: "heart", emoji: "❤️"),
+        .init(phrase: "smiley", emoji: "😊"),
+        .init(phrase: "smile", emoji: "😊"),
+        .init(phrase: "fire", emoji: "🔥"),
+        .init(phrase: "flame", emoji: "🔥"),
+        .init(phrase: "star", emoji: "⭐"),
+        .init(phrase: "sparkles", emoji: "✨"),
+        .init(phrase: "sparkle", emoji: "✨"),
+        .init(phrase: "rocket", emoji: "🚀"),
+        .init(phrase: "party", emoji: "🎉"),
+        .init(phrase: "tada", emoji: "🎉"),
+        .init(phrase: "clap", emoji: "👏"),
+        .init(phrase: "clapping", emoji: "👏"),
+        .init(phrase: "pray", emoji: "🙏"),
+        .init(phrase: "prayer", emoji: "🙏"),
+        .init(phrase: "cry", emoji: "😢"),
+        .init(phrase: "crying", emoji: "😭"),
+        .init(phrase: "laugh", emoji: "😂"),
+        .init(phrase: "laughing", emoji: "😂"),
+        .init(phrase: "kiss", emoji: "😘"),
+        .init(phrase: "wink", emoji: "😉"),
+        .init(phrase: "wave", emoji: "👋"),
+        .init(phrase: "eyes", emoji: "👀"),
+        .init(phrase: "hundred", emoji: "💯"),
+        .init(phrase: "100", emoji: "💯"),
+    ]
+
+    private static func replace(
+        _ phrase: String,
+        in text: String,
+        with emoji: String,
+        requireEmojiWord: Bool
+    ) -> String {
+        let words = phrase.split(separator: " ").map {
+            NSRegularExpression.escapedPattern(for: String($0))
+        }
+        guard !words.isEmpty else { return text }
+        let body = words.joined(separator: #"\s+"#)
+        let suffix = requireEmojiWord ? #"\s*,?\s+emojis?"# : #"(?:\s*,?\s+emojis?)?"#
+        let pattern = "\\b\(body)\(suffix)\\b"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return text
+        }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: emoji)
+    }
+}
+
 /// Turns raw Apple Speech chunks into readable thank-you prose.
 enum DictationProse {
     static func normalize(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }
         text = applySpokenPunctuation(text)
+        text = SpokenEmoji.apply(to: text)
         text = tidyPunctuation(text)
         text = capitalizeStandaloneI(text)
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -852,14 +985,16 @@ enum DictationProse {
         text = fixErroneousMidSentenceCaps(text)
         if AppreciationAI.isAvailable {
             if let cleaned = try? await AppreciationAI.cleanupDictation(text) {
-                return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+                text = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
-        return text
+        // Cleanup can spell an emoji back out; convert again before the field updates.
+        return SpokenEmoji.apply(to: text)
     }
 
     static func polish(_ raw: String) -> String {
         var text = tidyPunctuation(raw)
+        text = SpokenEmoji.apply(to: text)
         text = capitalizeStandaloneI(text)
         text = capitalizeSentences(text)
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,

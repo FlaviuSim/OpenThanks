@@ -4,10 +4,12 @@ import SwiftUI
 /// Shows Copy Link / Text / Email / OpenThanks Email Reminder — not the raw URL string.
 struct PendingShareSheet: View {
     let gratitude: Gratitude
+    @Environment(AuthService.self) private var auth
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @State private var copied = false
     @State private var emailState: EmailState = .idle
+    @State private var systemShare: String?
 
     private enum EmailState: Equatable {
         case idle, sending, sent, failed(String)
@@ -126,6 +128,7 @@ struct PendingShareSheet: View {
                 VStack(spacing: 20) {
                     Button {
                         UIPasteboard.general.string = shareURL.absoluteString
+                        trackShare(channel: "copy_link")
                         withAnimation(.easeInOut(duration: 0.2)) { copied = true }
                         Task {
                             try? await Task.sleep(for: .seconds(2))
@@ -156,6 +159,7 @@ struct PendingShareSheet: View {
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
                                     ?? "Opens Messages with the link"
                             ) {
+                                trackShare(channel: "text")
                                 openSMS()
                             }
 
@@ -165,6 +169,7 @@ struct PendingShareSheet: View {
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
                                     ?? "Opens Whatsapp with the link"
                             ) {
+                                trackShare(channel: "whatsapp")
                                 openWhatsApp()
                             }
 
@@ -173,7 +178,16 @@ struct PendingShareSheet: View {
                                 systemImage: "envelope.fill",
                                 subtitle: emailToLabel
                             ) {
+                                trackShare(channel: "email")
                                 openMail()
+                            }
+
+                            ShareActionRow(
+                                title: "Share",
+                                systemImage: "square.and.arrow.up",
+                                subtitle: "Messages, Mail, and more"
+                            ) {
+                                systemShare = messageBody
                             }
 
                             if recipientEmail != nil || gratitude.recipientId != nil {
@@ -205,6 +219,28 @@ struct PendingShareSheet: View {
         .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity)
         .background(Theme.background)
+        .sheet(isPresented: Binding(
+            get: { systemShare != nil },
+            set: { if !$0 { systemShare = nil } }
+        )) {
+            if let systemShare {
+                ActivityShareView(items: [systemShare]) { activityType in
+                    trackShare(channel: SocialShare.analyticsChannel(for: activityType))
+                }
+            }
+        }
+    }
+
+    private func trackShare(channel: String) {
+        let voice = AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
+        let content = AppreciationShareContent(gratitude: gratitude, voice: voice)
+        Analytics.appreciationShared(
+            appreciationId: gratitude.id,
+            channel: channel,
+            voice: voice.rawValue,
+            hasCard: false,
+            hasPhoto: content.sharePhotoURL != nil
+        )
     }
 
     private var emailActionTitle: String {

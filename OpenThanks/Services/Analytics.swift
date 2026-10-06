@@ -330,6 +330,24 @@ enum Analytics {
         capture("appreciation_submitted", props)
     }
 
+    /// External share actually completed (not merely opened, and not a cancelled sheet).
+    static func appreciationShared(
+        appreciationId: UUID,
+        channel: String,
+        voice: String,
+        hasCard: Bool,
+        hasPhoto: Bool
+    ) {
+        capture("appreciation_shared", [
+            "appreciation_id": appreciationId.uuidString.lowercased(),
+            "channel": channel,
+            "voice": voice,
+            "platform": "ios",
+            "has_card": hasCard,
+            "has_photo": hasPhoto,
+        ])
+    }
+
     static func appreciationFailed(error: String, source: String?) {
         var props: [String: Any] = ["error": String(error.prefix(200))]
         if let source { props["source"] = source }

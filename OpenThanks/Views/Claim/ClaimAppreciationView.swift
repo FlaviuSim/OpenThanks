@@ -302,10 +302,33 @@ struct ClaimAppreciationView: View {
         case missing
         case alreadyProcessed
         case ownAppreciation
+        case ownPublished
         case needsSignIn
     }
 
     var body: some View {
+        Group {
+            if case .ownAppreciation = phase, let gratitude {
+                ComposeView(
+                    editing: gratitude,
+                    analyticsSource: gratitude.hasNoRecipient ? "watch" : "edit_own",
+                    allowsEmptyRecipient: gratitude.hasNoRecipient,
+                    opensOnShareScreen: true
+                )
+            } else {
+                claimStack
+            }
+        }
+        .task { await load() }
+        .onChange(of: auth.userId) { _, userId in
+            if userId != nil, case .needsSignIn = phase {
+                Task { await load() }
+            }
+        }
+        .syncAppAppearance()
+    }
+
+    private var claimStack: some View {
         NavigationStack {
             Group {
                 switch phase {
@@ -331,11 +354,11 @@ struct ClaimAppreciationView: View {
                         systemImage: "heart"
                     )
                 case .ownAppreciation:
-                    messageState(
-                        title: "This is your appreciation",
-                        body: "Only the recipient can accept it. Share the link to accept with them.",
-                        systemImage: "paperplane"
-                    )
+                    EmptyView()
+                case .ownPublished:
+                    if let gratitude {
+                        GratitudeDetailView(gratitude: gratitude)
+                    }
                 case .ready:
                     if let gratitude {
                         PendingAppreciationReviewView(gratitude: gratitude) { accepted in
@@ -355,13 +378,6 @@ struct ClaimAppreciationView: View {
             }
             .appDestinations()
         }
-        .task { await load() }
-        .onChange(of: auth.userId) { _, userId in
-            if userId != nil, case .needsSignIn = phase {
-                Task { await load() }
-            }
-        }
-        .syncAppAppearance()
     }
 
     private func messageState(title: String, body: String, systemImage: String) -> some View {
@@ -412,7 +428,9 @@ struct ClaimAppreciationView: View {
             gratitude = loaded
 
             if loaded.authorId == auth.userId {
-                phase = .ownAppreciation
+                phase = loaded.authorShouldManage(viewerId: auth.userId)
+                    ? .ownAppreciation
+                    : .ownPublished
                 return
             }
 

@@ -222,7 +222,7 @@ struct FeedView: View {
     @ViewBuilder
     private var detailPane: some View {
         if let gratitude = splitSelection?.wrappedValue {
-            GratitudeDetailView(
+            GratitudeRouteView(
                 gratitude: gratitude,
                 onOpenProfile: { path.append($0) }
             )

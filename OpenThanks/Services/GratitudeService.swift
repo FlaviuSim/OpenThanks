@@ -565,29 +565,56 @@ enum GratitudeService {
         }
 
         if payload.recipientId == nil {
-            struct IdRow: Decodable { let id: UUID }
-            if let email = payload.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-               !email.isEmpty,
-               let row: IdRow = try? await supabase.from("profiles")
-                .select("id")
-                .eq("email", value: email)
-                .single()
-                .execute().value {
-                payload.recipientId = row.id
-            } else if let phone = payload.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines),
-                      !phone.isEmpty,
-                      let row: IdRow = try? await supabase.from("profiles")
-                .select("id")
-                .eq("phone", value: phone)
-                .single()
-                .execute().value {
-                payload.recipientId = row.id
-            }
+            payload.recipientId = await matchingProfileId(
+                email: payload.recipientEmail,
+                phone: payload.recipientPhone
+            )
         }
+    }
+
+    /// Profile id when the typed email or phone already belongs to a member.
+    static func matchingProfileId(email: String?, phone: String?) async -> UUID? {
+        struct IdRow: Decodable { let id: UUID }
+        if let email = email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+           !email.isEmpty,
+           let row: IdRow = try? await supabase.from("profiles")
+            .select("id")
+            .eq("email", value: email)
+            .single()
+            .execute().value {
+            return row.id
+        }
+        if let phone = phone?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !phone.isEmpty,
+           let row: IdRow = try? await supabase.from("profiles")
+            .select("id")
+            .eq("phone", value: phone)
+            .single()
+            .execute().value {
+            return row.id
+        }
+        return nil
     }
 
     private static func isBlank(_ value: String?) -> Bool {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false
+    }
+
+    /// Claim email + in-app notice for a pending row that was saved before it had
+    /// a recipient (Watch drafts). Same delivery the create API does on first save.
+    static func deliverPendingAppreciation(_ gratitude: Gratitude, authorId: UUID) async {
+        if let recipientId = gratitude.recipientId, recipientId != authorId {
+            await insertNotification(
+                userId: recipientId,
+                type: "gratitude_pending",
+                gratitudeId: gratitude.id,
+                fromUserId: authorId
+            )
+        }
+        let email = gratitude.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if gratitude.recipientId != nil || !email.isEmpty {
+            try? await sendEmailReminder(gratitudeId: gratitude.id)
+        }
     }
 
     /// Update a pending appreciation you authored.

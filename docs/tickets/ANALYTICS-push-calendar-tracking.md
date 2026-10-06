@@ -35,3 +35,20 @@ Since the Oct 1 App Store launch: 29 non-founder installs, but only 2 signed in 
 - In PostHog, a test device shows `push_permission_prompted` then granted/denied, `calendar_connected`, and the person has `push_enabled` / `calendar_linked` set correctly.
 - Toggling notifications off in iOS Settings, then reopening the app, flips `push_enabled` to false.
 - Bonus: a PostHog funnel Installed → Signed in → Push enabled → Calendar linked → First public post.
+
+## External share tracking
+
+`appreciation_shared` stopped arriving after iOS 1.0.2 (last event Sep 10, 2026). 1.1 and 1.2 never sent it because the share screens people actually use — the post-save share screen and Pending Appreciations — did not capture, and the public post’s system share sheet counted the sheet opening instead of a finished share.
+
+The event fires again on every completed external share:
+
+| Property | Value |
+|---|---|
+| `channel` | `instagram_stories`, `linkedin`, `x`, `facebook`, `whatsapp`, `copy_link`, `text`, `email`. System share sheet: the completion handler’s activity type, mapped to those names when it is a known app, otherwise the raw activity type (`system_sheet` only when the type is missing). |
+| `voice` | `author`, `recipient`, or `viewer` |
+| `platform` | `ios` |
+| `has_card` | bool — composed story/poster image was included |
+| `has_photo` | bool — the appreciation has a still photo |
+| `appreciation_id` | gratitude UUID (lowercase) |
+
+Cancelled system share sheets are not counted. OpenThanks “Email Reminder” (the server sends it) is not an external share.

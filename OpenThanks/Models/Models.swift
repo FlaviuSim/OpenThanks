@@ -136,6 +136,18 @@ struct Gratitude: Codable, Identifiable, Hashable {
             && recipient == nil
     }
 
+    /// Author opening a note that isn’t published yet should get the edit/share
+    /// screen (claim link, copy, text, email) instead of the read-only post.
+    func authorShouldManage(viewerId: UUID?) -> Bool {
+        guard let viewerId, authorId == viewerId else { return false }
+        switch status {
+        case .accepted, .rejected:
+            return false
+        case .pending, .none:
+            return true
+        }
+    }
+
     /// First name for SMS/email share drafts — never an email address.
     var shareGreetingFirstName: String? {
         let candidates = [recipient?.fullName, recipientName]
@@ -243,6 +255,8 @@ struct GratitudeUpdate: Encodable {
     var recipientEmail: String?
     var recipientPhone: String?
     var recipientName: String?
+    /// Existing member. Nil clears a previous link when the sender picks someone else.
+    var recipientId: UUID?
     var visibility: String
     var mediaUrl: String?
     var mediaType: String?
@@ -252,6 +266,7 @@ struct GratitudeUpdate: Encodable {
         case recipientEmail = "recipient_email"
         case recipientPhone = "recipient_phone"
         case recipientName = "recipient_name"
+        case recipientId = "recipient_id"
         case visibility
         case mediaUrl = "media_url"
         case mediaType = "media_type"
@@ -263,6 +278,7 @@ struct GratitudeUpdate: Encodable {
         try c.encode(recipientEmail, forKey: .recipientEmail)
         try c.encode(recipientPhone, forKey: .recipientPhone)
         try c.encode(recipientName, forKey: .recipientName)
+        try c.encode(recipientId?.uuidString.lowercased(), forKey: .recipientId)
         try c.encode(visibility, forKey: .visibility)
         try c.encode(mediaUrl, forKey: .mediaUrl)
         try c.encode(mediaType, forKey: .mediaType)

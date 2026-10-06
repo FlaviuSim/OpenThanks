@@ -381,6 +381,12 @@ struct PendingAppreciationsView: View {
         }
     }
 
+    /// Drop a stale share sheet so it can't reappear under the editor after save.
+    private func beginEdit(_ g: Gratitude) {
+        sharing = nil
+        editing = g
+    }
+
     /// True when the appreciation has no recipient at all (Watch one-tap drafts).
     private func hasNoRecipient(_ g: Gratitude) -> Bool {
         g.hasNoRecipient
@@ -389,7 +395,7 @@ struct PendingAppreciationsView: View {
     private func pendingCard(_ g: Gratitude) -> some View {
         let noRecipient = hasNoRecipient(g)
         return VStack(alignment: .leading, spacing: 12) {
-            Button { noRecipient ? (editing = g) : (sharing = g) } label: {
+            Button { noRecipient ? beginEdit(g) : (sharing = g) } label: {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: noRecipient ? "waveform" : "clock")
                         .foregroundStyle(noRecipient ? Theme.coral : Theme.textSecondary)
@@ -442,7 +448,7 @@ struct PendingAppreciationsView: View {
 
             HStack(spacing: 8) {
                 actionButton(title: "Edit", systemImage: "square.and.pencil") {
-                    editing = g
+                    beginEdit(g)
                 }
                 if !noRecipient {
                     actionButton(title: "Send", systemImage: "link") {
@@ -462,7 +468,7 @@ struct PendingAppreciationsView: View {
         .padding(14)
         .card()
         .contextMenu {
-            Button { editing = g } label: {
+            Button { beginEdit(g) } label: {
                 Label("Edit", systemImage: "pencil")
             }
             if !noRecipient {

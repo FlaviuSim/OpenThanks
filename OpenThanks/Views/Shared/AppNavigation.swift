@@ -27,7 +27,7 @@ extension View {
     func appDestinations() -> some View {
         self
             .navigationDestination(for: Profile.self) { UserProfileView(profile: $0) }
-            .navigationDestination(for: Gratitude.self) { GratitudeDetailView(gratitude: $0) }
+            .navigationDestination(for: Gratitude.self) { GratitudeRouteView(gratitude: $0) }
             .navigationDestination(for: GratitudeIdRoute.self) { GratitudeLoaderView(gratitudeId: $0.id) }
             .navigationDestination(for: PendingAppreciationsRoute.self) { route in
                 PendingAppreciationsView(highlightId: route.highlightId)
@@ -162,6 +162,8 @@ struct GratitudeLoaderView: View {
                             showPayItForward = true
                         }
                     }
+                } else if gratitude.authorShouldManage(viewerId: auth.userId) {
+                    AuthorShareCompose(gratitude: gratitude)
                 } else {
                     VStack(spacing: 0) {
                         if showPayItForward {
@@ -248,6 +250,36 @@ struct GratitudeLoaderView: View {
         }
 
         return false
+    }
+}
+
+/// Pending notes you wrote open on the share/edit screen. Published notes stay the reader.
+struct GratitudeRouteView: View {
+    let gratitude: Gratitude
+    var onOpenProfile: ((Profile) -> Void)? = nil
+    @Environment(AuthService.self) private var auth
+
+    var body: some View {
+        if gratitude.authorShouldManage(viewerId: auth.userId) {
+            AuthorShareCompose(gratitude: gratitude)
+        } else {
+            GratitudeDetailView(gratitude: gratitude, onOpenProfile: onOpenProfile)
+        }
+    }
+}
+
+/// Share screen for a pending appreciation the signed-in user authored.
+struct AuthorShareCompose: View {
+    let gratitude: Gratitude
+
+    var body: some View {
+        ComposeView(
+            editing: gratitude,
+            analyticsSource: gratitude.hasNoRecipient ? "watch" : "edit_own",
+            allowsEmptyRecipient: gratitude.hasNoRecipient,
+            opensOnShareScreen: true,
+            useParentNavigation: true
+        )
     }
 }
 
