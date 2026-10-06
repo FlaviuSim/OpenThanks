@@ -84,6 +84,7 @@ struct MainTabView: View {
         .onAppear {
             // Pending CTAs only — do not auto-open blank compose on every launch.
             presentLaunchSurfaces()
+            AppUpdateChecker.shared.checkIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: .composeLaunchQueued)) { _ in
             presentPendingComposeIfNeeded()
@@ -99,6 +100,7 @@ struct MainTabView: View {
             // Resume any queued compose/tab from notifications / deep links / share.
             // Do not open blank compose just because the icon was tapped.
             presentLaunchSurfaces()
+            AppUpdateChecker.shared.checkIfNeeded()
             if fridayReminderEnabled {
                 Task { await NotificationService.refreshFridayReminderIfEnabled(true) }
             }
@@ -177,7 +179,10 @@ struct MainTabView: View {
                         } icon: {
                             Image(systemName: "bell.fill")
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .foregroundStyle(tab == .notifications ? Theme.coral : Theme.textPrimary)
                     .listRowBackground(tab == .notifications ? Theme.coral.opacity(0.12) : Color.clear)
 
@@ -229,7 +234,10 @@ struct MainTabView: View {
             selectTab(value)
         } label: {
             Label(title, systemImage: systemImage)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .foregroundStyle(tab == value ? Theme.coral : Theme.textPrimary)
         .listRowBackground(tab == value ? Theme.coral.opacity(0.12) : Color.clear)
     }
@@ -546,6 +554,8 @@ struct MainTabView: View {
         }
     }
 
+    /// Same as iPhone tab bar: tap another section to switch; re-tap the current
+    /// section to pop back to its root (clears pushes + iPad list/detail selection).
     private func selectTab(_ value: Tab) {
         resignKeyboard()
         homeSearchActive = false

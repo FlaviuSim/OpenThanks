@@ -25,6 +25,8 @@ struct FeedView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
+    @State private var updateChecker = AppUpdateChecker.shared
     @State private var scope: Scope = .personal
     @State private var items: [Gratitude] = []
     @State private var pendingToAccept: [Gratitude] = []
@@ -66,6 +68,14 @@ struct FeedView: View {
     private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
     private var isSearchChromeVisible: Bool { searchBarVisible || searchFocused || searchHasQuery }
     private var shouldKeepSearchVisible: Bool { searchFocused || searchHasQuery }
+    /// Soft update nudge — skip while first-send tip / compose / pay-it-forward are up.
+    private var shouldShowUpdateBanner: Bool {
+        updateChecker.shouldShowBanner
+            && hasSeenFirstSendTip
+            && !showCompose
+            && payItForwardFromName == nil
+            && isSelected
+    }
     /// iPad sidebar shell (portrait or landscape) — hides the duplicate Thank Someone CTA.
     private var isSplitShell: Bool { splitSelection != nil }
     /// List + detail columns: only when the shell is active and we're in landscape
@@ -228,10 +238,23 @@ struct FeedView: View {
     private var feedChrome: some View {
         VStack(spacing: 0) {
             header
+            if shouldShowUpdateBanner {
+                AppUpdateBanner(
+                    storeVersion: updateChecker.storeVersion,
+                    onUpdate: { updateChecker.openAppStore() },
+                    onLater: { updateChecker.snooze() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+                .readableWidth()
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .onAppear { updateChecker.trackBannerShown() }
+            }
             if pendingSentCount > 0 {
                 PendingAppreciationsBanner(count: pendingSentCount)
                     .padding(.horizontal, 16)
-                    .padding(.top, 10)
+                    .padding(.top, shouldShowUpdateBanner ? 4 : 10)
                     .padding(.bottom, 4)
                     .readableWidth()
             }
@@ -253,7 +276,7 @@ struct FeedView: View {
                 }
             )
             .padding(.horizontal, 20)
-            .padding(.top, isSearchChromeVisible ? (pendingSentCount > 0 ? 6 : 10) : 0)
+            .padding(.top, isSearchChromeVisible ? (hasTopHomeBanner ? 6 : 10) : 0)
             .padding(.bottom, isSearchChromeVisible ? 2 : 0)
             .frame(maxHeight: isSearchChromeVisible ? nil : 0, alignment: .top)
             .opacity(isSearchChromeVisible ? 1 : 0)
@@ -270,6 +293,11 @@ struct FeedView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
         }
+        .animation(.easeInOut(duration: 0.2), value: shouldShowUpdateBanner)
+    }
+
+    private var hasTopHomeBanner: Bool {
+        shouldShowUpdateBanner || pendingSentCount > 0
     }
 
     /// Scoped list with an explicit identity swap so My ↔ World never feels instant.

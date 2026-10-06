@@ -28,6 +28,11 @@ struct MessageEditor: UIViewRepresentable {
     var voiceBusy: Bool = false
     var voiceEnabled: Bool = false
     var onToggleVoice: (() -> Void)?
+    /// Quick emoji chips on the keyboard accessory (tappable — not under a translucent gap).
+    var quickEmojis: [String] = []
+    var onInsertEmoji: ((String) -> Void)? = nil
+    /// Fired when the UITextView becomes / resigns first responder (drives SwiftUI focus chrome).
+    var onFocusChange: ((Bool) -> Void)? = nil
     /// When set, insert at the caret (replacing any selection), move the cursor
     /// after the inserted text, then call `onPendingInsertConsumed`.
     var pendingInsert: PendingInsert? = nil
@@ -126,6 +131,7 @@ struct MessageEditor: UIViewRepresentable {
         private var lastVoiceListening: Bool?
         private var lastVoiceBusy: Bool?
         private var lastVoiceEnabled: Bool?
+        private var lastQuickEmojis: [String] = []
         private var lastHandledInsertID: UUID?
 
         init(_ parent: MessageEditor) {
@@ -197,6 +203,7 @@ struct MessageEditor: UIViewRepresentable {
             let bar = PaddedKeyboardToolbar(
                 frame: CGRect(x: 0, y: 0, width: width, height: PaddedKeyboardToolbar.preferredHeight)
             )
+            bar.applyOpaqueChrome()
             bar.tintColor = UIColor(Theme.coral)
             accessory = bar
             rebuildAccessory()
@@ -211,6 +218,7 @@ struct MessageEditor: UIViewRepresentable {
                 || lastVoiceListening != parent.voiceListening
                 || lastVoiceBusy != parent.voiceBusy
                 || lastVoiceEnabled != parent.voiceEnabled
+                || lastQuickEmojis != parent.quickEmojis
             else { return }
             rebuildAccessory()
         }
@@ -224,6 +232,7 @@ struct MessageEditor: UIViewRepresentable {
             lastVoiceListening = parent.voiceListening
             lastVoiceBusy = parent.voiceBusy
             lastVoiceEnabled = parent.voiceEnabled
+            lastQuickEmojis = parent.quickEmojis
 
             var items: [UIBarButtonItem] = [
                 UIBarButtonItem(
@@ -256,6 +265,10 @@ struct MessageEditor: UIViewRepresentable {
                 items.append(mic)
             }
 
+            if !parent.quickEmojis.isEmpty, parent.onInsertEmoji != nil {
+                items.append(UIBarButtonItem(customView: makeEmojiStrip(parent.quickEmojis)))
+            }
+
             items.append(UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil))
 
             if parent.showAI {
@@ -281,12 +294,49 @@ struct MessageEditor: UIViewRepresentable {
             items.append(done)
 
             bar.items = items
+            bar.applyOpaqueChrome()
+        }
+
+        private func makeEmojiStrip(_ emojis: [String]) -> UIView {
+            let stack = UIStackView()
+            stack.axis = .horizontal
+            stack.spacing = 2
+            stack.alignment = .center
+            for (index, emoji) in emojis.prefix(6).enumerated() {
+                let button = UIButton(type: .system)
+                button.setTitle(emoji, for: .normal)
+                button.titleLabel?.font = .systemFont(ofSize: 20)
+                button.tag = index
+                button.addTarget(self, action: #selector(emojiTapped(_:)), for: .touchUpInside)
+                button.accessibilityLabel = "Insert \(emoji)"
+                button.setContentCompressionResistancePriority(.required, for: .horizontal)
+                stack.addArrangedSubview(button)
+            }
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            let host = UIView()
+            host.addSubview(stack)
+            NSLayoutConstraint.activate([
+                stack.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+                stack.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+                stack.topAnchor.constraint(equalTo: host.topAnchor),
+                stack.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+                host.heightAnchor.constraint(equalToConstant: 36),
+            ])
+            return host
         }
 
         func textViewDidChange(_ textView: UITextView) {
             self.textView = textView as? IntrinsicTextView
             parent.text = textView.text ?? ""
             (textView as? IntrinsicTextView)?.invalidateIntrinsicContentSize()
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            parent.onFocusChange?(true)
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            parent.onFocusChange?(false)
         }
 
         @objc private func addLinkTapped() {
@@ -302,6 +352,12 @@ struct MessageEditor: UIViewRepresentable {
         @objc private func voiceTapped() {
             guard !parent.voiceBusy else { return }
             parent.onToggleVoice?()
+        }
+
+        @objc private func emojiTapped(_ sender: UIButton) {
+            let emojis = parent.quickEmojis
+            guard sender.tag >= 0, sender.tag < emojis.count else { return }
+            parent.onInsertEmoji?(emojis[sender.tag])
         }
 
         @objc private func doneTapped() {
@@ -330,6 +386,22 @@ final class PaddedKeyboardToolbar: UIToolbar {
             frame.size.height = Self.preferredHeight
             self.frame = frame
         }
+    }
+
+    /// Solid chrome so scroll content (emoji chips) can’t show through the
+    /// flexible-space gap and confuse taps over the keyboard.
+    func applyOpaqueChrome() {
+        isTranslucent = false
+        let color = UIColor(Theme.surfaceRaised)
+        let appearance = UIToolbarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = color
+        appearance.shadowColor = UIColor.separator
+        standardAppearance = appearance
+        compactAppearance = appearance
+        scrollEdgeAppearance = appearance
+        backgroundColor = color
+        barTintColor = color
     }
 }
 

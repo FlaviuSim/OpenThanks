@@ -58,6 +58,17 @@ enum AppConfig {
     static let postHogKey = "phc_tDCoDmFjVxnMikoRQ3EAXP5kgz5EJq9pMTxsGkmLvkXq"
     static let postHogHost = "https://us.i.posthog.com"
 
+    /// App Store Connect Apple ID (used for update checks + review links).
+    static let appStoreID = "6808840343"
+
+    static var appStoreProductURL: URL {
+        URL(string: "https://apps.apple.com/app/id\(appStoreID)")!
+    }
+
+    static var appStoreWriteReviewURL: URL {
+        URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review")!
+    }
+
     static func publicStorageURL(for storedPath: String, bucket: String = mediaBucket) -> URL? {
         let trimmed = storedPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }

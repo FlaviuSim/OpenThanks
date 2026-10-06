@@ -8,9 +8,7 @@ enum EnjoymentPrompt {
     private static let dismissedAtKey = "enjoymentPrompt.dismissedAt.v1"
     private static let receiveReviewAtKey = "appStoreReviewRequestedAfterReceiveAt.v1"
 
-    static let writeReviewURL = URL(
-        string: "https://apps.apple.com/app/id6808840343?action=write-review"
-    )!
+    static var writeReviewURL: URL { AppConfig.appStoreWriteReviewURL }
 
     private static let minSendsBeforeAsk = 2
     private static let dismissCooldownDays = 45

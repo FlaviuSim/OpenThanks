@@ -49,18 +49,24 @@ struct WelcomeView: View {
 
                 VStack(spacing: 12) {
                     // Sign in with Apple — system control, correct style for light/dark (HIG).
+                    // Cap width at 375: ASAuthorizationAppleIDButton has an internal
+                    // `width <= 375` constraint; stretching it to the iPad column (e.g. 432)
+                    // logs unsatisfiable-constraint warnings and can break the layout pass.
                     ZStack {
-                        SignInWithAppleButton(.continue) { request in
-                            request.requestedScopes = [.email, .fullName]
-                        } onCompletion: { result in
-                            handleAppleResult(result)
+                        GeometryReader { geo in
+                            let buttonWidth = min(geo.size.width, 375)
+                            SignInWithAppleButton(.continue) { request in
+                                request.requestedScopes = [.email, .fullName]
+                            } onCompletion: { result in
+                                handleAppleResult(result)
+                            }
+                            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                            .frame(width: buttonWidth, height: 52)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .disabled(!ageConfirmed || oauthBusy != nil)
+                            .opacity(ageConfirmed ? 1 : 0.45)
+                            .accessibilityLabel("Continue with Apple")
                         }
-                        .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .disabled(!ageConfirmed || oauthBusy != nil)
-                        .opacity(ageConfirmed ? 1 : 0.45)
-                        .accessibilityLabel("Continue with Apple")
 
                         if !ageConfirmed {
                             Color.clear

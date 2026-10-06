@@ -218,7 +218,8 @@ struct ComposeView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Cancel", action: cancelCompose)
-                    .foregroundStyle(Theme.textSecondary)
+                    .font(Theme.body(16, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if sending {
@@ -237,19 +238,23 @@ struct ComposeView: View {
                     .accessibilityHint(saveBlockedReason ?? "Saves this appreciation")
                 }
             }
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    messageFocused = false
-                    recipientFocused = false
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.resignFirstResponder),
-                        to: nil, from: nil, for: nil
-                    )
+            // MessageEditor already owns Done on its accessory — only show this
+            // when the recipient field (SwiftUI TextField) is focused.
+            if !messageFocused {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        messageFocused = false
+                        recipientFocused = false
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder),
+                            to: nil, from: nil, for: nil
+                        )
+                    }
+                    .font(Theme.body(16, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .padding(.vertical, 8)
                 }
-                .font(Theme.body(16, weight: .semibold))
-                .foregroundStyle(Theme.coral)
-                .padding(.vertical, 8)
             }
         }
         .onAppear {
@@ -635,6 +640,12 @@ struct ComposeView: View {
                         voiceBusy: dictation.isTransitioning,
                         voiceEnabled: voiceControlsEnabled,
                         onToggleVoice: { Task { await toggleVoiceDictation() } },
+                        quickEmojis: quickEmojis,
+                        onInsertEmoji: { insertEmoji($0) },
+                        onFocusChange: { focused in
+                            messageFocused = focused
+                            if focused { recipientFocused = false }
+                        },
                         pendingInsert: pendingMessageInsert,
                         onPendingInsertConsumed: { id in
                             if pendingMessageInsert?.id == id {
@@ -697,7 +708,11 @@ struct ComposeView: View {
                 Divider().overlay(Theme.hairline)
 
                 VStack(alignment: .leading, spacing: 12) {
-                    emojiShortcuts
+                    // When the message field is focused, emojis live on the opaque
+                    // keyboard accessory (so they aren’t trapped under a translucent bar).
+                    if !messageFocused {
+                        emojiShortcuts
+                    }
 
                     if aiAvailable {
                         aiChips
