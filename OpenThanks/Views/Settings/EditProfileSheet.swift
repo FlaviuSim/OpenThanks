@@ -85,6 +85,8 @@ struct EditProfileSheet: View {
                 Section {
                     profilePhotoRow
                     TextField("Full name", text: $fullName)
+                        .textInputAutocapitalization(.words)
+                        .textContentType(.name)
                         .disabled(nameLockedFromApple)
                         .foregroundStyle(nameLockedFromApple ? Theme.textSecondary : Theme.textPrimary)
                     HStack(spacing: 2) {

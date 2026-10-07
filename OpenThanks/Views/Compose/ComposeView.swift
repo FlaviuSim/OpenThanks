@@ -520,10 +520,10 @@ struct ComposeView: View {
                 .padding(.vertical, 10)
             } else {
                 TextField("Name or Email", text: $recipient)
-                    .textInputAutocapitalization(.never)
+                    .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
                     .autocorrectionDisabled()
-                    .keyboardType(.default)
-                    .textContentType(.none)
+                    .keyboardType(recipient.contains("@") ? .emailAddress : .default)
+                    .textContentType(recipient.contains("@") ? .emailAddress : .name)
                     .focused($recipientFocused)
                     .padding(14)
                     .foregroundStyle(Theme.textPrimary)
