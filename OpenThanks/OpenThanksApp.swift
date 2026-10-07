@@ -155,6 +155,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
+        let info = notification.request.content.userInfo
+        if (info[NotificationService.thankReminderTypeKey] as? String)
+            == NotificationService.calendarNudgeTypeValue {
+            NotificationService.recordDeliveredCalendarNudge(userInfo: info)
+        }
         // Any banner delivery while the app is open — not only the 8am streak wake.
         await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
         return [.banner, .sound, .badge]
@@ -197,6 +202,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
             }
         case NotificationService.calendarNudgeTypeValue:
+            NotificationService.recordDeliveredCalendarNudge(userInfo: info)
             let name = (info[NotificationService.calendarNudgeNameKey] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let message = info[NotificationService.calendarNudgeMessageKey] as? String

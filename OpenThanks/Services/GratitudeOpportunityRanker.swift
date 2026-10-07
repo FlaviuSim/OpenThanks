@@ -53,16 +53,12 @@ enum GratitudeOpportunityRanker {
 
         let meetings = await CalendarMeetingAggregator.meetings(on: day)
 
-        let eightPM = cal.date(
-            bySettingHour: 20, minute: 0, second: 0, of: day
-        ) ?? day
-
-        // Prefer interactions that will have happened by the 8pm nudge.
+        // Only meetings that have already ended. Scheduling at noon must not
+        // describe a meeting that is still later today as if it already happened.
         let relevant = meetings.filter { meeting in
             !meeting.isAllDay
                 && !meeting.isCancelled
-                && meeting.end <= eightPM
-                && meeting.start < eightPM
+                && meeting.end <= now
         }
 
         let recent = await recentlyThankedKeys(authorId: authorId, now: now)

@@ -171,6 +171,35 @@ enum NotificationService {
     static let calendarNudgeEmailKey = "recipientEmail"
     static let calendarNudgeMessageKey = "messageDraft"
     static let calendarNudgeMeetingKey = "meetingTitle"
+    static let calendarNudgeEventIdKey = "eventId"
+
+    /// 8:00 PM local on `day`.
+    static func calendarNudgeFireDate(on day: Date = Date(), calendar: Calendar = .current) -> Date? {
+        var cal = calendar
+        cal.timeZone = .current
+        return cal.date(bySettingHour: 20, minute: 0, second: 0, of: day)
+    }
+
+    /// Calendar trigger for an exact local minute. Nil when the next fire would
+    /// be early — a past `UNCalendarNotificationTrigger` is delivered immediately.
+    static func localCalendarTrigger(at fireDate: Date, calendar: Calendar = .current) -> UNCalendarNotificationTrigger? {
+        var cal = calendar
+        cal.timeZone = .current
+        var components = DateComponents()
+        components.calendar = cal
+        components.timeZone = cal.timeZone
+        components.year = cal.component(.year, from: fireDate)
+        components.month = cal.component(.month, from: fireDate)
+        components.day = cal.component(.day, from: fireDate)
+        components.hour = cal.component(.hour, from: fireDate)
+        components.minute = cal.component(.minute, from: fireDate)
+        components.second = 0
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        guard let next = trigger.nextTriggerDate(),
+              next >= fireDate.addingTimeInterval(-90)
+        else { return nil }
+        return trigger
+    }
 
     /// Weekday 8:00 PM local — only when today’s calendar yields a strong candidate.
     static func refreshCalendarGratitudeNudgeIfEnabled(
@@ -199,25 +228,33 @@ enum NotificationService {
             return
         }
 
-        guard let eightPM = cal.date(bySettingHour: 20, minute: 0, second: 0, of: now) else {
+        guard let eightPM = calendarNudgeFireDate(on: now, calendar: cal) else {
             await disableCalendarGratitudeNudge()
             return
         }
 
-        // Past tonight’s window — clear and wait for tomorrow’s refresh.
+        let resolvedAuthorId = await resolveAuthorId(authorId)
+
+        // Past tonight’s window — keep a delivered banner, and put the row in
+        // Notifications at 8:00 PM rather than at whatever time the app next opens.
         if now >= eightPM {
-            await disableCalendarGratitudeNudge()
+            if !CalendarThankSuggestionStore.containsSuggestion(on: now),
+               let nudge = await GratitudeOpportunityRanker.pickNudge(
+                   for: now,
+                   authorId: resolvedAuthorId,
+                   selfEmails: selfEmails,
+                   now: now
+               ) {
+                CalendarThankSuggestionStore.upsert(from: nudge, at: eightPM)
+            }
+            if now >= eightPM.addingTimeInterval(3 * 60) {
+                await disableCalendarGratitudeNudge()
+            }
             return
         }
 
-        let resolvedAuthorId: UUID?
-        if let authorId {
-            resolvedAuthorId = authorId
-        } else if let session = try? await supabase.auth.session {
-            resolvedAuthorId = session.user.id
-        } else {
-            resolvedAuthorId = nil
-        }
+        // Anything shown before 8:00 PM is the early alert. Drop it and reschedule.
+        await clearUnsentCalendarNudge()
 
         guard let nudge = await GratitudeOpportunityRanker.pickNudge(
             for: now,
@@ -225,19 +262,14 @@ enum NotificationService {
             selfEmails: selfEmails,
             now: now
         ) else {
-            await disableCalendarGratitudeNudge()
             return
         }
 
-        await disableCalendarGratitudeNudge()
+        guard let trigger = localCalendarTrigger(at: eightPM, calendar: cal) else {
+            return
+        }
 
         let content = calendarNudgeContent(for: nudge)
-
-        let components = cal.dateComponents(
-            [.year, .month, .day, .hour, .minute],
-            from: eightPM
-        )
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(
             identifier: calendarNudgeId,
             content: content,
@@ -246,11 +278,52 @@ enum NotificationService {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            // Keep in the in-app Notifications list so the user can thank later.
-            CalendarThankSuggestionStore.upsert(from: nudge, at: now)
         } catch {
-            // Leave cancelled if scheduling fails.
+            // Leave unscheduled if the system rejects the request.
         }
+    }
+
+    /// Writes the in-app row when the 8:00 PM banner is actually delivered.
+    static func recordDeliveredCalendarNudge(
+        userInfo: [AnyHashable: Any],
+        at date: Date = Date()
+    ) {
+        let name = (userInfo[calendarNudgeNameKey] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !name.isEmpty else { return }
+        let meeting = (userInfo[calendarNudgeMeetingKey] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let email = (userInfo[calendarNudgeEmailKey] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let draft = userInfo[calendarNudgeMessageKey] as? String
+        let eventId = (userInfo[calendarNudgeEventIdKey] as? String) ?? calendarNudgeId
+        let nudge = GratitudeNudge(
+            personName: name,
+            email: (email?.isEmpty == false) ? email : nil,
+            meetingTitle: meeting.isEmpty ? "Meeting" : meeting,
+            reason: "",
+            eventId: eventId,
+            day: Calendar.current.startOfDay(for: date),
+            score: 0,
+            messageDraft: draft
+        )
+        CalendarThankSuggestionStore.upsert(from: nudge, at: date)
+    }
+
+    private static func resolveAuthorId(_ authorId: UUID?) async -> UUID? {
+        if let authorId { return authorId }
+        if let session = try? await supabase.auth.session {
+            return session.user.id
+        }
+        return nil
+    }
+
+    /// Removes a not-yet-due nudge from Notification Center and the in-app list.
+    private static func clearUnsentCalendarNudge() async {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [calendarNudgeId])
+        center.removeDeliveredNotifications(withIdentifiers: [calendarNudgeId])
+        CalendarThankSuggestionStore.remove(on: Date())
     }
 
     /// Builds the same notification content used for the evening nudge.
@@ -268,6 +341,7 @@ enum NotificationService {
             fridayReminderTypeKey: calendarNudgeTypeValue,
             calendarNudgeNameKey: nudge.personName,
             calendarNudgeMeetingKey: nudge.meetingTitle,
+            calendarNudgeEventIdKey: nudge.eventId,
         ]
         if let email = nudge.email {
             info[calendarNudgeEmailKey] = email

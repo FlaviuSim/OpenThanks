@@ -54,6 +54,21 @@ enum CalendarThankSuggestionStore {
         load().first { $0.id == id }
     }
 
+    static func containsSuggestion(on day: Date) -> Bool {
+        let cal = Calendar.current
+        return load().contains { cal.isDate($0.dayStart, inSameDayAs: day) }
+    }
+
+    /// Drops today’s row. Used when a nudge was written before 8:00 PM local.
+    static func remove(on day: Date) {
+        let cal = Calendar.current
+        var items = load()
+        let before = items.count
+        items.removeAll { cal.isDate($0.dayStart, inSameDayAs: day) }
+        guard items.count != before else { return }
+        save(items)
+    }
+
     static func unreadCount() -> Int {
         load().filter { !$0.read }.count
     }
