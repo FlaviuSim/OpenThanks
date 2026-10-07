@@ -131,9 +131,19 @@ struct EditProfileSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if !required {
-                        Button("Save") { Task { await save() } }
-                            .disabled(saving || loadingPhoto || !canContinue)
-                            .foregroundStyle(canContinue ? Theme.coral : Theme.textTertiary)
+                        Button {
+                            Task { await save() }
+                        } label: {
+                            if saving {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Save")
+                            }
+                        }
+                        .disabled(saving || loadingPhoto || !canContinue)
+                        .foregroundStyle(canContinue ? Theme.coral : Theme.textTertiary)
+                        .accessibilityLabel(saving ? "Saving" : "Save")
                     }
                 }
             }
@@ -295,7 +305,12 @@ struct EditProfileSheet: View {
                 .autocorrectionDisabled()
                 .keyboardType(.URL)
                 .textContentType(.URL)
-                .onSubmit { normalizeNonprofitWebsite() }
+                .onSubmit {
+                    if !normalizeNonprofitWebsite(),
+                       !(nonprofitWebsite ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        errorMessage = "That website doesn't look valid. Try example.com."
+                    }
+                }
                 TextField(
                     "Why this cause? (shown on your profile)",
                     text: $nonprofitWhy,
@@ -381,17 +396,17 @@ struct EditProfileSheet: View {
         errorMessage = nil
     }
 
-    private func normalizeNonprofitWebsite() {
+    private func normalizeNonprofitWebsite() -> Bool {
         let trimmed = (nonprofitWebsite ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             nonprofitWebsite = nil
-            return
+            return true
         }
-        if trimmed.lowercased().hasPrefix("http://") || trimmed.lowercased().hasPrefix("https://") {
-            nonprofitWebsite = trimmed
-        } else {
-            nonprofitWebsite = "https://\(trimmed)"
+        guard let canonical = LinkifiedText.canonicalURLString(trimmed) else {
+            return false
         }
+        nonprofitWebsite = canonical
+        return true
     }
 
     private func searchNonprofits() async {
@@ -431,10 +446,14 @@ struct EditProfileSheet: View {
                 )
             } else {
                 if nonprofitName != nil {
-                    normalizeNonprofitWebsite()
                     let site = (nonprofitWebsite ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                     if site.isEmpty {
                         errorMessage = "Add the nonprofit's website."
+                        saving = false
+                        return
+                    }
+                    guard normalizeNonprofitWebsite() else {
+                        errorMessage = "That website doesn't look valid. Try example.com."
                         saving = false
                         return
                     }

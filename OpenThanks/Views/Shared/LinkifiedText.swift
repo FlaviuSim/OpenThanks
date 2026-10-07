@@ -119,23 +119,56 @@ struct LinkifiedText: View {
     }
 
     static func normalizedURL(_ raw: String) -> URL? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let canonical = canonicalURLString(raw) else { return nil }
+        return URL(string: canonical)
+    }
+
+    /// Trim whitespace, add `https://` when the scheme is missing, and drop a
+    /// trailing slash so `example.com/`, `example.com `, and `example.com/path/`
+    /// all become the same kind of address.
+    static func canonicalURLString(_ raw: String) -> String? {
+        var trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        if let url = URL(string: trimmed), url.scheme != nil {
-            guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
-                return nil
-            }
-            return url
+        guard !trimmed.contains(where: { $0.isWhitespace || $0.isNewline }) else { return nil }
+
+        let lower = trimmed.lowercased()
+        if !lower.hasPrefix("http://") && !lower.hasPrefix("https://") {
+            trimmed = "https://\(trimmed)"
         }
-        return URL(string: "https://\(trimmed)")
+        while trimmed.hasSuffix("/"), !trimmed.hasSuffix("://") {
+            trimmed.removeLast()
+        }
+
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = url.host,
+              host.contains("."),
+              !host.hasPrefix("."),
+              !host.hasSuffix(".")
+        else { return nil }
+
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        components.port = url.port
+        if url.path != "/", !url.path.isEmpty {
+            var path = url.path
+            while path.count > 1, path.hasSuffix("/") {
+                path.removeLast()
+            }
+            components.path = path
+        }
+        components.query = url.query
+        components.fragment = url.fragment
+        return components.string
     }
 
     /// Builds a markdown link, normalizing the URL to https when needed.
     static func markdownLink(label: String, urlRaw: String) -> String? {
         let label = label.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !label.isEmpty,
-              let url = normalizedURL(urlRaw),
-              let href = url.absoluteString as String?
+              let href = canonicalURLString(urlRaw)
         else { return nil }
         let safeLabel = label
             .replacingOccurrences(of: "[", with: "")

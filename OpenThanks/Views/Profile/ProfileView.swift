@@ -352,7 +352,8 @@ struct UserProfileView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if let site = shownProfile.favoriteNonprofitWebsite, let url = URL(string: site) {
+            if let site = shownProfile.favoriteNonprofitWebsite,
+               let url = LinkifiedText.normalizedURL(site) {
                 Link(destination: url) {
                     HStack(spacing: 5) {
                         Image(systemName: "arrow.up.right")

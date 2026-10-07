@@ -122,6 +122,8 @@ struct ComposeView: View {
     @State private var linkLabelDraft = ""
     @State private var linkURLDraft = ""
     @State private var linkReplaceRange = NSRange(location: 0, length: 0)
+    @State private var addingLink = false
+    @State private var linkError: String?
     /// Cached so opening compose doesn’t hit Foundation Models on every body pass.
     @State private var aiAvailable = false
 
@@ -843,9 +845,20 @@ struct ComposeView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .onChange(of: linkURLDraft) { _, _ in
+                            linkError = nil
+                        }
                 } footer: {
-                    Text("Highlight text in your message, then Add link — or enter both the label and URL here. Links stay as plain text and open when someone reads the appreciation.")
-                        .font(Theme.body(12))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Highlight text in your message, then Add link — or enter both the label and URL here. Links stay as plain text and open when someone reads the appreciation.")
+                            .font(Theme.body(12))
+                        if let linkError {
+                            Text(linkError)
+                                .font(Theme.body(13))
+                                .foregroundStyle(.red)
+                        }
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -858,10 +871,20 @@ struct ComposeView: View {
                         .foregroundStyle(Theme.coral)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") { applyLink() }
-                        .font(Theme.body(16, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                        .disabled(!canApplyLink)
+                    Button {
+                        applyLink()
+                    } label: {
+                        if addingLink {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Add")
+                        }
+                    }
+                    .font(Theme.body(16, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .disabled(!canAttemptLink || addingLink)
+                    .accessibilityLabel(addingLink ? "Adding link" : "Add")
                 }
             }
             .syncAppAppearance()
@@ -871,34 +894,57 @@ struct ComposeView: View {
         .presentationDragIndicator(.visible)
     }
 
-    private var canApplyLink: Bool {
+    private var canAttemptLink: Bool {
         !linkLabelDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && LinkifiedText.normalizedURL(linkURLDraft) != nil
+            && !linkURLDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func beginAddLink(label: String, range: NSRange) {
         linkLabelDraft = label
         linkURLDraft = ""
         linkReplaceRange = range
+        linkError = nil
+        addingLink = false
         showAddLinkSheet = true
         messageFocused = false
     }
 
     private func applyLink() {
+        guard !addingLink else { return }
         guard let markdown = LinkifiedText.markdownLink(label: linkLabelDraft, urlRaw: linkURLDraft) else {
+            linkError = "That address doesn't look valid. Try example.com."
             return
         }
+        addingLink = true
+        linkError = nil
         let ns = message as NSString
         let maxLoc = ns.length
         let location = min(max(linkReplaceRange.location, 0), maxLoc)
         let length = min(max(linkReplaceRange.length, 0), maxLoc - location)
         let range = NSRange(location: location, length: length)
-        message = ns.replacingCharacters(in: range, with: markdown)
-        if message.count > maxLength {
-            message = String(message.prefix(maxLength))
+        var next = ns.replacingCharacters(in: range, with: markdown)
+        if next.count > maxLength {
+            next = String(next.prefix(maxLength))
         }
-        showAddLinkSheet = false
-        messageFocused = true
+        guard next.contains(markdown) else {
+            addingLink = false
+            linkError = "Couldn't add that link. Shorten the message and try again."
+            return
+        }
+        message = next
+        // Let the message editor take the new text before the sheet goes away,
+        // so the link is already in the note when Add closes.
+        Task { @MainActor in
+            await Task.yield()
+            guard message.contains(markdown) else {
+                addingLink = false
+                linkError = "Couldn't add that link. Try again."
+                return
+            }
+            showAddLinkSheet = false
+            addingLink = false
+            messageFocused = true
+        }
     }
 
     private var photoSection: some View {
