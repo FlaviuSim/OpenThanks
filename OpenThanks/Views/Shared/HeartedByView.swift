@@ -13,19 +13,9 @@ struct HeartedByView: View {
     @State private var resolvedCount = 0
     @State private var loaded = false
     @State private var showList = false
-    /// Captured before the sheet opens. Custom environment values (and the
-    /// presenting button) are not a reliable way to open a profile from inside
-    /// the sheet — row taps were landing on the summary button underneath.
+    /// Captured before the sheet opens. The sheet does not reliably inherit `openProfile`.
     @State private var hostedOpenProfile: ((Profile) -> Void)?
-    /// Class so `onDismiss` sees the person chosen in the same turn the sheet closes.
-    @State private var pendingOpen = PendingProfileOpen()
-    /// Fallback when this screen has no host navigation callback.
-    @State private var sheetPath = NavigationPath()
-
-    private final class PendingProfileOpen {
-        var profile: Profile?
-        var open: ((Profile) -> Void)?
-    }
+    @State private var sheetDetent: PresentationDetent = .medium
 
     private var displayCount: Int { max(heartCount, resolvedCount) }
 
@@ -51,7 +41,7 @@ struct HeartedByView: View {
                     // Read the opener here, outside the sheet. The sheet does not
                     // reliably inherit `openProfile`.
                     hostedOpenProfile = onOpenProfile ?? openProfileEnv
-                    sheetPath = NavigationPath()
+                    sheetDetent = .medium
                     showList = true
                 }
                 .accessibilityAddTraits(.isButton)
@@ -61,7 +51,7 @@ struct HeartedByView: View {
         .task(id: "\(gratitudeId.uuidString)-\(heartCount)") {
             await load()
         }
-        .sheet(isPresented: $showList, onDismiss: openPendingProfileIfNeeded) {
+        .sheet(isPresented: $showList) {
             heartersSheet
         }
     }
@@ -110,7 +100,7 @@ struct HeartedByView: View {
     // MARK: Sheet
 
     private var heartersSheet: some View {
-        NavigationStack(path: $sheetPath) {
+        NavigationStack {
             Group {
                 if !loaded && hearters.isEmpty {
                     ProgressView()
@@ -133,8 +123,24 @@ struct HeartedByView: View {
                 } else {
                     List {
                         ForEach(hearters) { person in
-                            Button {
-                                selectProfile(person)
+                            NavigationLink {
+                                // Push inside the sheet so the profile starts on the tap.
+                                // Closing the sheet and pushing afterward left a pause.
+                                UserProfileView(profile: person)
+                                    .navigationBarBackButtonHidden(true)
+                                    .toolbar {
+                                        ToolbarItem(placement: .topBarLeading) {
+                                            Button {
+                                                showList = false
+                                            } label: {
+                                                Image(systemName: "chevron.backward")
+                                                    .font(.system(size: 17, weight: .semibold))
+                                                    .foregroundStyle(Theme.coral)
+                                            }
+                                            .accessibilityLabel("Back")
+                                        }
+                                    }
+                                    .onAppear { sheetDetent = .large }
                             } label: {
                                 HStack(spacing: 12) {
                                     AvatarView(profile: person, size: 44)
@@ -151,9 +157,6 @@ struct HeartedByView: View {
                                         }
                                     }
                                     Spacer(minLength: 0)
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(Theme.textTertiary)
                                 }
                                 .padding(.vertical, 4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,11 +207,12 @@ struct HeartedByView: View {
                         .foregroundStyle(Theme.coral)
                 }
             }
-            // Only used when there is no host stack to push onto.
+            // Only used when a profile opened from here pushes another screen.
             .appDestinations()
+            .environment(\.openProfile, hostedOpenProfile ?? onOpenProfile ?? openProfileEnv)
             .task { await load(force: true) }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $sheetDetent)
         .presentationDragIndicator(.visible)
         .syncAppAppearance()
     }
@@ -216,31 +220,6 @@ struct HeartedByView: View {
     private var sheetTitle: String {
         let n = displayCount
         return n == 1 ? "1 heart" : "\(n) hearts"
-    }
-
-    private func selectProfile(_ person: Profile) {
-        // Prefer the opener captured outside the sheet. `onOpenProfile` is a
-        // stored callback (iPad split); `openProfileEnv` is a last resort.
-        let open = hostedOpenProfile ?? onOpenProfile ?? openProfileEnv
-        if let open {
-            pendingOpen.profile = person
-            pendingOpen.open = open
-            showList = false
-        } else {
-            sheetPath.append(person)
-        }
-    }
-
-    private func openPendingProfileIfNeeded() {
-        let profile = pendingOpen.profile
-        let open = pendingOpen.open
-        pendingOpen.profile = nil
-        pendingOpen.open = nil
-        guard let profile, let open else { return }
-        // A NavigationPath push during the sheet dismiss animation is ignored.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-            open(profile)
-        }
     }
 
     // MARK: Data
