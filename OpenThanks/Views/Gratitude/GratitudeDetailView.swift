@@ -6,6 +6,12 @@ private struct SystemSharePayload: Identifiable {
     let items: [Any]
 }
 
+/// Profile pushed from the hearts sheet. A distinct type so it doesn’t collide
+/// with the stack’s existing `navigationDestination(for: Profile.self)`.
+private struct HeartedProfileRoute: Hashable {
+    let profile: Profile
+}
+
 /// Single-post screen: the full appreciation plus share actions,
 /// mirroring the web post page (openthanks.com/for/{slug}).
 struct GratitudeDetailView: View {
@@ -30,6 +36,8 @@ struct GratitudeDetailView: View {
     @State private var confirmBlock = false
     @State private var blocking = false
     @State private var blockError: String?
+    /// Set after the hearts sheet dismisses, so Back returns to this appreciation.
+    @State private var heartedProfile: HeartedProfileRoute?
 
     private var shareVoice: AppreciationShareVoice {
         AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
@@ -75,6 +83,9 @@ struct GratitudeDetailView: View {
         .background(Theme.background)
         .navigationTitle("Appreciation")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $heartedProfile) { route in
+            UserProfileView(profile: route.profile)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -230,7 +241,7 @@ struct GratitudeDetailView: View {
                 HeartedByView(
                     gratitudeId: gratitude.id,
                     heartCount: gratitude.heartCount,
-                    onOpenProfile: onOpenProfile
+                    onOpenProfile: onOpenProfile ?? { heartedProfile = HeartedProfileRoute(profile: $0) }
                 )
 
                 Spacer(minLength: 0)

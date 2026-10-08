@@ -13,42 +13,45 @@ struct HeartedByView: View {
     @State private var resolvedCount = 0
     @State private var loaded = false
     @State private var showList = false
-    /// Selected in the sheet; opened after dismiss so we don’t nest inside it.
-    @State private var pendingProfile: Profile?
-
-    private var resolveOpenProfile: ((Profile) -> Void)? {
-        onOpenProfile ?? openProfileEnv
-    }
+    /// Captured before the sheet opens. The sheet does not reliably inherit `openProfile`.
+    @State private var hostedOpenProfile: ((Profile) -> Void)?
+    @State private var sheetDetent: PresentationDetent = .medium
 
     private var displayCount: Int { max(heartCount, resolvedCount) }
 
     var body: some View {
-        Group {
+        // VStack, not Group: Group forwards `.sheet` onto its child. When that
+        // child is the control that opens the sheet, row taps inside the sheet
+        // are delivered to it and the list does nothing.
+        VStack(spacing: 0) {
             if displayCount > 0 {
-                Button {
-                    showList = true
-                } label: {
-                    HStack(spacing: 8) {
-                        avatarStack
-                        if let summary {
-                            Text(summary)
-                                .font(Theme.body(12, weight: .medium))
-                                .foregroundStyle(Theme.textSecondary)
-                                .lineLimit(1)
-                        }
+                HStack(spacing: 8) {
+                    avatarStack
+                    if let summary {
+                        Text(summary)
+                            .font(Theme.body(12, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
                     }
-                    .padding(.vertical, 4)
-                    .padding(.trailing, 6)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .padding(.vertical, 4)
+                .padding(.trailing, 6)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    // Read the opener here, outside the sheet. The sheet does not
+                    // reliably inherit `openProfile`.
+                    hostedOpenProfile = onOpenProfile ?? openProfileEnv
+                    sheetDetent = .medium
+                    showList = true
+                }
+                .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(accessibilityLabel)
             }
         }
         .task(id: "\(gratitudeId.uuidString)-\(heartCount)") {
             await load()
         }
-        .sheet(isPresented: $showList, onDismiss: openPendingProfileIfNeeded) {
+        .sheet(isPresented: $showList) {
             heartersSheet
         }
     }
@@ -118,56 +121,74 @@ struct HeartedByView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(24)
                 } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(hearters) { person in
-                                Button {
-                                    selectProfile(person)
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        AvatarView(profile: person, size: 44)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(person.displayName)
-                                                .font(Theme.body(15, weight: .semibold))
-                                                .foregroundStyle(Theme.textPrimary)
-                                                .lineLimit(1)
-                                            if !person.username.isEmpty {
-                                                Text("@\(person.username)")
-                                                    .font(Theme.body(13))
-                                                    .foregroundStyle(Theme.textSecondary)
-                                                    .lineLimit(1)
+                    List {
+                        ForEach(hearters) { person in
+                            NavigationLink {
+                                // Push inside the sheet so the profile starts on the tap.
+                                // Closing the sheet and pushing afterward left a pause.
+                                UserProfileView(profile: person)
+                                    .navigationBarBackButtonHidden(true)
+                                    .toolbar {
+                                        ToolbarItem(placement: .topBarLeading) {
+                                            Button {
+                                                showList = false
+                                            } label: {
+                                                Image(systemName: "chevron.backward")
+                                                    .font(.system(size: 17, weight: .semibold))
+                                                    .foregroundStyle(Theme.coral)
                                             }
+                                            .accessibilityLabel("Back")
                                         }
-                                        Spacer(minLength: 0)
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundStyle(Theme.textTertiary)
                                     }
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 12)
-                                    .contentShape(Rectangle())
+                                    .onAppear { sheetDetent = .large }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    AvatarView(profile: person, size: 44)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(person.displayName)
+                                            .font(Theme.body(15, weight: .semibold))
+                                            .foregroundStyle(Theme.textPrimary)
+                                            .lineLimit(1)
+                                        if !person.username.isEmpty {
+                                            Text("@\(person.username)")
+                                                .font(Theme.body(13))
+                                                .foregroundStyle(Theme.textSecondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    Spacer(minLength: 0)
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("View \(person.displayName)'s profile")
-
+                                .padding(.vertical, 4)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("View \(person.displayName)'s profile")
+                            .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
+                            .listRowBackground(Theme.background)
+                            .listRowSeparator(.hidden)
+                            .overlay(alignment: .bottom) {
                                 Rectangle()
                                     .fill(Theme.hairline)
                                     .frame(height: 0.5)
-                                    .padding(.leading, 76)
-                            }
-
-                            if displayCount > hearters.count {
-                                Text("and \(displayCount - hearters.count) more")
-                                    .font(Theme.body(12))
-                                    .foregroundStyle(Theme.textTertiary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 14)
+                                    .padding(.leading, 56)
+                                    .allowsHitTesting(false)
                             }
                         }
-                        .padding(.top, 4)
-                        .padding(.bottom, 24)
+
+                        if displayCount > hearters.count {
+                            Text("and \(displayCount - hearters.count) more")
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textTertiary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 14, trailing: 20))
+                                .listRowBackground(Theme.background)
+                                .listRowSeparator(.hidden)
+                        }
                     }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .environment(\.defaultMinListRowHeight, 0)
                 }
             }
             .background(Theme.background)
@@ -186,9 +207,12 @@ struct HeartedByView: View {
                         .foregroundStyle(Theme.coral)
                 }
             }
+            // Only used when a profile opened from here pushes another screen.
+            .appDestinations()
+            .environment(\.openProfile, hostedOpenProfile ?? onOpenProfile ?? openProfileEnv)
             .task { await load(force: true) }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $sheetDetent)
         .presentationDragIndicator(.visible)
         .syncAppAppearance()
     }
@@ -196,22 +220,6 @@ struct HeartedByView: View {
     private var sheetTitle: String {
         let n = displayCount
         return n == 1 ? "1 heart" : "\(n) hearts"
-    }
-
-    private func selectProfile(_ person: Profile) {
-        if resolveOpenProfile != nil {
-            pendingProfile = person
-            showList = false
-        } else {
-            showList = false
-        }
-    }
-
-    private func openPendingProfileIfNeeded() {
-        guard let pendingProfile else { return }
-        let profile = pendingProfile
-        self.pendingProfile = nil
-        resolveOpenProfile?(profile)
     }
 
     // MARK: Data
