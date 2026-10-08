@@ -299,9 +299,7 @@ struct UserProfileView: View {
                 .padding(.top, 6)
                 .accessibilityLabel("Thank \(shownProfile.displayName)")
             } else {
-                NavigationLink {
-                    StatsView()
-                } label: {
+                NavigationLink(value: StatsRoute()) {
                     HStack(spacing: 7) {
                         Image(systemName: "chart.bar.fill")
                             .font(.system(size: 11, weight: .semibold))

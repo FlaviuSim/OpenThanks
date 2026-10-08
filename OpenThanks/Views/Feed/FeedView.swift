@@ -28,7 +28,17 @@ struct FeedView: View {
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var updateChecker = AppUpdateChecker.shared
     @State private var scope: Scope = .personal
-    @State private var items: [Gratitude] = []
+    /// Per-scope lists so My ↔ World can page without flashing the wrong feed.
+    @State private var personalItems: [Gratitude] = []
+    @State private var worldItems: [Gratitude] = []
+    @State private var personalHeartedIds: Set<UUID> = []
+    @State private var worldHeartedIds: Set<UUID> = []
+    @State private var personalLoading = true
+    @State private var worldLoading = false
+    @State private var personalError: String?
+    @State private var worldError: String?
+    @State private var personalLoadedOnce = false
+    @State private var worldLoadedOnce = false
     @State private var pendingToAccept: [Gratitude] = []
     /// Ids the user already accepted/declined this session — keeps pull-to-refresh
     /// from resurrecting a card when a stale pending query races the accept write.
@@ -37,9 +47,6 @@ struct FeedView: View {
     /// stuck "Accepting…" @State from the previous attempt.
     @State private var pendingCardEpoch: [UUID: Int] = [:]
     @State private var pendingSentCount = 0
-    @State private var heartedIds: Set<UUID> = []
-    @State private var loading = true
-    @State private var error: String?
     @State private var showCompose = false
     @State private var composeRecipient: String?
     @State private var composeAnalyticsSource = "home_thank_someone"
@@ -51,10 +58,11 @@ struct FeedView: View {
     @State private var composeInspiredByName: String?
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
+    /// Suppresses the scope-change haptic for the automatic empty→World handoff.
+    @State private var suppressNextScopeHaptic = false
     @State private var scrollToPendingToken = 0
-    @State private var loadGeneration = 0
-    /// +1 when moving Personal → World, −1 World → Personal (drives slide direction).
-    @State private var scopeSlideSign: CGFloat = 1
+    @State private var personalLoadGeneration = 0
+    @State private var worldLoadGeneration = 0
     @Namespace private var scopePickerNamespace
     @FocusState private var searchFocused: Bool
     /// Collapses when scrolling down the feed; reveals on scroll up (Messages/Safari-style).
@@ -65,7 +73,48 @@ struct FeedView: View {
     /// Non-empty query keeps the bar visible even while scrolling.
     @State private var searchHasQuery = false
 
-    private var isEmpty: Bool { items.isEmpty && pendingToAccept.isEmpty }
+    private var items: [Gratitude] { items(for: scope) }
+    private var heartedIds: Set<UUID> { hearts(for: scope) }
+    private var loading: Bool { isLoading(for: scope) }
+    private var error: String? { loadError(for: scope) }
+    private var isEmpty: Bool {
+        items.isEmpty && (scope == .personal ? pendingToAccept.isEmpty : true)
+    }
+
+    private func items(for scope: Scope) -> [Gratitude] {
+        scope == .personal ? personalItems : worldItems
+    }
+    private func hearts(for scope: Scope) -> Set<UUID> {
+        scope == .personal ? personalHeartedIds : worldHeartedIds
+    }
+    private func isLoading(for scope: Scope) -> Bool {
+        scope == .personal ? personalLoading : worldLoading
+    }
+    private func loadError(for scope: Scope) -> String? {
+        scope == .personal ? personalError : worldError
+    }
+    private func setItems(_ value: [Gratitude], for scope: Scope) {
+        if scope == .personal { personalItems = value } else { worldItems = value }
+    }
+    private func setHearts(_ value: Set<UUID>, for scope: Scope) {
+        if scope == .personal { personalHeartedIds = value } else { worldHeartedIds = value }
+    }
+    private func setLoading(_ value: Bool, for scope: Scope) {
+        if scope == .personal { personalLoading = value } else { worldLoading = value }
+    }
+    private func setError(_ value: String?, for scope: Scope) {
+        if scope == .personal { personalError = value } else { worldError = value }
+    }
+    private func mutateItems(for scope: Scope, _ body: (inout [Gratitude]) -> Void) {
+        var copy = items(for: scope)
+        body(&copy)
+        setItems(copy, for: scope)
+    }
+    private func mutateHearts(for scope: Scope, _ body: (inout Set<UUID>) -> Void) {
+        var copy = hearts(for: scope)
+        body(&copy)
+        setHearts(copy, for: scope)
+    }
     private var isSearchChromeVisible: Bool { searchBarVisible || searchFocused || searchHasQuery }
     private var shouldKeepSearchVisible: Bool { searchFocused || searchHasQuery }
     /// Soft update nudge — skip while first-send tip / compose / pay-it-forward are up.
@@ -118,8 +167,12 @@ struct FeedView: View {
                     dismissSearchKeyboard()
                 }
             )
-            .task(id: scope) { await load() }
-            .refreshable { await load() }
+            .task(id: scope) {
+                let loadedOnce = scope == .personal ? personalLoadedOnce : worldLoadedOnce
+                if !loadedOnce {
+                    await load(for: scope)
+                }
+            }
             // Keep the bar hidden on the Home root; show it when a profile/post is pushed
             // so Back works (especially important on iPad two-pane).
             .toolbar(path.isEmpty ? .hidden : .automatic, for: .navigationBar)
@@ -204,7 +257,8 @@ struct FeedView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .userDidBlock)) { note in
                 guard let blockedId = note.object as? UUID else { return }
-                items = userBlocks.filterGratitudes(items)
+                setItems(userBlocks.filterGratitudes(personalItems), for: .personal)
+                setItems(userBlocks.filterGratitudes(worldItems), for: .world)
                 pendingToAccept = userBlocks.filterGratitudes(pendingToAccept)
                 if splitSelection?.wrappedValue?.authorId == blockedId
                     || splitSelection?.wrappedValue?.recipientId == blockedId {
@@ -287,35 +341,38 @@ struct FeedView: View {
             .zIndex(2)
 
             picker
-            ZStack {
-                feedContent
+            // Page swipe between My Feed and World Feed (picker stays in sync).
+            TabView(selection: $scope) {
+                scopePage(for: .personal)
+                    .tag(Scope.personal)
+                scopePage(for: .world)
+                    .tag(Scope.world)
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
         }
         .animation(.easeInOut(duration: 0.2), value: shouldShowUpdateBanner)
+        .onChange(of: scope) { _, next in
+            dismissSearchKeyboard()
+            searchBarVisible = true
+            lastScrollOffset = 0
+            if suppressNextScopeHaptic {
+                suppressNextScopeHaptic = false
+            } else {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+            // Prefetch the other scope once (generation-guarded; no-ops if already loaded).
+            Task { await prefetchOpposite(of: next) }
+        }
     }
 
     private var hasTopHomeBanner: Bool {
         shouldShowUpdateBanner || pendingSentCount > 0
     }
 
-    /// Scoped list with an explicit identity swap so My ↔ World never feels instant.
-    private var feedContent: some View {
-        content
-            .id(scope)
-            .transition(scopeContentTransition)
-    }
-
-    private var scopeContentTransition: AnyTransition {
-        let insertX: CGFloat = 28 * scopeSlideSign
-        let removeX: CGFloat = -18 * scopeSlideSign
-        return .asymmetric(
-            insertion: .opacity
-                .combined(with: .offset(x: insertX, y: 10))
-                .combined(with: .scale(scale: 0.985, anchor: .top)),
-            removal: .opacity.combined(with: .offset(x: removeX, y: -4))
-        )
+    @ViewBuilder
+    private func scopePage(for page: Scope) -> some View {
+        feedContent(for: page)
     }
 
     private var header: some View {
@@ -395,13 +452,7 @@ struct FeedView: View {
     private func selectScope(_ next: Scope) {
         guard next != scope else { return }
         dismissSearchKeyboard()
-        scopeSlideSign = next == .world ? 1 : -1
         withAnimation(Self.scopeSwitchAnimation) {
-            // Drop the outgoing list so the swap is obvious (refresh still keeps content).
-            items = []
-            heartedIds = []
-            error = nil
-            loading = true
             scope = next
             searchBarVisible = true
             lastScrollOffset = 0
@@ -409,53 +460,70 @@ struct FeedView: View {
     }
 
     @ViewBuilder
-    private var content: some View {
-        if loading && isEmpty {
-            Spacer(); ProgressView().tint(Theme.coral); Spacer()
-        } else if let error, isEmpty {
-            Spacer()
-            VStack(spacing: 8) {
-                Text("Couldn't load Home").font(Theme.body(16, weight: .semibold))
-                Text(error).font(Theme.body(13)).foregroundStyle(Theme.textSecondary)
-                Button("Try again") { Task { await load() } }
-                    .foregroundStyle(Theme.coral)
+    private func feedContent(for page: Scope) -> some View {
+        let pageItems = items(for: page)
+        let pageHearts = hearts(for: page)
+        let pageLoading = isLoading(for: page)
+        let pageError = loadError(for: page)
+        let pageEmpty = pageItems.isEmpty && (page == .personal ? pendingToAccept.isEmpty : true)
+
+        if pageLoading && pageEmpty {
+            VStack {
+                Spacer()
+                ProgressView().tint(Theme.coral)
+                Spacer()
             }
-            .padding(24)
-            Spacer()
-        } else if isEmpty {
-            Spacer()
-            VStack(spacing: 16) {
-                HeartMark(size: 48)
-                Text(scope == .personal
-                     ? "No appreciations yet. Send your first one."
-                     : "Nothing public yet — be the first.")
-                    .font(Theme.body(15))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-                if scope == .personal {
-                    Button {
-                        Analytics.capture("home_empty_first_send_tapped")
-                        ComposeLaunchBridge.shared.queue(analyticsSource: "home_empty_first_send")
-                    } label: {
-                        Text("Send your first appreciation")
-                            .font(Theme.body(15, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Theme.ctaGradient, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 40)
-                    .accessibilityLabel("Send your first appreciation")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let pageError, pageEmpty {
+            VStack {
+                Spacer()
+                VStack(spacing: 8) {
+                    Text("Couldn't load Home").font(Theme.body(16, weight: .semibold))
+                    Text(pageError).font(Theme.body(13)).foregroundStyle(Theme.textSecondary)
+                    Button("Try again") { Task { await load(for: page) } }
+                        .foregroundStyle(Theme.coral)
                 }
+                .padding(24)
+                Spacer()
             }
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if pageEmpty {
+            VStack {
+                Spacer()
+                VStack(spacing: 16) {
+                    HeartMark(size: 48)
+                    Text(page == .personal
+                         ? "No appreciations yet. Send your first one."
+                         : "Nothing public yet — be the first.")
+                        .font(Theme.body(15))
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                    if page == .personal {
+                        Button {
+                            Analytics.capture("home_empty_first_send_tapped")
+                            ComposeLaunchBridge.shared.queue(analyticsSource: "home_empty_first_send")
+                        } label: {
+                            Text("Send your first appreciation")
+                                .font(Theme.body(15, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Theme.ctaGradient, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 40)
+                        .accessibilityLabel("Send your first appreciation")
+                    }
+                }
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 14) {
-                        if !pendingToAccept.isEmpty {
+                        if page == .personal, !pendingToAccept.isEmpty {
                             pendingHeader
                                 .id("pendingThanks")
                             ForEach(pendingToAccept) { item in
@@ -478,7 +546,7 @@ struct FeedView: View {
                                         if !pendingToAccept.contains(where: { $0.id == gratitude.id }) {
                                             pendingToAccept.insert(gratitude, at: 0)
                                         }
-                                        items.removeAll { $0.id == gratitude.id }
+                                        mutateItems(for: .personal) { $0.removeAll { $0.id == gratitude.id } }
                                         Task { await refreshWidgetSnapshot() }
                                     }
                                 )
@@ -486,11 +554,11 @@ struct FeedView: View {
                             }
                         }
 
-                        ForEach(items) { item in
+                        ForEach(pageItems) { item in
                             GratitudeCard(
                                 gratitude: item,
-                                isHearted: heartedIds.contains(item.id),
-                                onHeart: { toggleHeart(item) },
+                                isHearted: pageHearts.contains(item.id),
+                                onHeart: { toggleHeart(item, in: page) },
                                 onSelect: usesSplitDetail ? { selectPost(item) } : nil,
                                 isSelected: splitSelection?.wrappedValue?.id == item.id,
                                 onOpenProfile: { path.append($0) }
@@ -500,17 +568,20 @@ struct FeedView: View {
                     .padding(.horizontal, 16)
                     .tabChromeBottomPadding()
                     .readableWidth()
-                    .opacity(loading && !isEmpty ? 0.78 : 1)
-                    .animation(.easeInOut(duration: 0.28), value: loading)
+                    .opacity(pageLoading && !pageEmpty ? 0.78 : 1)
+                    .animation(.easeInOut(duration: 0.28), value: pageLoading)
                     // UIScrollView KVO — PreferenceKey on LazyVStack often never moves on iOS 17.
                     .background {
                         FeedScrollOffsetReader { offset in
+                            guard page == scope else { return }
                             handleFeedScroll(to: offset)
                         }
                     }
                 }
                 .scrollDismissesKeyboard(.immediately)
+                .refreshable { await load(for: page) }
                 .onChange(of: scrollToPendingToken) { _, _ in
+                    guard page == .personal else { return }
                     withAnimation(.easeInOut(duration: 0.35)) {
                         proxy.scrollTo("pendingThanks", anchor: .top)
                     }
@@ -589,20 +660,26 @@ struct FeedView: View {
         resolvedPendingIds.insert(gratitude.id)
         pendingToAccept.removeAll { $0.id == gratitude.id }
         if gratitude.status == .accepted {
-            if let idx = items.firstIndex(where: { $0.id == gratitude.id }) {
-                items[idx] = gratitude
-            } else {
-                items.insert(gratitude, at: 0)
+            mutateItems(for: .personal) { list in
+                if let idx = list.firstIndex(where: { $0.id == gratitude.id }) {
+                    list[idx] = gratitude
+                } else {
+                    list.insert(gratitude, at: 0)
+                }
+                list.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
             }
-            items.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
         }
         Task { await refreshWidgetSnapshot() }
     }
 
     private func applyProfileUpdate(_ updated: Profile) {
-        for i in items.indices {
-            if items[i].authorId == updated.id { items[i].author = updated }
-            if items[i].recipientId == updated.id { items[i].recipient = updated }
+        for scope in Scope.allCases {
+            mutateItems(for: scope) { list in
+                for i in list.indices {
+                    if list[i].authorId == updated.id { list[i].author = updated }
+                    if list[i].recipientId == updated.id { list[i].recipient = updated }
+                }
+            }
         }
         for i in pendingToAccept.indices {
             if pendingToAccept[i].authorId == updated.id { pendingToAccept[i].author = updated }
@@ -634,74 +711,108 @@ struct FeedView: View {
         pendingToAccept = pending.filter { !resolvedPendingIds.contains($0.id) }
     }
 
-    private func load() async {
+    private func prefetchOpposite(of current: Scope) async {
+        let other: Scope = current == .personal ? .world : .personal
+        let alreadyLoaded = other == .personal ? personalLoadedOnce : worldLoadedOnce
+        guard !alreadyLoaded else { return }
+        await load(for: other)
+    }
+
+    private func nextLoadGeneration(for target: Scope) -> Int {
+        if target == .personal {
+            personalLoadGeneration += 1
+            return personalLoadGeneration
+        }
+        worldLoadGeneration += 1
+        return worldLoadGeneration
+    }
+
+    private func currentLoadGeneration(for target: Scope) -> Int {
+        target == .personal ? personalLoadGeneration : worldLoadGeneration
+    }
+
+    private func load(for target: Scope) async {
         guard let userId = auth.userId else { return }
-        // Pull-to-refresh keeps the current list; My ↔ World clears in `selectScope`.
-        loadGeneration += 1
-        let generation = loadGeneration
-        loading = true
-        error = nil
+        let generation = nextLoadGeneration(for: target)
+        setLoading(true, for: target)
+        setError(nil, for: target)
         do {
-            async let feedTask: [Gratitude] = scope == .personal
+            async let feedTask: [Gratitude] = target == .personal
                 ? GratitudeService.personalFeed(userId: userId)
                 : GratitudeService.worldFeed()
-            async let pendingTask: [Gratitude] = GratitudeService.pendingToAccept(
-                userId: userId,
-                email: auth.currentProfile?.email,
-                phone: auth.currentProfile?.phone
-            )
-            async let pendingSentTask = GratitudeService.pendingCount(authorId: userId)
 
+            // Pending accept / sent counts only matter for My Feed — skip on World.
             let result = userBlocks.filterGratitudes(try await feedTask)
-            let pending = userBlocks.filterGratitudes((try? await pendingTask) ?? [])
-            let pendingSent = (try? await pendingSentTask) ?? pendingSentCount
+            var pending: [Gratitude] = []
+            var pendingSent = pendingSentCount
+            if target == .personal {
+                async let pendingTask: [Gratitude] = GratitudeService.pendingToAccept(
+                    userId: userId,
+                    email: auth.currentProfile?.email,
+                    phone: auth.currentProfile?.phone
+                )
+                async let pendingSentTask = GratitudeService.pendingCount(authorId: userId)
+                pending = userBlocks.filterGratitudes((try? await pendingTask) ?? [])
+                pendingSent = (try? await pendingSentTask) ?? pendingSentCount
+            }
 
-            guard generation == loadGeneration else { return }
+            guard generation == currentLoadGeneration(for: target) else { return }
 
             // Attach recipient + pending notification as soon as we see them —
             // don't wait until accept/decline (which used to create the notice).
-            for item in pending where !resolvedPendingIds.contains(item.id) {
-                await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
+            if target == .personal {
+                for item in pending where !resolvedPendingIds.contains(item.id) {
+                    await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
+                }
             }
 
-            guard generation == loadGeneration else { return }
+            guard generation == currentLoadGeneration(for: target) else { return }
 
             // Empty personal feed → show World so Home isn't a blank screen.
-            if scope == .personal, result.isEmpty, !didAutoSwitchToWorld {
+            // Only flip scope; `.task(id: scope)` loads World (avoids a double fetch).
+            if target == .personal, result.isEmpty, !didAutoSwitchToWorld {
                 didAutoSwitchToWorld = true
                 applyPendingList(pending)
                 pendingSentCount = pendingSent
-                loading = false
-                scopeSlideSign = 1
+                setItems([], for: .personal)
+                setHearts([], for: .personal)
+                personalLoadedOnce = true
+                setLoading(false, for: .personal)
+                await refreshWidgetSnapshot()
+                suppressNextScopeHaptic = true
                 withAnimation(Self.scopeSwitchAnimation) {
-                    items = []
-                    heartedIds = []
                     scope = .world
-                    loading = true
                 }
                 return
             }
 
             async let heartsTask = GratitudeService.myHearts(userId: userId, among: result.map(\.id))
-            let hearts = (try? await heartsTask) ?? heartedIds
+            let hearts = (try? await heartsTask) ?? hearts(for: target)
 
-            guard generation == loadGeneration else { return }
+            guard generation == currentLoadGeneration(for: target) else { return }
 
-            withAnimation(Self.scopeSwitchAnimation) {
-                items = result
-                applyPendingList(pending)
-                pendingSentCount = pendingSent
-                heartedIds = hearts
+            withAnimation(.easeInOut(duration: 0.28)) {
+                setItems(result, for: target)
+                setHearts(hearts, for: target)
+                if target == .personal {
+                    applyPendingList(pending)
+                    pendingSentCount = pendingSent
+                    personalLoadedOnce = true
+                } else {
+                    worldLoadedOnce = true
+                }
             }
-            await refreshWidgetSnapshot()
+            if target == .personal {
+                await refreshWidgetSnapshot()
+            }
         } catch {
             if !error.isCancellation {
-                self.error = error.localizedDescription
+                setError(error.localizedDescription, for: target)
             }
         }
-        if generation == loadGeneration {
+        if generation == currentLoadGeneration(for: target) {
             withAnimation(.easeInOut(duration: 0.28)) {
-                loading = false
+                setLoading(false, for: target)
             }
         }
     }
@@ -717,17 +828,33 @@ struct FeedView: View {
         )
     }
 
-    private func toggleHeart(_ item: Gratitude) {
+    private func toggleHeart(_ item: Gratitude, in page: Scope) {
         guard let userId = auth.userId else { return }
-        let wasHearted = heartedIds.contains(item.id)
+        let wasHearted = hearts(for: page).contains(item.id)
         // Optimistic update
-        if wasHearted { heartedIds.remove(item.id) } else { heartedIds.insert(item.id) }
+        mutateHearts(for: page) { set in
+            if wasHearted { set.remove(item.id) } else { set.insert(item.id) }
+        }
         Analytics.capture(wasHearted ? "appreciation_unhearted" : "appreciation_hearted", [
-            "scope": scope.rawValue.lowercased(),
+            "scope": page.rawValue.lowercased(),
         ])
-        if let idx = items.firstIndex(where: { $0.id == item.id }) {
-            let delta = wasHearted ? -1 : 1
-            items[idx].hearts = [CountHolder(count: max(0, item.heartCount + delta))]
+        let delta = wasHearted ? -1 : 1
+        mutateItems(for: page) { list in
+            if let idx = list.firstIndex(where: { $0.id == item.id }) {
+                list[idx].hearts = [CountHolder(count: max(0, item.heartCount + delta))]
+            }
+        }
+        // Keep the other scope's card in sync only when the same post is cached there.
+        let other: Scope = page == .personal ? .world : .personal
+        if items(for: other).contains(where: { $0.id == item.id }) {
+            mutateItems(for: other) { list in
+                if let idx = list.firstIndex(where: { $0.id == item.id }) {
+                    list[idx].hearts = [CountHolder(count: max(0, list[idx].heartCount + delta))]
+                }
+            }
+            mutateHearts(for: other) { set in
+                if wasHearted { set.remove(item.id) } else { set.insert(item.id) }
+            }
         }
         Task {
             do {
@@ -738,7 +865,24 @@ struct FeedView: View {
                 }
             } catch {
                 // Revert on failure
-                if wasHearted { heartedIds.insert(item.id) } else { heartedIds.remove(item.id) }
+                mutateHearts(for: page) { set in
+                    if wasHearted { set.insert(item.id) } else { set.remove(item.id) }
+                }
+                mutateItems(for: page) { list in
+                    if let idx = list.firstIndex(where: { $0.id == item.id }) {
+                        list[idx].hearts = [CountHolder(count: max(0, item.heartCount))]
+                    }
+                }
+                if items(for: other).contains(where: { $0.id == item.id }) {
+                    mutateHearts(for: other) { set in
+                        if wasHearted { set.insert(item.id) } else { set.remove(item.id) }
+                    }
+                    mutateItems(for: other) { list in
+                        if let idx = list.firstIndex(where: { $0.id == item.id }) {
+                            list[idx].hearts = [CountHolder(count: max(0, item.heartCount))]
+                        }
+                    }
+                }
             }
         }
     }
@@ -753,8 +897,11 @@ struct GratitudeCard: View {
     var isSelected: Bool = false
     /// Prefer programmatic profile open so avatars work inside multi-column shells.
     var onOpenProfile: ((Profile) -> Void)? = nil
+    @Environment(AuthService.self) private var auth
 
     @State private var fullScreenImageURL: URL?
+    @State private var preparingShare = false
+    @State private var systemSharePayload: SystemSharePayload?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -834,6 +981,28 @@ struct GratitudeCard: View {
                 )
 
                 Spacer(minLength: 0)
+
+                Button {
+                    Task { await presentSystemShare() }
+                } label: {
+                    Group {
+                        if preparingShare && systemSharePayload == nil {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(Theme.coral)
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(preparingShare)
+                .accessibilityLabel("Share")
+
                 if gratitude.visibility == .private {
                     Label("Private", systemImage: "lock.fill")
                         .font(Theme.body(12, weight: .medium))
@@ -852,6 +1021,32 @@ struct GratitudeCard: View {
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
         }
+        .sheet(item: $systemSharePayload) { payload in
+            ActivityShareView(items: payload.items) { activityType in
+                let voice = AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
+                let content = AppreciationShareContent(gratitude: gratitude, voice: voice)
+                Analytics.appreciationShared(
+                    appreciationId: gratitude.id,
+                    channel: SocialShare.analyticsChannel(for: activityType),
+                    voice: voice.rawValue,
+                    // Feed share is link + caption (no 1080×1920 poster) for snappy UX.
+                    hasCard: false,
+                    hasPhoto: content.sharePhotoURL != nil
+                )
+            }
+        }
+    }
+
+    private func presentSystemShare() async {
+        preparingShare = true
+        defer { preparingShare = false }
+        // Feed cards share caption + tappable link only — skip ImageRenderer poster
+        // work (and photo download) so the sheet opens immediately.
+        let voice = AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
+        let content = AppreciationShareContent(gratitude: gratitude, voice: voice)
+        let items = SocialShare.systemShareItems(content: content, cardImage: nil)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        systemSharePayload = SystemSharePayload(items: items)
     }
 
     @ViewBuilder
