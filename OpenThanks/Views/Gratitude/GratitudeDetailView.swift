@@ -30,6 +30,8 @@ struct GratitudeDetailView: View {
     @State private var blockError: String?
     /// Set after the hearts sheet dismisses, so Back returns to this appreciation.
     @State private var heartedProfile: HeartedProfileRoute?
+    /// One `appreciation_viewed` per time this detail screen is created.
+    @State private var didCaptureAppreciationView = false
 
     private var shareVoice: AppreciationShareVoice {
         AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
@@ -134,6 +136,7 @@ struct GratitudeDetailView: View {
             systemSharePayload = nil
         }
         .task {
+            captureAppreciationViewIfNeeded()
             await loadHearted()
             if auth.userId == gratitude.recipientId {
                 WarmHaptics.received()
@@ -390,6 +393,17 @@ struct GratitudeDetailView: View {
             await Task.yield()
             shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
         }
+    }
+
+    private func captureAppreciationViewIfNeeded() {
+        guard !didCaptureAppreciationView else { return }
+        didCaptureAppreciationView = true
+        Analytics.appreciationViewed(
+            gratitude,
+            viewerId: auth.userId,
+            viewerEmail: auth.currentProfile?.email,
+            surface: "detail"
+        )
     }
 
     private func trackShare(channel: String) {

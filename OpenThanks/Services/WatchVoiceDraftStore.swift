@@ -71,6 +71,8 @@ enum WatchVoiceDraftStore {
                 )
                 if let created = try? await GratitudeService.create(new) {
                     Analytics.appreciationSubmitted(
+                        gratitudeId: created.id,
+                        senderId: created.authorId,
                         hasMedia: false,
                         messageLength: trimmed.count,
                         hasRecipient: false,
@@ -121,6 +123,8 @@ enum WatchVoiceDraftStore {
         do {
             let created = try await GratitudeService.create(new)
             Analytics.appreciationSubmitted(
+                gratitudeId: created.id,
+                senderId: created.authorId,
                 hasMedia: false,
                 messageLength: cleaned.count,
                 hasRecipient: false,

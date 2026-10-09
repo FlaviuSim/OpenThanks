@@ -1848,6 +1848,8 @@ struct ComposeView: View {
                 }
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
+                    gratitudeId: updated.id,
+                    senderId: updated.authorId,
                     hasMedia: mediaUrl != nil,
                     messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
                     hasRecipient: recipientKind != "none",
@@ -1899,6 +1901,8 @@ struct ComposeView: View {
                 offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
+                    gratitudeId: result.id,
+                    senderId: result.authorId,
                     hasMedia: mediaUrl != nil,
                     messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
                     hasRecipient: recipientKind != "none",
