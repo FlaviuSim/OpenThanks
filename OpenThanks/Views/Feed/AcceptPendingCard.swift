@@ -148,13 +148,19 @@ struct AcceptPendingCard: View {
                 optimistic.visibility = .private
                 optimistic.acceptedAsPrivate = true
             }
-            Analytics.capture("appreciation_accepted", [
-                "source": "pending",
-                "visibility": acceptPrivately ? "private" : "public",
-            ])
+            Analytics.appreciationAccepted(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId,
+                source: "pending",
+                visibility: acceptPrivately ? "private" : "public",
+                acceptedAsPrivate: acceptPrivately
+            )
             onAccepted(optimistic)
         } else {
-            Analytics.capture("appreciation_declined")
+            Analytics.appreciationDeclined(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId
+            )
         }
 
         do {
