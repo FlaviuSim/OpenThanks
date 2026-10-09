@@ -204,17 +204,24 @@ enum GratitudeService {
     /// Associates the signed-in user as recipient when they open a claim link
     /// (or first see a pending appreciation matched by email/phone).
     /// Notifies them with `gratitude_pending` from the author (deduped).
+    ///
+    /// Claims through `claim_gratitude_by_token`. The function sets
+    /// `recipient_id` from `auth.uid()` and returns that row, or JSON null
+    /// when this user cannot claim the token. The payload has no embeds.
     static func assignClaimRecipient(
         gratitudeId: UUID,
         claimToken: UUID,
         recipientId: UUID,
         authorId: UUID
     ) async throws {
-        try await supabase.from("gratitudes")
-            .update(["recipient_id": recipientId.uuidString])
-            .eq("id", value: gratitudeId)
-            .eq("claim_token", value: claimToken)
+        struct ClaimedRow: Decodable { let id: UUID }
+
+        let claimed: ClaimedRow? = try await supabase
+            .rpc("claim_gratitude_by_token", params: ["p_token": claimToken.uuidString])
             .execute()
+            .value
+
+        guard claimed != nil else { return }
 
         await insertNotification(
             userId: recipientId,
