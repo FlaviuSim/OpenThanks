@@ -496,11 +496,11 @@ struct UserProfileView: View {
                                 )
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
-                                if g.visibility == .private {
-                                    Label("Private", systemImage: "lock.fill")
-                                        .font(Theme.body(11, weight: .medium))
-                                        .foregroundStyle(Theme.textTertiary)
-                                }
+                                AppreciationPrivacyMark(
+                                    visibility: g.visibility,
+                                    acceptedAsPrivate: g.acceptedAsPrivate,
+                                    fontSize: 11
+                                )
                             }
                             Spacer()
                             if let date = g.displayDate {

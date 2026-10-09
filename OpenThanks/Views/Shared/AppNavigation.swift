@@ -162,7 +162,10 @@ struct GratitudeLoaderView: View {
         Group {
             if let gratitude {
                 if isPendingForCurrentUser(gratitude) {
-                    PendingAppreciationReviewView(gratitude: gratitude) { accepted in
+                    PendingAppreciationReviewView(
+                        gratitude: gratitude,
+                        analyticsSource: "detail"
+                    ) { accepted in
                         withAnimation(Motion.note) {
                             self.gratitude = accepted
                             showPayItForward = true

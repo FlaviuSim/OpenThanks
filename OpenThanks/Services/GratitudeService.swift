@@ -38,6 +38,9 @@ enum GratitudeService {
     // MARK: Feeds
 
     /// World feed: public, accepted appreciations, newest accepted first.
+    /// A recipient who accepts a public appreciation as private sets
+    /// `visibility` to `private`, so this filter keeps it out of the feed.
+    /// Do not filter on `accepted_as_private` — visibility is the source of truth.
     static func worldFeed(limit: Int = 30, before: Date? = nil) async throws -> [Gratitude] {
         var query = supabase.from("gratitudes")
             .select(feedSelect)
@@ -249,28 +252,48 @@ enum GratitudeService {
         }
     }
 
-    /// Accept or decline a pending appreciation (mirrors web PATCH /api/gratitudes).
+    /// Accept or decline a pending appreciation (direct `gratitudes` update).
+    /// Pass `visibility: "private"` only when the recipient accepts a public
+    /// appreciation privately. Leave it nil for a plain accept so the key is
+    /// omitted — a null would try to clear the sender's choice.
     static func respondToClaim(
         gratitudeId: UUID,
         recipientId: UUID,
-        accept: Bool
+        accept: Bool,
+        visibility: String? = nil
     ) async throws -> Gratitude {
         struct ClaimUpdate: Encodable {
             let status: String
             let recipientId: String
             let acceptedAt: String?
+            /// Set only for "accept privately" on a public appreciation.
+            /// Leave nil for a normal accept so the sender's choice is kept.
+            var visibility: String? = nil
 
             enum CodingKeys: String, CodingKey {
                 case status
                 case recipientId = "recipient_id"
                 case acceptedAt = "accepted_at"
+                case visibility
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(status, forKey: .status)
+                try c.encode(recipientId, forKey: .recipientId)
+                try c.encodeIfPresent(acceptedAt, forKey: .acceptedAt)
+                // encodeIfPresent — a null visibility would try to clear the column.
+                try c.encodeIfPresent(visibility, forKey: .visibility)
             }
         }
 
+        // Never send "public", and never send visibility on a decline.
+        let requestedVisibility = (accept && visibility == "private") ? "private" : nil
         let update = ClaimUpdate(
             status: accept ? "accepted" : "rejected",
             recipientId: recipientId.uuidString,
-            acceptedAt: accept ? ISO8601DateFormatter().string(from: Date()) : nil
+            acceptedAt: accept ? ISO8601DateFormatter().string(from: Date()) : nil,
+            visibility: requestedVisibility
         )
 
         do {

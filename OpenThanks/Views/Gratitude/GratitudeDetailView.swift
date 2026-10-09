@@ -259,11 +259,10 @@ struct GratitudeDetailView: View {
                 .disabled(preparingShare)
                 .accessibilityLabel("Share")
 
-                if gratitude.visibility == .private {
-                    Label("Private", systemImage: "lock.fill")
-                        .font(Theme.body(12, weight: .medium))
-                        .foregroundStyle(Theme.textTertiary)
-                }
+                AppreciationPrivacyMark(
+                    visibility: gratitude.visibility,
+                    acceptedAsPrivate: gratitude.acceptedAsPrivate
+                )
             }
         }
         .padding(18)
