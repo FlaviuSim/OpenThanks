@@ -3,7 +3,7 @@
 Copy everything inside the box below into **App Review Information → Notes**.
 
 ```
-UNIVERSAL APP — iPhone + iPad (build 1.2). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
+UNIVERSAL APP — iPhone + iPad (build 1.3). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
 
 DEMO ACCOUNT (no OTP / no inbox needed)
 1. On welcome → Continue with Email
@@ -73,7 +73,7 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 3. Fill / confirm: **iPhone + iPad** screenshots (skip age-gate welcome frames), description, keywords, support URL, marketing URL, privacy URL  
 4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info) — do **not** market as adult content in Description  
 5. **App Privacy** → nutrition labels (see `METADATA.md`) → **Tracking = No**  
-6. **Build** → **+** → select processed **1.2 (1)** (universal iPhone + iPad) → Done  
+6. **Build** → **+** → select processed **1.3 (1)** (universal iPhone + iPad) → Done  
 
 ### C. App Review Information (this page)
 
