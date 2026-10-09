@@ -28,6 +28,8 @@ struct PendingAppreciationReviewView: View {
 
     @State private var showCompose = false
     @State private var showPayItForward = false
+    /// One `appreciation_viewed` per time this accept screen is created.
+    @State private var didCaptureAppreciationView = false
 
     private var authorProfile: Profile? { gratitude.author ?? loadedAuthor }
 
@@ -83,6 +85,7 @@ struct PendingAppreciationReviewView: View {
             )
         }
         .task {
+            captureAppreciationViewIfNeeded()
             await linkRecipientIfNeeded()
             await loadAuthorIfNeeded()
         }
@@ -231,20 +234,40 @@ struct PendingAppreciationReviewView: View {
         loadedAuthor = try? await GratitudeService.profile(id: gratitude.authorId)
     }
 
+    private func captureAppreciationViewIfNeeded() {
+        guard !didCaptureAppreciationView else { return }
+        didCaptureAppreciationView = true
+        Analytics.appreciationViewed(
+            gratitude,
+            viewerId: auth.userId,
+            viewerEmail: auth.currentProfile?.email,
+            surface: "claim"
+        )
+    }
+
     private func trackClaimResponse(_ action: Action) {
         switch action {
         case .accept:
-            Analytics.capture("appreciation_accepted", [
-                "source": analyticsSource,
-                "visibility": "public",
-            ])
+            Analytics.appreciationAccepted(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId,
+                source: analyticsSource,
+                visibility: "public"
+            )
         case .acceptPrivate:
-            Analytics.capture("appreciation_accepted", [
-                "source": analyticsSource,
-                "visibility": "private",
-            ])
+            Analytics.appreciationAccepted(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId,
+                source: analyticsSource,
+                visibility: "private",
+                acceptedAsPrivate: true
+            )
         case .decline:
-            Analytics.capture("appreciation_declined", ["source": analyticsSource])
+            Analytics.appreciationDeclined(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId,
+                source: analyticsSource
+            )
         }
     }
 
@@ -333,6 +356,9 @@ struct ClaimAppreciationView: View {
 
     @State private var gratitude: Gratitude?
     @State private var phase: Phase = .loading
+    /// One `appreciation_viewed` when the claim link resolves to an already
+    /// accepted or declined note (the review screen is not shown).
+    @State private var didCaptureClaimView = false
 
     private enum Phase {
         case loading
@@ -391,6 +417,7 @@ struct ClaimAppreciationView: View {
                         body: "This appreciation has already been accepted or declined.",
                         systemImage: "heart"
                     )
+                    .onAppear { captureProcessedClaimViewIfNeeded() }
                 case .ownAppreciation:
                     EmptyView()
                 case .ownPublished:
@@ -437,6 +464,17 @@ struct ClaimAppreciationView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func captureProcessedClaimViewIfNeeded() {
+        guard !didCaptureClaimView, let gratitude else { return }
+        didCaptureClaimView = true
+        Analytics.appreciationViewed(
+            gratitude,
+            viewerId: auth.userId,
+            viewerEmail: auth.currentProfile?.email,
+            surface: "claim"
+        )
     }
 
     private func redirectToAcceptedAppreciation(

@@ -309,7 +309,19 @@ enum Analytics {
         capture("appreciation_voice_dictation", ["message_length": messageLength])
     }
 
+    /// Join keys shared with the web contract. `senderId` is `gratitudes.author_id`.
+    /// `capture` adds `platform: "ios"` when the caller does not set it.
+    /// Never put message text, names, or emails in these dictionaries.
+    static func appreciationIdentity(gratitudeId: UUID, senderId: UUID) -> [String: Any] {
+        [
+            "gratitude_id": gratitudeId.uuidString.lowercased(),
+            "sender_id": senderId.uuidString.lowercased(),
+        ]
+    }
+
     static func appreciationSubmitted(
+        gratitudeId: UUID,
+        senderId: UUID,
         hasMedia: Bool,
         messageLength: Int,
         hasRecipient: Bool,
@@ -318,16 +330,112 @@ enum Analytics {
         visibility: String,
         source: String?
     ) {
-        var props: [String: Any] = [
-            "has_media": hasMedia,
-            "message_length": messageLength,
-            "has_recipient": hasRecipient,
-            "to_member": toMember,
-            "recipient_type": recipientType,
-            "visibility": visibility,
-        ]
+        var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
+        props["has_media"] = hasMedia
+        props["message_length"] = messageLength
+        props["has_recipient"] = hasRecipient
+        props["to_member"] = toMember
+        props["recipient_type"] = recipientType
+        props["visibility"] = visibility
         if let source { props["source"] = source }
         capture("appreciation_submitted", props)
+    }
+
+    /// `acceptedAsPrivate` is sent only when true (accept-as-private). A
+    /// sender-private note accepted normally keeps `visibility` and omits the flag.
+    static func appreciationAccepted(
+        gratitudeId: UUID,
+        senderId: UUID,
+        source: String,
+        visibility: String,
+        acceptedAsPrivate: Bool = false
+    ) {
+        var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
+        props["source"] = source
+        props["visibility"] = visibility
+        if acceptedAsPrivate {
+            props["accepted_as_private"] = true
+        }
+        capture("appreciation_accepted", props)
+    }
+
+    static func appreciationDeclined(
+        gratitudeId: UUID,
+        senderId: UUID,
+        source: String? = nil
+    ) {
+        var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
+        if let source { props["source"] = source }
+        capture("appreciation_declined", props)
+    }
+
+    /// Once per detail or claim screen. Callers guard re-renders; this does not
+    /// read the network. `viewerEmail` / the appreciation's recipient email are
+    /// compared for `viewer_role` only and are not sent as properties.
+    static func appreciationViewed(
+        _ gratitude: Gratitude,
+        viewerId: UUID?,
+        viewerEmail: String?,
+        surface: String
+    ) {
+        var props = appreciationIdentity(
+            gratitudeId: gratitude.id,
+            senderId: gratitude.authorId
+        )
+        props["viewer_role"] = appreciationViewerRole(
+            viewerId: viewerId,
+            senderId: gratitude.authorId,
+            recipientId: gratitude.recipientId,
+            surface: surface,
+            viewerEmail: viewerEmail,
+            recipientEmail: gratitude.recipientEmail
+        )
+        props["surface"] = surface
+        props["status"] = appreciationStatusLabel(gratitude.status)
+        props["visibility"] = gratitude.visibility == .private ? "private" : "public"
+        capture("appreciation_viewed", props)
+    }
+
+    /// No session → anonymous. Creator → sender. Recipient id, a detail-page
+    /// email match against the address already on the row, or any other
+    /// signed-in viewer on the claim screen → recipient. Otherwise other.
+    static func appreciationViewerRole(
+        viewerId: UUID?,
+        senderId: UUID,
+        recipientId: UUID?,
+        surface: String,
+        viewerEmail: String?,
+        recipientEmail: String?
+    ) -> String {
+        guard let viewerId else { return "anonymous" }
+        if viewerId == senderId { return "sender" }
+        if let recipientId, viewerId == recipientId { return "recipient" }
+        if surface == "detail", emailsMatch(viewerEmail, recipientEmail) {
+            return "recipient"
+        }
+        if surface == "claim" { return "recipient" }
+        return "other"
+    }
+
+    /// Database `rejected` is sent as `declined`. An unset status matches the
+    /// pending draft state used elsewhere in the app.
+    static func appreciationStatusLabel(_ status: GratitudeStatus?) -> String {
+        switch status {
+        case .accepted: "accepted"
+        case .rejected: "declined"
+        case .pending, .none: "pending"
+        }
+    }
+
+    private static func emailsMatch(_ lhs: String?, _ rhs: String?) -> Bool {
+        guard let lhs = normalizedEmail(lhs), let rhs = normalizedEmail(rhs) else { return false }
+        return lhs == rhs
+    }
+
+    private static func normalizedEmail(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !value.isEmpty else { return nil }
+        return value
     }
 
     /// External share actually completed (not merely opened, and not a cancelled sheet).
