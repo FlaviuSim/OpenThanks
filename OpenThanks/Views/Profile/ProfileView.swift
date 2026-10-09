@@ -299,9 +299,7 @@ struct UserProfileView: View {
                 .padding(.top, 6)
                 .accessibilityLabel("Thank \(shownProfile.displayName)")
             } else {
-                NavigationLink {
-                    StatsView()
-                } label: {
+                NavigationLink(value: StatsRoute()) {
                     HStack(spacing: 7) {
                         Image(systemName: "chart.bar.fill")
                             .font(.system(size: 11, weight: .semibold))
@@ -498,11 +496,11 @@ struct UserProfileView: View {
                                 )
                                 .lineLimit(2)
                                 .multilineTextAlignment(.leading)
-                                if g.visibility == .private {
-                                    Label("Private", systemImage: "lock.fill")
-                                        .font(Theme.body(11, weight: .medium))
-                                        .foregroundStyle(Theme.textTertiary)
-                                }
+                                AppreciationPrivacyMark(
+                                    visibility: g.visibility,
+                                    acceptedAsPrivate: g.acceptedAsPrivate,
+                                    fontSize: 11
+                                )
                             }
                             Spacer()
                             if let date = g.displayDate {

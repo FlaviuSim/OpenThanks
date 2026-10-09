@@ -154,14 +154,20 @@ enum AppreciationAI {
         homophones, merged or split words, obvious speech-recognition mistakes, \
         and stray mid-sentence capitalization after a pause.
         Keep the same meaning, tone, length, names, and details. Do not rewrite for style.
-        Keep emoji characters exactly as they appear. Do not spell an emoji out as words.
+        Keep existing emoji characters. When the speaker clearly asked for an emoji \
+        (said "emoji" / "emojis" near a name, e.g. "heart emoji", "fire emoji", \
+        "smiley face emoji"), replace that spoken request with the closest matching \
+        emoji character — even if the name is slightly misspelled, informal, or not \
+        Apple's exact label. Drop the words "emoji"/"emojis" once converted. \
+        If the intended emoji is unclear, leave those words as-is.
         Return only the corrected message — no preamble, labels, or commentary.
         """
 
     private static func dictationCleanupPrompt(_ message: String) -> String {
         """
         This thank-you was dictated by voice. Using the full message for context, \
-        fix recognition errors and mid-sentence capitalization while preserving meaning.
+        fix recognition errors and mid-sentence capitalization while preserving meaning. \
+        Convert clear spoken emoji requests (words next to "emoji"/"emojis") into emoji characters.
 
         Return only the corrected thank-you — no preamble or commentary.
 
@@ -792,6 +798,8 @@ final class AppreciationDictation: ObservableObject {
 /// Only phrases that are clearly an emoji request are replaced.
 /// "heart", "fire", and "party" stay words unless the speaker says "emoji".
 /// Names that are emoji on their own ("smiley face", "thumbs up", "party popper") convert either way.
+/// When the speaker says "emoji" / "emojis", near-miss names are fuzzy-matched
+/// (speech often won't match Apple's exact label).
 enum SpokenEmoji {
     static func apply(to text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -803,6 +811,8 @@ enum SpokenEmoji {
         for entry in named.sorted(by: { $0.phrase.count > $1.phrase.count }) {
             result = replace(entry.phrase, in: result, with: entry.emoji, requireEmojiWord: true)
         }
+        // Leftover "… emoji" / "emoji …" that didn't match exactly — guess.
+        result = fuzzyReplaceEmojiRequests(in: result)
         return result
     }
 
@@ -873,6 +883,7 @@ enum SpokenEmoji {
         .init(phrase: "heart", emoji: "❤️"),
         .init(phrase: "smiley", emoji: "😊"),
         .init(phrase: "smile", emoji: "😊"),
+        .init(phrase: "happy face", emoji: "😊"),
         .init(phrase: "fire", emoji: "🔥"),
         .init(phrase: "flame", emoji: "🔥"),
         .init(phrase: "star", emoji: "⭐"),
@@ -881,10 +892,14 @@ enum SpokenEmoji {
         .init(phrase: "rocket", emoji: "🚀"),
         .init(phrase: "party", emoji: "🎉"),
         .init(phrase: "tada", emoji: "🎉"),
+        .init(phrase: "confetti", emoji: "🎉"),
         .init(phrase: "clap", emoji: "👏"),
         .init(phrase: "clapping", emoji: "👏"),
         .init(phrase: "pray", emoji: "🙏"),
         .init(phrase: "prayer", emoji: "🙏"),
+        .init(phrase: "praying hands", emoji: "🙏"),
+        .init(phrase: "thank you", emoji: "🙏"),
+        .init(phrase: "thanks", emoji: "🙏"),
         .init(phrase: "cry", emoji: "😢"),
         .init(phrase: "crying", emoji: "😭"),
         .init(phrase: "laugh", emoji: "😂"),
@@ -895,7 +910,51 @@ enum SpokenEmoji {
         .init(phrase: "eyes", emoji: "👀"),
         .init(phrase: "hundred", emoji: "💯"),
         .init(phrase: "100", emoji: "💯"),
+        .init(phrase: "high five", emoji: "🙌"),
+        .init(phrase: "muscle", emoji: "💪"),
+        .init(phrase: "flex", emoji: "💪"),
+        .init(phrase: "sun", emoji: "☀️"),
+        .init(phrase: "moon", emoji: "🌙"),
+        .init(phrase: "rainbow", emoji: "🌈"),
+        .init(phrase: "flower", emoji: "🌸"),
+        .init(phrase: "rose", emoji: "🌹"),
+        .init(phrase: "coffee", emoji: "☕"),
+        .init(phrase: "hug", emoji: "🤗"),
+        .init(phrase: "hugs", emoji: "🤗"),
     ]
+
+    /// Common speech / nickname → canonical phrase tokens before fuzzy match.
+    private static let speechAliases: [(String, String)] = [
+        ("hart", "heart"),
+        ("hurts", "heart"),
+        ("hurt", "heart"),
+        ("smily", "smiley"),
+        ("smilie", "smiley"),
+        ("smille", "smile"),
+        ("confetti", "party popper"),
+        ("celebration", "party"),
+        ("celebratory", "party"),
+        ("tada", "party"),
+        ("ta da", "party"),
+        ("highfive", "high five"),
+        ("high-five", "high five"),
+        ("thankyou", "thank you"),
+        ("praying hands", "folded hands"),
+        ("prayer hands", "folded hands"),
+        ("thumbs-up", "thumbs up"),
+        ("thumbs-down", "thumbs down"),
+        ("checkmark", "check mark"),
+        ("tick", "check mark"),
+        ("rofl", "rolling on the floor laughing"),
+        ("lol", "laugh"),
+        ("lmao", "laugh"),
+        ("hearteyes", "heart eyes"),
+        ("heart-eyes", "heart eyes"),
+    ]
+
+    private static var catalog: [Entry] {
+        unambiguous + named
+    }
 
     private static func replace(
         _ phrase: String,
@@ -915,6 +974,197 @@ enum SpokenEmoji {
         }
         let range = NSRange(text.startIndex..., in: text)
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: emoji)
+    }
+
+    /// Replace leftover spoken requests like "hart emoji" / "emoji confetti" with a best guess.
+    /// Tries longest-to-shortest name spans so "love this heart emoji" still becomes "love this ❤️".
+    private static func fuzzyReplaceEmojiRequests(in text: String) -> String {
+        guard let emojiWordRegex = try? NSRegularExpression(
+            pattern: #"\bemojis?\b"#,
+            options: [.caseInsensitive]
+        ) else { return text }
+
+        var result = text
+        let nsRange = NSRange(result.startIndex..., in: result)
+        let matches = emojiWordRegex.matches(in: result, range: nsRange)
+
+        for match in matches.reversed() {
+            guard let emojiRange = Range(match.range, in: result) else { continue }
+
+            // Prefer "NAME emoji" (look behind), then "emoji NAME" (look ahead).
+            if let resolved = resolveNameBeforeEmoji(in: result, emojiRange: emojiRange)
+                ?? resolveNameAfterEmoji(in: result, emojiRange: emojiRange) {
+                result.replaceSubrange(resolved.range, with: resolved.emoji)
+            }
+        }
+        return result
+    }
+
+    private static func resolveNameBeforeEmoji(
+        in text: String,
+        emojiRange: Range<String.Index>
+    ) -> (range: Range<String.Index>, emoji: String)? {
+        let prefix = String(text[..<emojiRange.lowerBound])
+        // Optional comma/space already between name and "emoji".
+        let trimmedPrefix = prefix.replacingOccurrences(
+            of: #"[\s,]+$"#,
+            with: "",
+            options: .regularExpression
+        )
+        let words = trimmedPrefix.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        guard !words.isEmpty else { return nil }
+
+        let maxWords = min(5, words.count)
+        for count in stride(from: maxWords, through: 1, by: -1) {
+            let spokenWords = Array(words.suffix(count))
+            let spoken = spokenWords.joined(separator: " ")
+            guard let emoji = bestGuess(for: spoken) else { continue }
+
+            // Map spoken words back to a range ending at emojiRange.upperBound.
+            guard let nameStart = rangeOfTrailingWords(spokenWords, in: trimmedPrefix) else {
+                continue
+            }
+            // `nameStart` is in trimmedPrefix coordinates; map into `text`.
+            let absoluteStart = text.index(
+                text.startIndex,
+                offsetBy: trimmedPrefix.distance(from: trimmedPrefix.startIndex, to: nameStart)
+            )
+            return (absoluteStart..<emojiRange.upperBound, emoji)
+        }
+        return nil
+    }
+
+    private static func resolveNameAfterEmoji(
+        in text: String,
+        emojiRange: Range<String.Index>
+    ) -> (range: Range<String.Index>, emoji: String)? {
+        let afterEmoji = text[emojiRange.upperBound...]
+        guard let nameStart = afterEmoji.firstIndex(where: { !$0.isWhitespace && $0 != "," }) else {
+            return nil
+        }
+        let trailing = String(text[nameStart...])
+        let words = trailing.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        guard !words.isEmpty else { return nil }
+
+        let maxWords = min(5, words.count)
+        for count in stride(from: maxWords, through: 1, by: -1) {
+            let spokenWords = Array(words.prefix(count))
+            let spoken = spokenWords.joined(separator: " ")
+            guard let emoji = bestGuess(for: spoken) else { continue }
+            guard let nameEnd = rangeOfLeadingWords(spokenWords, in: trailing) else { continue }
+            let absoluteEnd = text.index(nameStart, offsetBy: trailing.distance(
+                from: trailing.startIndex,
+                to: nameEnd
+            ))
+            return (emojiRange.lowerBound..<absoluteEnd, emoji)
+        }
+        return nil
+    }
+
+    private static func rangeOfTrailingWords(_ words: [String], in text: String) -> String.Index? {
+        guard !words.isEmpty else { return nil }
+        let pattern = words
+            .map { NSRegularExpression.escapedPattern(for: $0) }
+            .joined(separator: #"\s+"#) + #"\s*$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range, in: text)
+        else { return nil }
+        return range.lowerBound
+    }
+
+    private static func rangeOfLeadingWords(_ words: [String], in text: String) -> String.Index? {
+        guard !words.isEmpty else { return nil }
+        let pattern = #"^"# + words
+            .map { NSRegularExpression.escapedPattern(for: $0) }
+            .joined(separator: #"\s+"#)
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range, in: text)
+        else { return nil }
+        return range.upperBound
+    }
+
+    private static func bestGuess(for spoken: String) -> String? {
+        let query = canonicalize(spoken)
+        guard !query.isEmpty else { return nil }
+
+        var bestEmoji: String?
+        var bestDistance = Int.max
+        var bestPhraseLength = 0
+
+        for entry in catalog {
+            let phrase = canonicalize(entry.phrase)
+            guard !phrase.isEmpty else { continue }
+            let distance = editDistance(query, phrase)
+            let threshold = max(1, (phrase.count + 2) / 4) // ~25% edits, at least 1
+            guard distance <= threshold else { continue }
+            // Prefer closer matches; tie-break toward longer (more specific) phrases.
+            if distance < bestDistance
+                || (distance == bestDistance && phrase.count > bestPhraseLength) {
+                bestDistance = distance
+                bestPhraseLength = phrase.count
+                bestEmoji = entry.emoji
+            }
+        }
+
+        // Single-token containment after aliasing ("happy" inside "happy face").
+        if bestEmoji == nil {
+            let tokens = query.split(separator: " ").map(String.init)
+            if tokens.count == 1, let token = tokens.first, token.count >= 3 {
+                let hit = catalog.first {
+                    canonicalize($0.phrase).split(separator: " ").map(String.init).contains(token)
+                }
+                bestEmoji = hit?.emoji
+            }
+        }
+
+        return bestEmoji
+    }
+
+    private static func canonicalize(_ raw: String) -> String {
+        var s = raw.lowercased()
+        s = s.replacingOccurrences(of: #"[^\p{L}\p{N}\s']+"#, with: " ", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        s = s.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Drop lead-ins that aren't part of the emoji name.
+        let leadIns: Set<String> = ["a", "an", "the", "insert", "add", "put", "use", "please"]
+        var tokens = s.split(separator: " ").map(String.init)
+        while let first = tokens.first, leadIns.contains(first) {
+            tokens.removeFirst()
+        }
+        s = tokens.joined(separator: " ")
+
+        for (from, to) in speechAliases.sorted(by: { $0.0.count > $1.0.count }) {
+            let pattern = "\\b\(NSRegularExpression.escapedPattern(for: from))\\b"
+            s = s.replacingOccurrences(of: pattern, with: to, options: [.regularExpression, .caseInsensitive])
+        }
+        s = s.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func editDistance(_ a: String, _ b: String) -> Int {
+        if a == b { return 0 }
+        if a.isEmpty { return b.count }
+        if b.isEmpty { return a.count }
+        let aChars = Array(a)
+        let bChars = Array(b)
+        var prev = Array(0...bChars.count)
+        var curr = Array(repeating: 0, count: bChars.count + 1)
+        for i in 1...aChars.count {
+            curr[0] = i
+            for j in 1...bChars.count {
+                let cost = aChars[i - 1] == bChars[j - 1] ? 0 : 1
+                curr[j] = min(
+                    prev[j] + 1,
+                    curr[j - 1] + 1,
+                    prev[j - 1] + cost
+                )
+            }
+            prev = curr
+        }
+        return prev[bChars.count]
     }
 }
 

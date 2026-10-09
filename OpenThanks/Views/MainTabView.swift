@@ -554,16 +554,13 @@ struct MainTabView: View {
         }
     }
 
-    /// Tap another section to switch. Re-tapping Home or Notifications pops that
-    /// section to its root. Re-tapping Profile does not — a single tap while
-    /// you're already inside Profile (detail, stats, settings) keeps your place.
+    /// Same as system tabs: tap another section to switch; re-tap the current
+    /// section to pop back to its root (Home, Notifications, or Profile).
     private func selectTab(_ value: Tab) {
         resignKeyboard()
         homeSearchActive = false
         if tab == value {
-            if value != .profile {
-                popToRoot(value)
-            }
+            popToRoot(value)
             return
         }
         withAnimation(.easeInOut(duration: 0.18)) { tab = value }

@@ -11,6 +11,7 @@ struct AcceptPendingCard: View {
     @Environment(AuthService.self) private var auth
     @State private var acting: Action?
     @State private var errorMessage: String?
+    @State private var showPrivateConfirm = false
     @State private var fullScreenImageURL: URL?
     @State private var loadedAuthor: Profile?
     /// Prevents double-tap from starting two accept tasks (second failure can resurrect the card).
@@ -72,24 +73,33 @@ struct AcceptPendingCard: View {
                     .foregroundStyle(.red)
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    Task { await respond(accept: false) }
-                } label: {
-                    Text(acting == .decline ? "Declining…" : "Decline")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(SecondaryCapsuleButtonStyle())
-                .disabled(acting != nil || didSubmit)
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    Button {
+                        Task { await respond(accept: false) }
+                    } label: {
+                        Text(acting == .decline ? "Declining…" : "Decline")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(SecondaryCapsuleButtonStyle())
+                    .disabled(acting != nil || didSubmit)
 
-                Button {
-                    Task { await respond(accept: true) }
-                } label: {
-                    Text(acting == .accept ? "Accepting…" : "Accept")
-                        .frame(maxWidth: .infinity)
+                    Button {
+                        Task { await respond(accept: true) }
+                    } label: {
+                        Text(acting == .accept ? "Accepting…" : "Accept")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(CTAButtonStyle())
+                    .disabled(acting != nil || didSubmit)
                 }
-                .buttonStyle(CTAButtonStyle())
-                .disabled(acting != nil || didSubmit)
+
+                if gratitude.senderMarkedPublic {
+                    AcceptPrivatelyLink(isEnabled: acting == nil && !didSubmit) {
+                        errorMessage = nil
+                        showPrivateConfirm = true
+                    }
+                }
             }
         }
         .padding(16)
@@ -105,29 +115,46 @@ struct AcceptPendingCard: View {
         .fullScreenCover(item: $fullScreenImageURL) { url in
             FullScreenImageView(url: url)
         }
+        .sheet(isPresented: $showPrivateConfirm) {
+            AcceptPrivatelySheet(
+                senderName: authorProfile?.fullName ?? authorProfile?.displayName,
+                isWorking: acting != nil,
+                errorMessage: errorMessage,
+                onKeepPrivate: { Task { await respond(accept: true, visibility: "private") } },
+                onAcceptPublicly: { Task { await respond(accept: true) } }
+            )
+        }
         .task {
             guard authorProfile == nil else { return }
             loadedAuthor = try? await GratitudeService.profile(id: gratitude.authorId)
         }
     }
 
-    private func respond(accept: Bool) async {
+    private func respond(accept: Bool, visibility: String? = nil) async {
         guard !didSubmit else { return }
         guard let userId = auth.userId else { return }
         didSubmit = true
+        let acceptPrivately = accept && visibility == "private" && gratitude.senderMarkedPublic
         acting = accept ? .accept : .decline
         errorMessage = nil
+        showPrivateConfirm = false
 
         // Remove the card immediately so a slow network (or a feed refresh race)
         // can't leave the UI stuck on "Accepting…" / bring the card back mid-flight.
         if accept {
             var optimistic = gratitude
             optimistic.status = .accepted
-            Analytics.capture("appreciation_accepted")
+            if acceptPrivately {
+                optimistic.visibility = .private
+                optimistic.acceptedAsPrivate = true
+            }
+            Analytics.capture("appreciation_accepted", [
+                "source": "pending",
+                "visibility": acceptPrivately ? "private" : "public",
+            ])
             onAccepted(optimistic)
         } else {
             Analytics.capture("appreciation_declined")
-            onDeclined(gratitude.id)
         }
 
         do {
@@ -143,7 +170,8 @@ struct AcceptPendingCard: View {
             let updated = try await GratitudeService.respondToClaim(
                 gratitudeId: gratitude.id,
                 recipientId: userId,
-                accept: accept
+                accept: accept,
+                visibility: acceptPrivately ? "private" : nil
             )
             if accept {
                 onAccepted(updated)

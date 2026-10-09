@@ -9,6 +9,9 @@ struct PendingAppreciationsRoute: Hashable {
     var highlightId: UUID? = nil
 }
 
+/// Own-profile Stats screen — path-backed so re-tapping Profile can pop to root.
+struct StatsRoute: Hashable {}
+
 /// Opens a profile on the host tab’s NavigationPath (e.g. after dismissing a sheet).
 private struct OpenProfileKey: EnvironmentKey {
     static let defaultValue: ((Profile) -> Void)? = nil
@@ -31,6 +34,9 @@ extension View {
             .navigationDestination(for: GratitudeIdRoute.self) { GratitudeLoaderView(gratitudeId: $0.id) }
             .navigationDestination(for: PendingAppreciationsRoute.self) { route in
                 PendingAppreciationsView(highlightId: route.highlightId)
+            }
+            .navigationDestination(for: StatsRoute.self) { _ in
+                StatsView()
             }
     }
 }
@@ -156,7 +162,10 @@ struct GratitudeLoaderView: View {
         Group {
             if let gratitude {
                 if isPendingForCurrentUser(gratitude) {
-                    PendingAppreciationReviewView(gratitude: gratitude) { accepted in
+                    PendingAppreciationReviewView(
+                        gratitude: gratitude,
+                        analyticsSource: "detail"
+                    ) { accepted in
                         withAnimation(Motion.note) {
                             self.gratitude = accepted
                             showPayItForward = true

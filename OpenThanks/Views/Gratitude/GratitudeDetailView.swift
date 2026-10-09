@@ -1,11 +1,5 @@
 import SwiftUI
 
-/// Holds activity items for the system share sheet so presentation can’t race an empty array.
-private struct SystemSharePayload: Identifiable {
-    let id = UUID()
-    let items: [Any]
-}
-
 /// Profile pushed from the hearts sheet. A distinct type so it doesn’t collide
 /// with the stack’s existing `navigationDestination(for: Profile.self)`.
 private struct HeartedProfileRoute: Hashable {
@@ -21,14 +15,12 @@ struct GratitudeDetailView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
 
     @State private var isHearted = false
     @State private var fullScreenImageURL: URL?
     @State private var linkCopied = false
     @State private var shareHint: String?
     @State private var shareCardImage: UIImage?
-    @State private var linkStickerImage: UIImage?
     @State private var preparingShare = false
     @State private var preparingPreview = false
     @State private var systemSharePayload: SystemSharePayload?
@@ -69,10 +61,10 @@ struct GratitudeDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 postCard
                     .softNoteReveal()
-                shareCard
+                shareStrip
                     .softNoteReveal(delay: 0.08)
             }
             .padding(.horizontal, 16)
@@ -245,11 +237,32 @@ struct GratitudeDetailView: View {
                 )
 
                 Spacer(minLength: 0)
-                if gratitude.visibility == .private {
-                    Label("Private", systemImage: "lock.fill")
-                        .font(Theme.body(12, weight: .medium))
-                        .foregroundStyle(Theme.textTertiary)
+
+                Button {
+                    Task { await presentSystemShare() }
+                } label: {
+                    Group {
+                        if preparingShare && systemSharePayload == nil {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(Theme.coral)
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .frame(width: 36, height: 36)
+                    .background(Theme.surfaceRaised, in: Circle())
                 }
+                .buttonStyle(.plain)
+                .disabled(preparingShare)
+                .accessibilityLabel("Share")
+
+                AppreciationPrivacyMark(
+                    visibility: gratitude.visibility,
+                    acceptedAsPrivate: gratitude.acceptedAsPrivate
+                )
             }
         }
         .padding(18)
@@ -258,83 +271,61 @@ struct GratitudeDetailView: View {
 
     // MARK: Share
 
-    private var shareCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(shareSectionTitle)
-                    .font(Theme.body(16, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("A photo (or poster), the beginning of the note, and a link people can tap.")
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.textSecondary)
-            }
+    /// Compact strip under the card — preview + one system Share action (no per-app grid).
+    private var shareStrip: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(shareSectionTitle)
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
 
-            sharePreview
+            HStack(spacing: 14) {
+                sharePreviewThumb
 
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    shareButton(
-                        title: "Instagram",
-                        subtitle: "Stories",
-                        systemImage: "camera.filters"
-                    ) {
-                        Task { await share(.instagramStories) }
+                VStack(alignment: .leading, spacing: 10) {
+                    Button {
+                        Task { await presentSystemShare() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if preparingShare && systemSharePayload == nil {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            Text("Share")
+                                .font(Theme.body(15, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Theme.ctaGradient, in: Capsule())
                     }
-                    shareButton(
-                        title: "LinkedIn",
-                        subtitle: "Post",
-                        systemImage: "briefcase.fill"
-                    ) {
-                        Task { await share(.linkedIn) }
+                    .buttonStyle(.plain)
+                    .disabled(preparingShare)
+                    .accessibilityLabel("Share appreciation")
+
+                    Button {
+                        UIPasteboard.general.string = shareContent.url.absoluteString
+                        trackShare(channel: "copy_link")
+                        withAnimation { linkCopied = true }
+                        flashHint("Link copied")
+                        Task {
+                            try? await Task.sleep(for: .seconds(2.5))
+                            withAnimation { linkCopied = false }
+                        }
+                    } label: {
+                        Label(
+                            linkCopied ? "Link copied" : "Copy link",
+                            systemImage: linkCopied ? "checkmark" : "link"
+                        )
+                        .font(Theme.body(13, weight: .medium))
+                        .foregroundStyle(linkCopied ? Theme.coral : Theme.textSecondary)
+                        .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.plain)
                 }
-                HStack(spacing: 10) {
-                    shareButton(
-                        title: "X",
-                        subtitle: "Post",
-                        systemImage: "bird.fill"
-                    ) {
-                        Task { await share(.x) }
-                    }
-                    shareButton(
-                        title: "Facebook",
-                        subtitle: "Post",
-                        systemImage: "person.2.fill"
-                    ) {
-                        Task { await share(.facebook) }
-                    }
-                }
-            }
-
-            ShareActionRow(
-                title: "Share",
-                systemImage: "square.and.arrow.up",
-                subtitle: "Photo or poster, caption, and link — Messages, Mail, and more",
-                showSpinner: preparingShare && systemSharePayload == nil
-            ) {
-                Task { await presentSystemShare() }
-            }
-            .disabled(preparingShare)
-
-            Button {
-                UIPasteboard.general.string = shareContent.url.absoluteString
-                trackShare(channel: "copy_link")
-                withAnimation { linkCopied = true }
-                flashHint("Link copied")
-                Task {
-                    try? await Task.sleep(for: .seconds(2.5))
-                    withAnimation { linkCopied = false }
-                }
-            } label: {
-                Label(
-                    linkCopied ? "Link copied" : "Copy link to appreciation",
-                    systemImage: linkCopied ? "checkmark" : "doc.on.doc"
-                )
-                .font(Theme.body(14, weight: .medium))
-                .foregroundStyle(linkCopied ? Theme.coral : Theme.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Theme.surfaceRaised, in: Capsule())
             }
 
             if let shareHint {
@@ -345,7 +336,7 @@ struct GratitudeDetailView: View {
                     .transition(.opacity)
             }
         }
-        .padding(18)
+        .padding(16)
         .card()
     }
 
@@ -357,75 +348,38 @@ struct GratitudeDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private var sharePreview: some View {
-        HStack {
-            Spacer(minLength: 0)
-            ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Theme.surfaceRaised)
+    private var sharePreviewThumb: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Theme.surfaceRaised)
 
-                if let shareCardImage {
-                    Image(uiImage: shareCardImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else if preparingPreview {
-                    ProgressView()
-                        .tint(Theme.coral)
-                } else {
-                    Image(systemName: "photo")
-                        .font(.system(size: 28, weight: .medium))
-                        .foregroundStyle(Theme.textTertiary)
-                }
-            }
-            .frame(width: 148, height: 264)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Theme.hairline)
-            )
-            .accessibilityLabel("Share preview")
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func shareButton(
-        title: String,
-        subtitle: String,
-        systemImage: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.coralLight)
-                    .frame(width: 42, height: 42)
-                    .background(Theme.coral.opacity(0.12), in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.coral.opacity(0.25)))
-                Text(title)
-                    .font(Theme.body(12, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                Text(subtitle)
-                    .font(Theme.body(11))
+            if let shareCardImage {
+                Image(uiImage: shareCardImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else if preparingPreview {
+                ProgressView()
+                    .tint(Theme.coral)
+            } else {
+                Image(systemName: "photo")
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(Theme.textTertiary)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Theme.hairline)
-            )
         }
-        .buttonStyle(.plain)
-        .disabled(preparingShare)
+        .frame(width: 64, height: 112)
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Theme.hairline)
+        )
+        .accessibilityLabel("Share preview")
+        .accessibilityHidden(true)
     }
 
     // MARK: Share actions
 
-    /// Loads the composed visual for the live preview (and system / Stories share).
+    /// Loads the composed visual for the system share sheet preview.
     private func prepareSharePreviewIfNeeded() async {
         guard shareCardImage == nil, !preparingPreview else { return }
         preparingPreview = true
@@ -436,36 +390,6 @@ struct GratitudeDetailView: View {
             await Task.yield()
             shareCardImage = await AppreciationShareRenderer.storyImage(for: content)
         }
-    }
-
-    /// Stories needs the sticker; LinkedIn / X only need copy.
-    private func prepareStoriesAssetsIfNeeded() async {
-        await prepareSharePreviewIfNeeded()
-        if linkStickerImage == nil {
-            linkStickerImage = AppreciationShareRenderer.linkSticker(for: shareContent)
-        }
-    }
-
-    private func share(_ destination: SocialShare.Destination) async {
-        preparingShare = true
-        defer { preparingShare = false }
-
-        if destination == .instagramStories {
-            await prepareStoriesAssetsIfNeeded()
-        }
-
-        let outcome = await SocialShare.share(
-            destination,
-            content: shareContent,
-            cardImage: shareCardImage,
-            linkSticker: linkStickerImage,
-            openURL: openURL
-        )
-        switch outcome {
-        case .opened(let hint):
-            flashHint(hint)
-        }
-        trackShare(channel: destination.rawValue)
     }
 
     private func trackShare(channel: String) {
@@ -490,6 +414,7 @@ struct GratitudeDetailView: View {
         // Present via Identifiable payload so the sheet is created with items already set.
         // `appreciation_shared` fires from the sheet's completion handler, not here,
         // so a cancelled share is not counted.
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         systemSharePayload = SystemSharePayload(items: items)
     }
 

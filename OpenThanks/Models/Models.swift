@@ -71,6 +71,9 @@ struct Gratitude: Codable, Identifiable, Hashable {
     let acceptedAt: Date?
     var status: GratitudeStatus?
     var visibility: GratitudeVisibility?
+    /// True only when the recipient accepted a public appreciation as private.
+    /// Nil when the column is absent (migration not applied yet).
+    var acceptedAsPrivate: Bool? = nil
     var recipientEmail: String?
     var recipientPhone: String?
     var recipientName: String?
@@ -100,6 +103,7 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case createdAt = "created_at"
         case acceptedAt = "accepted_at"
         case status, visibility, slug
+        case acceptedAsPrivate = "accepted_as_private"
         case recipientEmail = "recipient_email"
         case recipientPhone = "recipient_phone"
         case recipientName = "recipient_name"
@@ -183,6 +187,17 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var claimURL: URL? {
         guard let claimToken else { return nil }
         return AppConfig.webAppURL.appending(path: "claim/\(claimToken.uuidString.lowercased())")
+    }
+
+    /// Sender marked this public (or left visibility unset, which counts as public).
+    var senderMarkedPublic: Bool { visibility != .private }
+
+    /// Small lock label for a private appreciation.
+    /// "Accepted privately" only when `accepted_as_private` is present and true.
+    var privacyMarkTitle: String? {
+        if acceptedAsPrivate == true { return "Accepted privately" }
+        if visibility == .private { return "Private" }
+        return nil
     }
 
     /// Whether `viewerId` is allowed to see this post: public posts are open,
