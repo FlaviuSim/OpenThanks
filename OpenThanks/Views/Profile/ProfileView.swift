@@ -91,7 +91,8 @@ struct UserProfileView: View {
                 header
                 if shownProfile.favoriteNonprofitName != nil { nonprofitCard }
                 sectionSwitcher
-                if section != .ripple, isOwnProfile, pendingSentCount > 0 {
+                // Under the 3 stats, above section body (including Ripple).
+                if isOwnProfile, pendingSentCount > 0 {
                     PendingAppreciationsBanner(count: pendingSentCount)
                 }
                 sectionContent
@@ -169,6 +170,10 @@ struct UserProfileView: View {
             guard let gratitude = note.object as? Gratitude else { return }
             applyAccepted(gratitude)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .gratitudeCreated)) { note in
+            guard let gratitude = note.object as? Gratitude else { return }
+            applyCreated(gratitude)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .profileDidUpdate)) { note in
             guard let updated = note.object as? Profile, updated.id == profile.id else { return }
             freshProfile = updated
@@ -222,24 +227,50 @@ struct UserProfileView: View {
     }
 
     /// Keep Sent/Received in sync when an appreciation is accepted (no pull-to-refresh).
+    /// Stays on Ripple so the new card shows in “Latest” under the stats; Given/Received lists update too.
     private func applyAccepted(_ gratitude: Gratitude) {
         guard gratitude.status == .accepted else { return }
+        guard gratitude.isVisible(to: auth.userId) else { return }
         withAnimation(.easeInOut(duration: 0.2)) {
-            if gratitude.recipientId == profile.id,
-               !received.contains(where: { $0.id == gratitude.id }) {
-                received.insert(gratitude, at: 0)
+            if gratitude.recipientId == profile.id {
+                if let idx = received.firstIndex(where: { $0.id == gratitude.id }) {
+                    received[idx] = gratitude
+                } else {
+                    received.insert(gratitude, at: 0)
+                    stats.received += 1
+                }
                 received.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
-                stats.received += 1
-                if isOwnProfile { section = .received }
             }
-            if gratitude.authorId == profile.id,
-               !sent.contains(where: { $0.id == gratitude.id }) {
-                sent.insert(gratitude, at: 0)
+            if gratitude.authorId == profile.id {
+                if let idx = sent.firstIndex(where: { $0.id == gratitude.id }) {
+                    sent[idx] = gratitude
+                } else {
+                    sent.insert(gratitude, at: 0)
+                    stats.sent += 1
+                }
                 sent.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
-                stats.sent += 1
                 if isOwnProfile {
                     pendingSentCount = max(0, pendingSentCount - 1)
                 }
+            }
+        }
+    }
+
+    /// Own profile: bump pending-sent chrome after compose (accepted lists wait for accept).
+    private func applyCreated(_ gratitude: Gratitude) {
+        guard isOwnProfile, gratitude.authorId == profile.id else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if gratitude.status == .accepted, gratitude.isVisible(to: auth.userId) {
+                if let idx = sent.firstIndex(where: { $0.id == gratitude.id }) {
+                    sent[idx] = gratitude
+                } else {
+                    sent.insert(gratitude, at: 0)
+                    stats.sent += 1
+                }
+                sent.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
+                section = .sent
+            } else if gratitude.status == .pending || gratitude.status == nil {
+                pendingSentCount += 1
             }
         }
     }
@@ -519,7 +550,11 @@ struct UserProfileView: View {
     }
 
     private func rowTitle(for g: Gratitude) -> String {
-        if section == .sent {
+        rowTitle(for: g, asSent: section == .sent || (section == .ripple && g.authorId == profile.id))
+    }
+
+    private func rowTitle(for g: Gratitude, asSent: Bool) -> String {
+        if asSent {
             return isOwnProfile
                 ? "You thanked \(g.recipientDisplayName)"
                 : "\(shownProfile.displayName) thanked \(g.recipientDisplayName)"
@@ -529,9 +564,66 @@ struct UserProfileView: View {
                             : "\(author) thanked \(shownProfile.displayName)"
     }
 
+    /// Newest accepted thanks on this profile (given or received).
+    private var latestAppreciations: [Gratitude] {
+        (sent + received)
+            .sorted { $0.acceptanceSortDate > $1.acceptanceSortDate }
+    }
+
+    @ViewBuilder
+    private func latestAppreciationRow(_ g: Gratitude) -> some View {
+        let asSent = g.authorId == profile.id
+        HStack(alignment: .top, spacing: 12) {
+            ProfileAvatarLink(profile: asSent ? g.recipient : g.author, size: 40)
+            NavigationLink(value: g) {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(rowTitle(for: g, asSent: asSent))
+                            .font(Theme.body(14, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .multilineTextAlignment(.leading)
+                        LinkifiedText(
+                            text: g.message,
+                            font: Theme.body(13),
+                            foreground: Theme.textSecondary
+                        )
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        AppreciationPrivacyMark(
+                            visibility: g.visibility,
+                            acceptedAsPrivate: g.acceptedAsPrivate,
+                            fontSize: 11
+                        )
+                    }
+                    Spacer()
+                    if let date = g.displayDate {
+                        Text(date, format: .relative(presentation: .named))
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .card()
+    }
+
     private var rippleList: some View {
         VStack(spacing: 14) {
-            if loaded && inspirations.isEmpty && ripplePassOns.isEmpty {
+            // Under the 3 stats, above Ripple — new accepts show here immediately.
+            if loaded, !latestAppreciations.isEmpty {
+                rippleSectionHeader(
+                    "Latest",
+                    count: min(3, latestAppreciations.count),
+                    systemImage: "sparkles"
+                )
+                ForEach(Array(latestAppreciations.prefix(3))) { g in
+                    latestAppreciationRow(g)
+                }
+            }
+
+            if loaded && inspirations.isEmpty && ripplePassOns.isEmpty && latestAppreciations.isEmpty {
                 rippleEmptyState
             } else {
                 rippleStoryCard

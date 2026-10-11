@@ -234,6 +234,19 @@ enum Analytics {
         capture("calendar_permission_prompted", ["source": source])
     }
 
+    /// User dismissed the calendar connect UI without linking (onboarding / Home banner / settings).
+    static func calendarPermissionSkipped(source: String) {
+        capture(
+            "calendar_permission_skipped",
+            ["source": source],
+            userProperties: [
+                "calendar_linked": false,
+            ],
+            userPropertiesSetOnce: nil
+        )
+        Task { await syncPermissionPersonProperties() }
+    }
+
     static func calendarConnected(
         provider: String,
         accessLevel: String,
@@ -263,10 +276,25 @@ enum Analytics {
     }
 
     static func calendarDisconnected(provider: String) {
+        // Recompute after disconnect so dual-provider users stay `calendar_linked`.
+        let stillLinked = CalendarMeetingAggregator.hasAnyConnectedSource
+        let providerLabel = calendarProviderLabel(
+            apple: CalendarMeetingService.hasFullAccess,
+            google: GoogleCalendarService.isConnected
+        )
+        var set: [String: Any] = [
+            "calendar_linked": stillLinked,
+            "calendar_provider": providerLabel ?? "",
+        ]
+        if let level = calendarAccessLevelLabel() {
+            set["calendar_access_level"] = level
+        } else {
+            set["calendar_access_level"] = ""
+        }
         capture(
             "calendar_disconnected",
             ["provider": provider],
-            userProperties: nil,
+            userProperties: set,
             userPropertiesSetOnce: nil
         )
         Task { await syncPermissionPersonProperties() }

@@ -85,6 +85,7 @@ struct MainTabView: View {
             // Pending CTAs only — do not auto-open blank compose on every launch.
             presentLaunchSurfaces()
             AppUpdateChecker.shared.checkIfNeeded()
+            CalendarConnectReminder.shared.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: .composeLaunchQueued)) { _ in
             presentPendingComposeIfNeeded()
@@ -101,6 +102,7 @@ struct MainTabView: View {
             // Do not open blank compose just because the icon was tapped.
             presentLaunchSurfaces()
             AppUpdateChecker.shared.checkIfNeeded()
+            CalendarConnectReminder.shared.refresh()
             if fridayReminderEnabled {
                 Task { await NotificationService.refreshFridayReminderIfEnabled(true) }
             }

@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Shown once after notifications + profile — last first-login gate for evening thank-you nudges.
+/// Calendar connect UI — full-screen onboarding gate, or Home-banner sheet.
 struct CalendarPermissionView: View {
     var onFinished: () -> Void
+    /// Analytics source for connect helpers (`onboarding`, `home_banner`, …).
+    var analyticsSource: String = "onboarding"
 
     @Environment(AuthService.self) private var auth
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
@@ -107,6 +109,7 @@ struct CalendarPermissionView: View {
         .readableWidth()
         .animation(.easeOut(duration: 0.2), value: errorMessage)
         .onAppear {
+            Analytics.calendarPermissionPrompted(source: analyticsSource)
             withAnimation(.easeOut(duration: 0.45)) {
                 appeared = true
             }
@@ -118,7 +121,7 @@ struct CalendarPermissionView: View {
         errorMessage = nil
         defer { busyApple = false }
 
-        let granted = await CalendarMeetingService.requestAccess(analyticsSource: "onboarding")
+        let granted = await CalendarMeetingService.requestAccess(analyticsSource: analyticsSource)
         guard granted else {
             errorMessage = "Apple Calendar wasn’t allowed. Try Google, or turn it on later in Settings."
             return
@@ -132,7 +135,7 @@ struct CalendarPermissionView: View {
         defer { busyGoogle = false }
 
         do {
-            try await GoogleCalendarAuth.connect(analyticsSource: "onboarding")
+            try await GoogleCalendarAuth.connect(analyticsSource: analyticsSource)
             await finishWithNudge(requestAppleIfNeeded: false)
         } catch {
             if GoogleCalendarAuth.isUserCancellation(error) {
@@ -147,7 +150,7 @@ struct CalendarPermissionView: View {
             authorId: auth.userId,
             selfEmails: selfEmails,
             requestAppleIfNeeded: requestAppleIfNeeded,
-            analyticsSource: "onboarding"
+            analyticsSource: analyticsSource
         )
         calendarNudgeEnabled = failure == nil
         if failure == nil {
@@ -169,6 +172,7 @@ struct CalendarPermissionView: View {
     }
 
     private func skip() {
+        Analytics.calendarPermissionSkipped(source: analyticsSource)
         calendarNudgeEnabled = false
         Task { await NotificationService.disableCalendarGratitudeNudge() }
         onFinished()

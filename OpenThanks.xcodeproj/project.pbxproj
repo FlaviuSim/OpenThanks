@@ -20,6 +20,7 @@
 		0F54C29D44313DCFE8A3D5AA /* ThankSomeoneControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E8479B2CFAA40A2312F23E /* ThankSomeoneControl.swift */; };
 		0FC46E3DEB9FB0264DE4545B /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D87DB1FBDF467DB01585D /* SiriIntroView.swift */; };
+		10CE3C606661BC71C9F4113C /* CalendarConnectReminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51E3E6F8FD7D72F4E4E0935 /* CalendarConnectReminder.swift */; };
 		1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */; };
 		13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */; };
 		19BCDD4D9F51778CCF379DE9 /* AppIcon-Night@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = FBC593DA46378D66511E5B0E /* AppIcon-Night@3x.png */; };
@@ -139,6 +140,7 @@
 		E5261ECE9E0D6C053E1BA064 /* WidgetSnapshotRefresher.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */; };
 		E532D4D7154D4251FC00E5A3 /* OpenThanksShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E572E04E435299778F0B0B98 /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
+		E678F1530BB1512B50C46448 /* CalendarConnectBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1200BBA4D98DF3DBDD4530F /* CalendarConnectBanner.swift */; };
 		E92A44E68681638A822A948D /* EnjoymentPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */; };
 		E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */; };
 		EA81503A5D6E988AB4201319 /* CalendarMeetingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */; };
@@ -346,6 +348,7 @@
 		D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarService.swift; sourceTree = "<group>"; };
 		DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMeetingService.swift; sourceTree = "<group>"; };
 		DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppreciationAI.swift; sourceTree = "<group>"; };
+		E1200BBA4D98DF3DBDD4530F /* CalendarConnectBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarConnectBanner.swift; sourceTree = "<group>"; };
 		E127445E45EA6D660852EB3D /* AppIcon-Ember.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember.png"; sourceTree = "<group>"; };
 		E2A9BEF3F82CD8A4E723CE2D /* AppIcon-Dawn@3x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@3x~ipad.png"; sourceTree = "<group>"; };
 		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -358,6 +361,7 @@
 		F2F9C5D2E49314B2E04B5E8A /* AppIcon-Dawn@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@2x~ipad.png"; sourceTree = "<group>"; };
 		F3F96BC2DE837FAC91410810 /* WatchRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelay.swift; sourceTree = "<group>"; };
 		F41CEF2962FB940913427807 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		F51E3E6F8FD7D72F4E4E0935 /* CalendarConnectReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarConnectReminder.swift; sourceTree = "<group>"; };
 		F79E082FBBF7CC0ED472B50D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F7F32AE04085791782F13A5C /* AppIcon-Night@3x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night@3x~ipad.png"; sourceTree = "<group>"; };
 		FBC593DA46378D66511E5B0E /* AppIcon-Night@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night@3x.png"; sourceTree = "<group>"; };
@@ -418,6 +422,7 @@
 				A56F72311BC9752D833B4C08 /* AppStoreReviewPrompt.swift */,
 				061E88A9D27481C207D0C62A /* AppUpdateChecker.swift */,
 				1EC0A8CDE94660605C46C812 /* AuthService.swift */,
+				F51E3E6F8FD7D72F4E4E0935 /* CalendarConnectReminder.swift */,
 				566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */,
 				DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */,
 				21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */,
@@ -573,6 +578,7 @@
 				3503FCA888C8E244D2C73F4F /* AppreciationShare.swift */,
 				C6F01A269B1EC25598F3D49B /* AppUpdateBanner.swift */,
 				1713303DAFBD83649EC7A997 /* CachedAsyncImage.swift */,
+				E1200BBA4D98DF3DBDD4530F /* CalendarConnectBanner.swift */,
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
 				FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
@@ -965,6 +971,8 @@
 				F879B767EAE9FED2200BFD1B /* AppreciationShare.swift in Sources */,
 				BA2832EB5B6A267BD075CC36 /* AuthService.swift in Sources */,
 				7B66DB0E5753F0F4BE85E270 /* CachedAsyncImage.swift in Sources */,
+				E678F1530BB1512B50C46448 /* CalendarConnectBanner.swift in Sources */,
+				10CE3C606661BC71C9F4113C /* CalendarConnectReminder.swift in Sources */,
 				C84278A64A98CA238E9303C3 /* CalendarGratitudeBackgroundRefresh.swift in Sources */,
 				FF60DD89D5A059CB7194C72C /* CalendarMeetingService.swift in Sources */,
 				EA81503A5D6E988AB4201319 /* CalendarMeetingSource.swift in Sources */,

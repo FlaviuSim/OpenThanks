@@ -378,15 +378,9 @@ final class PaddedKeyboardToolbar: UIToolbar {
         CGSize(width: size.width, height: Self.preferredHeight)
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // Keep the reported accessory height stable; UIKit sometimes collapses toolbars to 44.
-        if abs(bounds.height - Self.preferredHeight) > 0.5 {
-            var frame = self.frame
-            frame.size.height = Self.preferredHeight
-            self.frame = frame
-        }
-    }
+    // Height is owned by intrinsicContentSize / sizeThatFits only.
+    // Mutating `frame` here fights UIKit’s keyboard placeholder constraints
+    // (accessoryView.bottom vs inputView.top) and floods the console on iPad.
 
     /// Solid chrome so scroll content (emoji chips) can’t show through the
     /// flexible-space gap and confuse taps over the keyboard.
@@ -411,9 +405,13 @@ final class IntrinsicTextView: UITextView {
 
     override var intrinsicContentSize: CGSize {
         let fallbackWidth = (window?.bounds.width ?? UIScreen.main.bounds.width) - 64
-        let width = bounds.width > 0 ? bounds.width : fallbackWidth
+        let width = bounds.width > 1 ? bounds.width : fallbackWidth
+        guard width.isFinite, width > 1 else {
+            return CGSize(width: UIView.noIntrinsicMetric, height: 160)
+        }
         let fitting = sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: UIView.noIntrinsicMetric, height: max(160, fitting.height))
+        let height = fitting.height.isFinite ? max(160, fitting.height) : 160
+        return CGSize(width: UIView.noIntrinsicMetric, height: height)
     }
 
     override func layoutSubviews() {

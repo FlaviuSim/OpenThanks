@@ -45,27 +45,7 @@ struct PendingShareSheet: View {
     }
 
     private var messageBody: String {
-        let greeting = gratitude.shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
-        let preview = Self.messagePreview(gratitude.message)
-        let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
-        return greeting
-            + "I wrote you an appreciation on OpenThanks 💛\(previewBit) You can read and accept it here: "
-            + shareURL.absoluteString
-    }
-
-    private static func messagePreview(_ message: String, maxChars: Int = 120) -> String? {
-        let trimmed = message
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-        guard !trimmed.isEmpty else { return nil }
-        if trimmed.count <= maxChars { return trimmed }
-        let end = trimmed.index(trimmed.startIndex, offsetBy: maxChars)
-        var slice = String(trimmed[..<end])
-        if let lastSpace = slice.lastIndex(of: " "),
-           slice.distance(from: slice.startIndex, to: lastSpace) > 40 {
-            slice = String(slice[..<lastSpace])
-        }
-        return slice.trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+        gratitude.pendingShareInviteMessage(shareURL: shareURL)
     }
 
     var body: some View {
@@ -219,6 +199,14 @@ struct PendingShareSheet: View {
         .scrollIndicators(.hidden)
         .frame(maxWidth: .infinity)
         .background(Theme.background)
+        .onAppear {
+            var props = Analytics.appreciationIdentity(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId
+            )
+            props["status"] = gratitude.status?.rawValue ?? "pending"
+            Analytics.capture("pending_share_shown", props)
+        }
         .sheet(isPresented: Binding(
             get: { systemShare != nil },
             set: { if !$0 { systemShare = nil } }
@@ -311,7 +299,7 @@ struct PendingShareSheet: View {
             components.path = email
         }
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "I wrote you an appreciation on OpenThanks"),
+            URLQueryItem(name: "subject", value: gratitude.pendingShareEmailSubject),
             URLQueryItem(name: "body", value: messageBody),
         ]
         if let url = components.url {

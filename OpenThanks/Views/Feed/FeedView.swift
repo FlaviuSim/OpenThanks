@@ -27,6 +27,8 @@ struct FeedView: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var updateChecker = AppUpdateChecker.shared
+    @State private var calendarReminder = CalendarConnectReminder.shared
+    @State private var showCalendarConnect = false
     @State private var scope: Scope = .personal
     /// Per-scope lists so My ↔ World can page without flashing the wrong feed.
     @State private var personalItems: [Gratitude] = []
@@ -122,6 +124,15 @@ struct FeedView: View {
         updateChecker.shouldShowBanner
             && hasSeenFirstSendTip
             && !showCompose
+            && payItForwardFromName == nil
+            && isSelected
+    }
+    /// Soft calendar reconnect — same quiet conditions as the update banner.
+    private var shouldShowCalendarBanner: Bool {
+        calendarReminder.shouldShowBanner
+            && hasSeenFirstSendTip
+            && !showCompose
+            && !showCalendarConnect
             && payItForwardFromName == nil
             && isSelected
     }
@@ -251,6 +262,10 @@ struct FeedView: View {
                 guard let gratitude = note.object as? Gratitude else { return }
                 applyAcceptedPending(gratitude)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .gratitudeCreated)) { note in
+                guard let gratitude = note.object as? Gratitude else { return }
+                applyCreated(gratitude)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .profileDidUpdate)) { note in
                 guard let updated = note.object as? Profile else { return }
                 applyProfileUpdate(updated)
@@ -305,10 +320,25 @@ struct FeedView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 .onAppear { updateChecker.trackBannerShown() }
             }
+            if shouldShowCalendarBanner {
+                CalendarConnectBanner(
+                    onConnect: {
+                        calendarReminder.trackConnectTapped()
+                        showCalendarConnect = true
+                    },
+                    onLater: { calendarReminder.snooze() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, shouldShowUpdateBanner ? 4 : 10)
+                .padding(.bottom, 4)
+                .readableWidth()
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .onAppear { calendarReminder.trackBannerShown() }
+            }
             if pendingSentCount > 0 {
                 PendingAppreciationsBanner(count: pendingSentCount)
                     .padding(.horizontal, 16)
-                    .padding(.top, shouldShowUpdateBanner ? 4 : 10)
+                    .padding(.top, (shouldShowUpdateBanner || shouldShowCalendarBanner) ? 4 : 10)
                     .padding(.bottom, 4)
                     .readableWidth()
             }
@@ -352,6 +382,35 @@ struct FeedView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .animation(.easeInOut(duration: 0.2), value: shouldShowUpdateBanner)
+        .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
+        .onAppear { calendarReminder.refresh() }
+        .onChange(of: isSelected) { _, selected in
+            if selected { calendarReminder.refresh() }
+        }
+        .sheet(isPresented: $showCalendarConnect, onDismiss: {
+            calendarReminder.refresh()
+        }) {
+            NavigationStack {
+                CalendarPermissionView(
+                    onFinished: {
+                        showCalendarConnect = false
+                        calendarReminder.refresh()
+                    },
+                    analyticsSource: "home_banner"
+                )
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Close") {
+                            showCalendarConnect = false
+                        }
+                        .font(Theme.body(16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+            }
+            .syncAppAppearance()
+            .presentationDetents([.large])
+        }
         .onChange(of: scope) { _, next in
             dismissSearchKeyboard()
             searchBarVisible = true
@@ -360,6 +419,9 @@ struct FeedView: View {
                 suppressNextScopeHaptic = false
             } else {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                Analytics.capture("home_feed_scope_changed", [
+                    "scope": next == .personal ? "personal" : "world",
+                ])
             }
             // Prefetch the other scope once (generation-guarded; no-ops if already loaded).
             Task { await prefetchOpposite(of: next) }
@@ -367,7 +429,7 @@ struct FeedView: View {
     }
 
     private var hasTopHomeBanner: Bool {
-        shouldShowUpdateBanner || pendingSentCount > 0
+        shouldShowUpdateBanner || shouldShowCalendarBanner || pendingSentCount > 0
     }
 
     @ViewBuilder
@@ -659,17 +721,44 @@ struct FeedView: View {
     private func applyAcceptedPending(_ gratitude: Gratitude) {
         resolvedPendingIds.insert(gratitude.id)
         pendingToAccept.removeAll { $0.id == gratitude.id }
-        if gratitude.status == .accepted {
-            mutateItems(for: .personal) { list in
-                if let idx = list.firstIndex(where: { $0.id == gratitude.id }) {
-                    list[idx] = gratitude
-                } else {
-                    list.insert(gratitude, at: 0)
-                }
-                list.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
-            }
+        guard gratitude.status == .accepted else {
+            Task { await refreshWidgetSnapshot() }
+            return
         }
+
+        // My Feed: anything you sent or received.
+        upsertAccepted(gratitude, into: .personal)
+
+        // World Feed: public accepts only (matches worldFeed query).
+        if gratitude.senderMarkedPublic {
+            upsertAccepted(gratitude, into: .world)
+        }
+
         Task { await refreshWidgetSnapshot() }
+    }
+
+    private func upsertAccepted(_ gratitude: Gratitude, into scope: Scope) {
+        mutateItems(for: scope) { list in
+            if let idx = list.firstIndex(where: { $0.id == gratitude.id }) {
+                list[idx] = gratitude
+            } else {
+                list.insert(gratitude, at: 0)
+            }
+            list.sort { $0.acceptanceSortDate > $1.acceptanceSortDate }
+        }
+    }
+
+    /// After compose: bump pending-sent chrome; if somehow already accepted, insert into feeds.
+    private func applyCreated(_ gratitude: Gratitude) {
+        guard let userId = auth.userId, gratitude.authorId == userId else { return }
+        if gratitude.status == .accepted {
+            upsertAccepted(gratitude, into: .personal)
+            if gratitude.senderMarkedPublic {
+                upsertAccepted(gratitude, into: .world)
+            }
+        } else {
+            pendingSentCount += 1
+        }
     }
 
     private func applyProfileUpdate(_ updated: Profile) {

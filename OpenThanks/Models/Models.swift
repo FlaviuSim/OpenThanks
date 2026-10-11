@@ -5,6 +5,8 @@ import Foundation
 extension Notification.Name {
     /// Posted with a `Gratitude` object after the recipient accepts.
     static let gratitudeAccepted = Notification.Name("openthanks.gratitudeAccepted")
+    /// Posted with a `Gratitude` object after the signed-in user creates one.
+    static let gratitudeCreated = Notification.Name("openthanks.gratitudeCreated")
     /// Posted with a `Profile` object after the signed-in user saves profile edits.
     static let profileDidUpdate = Notification.Name("openthanks.profileDidUpdate")
     /// Posted after the signed-in user blocks someone (object = blocked UUID).
@@ -170,6 +172,40 @@ struct Gratitude: Codable, Identifiable, Hashable {
         let value = recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let value, !value.isEmpty, value.contains("@") else { return nil }
         return value
+    }
+
+    /// Mailto subject when nudging the recipient to accept.
+    var pendingShareEmailSubject: String {
+        visibility == .private
+            ? "I wrote you a private appreciation on OpenThanks"
+            : "I wrote you an appreciation on OpenThanks"
+    }
+
+    /// Body for Text / WhatsApp / Email / system share when inviting the recipient.
+    /// Mentions privacy when the sender marked the note private.
+    func pendingShareInviteMessage(shareURL: URL) -> String {
+        let greeting = shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
+        let preview = Self.pendingShareMessagePreview(message)
+        let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
+        let kind = visibility == .private ? "a private appreciation" : "an appreciation"
+        return greeting
+            + "I wrote you \(kind) on OpenThanks 💛\(previewBit) You can read and accept it here: "
+            + shareURL.absoluteString
+    }
+
+    private static func pendingShareMessagePreview(_ message: String, maxChars: Int = 120) -> String? {
+        let trimmed = message
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.count <= maxChars { return trimmed }
+        let end = trimmed.index(trimmed.startIndex, offsetBy: maxChars)
+        var slice = String(trimmed[..<end])
+        if let lastSpace = slice.lastIndex(of: " "),
+           slice.distance(from: slice.startIndex, to: lastSpace) > 40 {
+            slice = String(slice[..<lastSpace])
+        }
+        return slice.trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 
     var mediaURL: URL? { AppConfig.mediaURL(from: mediaUrl) }
