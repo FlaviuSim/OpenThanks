@@ -98,6 +98,9 @@ struct PayItForwardSheet: View {
             .padding(.bottom, 8)
         }
         .frame(maxWidth: .infinity, alignment: .top)
+        // Ideal height only — measuring the detent container itself cycles AttributeGraph
+        // (detent → GeometryReader → detentHeight → detent…).
+        .fixedSize(horizontal: false, vertical: true)
         .background(Theme.background)
         .background {
             GeometryReader { geo in
@@ -108,7 +111,7 @@ struct PayItForwardSheet: View {
             }
         }
         .onPreferenceChange(PayItForwardSheetHeightKey.self) { height in
-            guard height > 0 else { return }
+            guard height.isFinite, height > 0, abs(height - detentHeight) > 1 else { return }
             detentHeight = height
         }
         .presentationDetents([.height(detentHeight)])

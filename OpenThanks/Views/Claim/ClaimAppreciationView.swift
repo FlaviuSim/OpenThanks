@@ -4,6 +4,8 @@ import SwiftUI
 /// Used from claim links and from notification taps that open a pending post.
 struct PendingAppreciationReviewView: View {
     @State var gratitude: Gratitude
+    /// Analytics `source` for `appreciation_accepted` / `appreciation_declined`.
+    var analyticsSource: String = "claim"
     /// When set, called after a successful accept so the host can navigate to the
     /// accepted appreciation page (claim deep links redirect here).
     var onAccepted: ((Gratitude) -> Void)? = nil
@@ -12,11 +14,12 @@ struct PendingAppreciationReviewView: View {
 
     @State private var acting: Action?
     @State private var errorMessage: String?
+    @State private var showPrivateConfirm = false
     @State private var outcome: Outcome = .review
     /// Fallback when the embed didn't include author (still navigate by id).
     @State private var loadedAuthor: Profile?
 
-    private enum Action { case accept, decline }
+    private enum Action { case accept, decline, acceptPrivate }
     private enum Outcome {
         case review
         case accepted(Gratitude)
@@ -25,6 +28,8 @@ struct PendingAppreciationReviewView: View {
 
     @State private var showCompose = false
     @State private var showPayItForward = false
+    /// One `appreciation_viewed` per time this accept screen is created.
+    @State private var didCaptureAppreciationView = false
 
     private var authorProfile: Profile? { gratitude.author ?? loadedAuthor }
 
@@ -80,6 +85,7 @@ struct PendingAppreciationReviewView: View {
             )
         }
         .task {
+            captureAppreciationViewIfNeeded()
             await linkRecipientIfNeeded()
             await loadAuthorIfNeeded()
         }
@@ -147,24 +153,33 @@ struct PendingAppreciationReviewView: View {
                         .foregroundStyle(.red)
                 }
 
-                HStack(spacing: 12) {
-                    Button {
-                        Task { await respond(.decline) }
-                    } label: {
-                        Text(acting == .decline ? "Declining…" : "Decline")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(SecondaryCapsuleButtonStyle())
-                    .disabled(acting != nil)
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        Button {
+                            Task { await respond(.decline) }
+                        } label: {
+                            Text(acting == .decline ? "Declining…" : "Decline")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(SecondaryCapsuleButtonStyle())
+                        .disabled(acting != nil)
 
-                    Button {
-                        Task { await respond(.accept) }
-                    } label: {
-                        Text(acting == .accept ? "Accepting…" : "Accept")
-                            .frame(maxWidth: .infinity)
+                        Button {
+                            Task { await respond(.accept) }
+                        } label: {
+                            Text(acting == .accept ? "Accepting…" : "Accept")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(CTAButtonStyle())
+                        .disabled(acting != nil)
                     }
-                    .buttonStyle(CTAButtonStyle())
-                    .disabled(acting != nil)
+
+                    if gratitude.senderMarkedPublic {
+                        AcceptPrivatelyLink(isEnabled: acting == nil) {
+                            errorMessage = nil
+                            showPrivateConfirm = true
+                        }
+                    }
                 }
             }
             .padding(20)
@@ -172,6 +187,15 @@ struct PendingAppreciationReviewView: View {
             .readableWidth()
         }
         .onAppear { WarmHaptics.received() }
+        .sheet(isPresented: $showPrivateConfirm) {
+            AcceptPrivatelySheet(
+                senderName: authorProfile?.fullName ?? authorProfile?.displayName,
+                isWorking: acting == .accept || acting == .acceptPrivate,
+                errorMessage: errorMessage,
+                onKeepPrivate: { Task { await respond(.acceptPrivate) } },
+                onAcceptPublicly: { Task { await respond(.accept) } }
+            )
+        }
     }
 
     private var declinedContent: some View {
@@ -210,17 +234,46 @@ struct PendingAppreciationReviewView: View {
         loadedAuthor = try? await GratitudeService.profile(id: gratitude.authorId)
     }
 
+    private func captureAppreciationViewIfNeeded() {
+        guard !didCaptureAppreciationView else { return }
+        didCaptureAppreciationView = true
+        Analytics.appreciationViewed(
+            gratitude,
+            viewerId: auth.userId,
+            viewerEmail: auth.currentProfile?.email,
+            surface: "claim"
+        )
+    }
+
     private func trackClaimResponse(_ action: Action) {
         switch action {
         case .accept:
-            Analytics.capture("appreciation_accepted", ["source": "claim"])
+            Analytics.appreciationAccepted(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId,
+                source: analyticsSource,
+                visibility: "public"
+            )
+        case .acceptPrivate:
+            Analytics.appreciationAccepted(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId,
+                source: analyticsSource,
+                visibility: "private",
+                acceptedAsPrivate: true
+            )
         case .decline:
-            Analytics.capture("appreciation_declined", ["source": "claim"])
+            Analytics.appreciationDeclined(
+                gratitudeId: gratitude.id,
+                senderId: gratitude.authorId,
+                source: analyticsSource
+            )
         }
     }
 
     private func respond(_ action: Action) async {
         guard let userId = auth.userId else { return }
+        let accepts = action == .accept || action == .acceptPrivate
         acting = action
         errorMessage = nil
         do {
@@ -232,14 +285,21 @@ struct PendingAppreciationReviewView: View {
                     authorId: gratitude.authorId
                 )
             }
+            // Only a public appreciation can be accepted privately. Omit the
+            // field otherwise so a plain Accept stays exactly as before.
+            let visibility: String? = (action == .acceptPrivate && gratitude.senderMarkedPublic)
+                ? "private"
+                : nil
             let updated = try await GratitudeService.respondToClaim(
                 gratitudeId: gratitude.id,
                 recipientId: userId,
-                accept: action == .accept
+                accept: accepts,
+                visibility: visibility
             )
             gratitude = updated
+            showPrivateConfirm = false
             trackClaimResponse(action)
-            if action == .accept {
+            if accepts {
                 WarmHaptics.received()
                 Analytics.capture("pay_it_forward_shown", [
                     "source": "claim_accept",
@@ -253,7 +313,7 @@ struct PendingAppreciationReviewView: View {
                 showPayItForward = true
             }
             withAnimation(Motion.note) {
-                outcome = action == .accept ? .accepted(updated) : .declined
+                outcome = accepts ? .accepted(updated) : .declined
             }
             acting = nil
         } catch is CancellationError {
@@ -261,9 +321,10 @@ struct PendingAppreciationReviewView: View {
         } catch {
             // Already resolved elsewhere — show the accepted/declined outcome.
             if let current = try? await GratitudeService.gratitude(id: gratitude.id) {
-                if action == .accept, current.status == .accepted {
+                if accepts, current.status == .accepted {
                     gratitude = current
-                    trackClaimResponse(.accept)
+                    showPrivateConfirm = false
+                    trackClaimResponse(action)
                     if let onAccepted {
                         onAccepted(current)
                         acting = nil
@@ -295,6 +356,9 @@ struct ClaimAppreciationView: View {
 
     @State private var gratitude: Gratitude?
     @State private var phase: Phase = .loading
+    /// One `appreciation_viewed` when the claim link resolves to an already
+    /// accepted or declined note (the review screen is not shown).
+    @State private var didCaptureClaimView = false
 
     private enum Phase {
         case loading
@@ -353,6 +417,7 @@ struct ClaimAppreciationView: View {
                         body: "This appreciation has already been accepted or declined.",
                         systemImage: "heart"
                     )
+                    .onAppear { captureProcessedClaimViewIfNeeded() }
                 case .ownAppreciation:
                     EmptyView()
                 case .ownPublished:
@@ -399,6 +464,17 @@ struct ClaimAppreciationView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func captureProcessedClaimViewIfNeeded() {
+        guard !didCaptureClaimView, let gratitude else { return }
+        didCaptureClaimView = true
+        Analytics.appreciationViewed(
+            gratitude,
+            viewerId: auth.userId,
+            viewerEmail: auth.currentProfile?.email,
+            surface: "claim"
+        )
     }
 
     private func redirectToAcceptedAppreciation(
@@ -459,6 +535,119 @@ struct ClaimAppreciationView: View {
             if !error.isCancellation {
                 phase = .missing
             }
+        }
+    }
+}
+
+/// Quiet text link under the main Accept button. Public stays the default.
+struct AcceptPrivatelyLink: View {
+    var isEnabled: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text("Accept privately")
+                .font(Theme.body(14))
+                .foregroundStyle(Theme.textTertiary)
+                .underline(true, color: Theme.textTertiary.opacity(0.65))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.45)
+        .accessibilityHint("Keeps this thank-you between you and the sender")
+    }
+}
+
+/// Gentle confirmation before a recipient accepts a public appreciation as private.
+struct AcceptPrivatelySheet: View {
+    let senderName: String?
+    var isWorking: Bool
+    var errorMessage: String?
+    let onKeepPrivate: () -> Void
+    let onAcceptPublicly: () -> Void
+
+    private var firstName: String {
+        let trimmed = senderName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if let first = trimmed.split(whereSeparator: \.isWhitespace).first, !first.isEmpty {
+            return String(first)
+        }
+        return "They"
+    }
+
+    private var explanation: String {
+        "\(firstName) wanted to share this thank-you publicly so others can see it. You can keep it just between the two of you instead. It'll still be yours, it just won't appear in the public feed."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Keep this one just between you?")
+                .font(Theme.display(24, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(explanation)
+                .font(Theme.body(15))
+                .foregroundStyle(Theme.textSecondary)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(Theme.body(13))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: onKeepPrivate) {
+                Text(isWorking ? "Keeping it private…" : "Keep it private")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(CTAButtonStyle(isLoading: isWorking, isEnabled: !isWorking))
+            .disabled(isWorking)
+
+            Button(action: onAcceptPublicly) {
+                Text("Accept publicly")
+                    .font(Theme.body(14))
+                    .foregroundStyle(Theme.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .disabled(isWorking)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Theme.background)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(Theme.background)
+        .interactiveDismissDisabled(isWorking)
+    }
+}
+
+/// Small neutral lock. "Accepted privately" when the recipient chose that;
+/// "Private" when the sender sent it private.
+struct AppreciationPrivacyMark: View {
+    var visibility: GratitudeVisibility?
+    var acceptedAsPrivate: Bool?
+    var fontSize: CGFloat = 12
+
+    private var title: String? {
+        if acceptedAsPrivate == true { return "Accepted privately" }
+        if visibility == .private { return "Private" }
+        return nil
+    }
+
+    var body: some View {
+        if let title {
+            Label(title, systemImage: "lock.fill")
+                .font(Theme.body(fontSize, weight: .medium))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .accessibilityLabel(title)
         }
     }
 }

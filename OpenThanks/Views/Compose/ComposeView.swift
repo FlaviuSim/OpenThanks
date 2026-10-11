@@ -1105,8 +1105,15 @@ struct ComposeView: View {
         }
     }
 
+    /// Authors may change public/private until the recipient accepts.
+    private var canEditVisibility: Bool {
+        guard let editing = editingTarget else { return true }
+        return editing.status == .pending || editing.status == nil
+    }
+
     private var visibilitySection: some View {
         Button {
+            guard canEditVisibility else { return }
             withAnimation(.easeInOut(duration: 0.2)) {
                 visibility = visibility == .public ? .private : .public
             }
@@ -1125,9 +1132,15 @@ struct ComposeView: View {
                     Text(visibility == .public ? "Public" : "Private")
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text(visibility == .public
-                         ? "In the feed once they accept"
-                         : "Only you and the recipient can see")
+                    Text(
+                        canEditVisibility
+                            ? (visibility == .public
+                                ? "In the feed once they accept"
+                                : "Only you and the recipient can see")
+                            : (visibility == .public
+                                ? "Visible in the community feed"
+                                : "Locked after accept — only you and the recipient")
+                    )
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.leading)
@@ -1135,9 +1148,11 @@ struct ComposeView: View {
 
                 Spacer(minLength: 0)
 
-                Text("Switch")
-                    .font(Theme.body(13, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                if canEditVisibility {
+                    Text("Switch")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                }
             }
             .padding(14)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -1147,7 +1162,10 @@ struct ComposeView: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(sending)
+        .disabled(sending || !canEditVisibility)
+        .accessibilityHint(canEditVisibility
+            ? "Switches between public and private"
+            : "Visibility is locked after the appreciation is accepted")
         .sensoryFeedback(.selection, trigger: visibility)
     }
 
@@ -1848,6 +1866,8 @@ struct ComposeView: View {
                 }
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
+                    gratitudeId: updated.id,
+                    senderId: updated.authorId,
                     hasMedia: mediaUrl != nil,
                     messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
                     hasRecipient: recipientKind != "none",
@@ -1899,6 +1919,8 @@ struct ComposeView: View {
                 offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
+                    gratitudeId: result.id,
+                    senderId: result.authorId,
                     hasMedia: mediaUrl != nil,
                     messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
                     hasRecipient: recipientKind != "none",
@@ -1914,6 +1936,7 @@ struct ComposeView: View {
                         "source": analyticsSource,
                     ])
                 }
+                NotificationCenter.default.post(name: .gratitudeCreated, object: result)
                 sent = true
                 await refreshWidgetAfterSend()
                 if let userId = auth.userId {
@@ -2063,27 +2086,7 @@ struct SuccessView: View {
     }
 
     private var shareMessage: String {
-        let greeting = gratitude.shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
-        let preview = Self.messagePreview(gratitude.message)
-        let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
-        return greeting
-            + "I wrote you an appreciation on OpenThanks 💛\(previewBit) You can read and accept it here: "
-            + shareURL.absoluteString
-    }
-
-    private static func messagePreview(_ message: String, maxChars: Int = 120) -> String? {
-        let trimmed = message
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-        guard !trimmed.isEmpty else { return nil }
-        if trimmed.count <= maxChars { return trimmed }
-        let end = trimmed.index(trimmed.startIndex, offsetBy: maxChars)
-        var slice = String(trimmed[..<end])
-        if let lastSpace = slice.lastIndex(of: " "),
-           slice.distance(from: slice.startIndex, to: lastSpace) > 40 {
-            slice = String(slice[..<lastSpace])
-        }
-        return slice.trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+        gratitude.pendingShareInviteMessage(shareURL: shareURL)
     }
 
     private var hasDeliverableRecipient: Bool {
@@ -2308,7 +2311,7 @@ struct SuccessView: View {
             components.path = email
         }
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "I wrote you an appreciation on OpenThanks"),
+            URLQueryItem(name: "subject", value: gratitude.pendingShareEmailSubject),
             URLQueryItem(name: "body", value: shareMessage),
         ]
         if let url = components.url {

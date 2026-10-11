@@ -105,6 +105,12 @@ final class AppUpdateChecker {
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
             UserDefaults.standard.set(version, forKey: Self.storeVersionKey)
             storeVersion = version
+            // Diagnostic only — explains why the banner may never show (store == installed).
+            Analytics.capture("app_update_check_completed", [
+                "installed_version": installedVersion,
+                "store_version": version,
+                "update_available": Self.isVersion(installedVersion, lessThan: version),
+            ])
         } catch {
             // Silent — update nudge is best-effort.
         }

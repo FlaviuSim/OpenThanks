@@ -354,6 +354,12 @@ enum AppreciationShareRenderer {
 
 // MARK: - System share sheet
 
+/// Holds activity items so presentation can’t race an empty array.
+struct SystemSharePayload: Identifiable {
+    let id = UUID()
+    let items: [Any]
+}
+
 struct ActivityShareView: UIViewControllerRepresentable {
     let items: [Any]
     var excludedActivityTypes: [UIActivity.ActivityType] = []

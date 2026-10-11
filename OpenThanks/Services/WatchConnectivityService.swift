@@ -156,6 +156,8 @@ final class WatchConnectivityService: NSObject {
                 return "none"
             }()
             Analytics.appreciationSubmitted(
+                gratitudeId: created.id,
+                senderId: created.authorId,
                 hasMedia: false,
                 messageLength: clipped.count,
                 hasRecipient: recipientKind != "none",

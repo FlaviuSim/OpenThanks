@@ -5,6 +5,8 @@ import Foundation
 extension Notification.Name {
     /// Posted with a `Gratitude` object after the recipient accepts.
     static let gratitudeAccepted = Notification.Name("openthanks.gratitudeAccepted")
+    /// Posted with a `Gratitude` object after the signed-in user creates one.
+    static let gratitudeCreated = Notification.Name("openthanks.gratitudeCreated")
     /// Posted with a `Profile` object after the signed-in user saves profile edits.
     static let profileDidUpdate = Notification.Name("openthanks.profileDidUpdate")
     /// Posted after the signed-in user blocks someone (object = blocked UUID).
@@ -71,6 +73,9 @@ struct Gratitude: Codable, Identifiable, Hashable {
     let acceptedAt: Date?
     var status: GratitudeStatus?
     var visibility: GratitudeVisibility?
+    /// True only when the recipient accepted a public appreciation as private.
+    /// Nil when the column is absent (migration not applied yet).
+    var acceptedAsPrivate: Bool? = nil
     var recipientEmail: String?
     var recipientPhone: String?
     var recipientName: String?
@@ -100,6 +105,7 @@ struct Gratitude: Codable, Identifiable, Hashable {
         case createdAt = "created_at"
         case acceptedAt = "accepted_at"
         case status, visibility, slug
+        case acceptedAsPrivate = "accepted_as_private"
         case recipientEmail = "recipient_email"
         case recipientPhone = "recipient_phone"
         case recipientName = "recipient_name"
@@ -168,6 +174,40 @@ struct Gratitude: Codable, Identifiable, Hashable {
         return value
     }
 
+    /// Mailto subject when nudging the recipient to accept.
+    var pendingShareEmailSubject: String {
+        visibility == .private
+            ? "I wrote you a private appreciation on OpenThanks"
+            : "I wrote you an appreciation on OpenThanks"
+    }
+
+    /// Body for Text / WhatsApp / Email / system share when inviting the recipient.
+    /// Mentions privacy when the sender marked the note private.
+    func pendingShareInviteMessage(shareURL: URL) -> String {
+        let greeting = shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
+        let preview = Self.pendingShareMessagePreview(message)
+        let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
+        let kind = visibility == .private ? "a private appreciation" : "an appreciation"
+        return greeting
+            + "I wrote you \(kind) on OpenThanks 💛\(previewBit) You can read and accept it here: "
+            + shareURL.absoluteString
+    }
+
+    private static func pendingShareMessagePreview(_ message: String, maxChars: Int = 120) -> String? {
+        let trimmed = message
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.count <= maxChars { return trimmed }
+        let end = trimmed.index(trimmed.startIndex, offsetBy: maxChars)
+        var slice = String(trimmed[..<end])
+        if let lastSpace = slice.lastIndex(of: " "),
+           slice.distance(from: slice.startIndex, to: lastSpace) > 40 {
+            slice = String(slice[..<lastSpace])
+        }
+        return slice.trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
+
     var mediaURL: URL? { AppConfig.mediaURL(from: mediaUrl) }
 
     /// Public post page on openthanks.com (matches the web app's route:
@@ -183,6 +223,17 @@ struct Gratitude: Codable, Identifiable, Hashable {
     var claimURL: URL? {
         guard let claimToken else { return nil }
         return AppConfig.webAppURL.appending(path: "claim/\(claimToken.uuidString.lowercased())")
+    }
+
+    /// Sender marked this public (or left visibility unset, which counts as public).
+    var senderMarkedPublic: Bool { visibility != .private }
+
+    /// Small lock label for a private appreciation.
+    /// "Accepted privately" only when `accepted_as_private` is present and true.
+    var privacyMarkTitle: String? {
+        if acceptedAsPrivate == true { return "Accepted privately" }
+        if visibility == .private { return "Private" }
+        return nil
     }
 
     /// Whether `viewerId` is allowed to see this post: public posts are open,
