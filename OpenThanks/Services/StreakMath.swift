@@ -365,4 +365,24 @@ enum StreakMath {
         }
         return sawPending ? .pending : .empty
     }
+
+    /// Distinct calendar days with at least one send inside an inclusive day range.
+    /// Campaign progress uses this on the same dates the streak query already loads.
+    static func distinctSendDays(
+        dates: [Date],
+        from start: Date,
+        through end: Date,
+        calendar: Calendar
+    ) -> Set<Date> {
+        let first = calendar.startOfDay(for: start)
+        let last = calendar.startOfDay(for: end)
+        var days = Set<Date>()
+        for date in dates {
+            let day = calendar.startOfDay(for: date)
+            if day >= first && day <= last {
+                days.insert(day)
+            }
+        }
+        return days
+    }
 }

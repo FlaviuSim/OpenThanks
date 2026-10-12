@@ -52,6 +52,7 @@ final class DeepLinkRouter {
         "auth", "api", "feed", "pending", "sent", "notifications", "donate",
         "profile", "privacy", "terms", "unsubscribe", "claim-appreciation",
         "claim", "for", "gratitude", "ingest", "_next", "competition",
+        "november", "campaigns",
     ]
 
     var destination: Destination?
@@ -76,6 +77,12 @@ final class DeepLinkRouter {
         // Same destination as web `/gratitude/new` (Friday email, share CTAs, etc.).
         if Self.isComposePath(url) {
             Self.queueCompose(from: url)
+            return true
+        }
+
+        // https://openthanks.com/november → compose with today's campaign prompt.
+        if Self.isCampaignPath(url) {
+            Self.queueCampaign(from: url)
             return true
         }
 
@@ -156,6 +163,24 @@ final class DeepLinkRouter {
         return first == "feed"
     }
 
+    /// `https://openthanks.com/november` opens compose for the November campaign.
+    static func isCampaignPath(_ url: URL) -> Bool {
+        pathParts(url).first?.lowercased() == "november"
+    }
+
+    static func queueCampaign(from url: URL) {
+        let campaign = queryValue(url, name: "campaign")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let id = (campaign?.isEmpty == false) ? campaign! : CampaignFeed.november2026ID
+        let day = queryInt(url, name: "day")
+        Task { @MainActor in
+            await CampaignService.shared.openCompose(
+                link: CampaignComposeLink(id: id, day: day),
+                analyticsSource: "campaign_universal_link"
+            )
+        }
+    }
+
     static func queueCompose(from url: URL) {
         let source = queryValue(url, name: "source")?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -200,6 +225,8 @@ final class DeepLinkRouter {
         case "profile":
             guard parts.count >= 2, let id = UUID(uuidString: parts[1]) else { return nil }
             return .profileId(id: id, tab: profileTab(from: url))
+        case "november":
+            return nil
         default:
             guard parts.count == 1,
                   !reservedRoots.contains(first),
@@ -250,6 +277,16 @@ final class DeepLinkRouter {
             .queryItems?
             .first(where: { $0.name.lowercased() == name.lowercased() })?
             .value
+    }
+
+    private static func queryInt(_ url: URL, name: String) -> Int? {
+        guard let raw = queryValue(url, name: name)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty,
+              let value = Int(raw),
+              (1...31).contains(value)
+        else { return nil }
+        return value
     }
 
     private static func isPlausibleUsername(_ value: String) -> Bool {

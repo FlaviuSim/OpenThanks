@@ -52,14 +52,23 @@ struct OpenThanksApp: App {
                 auth.handleDeepLink(url)
             } else if let destination = WidgetDeepLink.parse(url) {
                 switch destination {
-                case .compose:
+                case .compose(let campaign):
                     let fromControl = ControlCenterHandoff.consumeCompose()
                     if ComposeShareHandoff.applyPendingShare() {
                         break
                     }
-                    ComposeLaunchBridge.shared.queue(
-                        analyticsSource: fromControl ? "control_center" : "deep_link_compose"
-                    )
+                    if let campaign, !fromControl {
+                        Task { @MainActor in
+                            await CampaignService.shared.openCompose(
+                                link: campaign,
+                                analyticsSource: "campaign_deeplink"
+                            )
+                        }
+                    } else {
+                        ComposeLaunchBridge.shared.queue(
+                            analyticsSource: fromControl ? "control_center" : "deep_link_compose"
+                        )
+                    }
                 case .received:
                     TabLaunchBridge.shared.queue(.received)
                 case .gratitude(let id):
@@ -113,6 +122,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         CalendarGratitudeBackgroundRefresh.schedule()
         Analytics.setup()
         RemoteImageCache.prepare()
+        // Warm the campaign cache without delaying launch. Compose never waits on this.
+        Task { await CampaignService.shared.refresh() }
         // Activate ASAP so Watch file transfers aren't missed before RootView appears.
         WatchConnectivityService.shared.activate(auth: nil)
         return true
@@ -183,6 +194,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 ComposeLaunchBridge.shared.queue(recipientName: name, analyticsSource: "notification_thank_reminder")
             }
         case NotificationService.fridayReminderTypeValue:
+            if let campaign = NotificationService.campaignContext(from: info) {
+                await MainActor.run {
+                    ComposeLaunchBridge.shared.queue(
+                        campaignHint: campaign.prompt,
+                        campaignId: campaign.id,
+                        campaignDay: campaign.day,
+                        analyticsSource: "notification_campaign"
+                    )
+                }
+                break
+            }
             let promptDate: Date = {
                 if let interval = info[NotificationService.fridayPromptDateKey] as? TimeInterval {
                     return Date(timeIntervalSince1970: interval)

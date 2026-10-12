@@ -323,6 +323,21 @@ enum Analytics {
         capture("auth_signed_in", props)
     }
 
+    // MARK: - Campaign prompts
+
+    private static var shownCampaignDays: Set<String> = []
+
+    /// Once per campaign day per process. The prompt text is not a property.
+    static func campaignPromptShown(campaign: String, day: Int) {
+        let key = "\(campaign)|\(day)"
+        guard shownCampaignDays.insert(key).inserted else { return }
+        capture("campaign_prompt_shown", ["campaign": campaign, "day": day])
+    }
+
+    static func campaignPromptTapped(campaign: String, day: Int) {
+        capture("campaign_prompt_tapped", ["campaign": campaign, "day": day])
+    }
+
     // MARK: - Compose funnel (aligned with web PostHog events)
 
     static func appreciationFormStarted(source: String) {
@@ -356,7 +371,9 @@ enum Analytics {
         toMember: Bool,
         recipientType: String,
         visibility: String,
-        source: String?
+        source: String?,
+        campaign: String? = nil,
+        campaignDay: Int? = nil
     ) {
         var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
         props["has_media"] = hasMedia
@@ -366,6 +383,12 @@ enum Analytics {
         props["recipient_type"] = recipientType
         props["visibility"] = visibility
         if let source { props["source"] = source }
+        if let campaign, !campaign.isEmpty {
+            props["campaign"] = campaign
+            if let campaignDay {
+                props["campaign_day"] = campaignDay
+            }
+        }
         capture("appreciation_submitted", props)
     }
 
