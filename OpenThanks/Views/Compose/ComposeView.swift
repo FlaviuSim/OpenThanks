@@ -26,6 +26,11 @@ struct ComposeView: View {
     var inspiredByAuthorName: String? = nil
     /// PostHog `source` for the compose funnel (matches web event names).
     var analyticsSource: String = "compose"
+    /// Shown above the message field. Never copied into the message.
+    var campaignHint: String? = nil
+    /// PostHog `campaign` when compose was opened from a daily prompt.
+    var campaignId: String? = nil
+    var campaignDay: Int? = nil
     /// Watch voice drafts can save without choosing a recipient yet.
     var allowsEmptyRecipient: Bool = false
     /// Open straight on the share screen (author opening their own pending note).
@@ -43,6 +48,9 @@ struct ComposeView: View {
         initialImageFileName: String? = nil,
         inspiredByGratitudeId: UUID? = nil,
         inspiredByAuthorName: String? = nil,
+        campaignHint: String? = nil,
+        campaignId: String? = nil,
+        campaignDay: Int? = nil,
         analyticsSource: String = "compose",
         allowsEmptyRecipient: Bool = false,
         opensOnShareScreen: Bool = false,
@@ -57,6 +65,9 @@ struct ComposeView: View {
         self.initialImageFileName = initialImageFileName
         self.inspiredByGratitudeId = inspiredByGratitudeId
         self.inspiredByAuthorName = inspiredByAuthorName
+        self.campaignHint = campaignHint
+        self.campaignId = campaignId
+        self.campaignDay = campaignDay
         self.analyticsSource = analyticsSource
         self.allowsEmptyRecipient = allowsEmptyRecipient
         self.opensOnShareScreen = opensOnShareScreen
@@ -130,7 +141,14 @@ struct ComposeView: View {
     private let maxLength = 1500
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
 
+    private var campaignHintText: String? {
+        let trimmed = campaignHint?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
     private var messagePlaceholderText: String {
+        if campaignHintText != nil { return "Thank you for..." }
         let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let custom, !custom.isEmpty { return custom }
         if inspiredByGratitudeId != nil {
@@ -709,6 +727,30 @@ struct ComposeView: View {
     }
 
     private var messageSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let campaignHintText {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(campaignDay.map { "\(CampaignFeed.cardTitle) · Day \($0)" } ?? CampaignFeed.cardTitle)
+                        .font(Theme.body(12, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                    Text(campaignHintText)
+                        .font(Theme.body(15))
+                        .foregroundStyle(Theme.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Theme.coral.opacity(0.10))
+                )
+                .accessibilityElement(children: .combine)
+            }
+            messageField
+        }
+    }
+
+    private var messageField: some View {
         field(label: "Your Appreciation") {
             VStack(spacing: 0) {
                 ZStack(alignment: .topLeading) {
@@ -1874,7 +1916,9 @@ struct ComposeView: View {
                     toMember: recipientKind == "member",
                     recipientType: recipientKind,
                     visibility: visibility.rawValue,
-                    source: analyticsSource
+                    source: analyticsSource,
+                    campaign: campaignId,
+                    campaignDay: campaignDay
                 )
                 onSaved?(updated)
                 deliverIfFirstRecipient(previous: editing, updated: updated, authorId: userId)
@@ -1927,7 +1971,9 @@ struct ComposeView: View {
                     toMember: recipientKind == "member",
                     recipientType: recipientKind,
                     visibility: visibility.rawValue,
-                    source: analyticsSource
+                    source: analyticsSource,
+                    campaign: campaignId,
+                    campaignDay: campaignDay
                 )
                 if let parentId = inspiredByGratitudeId {
                     Analytics.capture("ripple_created", [

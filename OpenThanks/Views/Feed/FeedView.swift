@@ -28,6 +28,7 @@ struct FeedView: View {
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var updateChecker = AppUpdateChecker.shared
     @State private var calendarReminder = CalendarConnectReminder.shared
+    @State private var campaign = CampaignService.shared
     @State private var showCalendarConnect = false
     @State private var scope: Scope = .personal
     /// Per-scope lists so My ↔ World can page without flashing the wrong feed.
@@ -265,6 +266,7 @@ struct FeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: .gratitudeCreated)) { note in
                 guard let gratitude = note.object as? Gratitude else { return }
                 applyCreated(gratitude)
+                campaign.noteSent(at: gratitude.createdAt ?? Date())
             }
             .onReceive(NotificationCenter.default.publisher(for: .profileDidUpdate)) { note in
                 guard let updated = note.object as? Profile else { return }
@@ -342,6 +344,27 @@ struct FeedView: View {
                     .padding(.bottom, 4)
                     .readableWidth()
             }
+            if let prompt = campaign.todayPrompt {
+                CampaignPromptCard(
+                    day: prompt.day,
+                    theme: prompt.theme,
+                    prompt: prompt.prompt,
+                    daysSent: campaign.daysSent,
+                    totalDays: campaign.progressTotal,
+                    onThank: { thankFromCampaign(prompt) }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, (shouldShowUpdateBanner || shouldShowCalendarBanner || pendingSentCount > 0) ? 4 : 10)
+                .padding(.bottom, 4)
+                .readableWidth()
+                .task(id: prompt.day) {
+                    guard let id = campaign.feed?.id else { return }
+                    Analytics.campaignPromptShown(campaign: id, day: prompt.day)
+                    if let userId = auth.userId {
+                        await campaign.refreshProgress(authorId: userId)
+                    }
+                }
+            }
             HomeProfileSearch(
                 focused: $searchFocused,
                 onQueryChange: { hasQuery in
@@ -384,6 +407,7 @@ struct FeedView: View {
         .animation(.easeInOut(duration: 0.2), value: shouldShowUpdateBanner)
         .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
         .onAppear { calendarReminder.refresh() }
+        .task { await campaign.refresh() }
         .onChange(of: isSelected) { _, selected in
             if selected { calendarReminder.refresh() }
         }
@@ -429,7 +453,15 @@ struct FeedView: View {
     }
 
     private var hasTopHomeBanner: Bool {
-        shouldShowUpdateBanner || shouldShowCalendarBanner || pendingSentCount > 0
+        shouldShowUpdateBanner || shouldShowCalendarBanner || pendingSentCount > 0 || campaign.todayPrompt != nil
+    }
+
+    private func thankFromCampaign(_ prompt: CampaignPrompt) {
+        dismissSearchKeyboard()
+        if let id = campaign.feed?.id {
+            Analytics.campaignPromptTapped(campaign: id, day: prompt.day)
+        }
+        campaign.openCompose(prompt: prompt, analyticsSource: "campaign_home")
     }
 
     @ViewBuilder

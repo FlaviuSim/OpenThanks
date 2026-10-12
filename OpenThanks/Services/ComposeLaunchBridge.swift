@@ -30,6 +30,12 @@ final class ComposeLaunchBridge {
         var inspiredByGratitudeId: UUID?
         /// Display name for inspired-by placeholder copy.
         var inspiredByAuthorName: String?
+        /// Prompt shown above the message field. Does not prefill the message.
+        var campaignHint: String?
+        /// PostHog `campaign` when this compose was opened from a prompt.
+        var campaignId: String?
+        /// PostHog `campaign_day`.
+        var campaignDay: Int?
         /// PostHog compose funnel `source`.
         var analyticsSource: String
         /// Watch voice drafts can save to Pending without a recipient.
@@ -46,6 +52,9 @@ final class ComposeLaunchBridge {
             imageFileName: String? = nil,
             inspiredByGratitudeId: UUID? = nil,
             inspiredByAuthorName: String? = nil,
+            campaignHint: String? = nil,
+            campaignId: String? = nil,
+            campaignDay: Int? = nil,
             analyticsSource: String = "compose_launch",
             allowsEmptyRecipient: Bool = false,
             editingGratitude: Gratitude? = nil
@@ -58,6 +67,9 @@ final class ComposeLaunchBridge {
             self.imageFileName = imageFileName
             self.inspiredByGratitudeId = inspiredByGratitudeId
             self.inspiredByAuthorName = inspiredByAuthorName
+            self.campaignHint = campaignHint
+            self.campaignId = campaignId
+            self.campaignDay = campaignDay
             self.analyticsSource = analyticsSource
             self.allowsEmptyRecipient = allowsEmptyRecipient || analyticsSource == "watch"
             self.editingGratitude = editingGratitude
@@ -72,6 +84,8 @@ final class ComposeLaunchBridge {
                 && profile == nil
                 && imageFileName == nil
                 && inspiredByGratitudeId == nil
+                && campaignHint == nil
+                && campaignId == nil
                 && editingGratitude == nil
         }
     }
@@ -86,6 +100,9 @@ final class ComposeLaunchBridge {
         imageFileName: String? = nil,
         inspiredByGratitudeId: UUID? = nil,
         inspiredByAuthorName: String? = nil,
+        campaignHint: String? = nil,
+        campaignId: String? = nil,
+        campaignDay: Int? = nil,
         analyticsSource: String = "compose_launch",
         allowsEmptyRecipient: Bool = false,
         editingGratitude: Gratitude? = nil
@@ -96,6 +113,8 @@ final class ComposeLaunchBridge {
         let trimmedImage = imageFileName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedInspiredName = inspiredByAuthorName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedHint = campaignHint?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCampaign = campaignId?.trimmingCharacters(in: .whitespacesAndNewlines)
         let request = Request(
             recipientName: (trimmedName?.isEmpty == false) ? trimmedName : nil,
             message: (trimmedMessage?.isEmpty == false) ? trimmedMessage : nil,
@@ -104,6 +123,9 @@ final class ComposeLaunchBridge {
             imageFileName: (trimmedImage?.isEmpty == false) ? trimmedImage : nil,
             inspiredByGratitudeId: inspiredByGratitudeId,
             inspiredByAuthorName: (trimmedInspiredName?.isEmpty == false) ? trimmedInspiredName : nil,
+            campaignHint: (trimmedHint?.isEmpty == false) ? trimmedHint : nil,
+            campaignId: (trimmedCampaign?.isEmpty == false) ? trimmedCampaign : nil,
+            campaignDay: campaignDay,
             analyticsSource: analyticsSource,
             allowsEmptyRecipient: allowsEmptyRecipient,
             editingGratitude: editingGratitude

@@ -1,5 +1,11 @@
 import Foundation
 
+/// Campaign compose query on `openthanks://compose` and `https://openthanks.com/november`.
+struct CampaignComposeLink: Equatable, Sendable {
+    var id: String
+    var day: Int?
+}
+
 /// Custom-scheme destinations for widgets and shortcuts.
 /// Auth stays at `openthanks://auth-callback`; everything else is routed in-app.
 enum WidgetDeepLink {
@@ -22,11 +28,29 @@ enum WidgetDeepLink {
     }
 
     enum Destination: Equatable {
-        case compose
+        case compose(CampaignComposeLink?)
         case received
         case gratitude(UUID)
         case home
         case notifications
+    }
+
+    /// `openthanks://compose?campaign=november-2026&day=N`
+    static func campaignLink(from url: URL) -> CampaignComposeLink? {
+        guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else {
+            return nil
+        }
+        let id = items.first { $0.name.caseInsensitiveCompare("campaign") == .orderedSame }?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let id, !id.isEmpty else { return nil }
+        let rawDay = items.first { $0.name.caseInsensitiveCompare("day") == .orderedSame }?
+            .value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let rawDay, !rawDay.isEmpty, let day = Int(rawDay), (1...31).contains(day) {
+            return CampaignComposeLink(id: id, day: day)
+        }
+        return CampaignComposeLink(id: id, day: nil)
     }
 
     static func parse(_ url: URL) -> Destination? {
@@ -41,7 +65,7 @@ enum WidgetDeepLink {
 
         switch host {
         case "compose", "thank", "send":
-            return .compose
+            return .compose(campaignLink(from: url))
         case "received", "inbox":
             return .received
         case "gratitude":
@@ -52,7 +76,7 @@ enum WidgetDeepLink {
         case "notifications":
             return .notifications
         case "home", "":
-            if path == "compose" || path == "thank" { return .compose }
+            if path == "compose" || path == "thank" { return .compose(campaignLink(from: url)) }
             if path == "received" || path == "inbox" { return .received }
             if path.hasPrefix("gratitude/") {
                 let idPart = String(path.dropFirst("gratitude/".count))
@@ -61,7 +85,7 @@ enum WidgetDeepLink {
             if path == "notifications" { return .notifications }
             return .home
         default:
-            if path == "compose" { return .compose }
+            if path == "compose" { return .compose(campaignLink(from: url)) }
             if path == "received" { return .received }
             if path == "notifications" { return .notifications }
             return nil

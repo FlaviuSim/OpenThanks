@@ -19,6 +19,8 @@
           { "/": "/notifications/*" },
           { "/": "/feed", "comment": "Open Home feed in app" },
           { "/": "/feed/*" },
+          { "/": "/november", "comment": "30 Days of Thanks campaign" },
+          { "/": "/november/*" },
           { "/": "/profile/*", "comment": "Profile by id" },
           { "/": "/privacy", "exclude": true },
           { "/": "/terms", "exclude": true },
@@ -33,6 +35,8 @@
           { "/": "/unsubscribe/*", "exclude": true },
           { "/": "/competition", "exclude": true },
           { "/": "/competition/*", "exclude": true },
+          { "/": "/campaigns", "exclude": true, "comment": "Campaign prompt JSON stays in the browser" },
+          { "/": "/campaigns/*", "exclude": true },
           { "/": "/", "exclude": true, "comment": "Marketing homepage stays in Safari; Smart App Banner + CTAs" },
           { "/": "/*", "comment": "Profile usernames" }
         ]
