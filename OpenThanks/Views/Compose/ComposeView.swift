@@ -127,6 +127,10 @@ struct ComposeView: View {
     @State private var didClearRecipient = false
     @State private var recipientResults: [Profile] = []
     @State private var recipientSearching = false
+    /// True after the debounced search for the current query completes (including empty).
+    @State private var recipientSearchFinished = false
+    /// User confirmed a free-text name/email as a non-member recipient chip.
+    @State private var guestRecipientConfirmed = false
     @FocusState private var messageFocused: Bool
     @FocusState private var recipientFocused: Bool
     @State private var showAddLinkSheet = false
@@ -514,13 +518,14 @@ struct ComposeView: View {
             VStack(alignment: .leading, spacing: 8) {
                 recipientFieldChrome
 
-                if linkedRecipient == nil, showRecipientSuggestions {
+                if linkedRecipient == nil, !guestRecipientConfirmed, showRecipientSuggestions {
                     recipientSuggestions
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
             .animation(.easeInOut(duration: 0.18), value: showRecipientSuggestions)
             .animation(.easeInOut(duration: 0.18), value: linkedRecipient?.id)
+            .animation(.easeInOut(duration: 0.18), value: guestRecipientConfirmed)
         }
         .task(id: recipientSearchQuery) {
             await runRecipientSearch(for: recipientSearchQuery)
@@ -532,6 +537,13 @@ struct ComposeView: View {
             if let linked = linkedRecipient {
                 HStack(spacing: 10) {
                     linkedRecipientChip(linked)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            } else if guestRecipientConfirmed {
+                HStack(spacing: 10) {
+                    guestRecipientChip
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 12)
@@ -552,7 +564,7 @@ struct ComposeView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(
-                    recipientFocused && linkedRecipient == nil
+                    recipientFocused && linkedRecipient == nil && !guestRecipientConfirmed
                         ? Theme.coral.opacity(0.45)
                         : Theme.hairline,
                     lineWidth: 1
@@ -593,6 +605,36 @@ struct ComposeView: View {
         .background(Theme.coralPale.opacity(0.55), in: Capsule())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Recipient \(chipLabel(for: profile))")
+    }
+
+    private var guestRecipientChip: some View {
+        let label = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isEmail = looksLikeEmail(label)
+        return HStack(spacing: 8) {
+            Image(systemName: isEmail ? "envelope.fill" : "person.crop.circle.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+                .frame(width: 28, height: 28)
+            Text(label)
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+            Button {
+                clearGuestRecipient(focusField: true)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove recipient")
+        }
+        .padding(.leading, 6)
+        .padding(.trailing, 10)
+        .padding(.vertical, 6)
+        .background(Theme.coralPale.opacity(0.55), in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Recipient \(label)")
     }
 
     private var recipientSuggestions: some View {
@@ -636,12 +678,16 @@ struct ComposeView: View {
                     }
                     .buttonStyle(.plain)
 
-                    if index < recipientResults.count - 1 {
+                    if index < recipientResults.count - 1 || shouldShowAddGuestRow {
                         Rectangle()
                             .fill(Theme.hairline)
                             .frame(height: 0.5)
                             .padding(.leading, 66)
                     }
+                }
+
+                if shouldShowAddGuestRow {
+                    addGuestRecipientRow
                 }
             }
         }
@@ -652,16 +698,81 @@ struct ComposeView: View {
         )
     }
 
+    private var addGuestRecipientRow: some View {
+        let query = recipientSearchQuery
+        let isEmail = looksLikeEmail(query)
+        let title = isEmail ? "Add \(query)" : "Add “\(query)”"
+        return Button {
+            confirmGuestRecipient()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isEmail ? "envelope" : "person.crop.circle")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    Text("We’ll share a link after you save")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityHint("Adds this person as the recipient. You can share a link after saving.")
+    }
+
     private var recipientSearchQuery: String {
-        guard linkedRecipient == nil else { return "" }
+        guard linkedRecipient == nil, !guestRecipientConfirmed else { return "" }
         return recipient.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var showRecipientSuggestions: Bool {
         linkedRecipient == nil
+            && !guestRecipientConfirmed
             && recipientFocused
             && recipientSearchQuery.count >= 2
-            && (recipientSearching || !recipientResults.isEmpty)
+            && (recipientSearching || recipientSearchFinished)
+    }
+
+    private var shouldShowAddGuestRow: Bool {
+        recipientSearchFinished
+            && !recipientSearching
+            && recipientSearchQuery.count >= 2
+            && !hasExactMemberMatch(for: recipientSearchQuery)
+    }
+
+    private func hasExactMemberMatch(for rawQuery: String) -> Bool {
+        let query = rawQuery.hasPrefix("@") ? String(rawQuery.dropFirst()) : rawQuery
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !needle.isEmpty else { return false }
+        return recipientResults.contains { profile in
+            let username = profile.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if !username.isEmpty, username == needle { return true }
+            let display = profile.displayName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if !display.isEmpty, display == needle { return true }
+            if let full = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+               !full.isEmpty, full == needle {
+                return true
+            }
+            if let email = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+               !email.isEmpty, email == needle {
+                return true
+            }
+            return false
+        }
     }
 
     private func chipLabel(for profile: Profile) -> String {
@@ -672,10 +783,12 @@ struct ComposeView: View {
 
     private func selectLinkedRecipient(_ profile: Profile) {
         didClearRecipient = false
+        guestRecipientConfirmed = false
         linkedRecipient = profile
         recipient = ""
         recipientResults = []
         recipientSearching = false
+        recipientSearchFinished = false
         recipientFocused = false
         if let email = profile.email?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
             linkedRecipientEmail = AuthService.normalizedEmail(email)
@@ -685,24 +798,54 @@ struct ComposeView: View {
         Task { await loadLinkedRecipientContact(profileId: profile.id) }
     }
 
+    private func confirmGuestRecipient() {
+        let trimmed = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        didClearRecipient = false
+        guestRecipientConfirmed = true
+        recipient = trimmed
+        recipientResults = []
+        recipientSearching = false
+        recipientSearchFinished = false
+        recipientFocused = false
+        Analytics.capture("compose_guest_recipient_added", [
+            "recipient_kind": looksLikeEmail(trimmed) ? "email" : "name",
+        ])
+    }
+
+    private func clearGuestRecipient(focusField: Bool) {
+        guestRecipientConfirmed = false
+        recipientSearchFinished = false
+        recipientResults = []
+        if focusField {
+            recipientFocused = true
+        }
+    }
+
     private func clearLinkedRecipient(focusField: Bool) {
         didClearRecipient = true
         linkedRecipient = nil
         linkedRecipientEmail = nil
+        guestRecipientConfirmed = false
         recipient = ""
+        recipientResults = []
+        recipientSearching = false
+        recipientSearchFinished = false
         if focusField {
             recipientFocused = true
         }
     }
 
     private func runRecipientSearch(for current: String) async {
-        guard linkedRecipient == nil, current.count >= 2 else {
+        guard linkedRecipient == nil, !guestRecipientConfirmed, current.count >= 2 else {
             recipientResults = []
             recipientSearching = false
+            recipientSearchFinished = false
             return
         }
 
         recipientSearching = true
+        recipientSearchFinished = false
         try? await Task.sleep(for: .milliseconds(180))
         guard !Task.isCancelled else { return }
 
@@ -710,6 +853,7 @@ struct ComposeView: View {
         guard query.count >= 2 else {
             recipientResults = []
             recipientSearching = false
+            recipientSearchFinished = false
             return
         }
 
@@ -724,6 +868,7 @@ struct ComposeView: View {
             }
         }
         recipientSearching = false
+        recipientSearchFinished = true
     }
 
     private var messageSection: some View {
@@ -2088,8 +2233,11 @@ struct ComposeView: View {
         removedPhoto = false
         linkedRecipient = nil
         linkedRecipientEmail = nil
+        guestRecipientConfirmed = false
         recipientResults = []
         recipientSearching = false
+        recipientSearchFinished = false
+        didClearRecipient = false
         didPrefill = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             messageFocused = true
