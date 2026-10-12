@@ -14,6 +14,7 @@ struct SettingsView: View {
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
     #if DEBUG
     @AppStorage("ot_analytics_force_enable") private var forceAnalyticsWhileTesting = false
+    @State private var campaignDebug = CampaignService.shared
     #endif
 
     private var appearanceSubtitle: String {
@@ -26,6 +27,50 @@ struct SettingsView: View {
             eveningOn: calendarNudgeEnabled
         )
     }
+
+    #if DEBUG
+    private var campaignDebugDate: Binding<Date> {
+        Binding(
+            get: {
+                if let ymd = campaignDebug.debugDateYMD,
+                   let date = CampaignFeed.date(ymd: ymd, timeZone: .current, hour: 12) {
+                    return date
+                }
+                return CampaignService.debugPreviewStart()
+            },
+            set: { campaignDebug.setDebugDate($0) }
+        )
+    }
+
+    @ViewBuilder
+    private var campaignDebugSection: some View {
+        Toggle(isOn: Binding(
+            get: { campaignDebug.debugDateYMD != nil },
+            set: { enabled in
+                if enabled {
+                    campaignDebug.setDebugDate(CampaignService.debugPreviewStart())
+                } else {
+                    campaignDebug.clearDebugDate()
+                }
+            }
+        )) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Preview campaign date")
+                Text("Home uses this date for 30 Days of Thanks. Release builds use today.")
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+        }
+        if campaignDebug.debugDateYMD != nil {
+            DatePicker("Campaign date", selection: campaignDebugDate, displayedComponents: .date)
+            Text(campaignDebug.feed == nil
+                 ? "No prompt feed cached yet. The Home card stays hidden until openthanks.com serves it."
+                 : "Cached \(campaignDebug.feed?.prompts.count ?? 0) prompts.")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+        }
+    }
+    #endif
 
     private var accountSectionTitle: String {
         let email = auth.currentProfile?.email?
@@ -167,6 +212,10 @@ struct SettingsView: View {
                     .onChange(of: forceAnalyticsWhileTesting) { _, enabled in
                         Analytics.setForceEnabled(enabled)
                     }
+                    #endif
+
+                    #if DEBUG
+                    campaignDebugSection
                     #endif
 
                     NavigationLink {

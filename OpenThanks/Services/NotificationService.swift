@@ -11,6 +11,35 @@ enum NotificationService {
     static let fridayReminderTypeValue = "gratitude_friday"
     /// UNIX timestamp for the Friday the prompt belongs to (used for starter copy).
     static let fridayPromptDateKey = "friday_prompt_date"
+    /// Set when the Friday reminder is using that day's campaign prompt.
+    static let campaignIdKey = "campaign_id"
+    static let campaignDayKey = "campaign_day"
+    static let campaignPromptKey = "campaign_prompt"
+
+    struct CampaignNotificationContext {
+        var id: String
+        var day: Int
+        var prompt: String
+    }
+
+    /// Local notification payload for a campaign prompt. Prompt text stays on device.
+    static func campaignContext(from info: [AnyHashable: Any]) -> CampaignNotificationContext? {
+        guard let id = info[campaignIdKey] as? String else { return nil }
+        let trimmedId = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty else { return nil }
+        let prompt = (info[campaignPromptKey] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !prompt.isEmpty else { return nil }
+        let day: Int
+        if let value = info[campaignDayKey] as? Int {
+            day = value
+        } else if let value = info[campaignDayKey] as? NSNumber {
+            day = value.intValue
+        } else {
+            return nil
+        }
+        return CampaignNotificationContext(id: trimmedId, day: day, prompt: prompt)
+    }
 
     struct DevicePushToken: Encodable {
         let userId: UUID
@@ -118,16 +147,28 @@ enum NotificationService {
 
         let fireDate = FridayPrompts.nextFridayNineAM()
         let prompt = FridayPrompts.prompt(for: fireDate)
+        let campaign = CampaignFeedCache.shared.prompt(on: fireDate)
 
         let content = UNMutableNotificationContent()
-        content.title = "\(prompt.emoji) \(prompt.headline)"
-        content.body = prompt.body
+        if let campaign {
+            content.title = "\(CampaignFeed.cardTitle) · Day \(campaign.day)"
+            content.body = clippedNotification(campaign.prompt, limit: 180)
+        } else {
+            content.title = "\(prompt.emoji) \(prompt.headline)"
+            content.body = prompt.body
+        }
         content.sound = .default
         applyComposeCategory(content)
-        content.userInfo = [
+        var info: [String: Any] = [
             fridayReminderTypeKey: fridayReminderTypeValue,
             fridayPromptDateKey: fireDate.timeIntervalSince1970,
         ]
+        if let campaign, let feedId = CampaignFeedCache.shared.current()?.id {
+            info[campaignIdKey] = feedId
+            info[campaignDayKey] = campaign.day
+            info[campaignPromptKey] = campaign.prompt
+        }
+        content.userInfo = info
 
         let components = Calendar.current.dateComponents(
             [.year, .month, .day, .hour, .minute],
@@ -334,6 +375,9 @@ enum NotificationService {
             ? " about \(nudge.meetingTitle)"
             : ""
         content.body = "You met with \(nudge.personName)\(meetingBit) — send a quick thanks?"
+        if let campaign = CampaignFeedCache.shared.prompt(on: Date()) {
+            content.subtitle = "Day \(campaign.day) · \(clippedNotification(campaign.prompt, limit: 80))"
+        }
         content.sound = .default
         applyComposeCategory(content)
 
@@ -351,6 +395,13 @@ enum NotificationService {
         }
         content.userInfo = info
         return content
+    }
+
+    private static func clippedNotification(_ text: String, limit: Int) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > limit, limit > 1 else { return trimmed }
+        let end = trimmed.index(trimmed.startIndex, offsetBy: limit - 1)
+        return String(trimmed[..<end]).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 
     /// Enables the evening nudge: notification permission + any calendar source, then schedule.

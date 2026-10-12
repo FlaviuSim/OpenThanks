@@ -76,6 +76,8 @@ Do **not** mention age gates, 18+, adult content, unrestricted media, or Apple W
 You can accept a public thank-you and keep it just between the two of you.
 
 Home is easier to move through: swipe between feeds, share a thank-you from the card, and tap Profile again to return to the top.
+
+30 Days of Thanks: a daily prompt on Home through November, free on iPhone and iPad.
 ```
 
 

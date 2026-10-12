@@ -103,11 +103,12 @@ struct MainTabView: View {
             presentLaunchSurfaces()
             AppUpdateChecker.shared.checkIfNeeded()
             CalendarConnectReminder.shared.refresh()
-            if fridayReminderEnabled {
-                Task { await NotificationService.refreshFridayReminderIfEnabled(true) }
-            }
-            if calendarNudgeEnabled {
-                Task {
+            Task {
+                await CampaignService.shared.refresh()
+                if fridayReminderEnabled {
+                    await NotificationService.refreshFridayReminderIfEnabled(true)
+                }
+                if calendarNudgeEnabled {
                     var emails = Set<String>()
                     if let email = auth.currentProfile?.email?.lowercased() {
                         emails.insert(email)
@@ -352,6 +353,9 @@ struct MainTabView: View {
                 initialImageFileName: request.imageFileName,
                 inspiredByGratitudeId: request.inspiredByGratitudeId,
                 inspiredByAuthorName: request.inspiredByAuthorName,
+                campaignHint: request.campaignHint,
+                campaignId: request.campaignId,
+                campaignDay: request.campaignDay,
                 analyticsSource: request.analyticsSource,
                 allowsEmptyRecipient: request.allowsEmptyRecipient
             )
