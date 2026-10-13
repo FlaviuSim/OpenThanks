@@ -8,6 +8,8 @@ extension Notification.Name {
     static let dismissTransientSheets = Notification.Name("openthanks.dismissTransientSheets")
     /// Home feed posts pending-to-accept count so first-send coachmark can wait.
     static let homePendingAcceptCount = Notification.Name("openthanks.homePendingAcceptCount")
+    /// Reload My Feed pending cards (push arrived, Home selected, World refresh).
+    static let pendingThanksShouldRefresh = Notification.Name("openthanks.pendingThanksShouldRefresh")
 }
 
 /// Queues a compose sheet from Siri / App Intents / widgets / Share Extension.

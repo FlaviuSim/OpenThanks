@@ -72,12 +72,11 @@ The design can use Fraunces (display) and DM Sans (body), but the font files are
 
 **App (ready):** requests permission, registers the device token, upserts into `device_push_tokens` with `environment` = `sandbox` (DEBUG) or `production` (Release / TestFlight).
 
-**Server (ready to wire):** Edge Function `supabase/functions/send-apns` talks to APNs with a `.p8` key. It does **not** auto-fire until you set secrets and deploy it.
+**Server:** Edge Function `supabase/functions/send-apns` talks to APNs with a `.p8` key. Notification inserts fan out via migration `20261012_dispatch_notification_push.sql` (Vault secret `send_apns_service_role`) or a Dashboard Database Webhook — see [`supabase/functions/send-apns/README.md`](supabase/functions/send-apns/README.md).
 
-1. Apply migration `supabase/migrations/20260731_device_push_tokens_apns.sql` (if not already).
+1. Apply migrations `20260731_device_push_tokens_apns.sql`, `20261012_notify_recipient_on_gratitude_insert.sql`, and `20261012_dispatch_notification_push.sql`.
 2. Create an APNs Auth Key in Apple Developer; enable Push on `com.openthanks.gratitude`.
-3. Set secrets and deploy — see [`supabase/functions/send-apns/README.md`](supabase/functions/send-apns/README.md).
-4. Later: Database Webhook on `notifications` INSERT, or call the function from Next.js/cron with the service role key.
+3. Set Edge Function secrets + Vault `send_apns_service_role`, then deploy `send-apns`.
 
 ## Structure
 

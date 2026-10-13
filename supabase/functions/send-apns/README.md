@@ -9,7 +9,7 @@ Delivers iOS remote notifications through APNs using tokens in `device_push_toke
 3. **Keys** → create a key with **Apple Push Notifications service (APNs)** → download the `.p8` (once)
 4. Note **Key ID**, **Team ID** (`XA73L5SR8P` for OpenThanks), and keep the `.p8` contents
 
-## Supabase secrets
+## Supabase secrets (Edge Function)
 
 ```bash
 supabase secrets set \
@@ -28,6 +28,36 @@ cd /path/to/OpenThanks
 supabase functions deploy send-apns --project-ref dsftvyuzmhlqadhbubgw
 ```
 
+## Auto-fire on `notifications` INSERT
+
+Apply migration `20261012_dispatch_notification_push.sql`. It calls this function from a DB trigger for:
+
+- `gratitude_pending`
+- `gratitude_received`
+- `heart_received`
+- `email_bounced`
+- `competition_winner`
+
+Store the service-role JWT in Vault once (trigger reads it; never commit the key):
+
+```sql
+select vault.create_secret(
+  '<SERVICE_ROLE_JWT>',
+  'send_apns_service_role',
+  'Bearer for send-apns DB trigger'
+);
+```
+
+If the vault secret is missing, notification inserts still succeed and push is skipped.
+
+### Dashboard Webhook alternative
+
+Dashboard → **Database** → **Webhooks** → create webhook on `public.notifications` **Insert**:
+
+- URL: `https://dsftvyuzmhlqadhbubgw.supabase.co/functions/v1/send-apns`
+- HTTP headers: `Authorization: Bearer <service_role_key>`
+- Body: either map `user_id`, `type`, `id` → `notification_id`, `gratitude_id`, **or** send the default webhook envelope — this function unwraps `{ type, record }` INSERT payloads.
+
 ## Test send
 
 ```bash
@@ -44,12 +74,7 @@ curl -i "https://dsftvyuzmhlqadhbubgw.supabase.co/functions/v1/send-apns" \
 
 Debug builds register **sandbox** tokens; TestFlight / App Store use **production**. The function picks the host from each row’s `environment`.
 
-## Wire later (optional)
+## Related migrations
 
-Dashboard → **Database** → **Webhooks** → create webhook on `public.notifications` **Insert**:
-
-- URL: `https://dsftvyuzmhlqadhbubgw.supabase.co/functions/v1/send-apns`
-- HTTP headers: `Authorization: Bearer <service_role_key>`
-- Body: map `user_id`, `type`, `id` → `notification_id`, `gratitude_id`
-
-Or call the same URL from a Next.js API / cron after inserting a notification.
+- `20261012_notify_recipient_on_gratitude_insert.sql` — inserts `gratitude_pending` when a pending appreciation is created for a member `recipient_id`
+- `20261012_dispatch_notification_push.sql` — APNs fan-out trigger above
