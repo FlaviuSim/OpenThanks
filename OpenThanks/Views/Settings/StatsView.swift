@@ -12,6 +12,8 @@ struct StatsView: View {
     @State private var loading = true
     @State private var loadError: String?
     @State private var appearReady = false
+    @State private var preparingShare = false
+    @State private var systemSharePayload: SystemSharePayload?
     /// First day of the month shown in the personal calendar. Defaults to this month.
     @State private var displayedMonth = Calendar.current.dateInterval(of: .month, for: Date())?.start
         ?? Calendar.current.startOfDay(for: Date())
@@ -62,6 +64,21 @@ struct StatsView: View {
         return pair.sent > 0 && pair.accepted < pair.sent
     }
 
+    private var canShareStats: Bool {
+        !loading && loadError == nil && !preparingShare
+    }
+
+    private var shareContent: StatsShareContent {
+        let sent = activity.count
+        let accepted = activity.filter { $0.status == .accepted }.count
+        return StatsShareContent(
+            streak: currentStreak,
+            bestStreak: max(longestStreak, currentStreak),
+            sentCount: sent,
+            acceptedCount: accepted
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -90,6 +107,34 @@ struct StatsView: View {
         .background(Theme.background.ignoresSafeArea())
         .navigationTitle("Your Stats")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await presentShare() }
+                } label: {
+                    if preparingShare {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .disabled(!canShareStats)
+                .accessibilityLabel("Share my streak")
+            }
+        }
+        .sheet(item: $systemSharePayload) { payload in
+            ActivityShareView(items: payload.items) { activityType in
+                Analytics.statsShared(
+                    streak: currentStreak,
+                    channel: SocialShare.analyticsChannel(for: activityType),
+                    hasCard: true
+                )
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
+            systemSharePayload = nil
+        }
         .task { await load() }
     }
 
@@ -150,6 +195,31 @@ struct StatsView: View {
             }
 
             streakKeepBanner(for: keep)
+
+            Button {
+                Task { await presentShare() }
+            } label: {
+                HStack(spacing: 8) {
+                    if preparingShare {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    Text("Share my streak")
+                        .font(Theme.body(14, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Theme.ctaGradient, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(!canShareStats)
+            .opacity(canShareStats ? 1 : 0.55)
+            .accessibilityLabel("Share my streak")
 
             // Contest progress is send-only; hide the acceptance card while a
             // challenge is enabled so Stats doesn't imply acceptances are required.
@@ -532,6 +602,22 @@ struct StatsView: View {
                 .frame(width: 12, height: 12)
             Text(label)
         }
+    }
+
+    // MARK: - Share
+
+    @MainActor
+    private func presentShare() async {
+        guard canShareStats else { return }
+        preparingShare = true
+        defer { preparingShare = false }
+
+        let content = shareContent
+        let avatarURL = auth.currentProfile?.avatarURL
+        let card = await StatsShareRenderer.prideImage(for: content, avatarURL: avatarURL)
+        let items = SocialShare.statsShareItems(caption: content.shareCaption, cardImage: card)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        systemSharePayload = SystemSharePayload(items: items)
     }
 
     // MARK: - Load

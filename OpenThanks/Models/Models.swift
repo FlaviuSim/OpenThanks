@@ -40,12 +40,18 @@ struct Profile: Codable, Identifiable, Hashable {
         case favoriteNonprofitHeadline = "favorite_nonprofit_headline"
     }
 
-    var displayName: String { fullName ?? "@\(username)" }
+    /// Never blank — empty `full_name` falls back to @username (or "Someone").
+    var displayName: String {
+        let name = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !name.isEmpty { return name }
+        let handle = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !handle.isEmpty { return "@\(handle)" }
+        return "Someone"
+    }
     /// First name for compact “hearted by” summaries (matches the web UI).
     var firstName: String {
-        if let fullName,
-           let first = fullName.split(whereSeparator: \.isWhitespace).first,
-           !first.isEmpty {
+        let name = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if let first = name.split(whereSeparator: \.isWhitespace).first, !first.isEmpty {
             return String(first)
         }
         return displayName

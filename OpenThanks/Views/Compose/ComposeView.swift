@@ -141,8 +141,14 @@ struct ComposeView: View {
     @State private var linkError: String?
     /// Cached so opening compose doesn’t hit Foundation Models on every body pass.
     @State private var aiAvailable = false
+    /// Name required before save so feed cards never show a blank author.
+    @State private var showDisplayNameSheet = false
 
     private let maxLength = 1500
+
+    private var needsDisplayName: Bool {
+        auth.currentProfile?.needsDisplayName == true
+    }
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
 
     private var campaignHintText: String? {
@@ -322,6 +328,11 @@ struct ComposeView: View {
             matching: .any(of: [.images, .videos]),
             photoLibrary: .shared()
         )
+        .sheet(isPresented: $showDisplayNameSheet) {
+            DisplayNameSheet()
+                .presentationDetents([.medium])
+                .syncAppAppearance()
+        }
         .background(Theme.background)
         .navigationTitle(isEditing ? "Edit Appreciation" : "New Appreciation")
         .navigationBarTitleDisplayMode(.inline)
@@ -335,6 +346,15 @@ struct ComposeView: View {
                 if sending {
                     ProgressView()
                         .controlSize(.small)
+                } else if needsDisplayName {
+                    Button("Add name") {
+                        messageFocused = false
+                        recipientFocused = false
+                        showDisplayNameSheet = true
+                    }
+                    .font(Theme.body(16, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .accessibilityHint("Add your name before saving")
                 } else {
                     Button(toolbarSaveTitle) {
                         messageFocused = false
@@ -1360,22 +1380,32 @@ struct ComposeView: View {
         Button {
             messageFocused = false
             recipientFocused = false
-            Task { await send() }
+            if needsDisplayName {
+                showDisplayNameSheet = true
+            } else {
+                Task { await send() }
+            }
         } label: {
             HStack(spacing: 8) {
                 if sending {
                     ProgressView()
                         .tint(Color(hex: 0x2B1209))
                 } else {
-                    Image(systemName: "heart.fill")
+                    Image(systemName: needsDisplayName ? "person.crop.circle.badge.plus" : "heart.fill")
                         .font(.system(size: 14, weight: .bold))
                 }
-                Text(sending ? "Saving…" : primarySaveTitle)
+                Text(sending ? "Saving…" : (needsDisplayName ? "Add your name to send" : primarySaveTitle))
             }
         }
-        .buttonStyle(CTAButtonStyle(isLoading: sending, isEnabled: canSend))
-        .disabled(!canSend || sending)
+        .buttonStyle(CTAButtonStyle(
+            isLoading: sending,
+            isEnabled: needsDisplayName ? !sending : canSend
+        ))
+        .disabled(sending || (!needsDisplayName && !canSend))
         .padding(.top, 4)
+        .accessibilityHint(needsDisplayName
+            ? "Opens a short form to add your name"
+            : (saveBlockedReason ?? "Saves this appreciation"))
     }
 
     // MARK: Message tools
@@ -1583,12 +1613,14 @@ struct ComposeView: View {
             && polishing == nil
             && !dictation.isListening
             && !dictation.isTransitioning
+            && !needsDisplayName
     }
 
     /// Explains why Save is disabled (toolbar can look active when only `.disabled`).
     private var saveBlockedReason: String? {
         guard !canSend, !sending else { return nil }
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if needsDisplayName { return "Add your name to send." }
         if polishing != nil { return "Wait for rewriting to finish." }
         if dictation.isStarting { return "Wait for the microphone to start." }
         if dictation.isStopping { return "Finishing dictation…" }
@@ -1967,7 +1999,12 @@ struct ComposeView: View {
     // MARK: Send
 
     private func send() async {
-        guard let userId = auth.userId, canSend else { return }
+        guard let userId = auth.userId else { return }
+        if needsDisplayName {
+            showDisplayNameSheet = true
+            return
+        }
+        guard canSend else { return }
         sending = true
         error = nil
         do {

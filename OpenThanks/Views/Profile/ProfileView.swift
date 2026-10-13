@@ -63,6 +63,8 @@ struct UserProfileView: View {
     @State private var composeAnalyticsSource = "profile_thank"
     @State private var composeUsesProfileRecipient = true
     @State private var pendingSentCount = 0
+    /// Current personal send streak for the own-profile strip (nil until loaded).
+    @State private var currentStreakDays: Int?
     @State private var showReportSheet = false
     @State private var showEditProfile = false
     @State private var confirmBlock = false
@@ -370,27 +372,55 @@ struct UserProfileView: View {
                 .padding(.top, 6)
                 .accessibilityLabel("Thank \(shownProfile.displayName)")
             } else {
-                NavigationLink(value: StatsRoute()) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("Your Stats")
-                            .font(Theme.body(14, weight: .semibold))
-                    }
-                    .foregroundStyle(Theme.coral)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 9)
-                    .background(Theme.coral.opacity(0.12), in: Capsule())
-                    .overlay(
-                        Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 6)
-                .accessibilityLabel("Your Stats")
+                profileStreakStrip
             }
         }
         .padding(.top, 8)
+    }
+
+    /// Compact own-profile entry to Stats — streak days when known, else “Your Stats”.
+    private var profileStreakStrip: some View {
+        NavigationLink(value: StatsRoute()) {
+            HStack(spacing: 10) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+
+                if let days = currentStreakDays, days > 0 {
+                    Text("\(days)")
+                        .font(Theme.body(15, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .monospacedDigit()
+                    Text("day streak")
+                        .font(Theme.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                } else {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(currentStreakDays == 0 ? "Start a streak" : "Your Stats")
+                        .font(Theme.body(14, weight: .semibold))
+                }
+
+                Spacer(minLength: 4)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .foregroundStyle(Theme.coral)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Theme.coral.opacity(0.12), in: Capsule())
+            .overlay(
+                Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 6)
+        .accessibilityLabel(
+            currentStreakDays.map { $0 > 0 ? "\($0) day streak, Your Stats" : "Start a streak, Your Stats" }
+                ?? "Your Stats"
+        )
     }
 
     // MARK: Nonprofit spotlight
@@ -1032,8 +1062,14 @@ struct UserProfileView: View {
                 try await (sentList, receivedList, inspiredList, rippleList, statsTask)
             let rippleResult = (try? rippleOutcome.get()) ?? []
             var pendingResult = 0
+            var streakResult: Int?
             if isOwnProfile, let userId = auth.userId {
                 pendingResult = (try? await GratitudeService.pendingCount(authorId: userId)) ?? pendingSentCount
+                // Lightweight lookback for current streak only — not full Stats history.
+                let since = Calendar.current.date(byAdding: .day, value: -120, to: Date()) ?? Date()
+                if let rows = try? await GratitudeService.sentActivity(authorId: userId, since: since) {
+                    streakResult = StreakMath.keepStatus(dates: rows.compactMap(\.createdAt)).streak
+                }
             }
             withAnimation(.easeInOut(duration: 0.2)) {
                 sent = sentResult
@@ -1041,7 +1077,10 @@ struct UserProfileView: View {
                 inspirations = inspiredResult
                 ripplePassOns = rippleResult
                 stats = statsResult
-                if isOwnProfile { pendingSentCount = pendingResult }
+                if isOwnProfile {
+                    pendingSentCount = pendingResult
+                    if let streakResult { currentStreakDays = streakResult }
+                }
             }
             if isOwnProfile, let userId = auth.userId {
                 await WidgetSnapshotRefresher.refresh(

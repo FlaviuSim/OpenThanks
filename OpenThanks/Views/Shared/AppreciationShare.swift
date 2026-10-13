@@ -586,4 +586,14 @@ enum SocialShare {
         }
         return items
     }
+
+    /// Stats pride card: rendered image + caption (includes App Store URL).
+    @MainActor
+    static func statsShareItems(caption: String, cardImage: UIImage?) -> [Any] {
+        var items: [Any] = [caption]
+        if let cardImage {
+            items.insert(cardImage, at: 0)
+        }
+        return items
+    }
 }
