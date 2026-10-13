@@ -64,6 +64,7 @@ struct UserProfileView: View {
     @State private var composeUsesProfileRecipient = true
     @State private var pendingSentCount = 0
     @State private var showReportSheet = false
+    @State private var showEditProfile = false
     @State private var confirmBlock = false
     @State private var blocking = false
     @State private var blockError: String?
@@ -89,6 +90,9 @@ struct UserProfileView: View {
         ScrollView {
             VStack(spacing: 20) {
                 header
+                if isOwnProfile, shownProfile.needsDisplayName {
+                    addNameNudge
+                }
                 if shownProfile.favoriteNonprofitName != nil { nonprofitCard }
                 sectionSwitcher
                 // Under the 3 stats, above section body (including Ripple).
@@ -131,6 +135,9 @@ struct UserProfileView: View {
                 target: .profile(shownProfile.id),
                 title: "Report \(shownProfile.displayName)’s profile if it violates our community standards."
             )
+        }
+        .sheet(isPresented: $showEditProfile) {
+            EditProfileSheet()
         }
         .alert("Block \(shownProfile.displayName)?", isPresented: $confirmBlock) {
             Button("Cancel", role: .cancel) {}
@@ -273,6 +280,39 @@ struct UserProfileView: View {
                 pendingSentCount += 1
             }
         }
+    }
+
+    private var addNameNudge: some View {
+        Button {
+            showEditProfile = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "person.crop.circle.badge.plus")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Add your name")
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("So people know who their thank-you is from.")
+                        .font(Theme.body(13))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .padding(14)
+            .background(Theme.coralPale.opacity(0.55), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Theme.hairline)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add your name")
+        .accessibilityHint("Opens edit profile")
     }
 
     private var header: some View {

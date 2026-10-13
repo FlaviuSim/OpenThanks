@@ -167,7 +167,10 @@ final class AuthService {
                 let profileName = profile.fullName?.trimmingCharacters(in: .whitespacesAndNewlines)
                 if profileName == nil || profileName?.isEmpty == true {
                     let fromMeta = Self.metadataString(metadata, keys: ["full_name", "name"])
-                    let candidate = [pendingOAuthFullName, fromMeta]
+                    let fromEmail = Self.friendlyName(
+                        fromEmail: pendingOAuthEmail ?? email ?? profile.email
+                    )
+                    let candidate = [pendingOAuthFullName, fromMeta, fromEmail]
                         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
                         .first { !$0.isEmpty }
                     if let candidate {
@@ -196,12 +199,6 @@ final class AuthService {
                 email: pendingOAuthEmail ?? email,
                 phone: phone
             )
-            let resolvedName = [
-                pendingOAuthFullName,
-                Self.metadataString(metadata, keys: ["full_name", "name"]),
-            ]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty }
             let resolvedEmail = [
                 pendingOAuthEmail?.trimmingCharacters(in: .whitespacesAndNewlines),
                 email?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -209,6 +206,13 @@ final class AuthService {
             .compactMap { $0 }
             .first { !$0.isEmpty }
             .map { Self.normalizedEmail($0) }
+            let resolvedName = [
+                pendingOAuthFullName,
+                Self.metadataString(metadata, keys: ["full_name", "name"]),
+                Self.friendlyName(fromEmail: resolvedEmail),
+            ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
             let row = NewProfileRow(
                 id: userId.uuidString,
                 email: resolvedEmail,
@@ -294,6 +298,32 @@ final class AuthService {
         let clean = base.lowercased().filter { $0.isLetter || $0.isNumber }
         return clean.isEmpty ? "member\(Int.random(in: 1000...9999))"
                              : clean + String(Int.random(in: 100...999))
+    }
+
+    /// Best-effort display name from an email local-part when Apple/Google
+    /// didn't supply one (e.g. email OTP). Never invents a name from phone.
+    private static func friendlyName(fromEmail email: String?) -> String? {
+        guard let email = email?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !email.isEmpty,
+              let at = email.firstIndex(of: "@")
+        else { return nil }
+        let local = String(email[..<at])
+            .replacingOccurrences(of: ".", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = local
+            .split(whereSeparator: \.isWhitespace)
+            .map { part -> String in
+                let word = String(part).filter { $0.isLetter || $0.isNumber }
+                guard let first = word.first else { return "" }
+                return String(first).uppercased() + word.dropFirst().lowercased()
+            }
+            .filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return nil }
+        // Skip pure-digit handles (otp123) — not a real name.
+        if parts.allSatisfy({ $0.allSatisfy(\.isNumber) }) { return nil }
+        return parts.joined(separator: " ")
     }
 
     // MARK: Sign-in methods

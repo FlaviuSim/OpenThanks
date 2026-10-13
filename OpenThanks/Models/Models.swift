@@ -52,10 +52,15 @@ struct Profile: Codable, Identifiable, Hashable {
     }
     var avatarURL: URL? { AppConfig.mediaURL(from: avatarUrl) }
     var webProfileURL: URL { AppConfig.webAppURL.appending(path: username) }
+    /// Username is enough to enter the app; name is backfilled from Apple /
+    /// Google / email when available and nudged softly on Profile if still empty.
     var isCompleteForApp: Bool {
+        !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var needsDisplayName: Bool {
         let name = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let handle = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !name.isEmpty && !handle.isEmpty
+        return name.isEmpty
     }
 }
 

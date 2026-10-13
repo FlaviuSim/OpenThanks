@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shown once after sign-in before the main app (and before profile completion).
+/// Shown once after sign-in before the main app.
 /// Friday reminder defaults on; we ask for notification permission here.
 struct NotificationPermissionView: View {
     var onFinished: () -> Void
@@ -16,11 +16,11 @@ struct NotificationPermissionView: View {
                 ActionGlyph(systemImage: "bell.fill", size: 88)
 
                 VStack(spacing: 10) {
-                    Text("Stay in the gratitude loop")
+                    Text("Build a happier habit")
                         .font(Theme.display(28, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text("Get a gentle Friday morning reminder to appreciate someone who made your week better.")
+                    Text("Gentle reminders help you pause and thank someone — starting with a Friday morning prompt for the person who made your week better. Real notes only; never spam.")
                         .font(Theme.body(16))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
