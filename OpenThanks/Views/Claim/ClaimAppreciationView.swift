@@ -46,22 +46,28 @@ struct PendingAppreciationReviewView: View {
                             fromName: authorProfile?.fullName
                                 ?? authorProfile?.displayName,
                             onThankSomeone: {
-                                Analytics.capture(
-                                    "pay_it_forward_tapped",
-                                    [
-                                        "source": "claim_accept",
-                                        "parent_gratitude_id": gratitude.id.uuidString.lowercased(),
-                                    ]
+                                Analytics.payItForwardTapped(
+                                    parentGratitudeId: gratitude.id,
+                                    surface: "claim",
+                                    source: "claim_accept"
                                 )
                                 showCompose = true
                                 AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
                             },
                             onDismiss: {
+                                Analytics.payItForwardDismissed(
+                                    parentGratitudeId: gratitude.id,
+                                    surface: "claim",
+                                    source: "claim_accept"
+                                )
                                 withAnimation(Motion.note) {
                                     showPayItForward = false
                                 }
                                 AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
-                            }
+                            },
+                            analyticsParentId: gratitude.id,
+                            analyticsSurface: "claim",
+                            analyticsSource: "claim_accept"
                         )
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
@@ -245,14 +251,20 @@ struct PendingAppreciationReviewView: View {
         )
     }
 
-    private func trackClaimResponse(_ action: Action) {
+    private func trackClaimResponse(
+        _ action: Action,
+        payItForwardEligible: Bool = true,
+        payItForwardSkipReason: String? = nil
+    ) {
         switch action {
         case .accept:
             Analytics.appreciationAccepted(
                 gratitudeId: gratitude.id,
                 senderId: gratitude.authorId,
                 source: analyticsSource,
-                visibility: "public"
+                visibility: "public",
+                payItForwardEligible: payItForwardEligible,
+                payItForwardSkipReason: payItForwardSkipReason
             )
         case .acceptPrivate:
             Analytics.appreciationAccepted(
@@ -260,7 +272,9 @@ struct PendingAppreciationReviewView: View {
                 senderId: gratitude.authorId,
                 source: analyticsSource,
                 visibility: "private",
-                acceptedAsPrivate: true
+                acceptedAsPrivate: true,
+                payItForwardEligible: payItForwardEligible,
+                payItForwardSkipReason: payItForwardSkipReason
             )
         case .decline:
             Analytics.appreciationDeclined(
@@ -298,19 +312,24 @@ struct PendingAppreciationReviewView: View {
             )
             gratitude = updated
             showPrivateConfirm = false
-            trackClaimResponse(action)
             if accepts {
+                trackClaimResponse(action, payItForwardEligible: true)
                 WarmHaptics.received()
-                Analytics.capture("pay_it_forward_shown", [
-                    "source": "claim_accept",
-                    "parent_gratitude_id": updated.id.uuidString.lowercased(),
-                ])
+                // Offered, not shown: the card appears later on this screen,
+                // on the claim redirect, or on the detail host — or not at all.
+                Analytics.payItForwardOffered(
+                    parentGratitudeId: updated.id,
+                    surface: "claim",
+                    source: "claim_accept"
+                )
                 if let onAccepted {
                     onAccepted(updated)
                     acting = nil
                     return
                 }
                 showPayItForward = true
+            } else {
+                trackClaimResponse(action)
             }
             withAnimation(Motion.note) {
                 outcome = accepts ? .accepted(updated) : .declined
@@ -324,9 +343,23 @@ struct PendingAppreciationReviewView: View {
                 if accepts, current.status == .accepted {
                     gratitude = current
                     showPrivateConfirm = false
-                    trackClaimResponse(action)
-                    if let onAccepted {
-                        onAccepted(current)
+                    // The inline card is not shown on this path. A host callback
+                    // presents the nudge; without one, the accept does not offer it.
+                    let offersNudge = onAccepted != nil
+                    trackClaimResponse(
+                        action,
+                        payItForwardEligible: offersNudge,
+                        payItForwardSkipReason: offersNudge
+                            ? nil
+                            : Analytics.payItForwardSkipAlreadyResolved
+                    )
+                    if offersNudge {
+                        Analytics.payItForwardOffered(
+                            parentGratitudeId: current.id,
+                            surface: "claim",
+                            source: "claim_accept"
+                        )
+                        onAccepted?(current)
                         acting = nil
                         return
                     }

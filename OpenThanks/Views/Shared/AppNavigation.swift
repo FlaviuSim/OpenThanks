@@ -180,22 +180,28 @@ struct GratitudeLoaderView: View {
                                 fromName: gratitude.author?.fullName
                                     ?? gratitude.author?.displayName,
                                 onThankSomeone: {
-                                    Analytics.capture(
-                                        "pay_it_forward_tapped",
-                                        [
-                                            "source": "claim_accept",
-                                            "parent_gratitude_id": gratitude.id.uuidString.lowercased(),
-                                        ]
+                                    Analytics.payItForwardTapped(
+                                        parentGratitudeId: gratitude.id,
+                                        surface: "claim",
+                                        source: "claim_accept"
                                     )
                                     showCompose = true
                                     AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
                                 },
                                 onDismiss: {
+                                    Analytics.payItForwardDismissed(
+                                        parentGratitudeId: gratitude.id,
+                                        surface: "claim",
+                                        source: "claim_accept"
+                                    )
                                     withAnimation(Motion.note) {
                                         showPayItForward = false
                                     }
                                     AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
-                                }
+                                },
+                                analyticsParentId: gratitude.id,
+                                analyticsSurface: "claim",
+                                analyticsSource: "claim_accept"
                             )
                             .padding(.horizontal, 16)
                             .padding(.top, 12)

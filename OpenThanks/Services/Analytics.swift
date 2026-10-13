@@ -28,6 +28,15 @@ enum Analytics {
     private static var didSetup = false
     private static let iso8601 = ISO8601DateFormatter()
 
+    /// Marketing version. Read from the bundle; no disk or network I/O.
+    static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+    }
+
+    /// `appreciation_accepted.pay_it_forward_skip_reason` when the note was
+    /// already accepted and this screen has no host that presents the card.
+    static let payItForwardSkipAlreadyResolved = "already_resolved"
+
     private static var forceEnabled: Bool {
         UserDefaults.standard.bool(forKey: forceEnableKey)
     }
@@ -394,20 +403,113 @@ enum Analytics {
 
     /// `acceptedAsPrivate` is sent only when true (accept-as-private). A
     /// sender-private note accepted normally keeps `visibility` and omits the flag.
+    ///
+    /// `payItForwardEligible` is whether this accept will offer the nudge.
+    /// `payItForwardSkipReason` is attached only when it will not (`already_resolved`).
+    /// `parent_gratitude_id` is the accepted note — the parent of a later ripple.
     static func appreciationAccepted(
         gratitudeId: UUID,
         senderId: UUID,
         source: String,
         visibility: String,
-        acceptedAsPrivate: Bool = false
+        acceptedAsPrivate: Bool = false,
+        payItForwardEligible: Bool,
+        payItForwardSkipReason: String? = nil
     ) {
         var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
         props["source"] = source
         props["visibility"] = visibility
+        props["app_version"] = appVersion
+        props["parent_gratitude_id"] = gratitudeId.uuidString.lowercased()
+        props["pay_it_forward_eligible"] = payItForwardEligible
+        if !payItForwardEligible,
+           let payItForwardSkipReason,
+           !payItForwardSkipReason.isEmpty {
+            props["pay_it_forward_skip_reason"] = payItForwardSkipReason
+        }
         if acceptedAsPrivate {
             props["accepted_as_private"] = true
         }
         capture("appreciation_accepted", props)
+    }
+
+    /// Shared pay-it-forward properties. `capture` only enqueues with PostHog —
+    /// callers must not await it or do any other work around these calls.
+    static func payItForwardProperties(
+        parentGratitudeId: UUID,
+        surface: String? = nil,
+        source: String? = nil
+    ) -> [String: Any] {
+        var props: [String: Any] = [
+            "platform": "ios",
+            "app_version": appVersion,
+            "parent_gratitude_id": parentGratitudeId.uuidString.lowercased(),
+        ]
+        if let surface { props["surface"] = surface }
+        if let source { props["source"] = source }
+        return props
+    }
+
+    /// We committed to presenting the nudge. Not an impression.
+    static func payItForwardOffered(
+        parentGratitudeId: UUID,
+        surface: String,
+        source: String
+    ) {
+        capture(
+            "pay_it_forward_offered",
+            payItForwardProperties(
+                parentGratitudeId: parentGratitudeId,
+                surface: surface,
+                source: source
+            )
+        )
+    }
+
+    /// The card is on screen. Call from `onAppear` only.
+    static func payItForwardShown(
+        parentGratitudeId: UUID,
+        surface: String,
+        source: String
+    ) {
+        capture(
+            "pay_it_forward_shown",
+            payItForwardProperties(
+                parentGratitudeId: parentGratitudeId,
+                surface: surface,
+                source: source
+            )
+        )
+    }
+
+    static func payItForwardDismissed(
+        parentGratitudeId: UUID,
+        surface: String,
+        source: String
+    ) {
+        capture(
+            "pay_it_forward_dismissed",
+            payItForwardProperties(
+                parentGratitudeId: parentGratitudeId,
+                surface: surface,
+                source: source
+            )
+        )
+    }
+
+    static func payItForwardTapped(
+        parentGratitudeId: UUID,
+        surface: String,
+        source: String
+    ) {
+        capture(
+            "pay_it_forward_tapped",
+            payItForwardProperties(
+                parentGratitudeId: parentGratitudeId,
+                surface: surface,
+                source: source
+            )
+        )
     }
 
     static func appreciationDeclined(

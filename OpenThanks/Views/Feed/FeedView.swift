@@ -57,6 +57,8 @@ struct FeedView: View {
     @State private var payItForwardFromName: String?
     @State private var payItForwardParentId: UUID?
     @State private var payItForwardPresentedIds: Set<UUID> = []
+    /// Set before the sheet dismisses on "Thank someone", so that dismiss is not a dismissal.
+    @State private var payItForwardDidThank = false
     @State private var composeInspiredById: UUID?
     @State private var composeInspiredByName: String?
     /// Once per session: if Personal has nothing, land on World instead.
@@ -147,8 +149,26 @@ struct FeedView: View {
     private var showPayItForward: Binding<Bool> {
         Binding(
             get: { payItForwardFromName != nil },
-            set: { if !$0 { payItForwardFromName = nil } }
+            set: { presented in
+                if !presented { dismissPayItForwardSheet() }
+            }
         )
+    }
+
+    /// User closed the sheet (Not now, close, or swipe). Thank-someone sets
+    /// `payItForwardDidThank` first so it is not counted here.
+    private func dismissPayItForwardSheet() {
+        let parentId = payItForwardParentId
+        let wasShowing = payItForwardFromName != nil
+        if wasShowing, !payItForwardDidThank, let parentId {
+            Analytics.payItForwardDismissed(
+                parentGratitudeId: parentId,
+                surface: "feed",
+                source: "feed_accept"
+            )
+        }
+        payItForwardDidThank = false
+        payItForwardFromName = nil
     }
 
     var body: some View {
@@ -215,16 +235,22 @@ struct FeedView: View {
             .sheet(isPresented: showPayItForward) {
                 PayItForwardSheet(
                     fromName: payItForwardFromName,
+                    parentGratitudeId: payItForwardParentId,
+                    analyticsSurface: "feed",
+                    analyticsSource: "feed_accept",
                     onThankSomeone: {
+                        payItForwardDidThank = true
                         composeRecipient = nil
                         composeInspiredById = payItForwardParentId
                         composeInspiredByName = payItForwardFromName
                         composeAnalyticsSource = "post_accept_pay_it_forward"
-                        var props: [String: Any] = ["source": "feed_accept"]
                         if let parentId = payItForwardParentId {
-                            props["parent_gratitude_id"] = parentId.uuidString.lowercased()
+                            Analytics.payItForwardTapped(
+                                parentGratitudeId: parentId,
+                                surface: "feed",
+                                source: "feed_accept"
+                            )
                         }
-                        Analytics.capture("pay_it_forward_tapped", props)
                         showCompose = true
                     }
                 )
@@ -812,17 +838,20 @@ struct FeedView: View {
         // Accept fires twice (optimistic + confirmed) — only nudge once per post.
         guard !payItForwardPresentedIds.contains(gratitude.id) else { return }
         payItForwardPresentedIds.insert(gratitude.id)
+        payItForwardDidThank = false
+        Analytics.payItForwardOffered(
+            parentGratitudeId: gratitude.id,
+            surface: "feed",
+            source: "feed_accept"
+        )
         let name = gratitude.author?.fullName
             ?? gratitude.author?.displayName
             ?? gratitude.author?.username
         // Slight delay so the pending card dismiss animation settles first.
+        // The impression fires from the card's onAppear, not from this delay.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             payItForwardParentId = gratitude.id
             payItForwardFromName = name ?? "someone"
-            Analytics.capture("pay_it_forward_shown", [
-                "source": "feed_accept",
-                "parent_gratitude_id": gratitude.id.uuidString.lowercased(),
-            ])
         }
     }
 

@@ -5,6 +5,11 @@ struct PayItForwardNudgeCard: View {
     var fromName: String?
     var onThankSomeone: () -> Void
     var onDismiss: (() -> Void)? = nil
+    /// When all three are set, `pay_it_forward_shown` fires once from `onAppear`.
+    var analyticsParentId: UUID? = nil
+    var analyticsSurface: String? = nil
+    var analyticsSource: String? = nil
+    @State private var didCaptureShown = false
 
     private var firstName: String {
         guard let fromName, !fromName.isEmpty else { return "someone" }
@@ -58,12 +63,30 @@ struct PayItForwardNudgeCard: View {
                         .strokeBorder(Theme.coral.opacity(0.35), lineWidth: 1)
                 )
         )
+        .onAppear(perform: captureShownIfNeeded)
+    }
+
+    /// Impression only. PostHog capture enqueues; this does not touch the layout.
+    private func captureShownIfNeeded() {
+        guard !didCaptureShown,
+              let analyticsParentId,
+              let analyticsSurface,
+              let analyticsSource else { return }
+        didCaptureShown = true
+        Analytics.payItForwardShown(
+            parentGratitudeId: analyticsParentId,
+            surface: analyticsSurface,
+            source: analyticsSource
+        )
     }
 }
 
 /// Sheet wrapper used right after accepting from the Home feed.
 struct PayItForwardSheet: View {
     var fromName: String?
+    var parentGratitudeId: UUID?
+    var analyticsSurface: String
+    var analyticsSource: String
     var onThankSomeone: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var detentHeight: CGFloat = 340
@@ -78,14 +101,19 @@ struct PayItForwardSheet: View {
             PayItForwardNudgeCard(
                 fromName: fromName,
                 onThankSomeone: {
+                    // Tell the host this was a tap before `dismiss()` flips the
+                    // presentation binding, so that path is not counted as a dismiss.
+                    onThankSomeone()
                     dismiss()
                     AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
-                    onThankSomeone()
                 },
                 onDismiss: {
                     dismiss()
                     AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
-                }
+                },
+                analyticsParentId: parentGratitudeId,
+                analyticsSurface: analyticsSurface,
+                analyticsSource: analyticsSource
             )
             .padding(.horizontal, 20)
 
