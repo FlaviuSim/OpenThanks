@@ -46,6 +46,15 @@ type PushRequest = {
   gratitude_id?: string;
 };
 
+/** Types that get a phone push. Local-only / noisy types are skipped. */
+const PUSH_TYPES = new Set([
+  "gratitude_pending",
+  "gratitude_received",
+  "heart_received",
+  "email_bounced",
+  "competition_winner",
+]);
+
 type TokenRow = {
   token: string;
   environment: string;
@@ -60,7 +69,22 @@ Deno.serve(async (req) => {
   try {
     assertServiceRole(req);
 
-    const payload = (await req.json()) as PushRequest;
+    const raw = await req.json();
+    const payload = normalizePushRequest(raw);
+    if (!payload) {
+      return json({ ok: true, sent: 0, skipped: "ignored_payload" });
+    }
+
+    // Webhook / trigger paths often send only `type` — skip non-push types early.
+    if (
+      payload.type &&
+      !payload.title &&
+      !payload.body &&
+      !PUSH_TYPES.has(payload.type)
+    ) {
+      return json({ ok: true, sent: 0, skipped: "type_not_pushed" });
+    }
+
     const supabase = adminClient();
 
     const targets = await resolveTargets(supabase, payload);
@@ -133,6 +157,43 @@ Deno.serve(async (req) => {
     return json({ error: message }, 500);
   }
 });
+
+/**
+ * Accepts either a direct push body or a Supabase Database Webhook envelope
+ * (`{ type: "INSERT", table: "notifications", record: { ... } }`).
+ */
+function normalizePushRequest(raw: unknown): PushRequest | null {
+  if (!raw || typeof raw !== "object") return null;
+  const body = raw as Record<string, unknown>;
+
+  // Database Webhook / trigger envelope.
+  if (
+    typeof body.type === "string" &&
+    (body.type === "INSERT" || body.type === "UPDATE" || body.type === "DELETE") &&
+    body.record &&
+    typeof body.record === "object"
+  ) {
+    if (body.type !== "INSERT") return null;
+    const record = body.record as Record<string, unknown>;
+    const userId = asString(record.user_id);
+    const notifType = asString(record.type);
+    if (!userId || !notifType) return null;
+    return {
+      user_id: userId,
+      type: notifType,
+      notification_id: asString(record.id),
+      gratitude_id: asString(record.gratitude_id),
+    };
+  }
+
+  return body as PushRequest;
+}
+
+function asString(value: unknown): string | undefined {
+  if (typeof value === "string" && value.length > 0) return value;
+  if (typeof value === "number") return String(value);
+  return undefined;
+}
 
 function assertServiceRole(req: Request) {
   const auth = req.headers.get("Authorization") ?? "";

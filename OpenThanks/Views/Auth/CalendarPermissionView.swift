@@ -25,11 +25,11 @@ struct CalendarPermissionView: View {
                     .offset(y: appeared ? 0 : 10)
 
                 VStack(spacing: 10) {
-                    Text("Which calendar do you use?")
+                    Text("Turn busy days into gratitude")
                         .font(Theme.display(28, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text("We’ll suggest one person to thank from today’s meetings, weekday evenings at 8.")
+                    Text("Connect a calendar and we’ll suggest one person to thank from today’s meetings — a weekday evening nudge at 8 so good days end feeling fuller.")
                         .font(Theme.body(16))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)

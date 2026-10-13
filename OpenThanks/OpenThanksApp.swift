@@ -171,6 +171,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             == NotificationService.calendarNudgeTypeValue {
             NotificationService.recordDeliveredCalendarNudge(userInfo: info)
         }
+        // Remote receive/accept while foregrounded — refresh pending cards + badge.
+        if let type = info[NotificationService.thankReminderTypeKey] as? String,
+           type == "gratitude_pending" || type == "gratitude_received" || type == "heart_received" {
+            await MainActor.run {
+                NotificationCenter.default.post(name: .pendingThanksShouldRefresh, object: nil)
+            }
+        }
         // Any banner delivery while the app is open — not only the 8am streak wake.
         await StreakLiveActivityController.handleAppBecameActive(userId: auth?.userId)
         return [.banner, .sound, .badge]
@@ -257,10 +264,29 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(analyticsSource: "streak_live_activity_wake")
             }
+        case "gratitude_pending":
+            // Open My Feed pending section (forces Personal + scroll).
+            await MainActor.run {
+                NotificationCenter.default.post(name: .pendingThanksShouldRefresh, object: nil)
+                TabLaunchBridge.shared.queue(.received)
+            }
+        case "gratitude_received", "heart_received", "heart", "reaction":
+            let gratitudeId = (info["gratitude_id"] as? String).flatMap(UUID.init)
+            await MainActor.run {
+                if let gratitudeId {
+                    deepLinks?.destination = .gratitude(id: gratitudeId)
+                } else {
+                    TabLaunchBridge.shared.queue(.notifications)
+                }
+            }
         case "email_bounced":
             let gratitudeId = (info["gratitude_id"] as? String).flatMap(UUID.init)
             await MainActor.run {
                 deepLinks?.destination = .pendingSent(resendId: gratitudeId)
+            }
+        case "competition_winner":
+            await MainActor.run {
+                TabLaunchBridge.shared.queue(.notifications)
             }
         default:
             break
@@ -270,7 +296,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 struct RootView: View {
     enum HomeGate {
-        case checking, needsNotifications, needsCalendar, needsProfile, needsTrustIntro, needsSiriTip, ready
+        case checking, needsNotifications, needsCalendar, needsSiriTip, ready
     }
 
     @Environment(AuthService.self) private var auth
@@ -280,7 +306,7 @@ struct RootView: View {
     @AppStorage("hasCompletedNotificationPrompt") private var hasCompletedNotificationPrompt = false
     /// One-time gate for calendar access (evening thank-you nudges).
     @AppStorage("hasCompletedCalendarPrompt") private var hasCompletedCalendarPrompt = false
-    /// One-time trust intro after first-login gates (what OpenThanks is / not spam).
+    /// Legacy flag — trust beat now lives on the one-page pre-login onboarding.
     @AppStorage("hasSeenTrustIntro") private var hasSeenTrustIntro = false
     /// One-time tip so people discover App Shortcuts / Siri phrases.
     @AppStorage("hasCompletedSiriPrompt") private var hasCompletedSiriPrompt = false
@@ -300,12 +326,16 @@ struct RootView: View {
                 HeartMark(size: 64)
                     .transition(.opacity)
             case .signedOut:
-                // Description slides → sign-in only. Never ask for notifications/calendar here.
+                // One-page promise → sign-in only. Never ask for notifications/calendar here.
                 Group {
                     if hasSeenOnboarding {
                         WelcomeView()
                     } else {
-                        OnboardingView { hasSeenOnboarding = true }
+                        OnboardingView {
+                            hasSeenOnboarding = true
+                            // Trust copy is on the one-pager — don't show TrustIntro later.
+                            hasSeenTrustIntro = true
+                        }
                     }
                 }
                 .transition(.opacity)
@@ -314,8 +344,7 @@ struct RootView: View {
                     HeartMark(size: 64)
                         .transition(.opacity)
                 } else {
-                    // After login: notifications → profile → calendar → trust → app
-                    // (Siri tip on the second open).
+                    // After login: notifications → calendar → app (Siri tip on the second open).
                     signedInHome
                         .transition(.opacity)
                 }
@@ -346,13 +375,6 @@ struct RootView: View {
                 hasCompletedCalendarPrompt = true
                 homeGate = nextGateAfterCalendar()
             }
-        case .needsProfile:
-            EditProfileSheet(required: true)
-        case .needsTrustIntro:
-            TrustIntroView {
-                hasSeenTrustIntro = true
-                homeGate = gateAfterTrustOrReady()
-            }
         case .needsSiriTip:
             SiriIntroView {
                 hasCompletedSiriPrompt = true
@@ -365,12 +387,6 @@ struct RootView: View {
     }
 
     private func nextGateAfterNotifications() -> HomeGate {
-        if auth.currentProfile?.isCompleteForApp != true { return .needsProfile }
-        return nextGateAfterProfile()
-    }
-
-    /// Calendar is the last permission gate before trust intro / main app.
-    private func nextGateAfterProfile() -> HomeGate {
         if !hasCompletedCalendarPrompt { return .needsCalendar }
         return gateAfterCalendarOrReady()
     }
@@ -384,16 +400,9 @@ struct RootView: View {
         !hasCompletedSiriPrompt && hasEnteredMainAppOnce && !deferredSiriThisProcess
     }
 
-    private var shouldShowTrustIntroNow: Bool {
-        !hasSeenTrustIntro
-    }
-
     private func gateAfterCalendarOrReady() -> HomeGate {
-        if shouldShowTrustIntroNow { return .needsTrustIntro }
-        return gateAfterTrustOrReady()
-    }
-
-    private func gateAfterTrustOrReady() -> HomeGate {
+        // Pre-login onboarding now carries the trust beat.
+        if !hasSeenTrustIntro { hasSeenTrustIntro = true }
         if shouldShowSiriTipNow { return .needsSiriTip }
         if !hasEnteredMainAppOnce {
             hasEnteredMainAppOnce = true
@@ -406,17 +415,11 @@ struct RootView: View {
         if !hasCompletedNotificationPrompt {
             return homeGate == .needsNotifications ? .needsNotifications : homeGate
         }
-        if auth.currentProfile?.isCompleteForApp != true {
-            return .needsProfile
-        }
         if !hasCompletedCalendarPrompt {
             return homeGate == .needsCalendar ? .needsCalendar : homeGate
         }
         if homeGate == .checking {
             return .checking
-        }
-        if shouldShowTrustIntroNow {
-            return .needsTrustIntro
         }
         if shouldShowSiriTipNow {
             return .needsSiriTip
@@ -424,12 +427,11 @@ struct RootView: View {
         return .ready
     }
 
-    /// Re-check when the user signs in, finishes permissions, or completes profile.
+    /// Re-check when the user signs in or finishes permissions.
     private var homeGateTaskID: String {
         let user = auth.userId?.uuidString ?? "out"
         let resolved = auth.hasResolvedProfile
-        let complete = auth.currentProfile?.isCompleteForApp == true
-        return "\(user)-\(resolved)-\(complete)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasSeenTrustIntro)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)"
+        return "\(user)-\(resolved)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)"
     }
 
     private func resolveHomeGate() async {
@@ -439,6 +441,9 @@ struct RootView: View {
         }
 
         OpenThanksShortcuts.updateAppShortcutParameters()
+
+        // Returning users who never saw the new one-pager still skip TrustIntro.
+        if !hasSeenTrustIntro { hasSeenTrustIntro = true }
 
         if !hasCompletedNotificationPrompt {
             if await NotificationService.hasResolvedAuthorization() {
@@ -453,11 +458,6 @@ struct RootView: View {
                 homeGate = .needsNotifications
                 return
             }
-        }
-
-        if auth.currentProfile?.isCompleteForApp != true {
-            homeGate = .needsProfile
-            return
         }
 
         if !hasCompletedCalendarPrompt {
@@ -476,7 +476,7 @@ struct RootView: View {
                     selfEmails: emails
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
-                // Fall through — do not return; continue to trust/ready/Siri below.
+                // Fall through — do not return; continue to ready/Siri below.
             } else {
                 // Last first-login step — which calendar to use for evening nudges.
                 homeGate = .needsCalendar

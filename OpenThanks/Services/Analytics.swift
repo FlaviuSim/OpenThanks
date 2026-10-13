@@ -609,6 +609,16 @@ enum Analytics {
         ])
     }
 
+    /// Stats pride card shared via the system sheet (completed only).
+    static func statsShared(streak: Int, channel: String, hasCard: Bool) {
+        capture("stats_shared", [
+            "streak": streak,
+            "channel": channel,
+            "platform": "ios",
+            "has_card": hasCard,
+        ])
+    }
+
     static func appreciationFailed(error: String, source: String?) {
         var props: [String: Any] = ["error": String(error.prefix(200))]
         if let source { props["source"] = source }

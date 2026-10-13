@@ -173,24 +173,15 @@ struct FeedView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            Group {
-                if usesSplitDetail {
-                    GeometryReader { geo in
-                        HStack(spacing: 0) {
-                            feedChrome
-                                .frame(width: listPaneWidth(for: geo.size.width))
-                            Rectangle()
-                                .fill(Theme.hairline)
-                                .frame(width: 0.5)
-                                .ignoresSafeArea()
-                            detailPane
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                } else {
-                    feedChrome
-                }
-            }
+            feedRoot
+                .syncAppAppearance()
+        }
+    }
+
+    /// Split out of `body` so SwiftUI type-checking stays tractable.
+    @ViewBuilder
+    private var feedRoot: some View {
+        feedChromeOrSplit
             .background(Theme.background)
             // Only while searching — otherwise this fights scroll-direction hide/show.
             .simultaneousGesture(
@@ -218,20 +209,6 @@ struct FeedView: View {
                     analyticsSource: composeAnalyticsSource
                 )
             }
-            .onChange(of: searchFocused) { _, focused in
-                searchActive = focused
-                if focused { searchBarVisible = true }
-            }
-            .onChange(of: isEmpty) { _, empty in
-                if empty { searchBarVisible = true }
-            }
-            .onChange(of: pendingToAccept.count) { _, count in
-                NotificationCenter.default.post(
-                    name: .homePendingAcceptCount,
-                    object: nil,
-                    userInfo: ["count": count]
-                )
-            }
             .sheet(isPresented: showPayItForward) {
                 PayItForwardSheet(
                     fromName: payItForwardFromName,
@@ -256,6 +233,20 @@ struct FeedView: View {
                 )
                 .syncAppAppearance()
             }
+            .onChange(of: searchFocused) { _, focused in
+                searchActive = focused
+                if focused { searchBarVisible = true }
+            }
+            .onChange(of: isEmpty) { _, empty in
+                if empty { searchBarVisible = true }
+            }
+            .onChange(of: pendingToAccept.count) { _, count in
+                NotificationCenter.default.post(
+                    name: .homePendingAcceptCount,
+                    object: nil,
+                    userInfo: ["count": count]
+                )
+            }
             .onChange(of: showCompose) { _, open in
                 if open { dismissSearchKeyboard() }
                 if !open {
@@ -266,7 +257,11 @@ struct FeedView: View {
                 }
             }
             .onChange(of: isSelected) { _, selected in
-                if !selected { dismissSearchKeyboard() }
+                if !selected {
+                    dismissSearchKeyboard()
+                } else {
+                    Task { await refreshPendingAccept(reason: "home_selected") }
+                }
             }
             .onChange(of: usesSplitDetail) { _, enabled in
                 // Rotating to portrait: show the open post as a push, free the feed width.
@@ -275,11 +270,13 @@ struct FeedView: View {
                 path.append(gratitude)
             }
             .onChange(of: path.count) { _, _ in
-                // Pushing a profile (or any destination) should end search.
                 dismissSearchKeyboard()
             }
             .onReceive(NotificationCenter.default.publisher(for: .focusReceivedThanks)) { _ in
-                scrollToPendingToken += 1
+                handleFocusReceivedThanks()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .pendingThanksShouldRefresh)) { _ in
+                Task { await refreshPendingAccept(reason: "push_or_signal") }
             }
             .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
                 payItForwardFromName = nil
@@ -300,15 +297,52 @@ struct FeedView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .userDidBlock)) { note in
                 guard let blockedId = note.object as? UUID else { return }
-                setItems(userBlocks.filterGratitudes(personalItems), for: .personal)
-                setItems(userBlocks.filterGratitudes(worldItems), for: .world)
-                pendingToAccept = userBlocks.filterGratitudes(pendingToAccept)
-                if splitSelection?.wrappedValue?.authorId == blockedId
-                    || splitSelection?.wrappedValue?.recipientId == blockedId {
-                    splitSelection?.wrappedValue = nil
+                handleUserDidBlock(blockedId)
+            }
+    }
+
+    @ViewBuilder
+    private var feedChromeOrSplit: some View {
+        if usesSplitDetail {
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    feedChrome
+                        .frame(width: listPaneWidth(for: geo.size.width))
+                    Rectangle()
+                        .fill(Theme.hairline)
+                        .frame(width: 0.5)
+                        .ignoresSafeArea()
+                    detailPane
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .syncAppAppearance()
+        } else {
+            feedChrome
+        }
+    }
+
+    private func handleFocusReceivedThanks() {
+        if scope != .personal {
+            suppressNextScopeHaptic = true
+            withAnimation(Self.scopeSwitchAnimation) {
+                scope = .personal
+            }
+        }
+        Task {
+            await refreshPendingAccept(reason: "focus_received")
+            // Let My Feed appear before scrolling to the pending header.
+            try? await Task.sleep(for: .milliseconds(120))
+            scrollToPendingToken += 1
+        }
+    }
+
+    private func handleUserDidBlock(_ blockedId: UUID) {
+        setItems(userBlocks.filterGratitudes(personalItems), for: .personal)
+        setItems(userBlocks.filterGratitudes(worldItems), for: .world)
+        pendingToAccept = userBlocks.filterGratitudes(pendingToAccept)
+        let selected = splitSelection?.wrappedValue
+        if selected?.authorId == blockedId || selected?.recipientId == blockedId {
+            splitSelection?.wrappedValue = nil
         }
     }
 
@@ -861,6 +895,44 @@ struct FeedView: View {
         pendingToAccept = pending.filter { !resolvedPendingIds.contains($0.id) }
     }
 
+    /// Soft-fail pending load — never blank the accepted feed on a pending error.
+    private func loadPendingAcceptBundle(userId: UUID) async -> (pending: [Gratitude], pendingSent: Int) {
+        do {
+            async let pendingTask = GratitudeService.pendingToAccept(
+                userId: userId,
+                email: auth.currentProfile?.email,
+                phone: auth.currentProfile?.phone
+            )
+            async let pendingSentTask = GratitudeService.pendingCount(authorId: userId)
+            let pending = userBlocks.filterGratitudes(try await pendingTask)
+            let pendingSent = try await pendingSentTask
+            return (pending, pendingSent)
+        } catch {
+            if !error.isCancellation {
+                Analytics.capture("home_pending_load_failed", [
+                    "message": String(error.localizedDescription.prefix(120)),
+                ])
+            }
+            return (pendingToAccept, pendingSentCount)
+        }
+    }
+
+    /// Lightweight pending refresh (Home selected, push, focusReceived) without reloading the feed.
+    private func refreshPendingAccept(reason: String) async {
+        guard let userId = auth.userId else { return }
+        let bundle = await loadPendingAcceptBundle(userId: userId)
+        for item in bundle.pending where !resolvedPendingIds.contains(item.id) {
+            await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
+        }
+        applyPendingList(bundle.pending)
+        pendingSentCount = bundle.pendingSent
+        await refreshWidgetSnapshot()
+        Analytics.capture("home_pending_refreshed", [
+            "reason": reason,
+            "pending_count": bundle.pending.count,
+        ])
+    }
+
     private func prefetchOpposite(of current: Scope) async {
         let other: Scope = current == .personal ? .world : .personal
         let alreadyLoaded = other == .personal ? personalLoadedOnce : worldLoadedOnce
@@ -891,36 +963,26 @@ struct FeedView: View {
                 ? GratitudeService.personalFeed(userId: userId)
                 : GratitudeService.worldFeed()
 
-            // Pending accept / sent counts only matter for My Feed — skip on World.
+            // World refresh still reloads pending-to-accept so receive isn’t Personal-only.
             let result = userBlocks.filterGratitudes(try await feedTask)
-            var pending: [Gratitude] = []
-            var pendingSent = pendingSentCount
-            if target == .personal {
-                async let pendingTask: [Gratitude] = GratitudeService.pendingToAccept(
-                    userId: userId,
-                    email: auth.currentProfile?.email,
-                    phone: auth.currentProfile?.phone
-                )
-                async let pendingSentTask = GratitudeService.pendingCount(authorId: userId)
-                pending = userBlocks.filterGratitudes((try? await pendingTask) ?? [])
-                pendingSent = (try? await pendingSentTask) ?? pendingSentCount
-            }
+            let pendingBundle = await loadPendingAcceptBundle(userId: userId)
+            let pending = pendingBundle.pending
+            let pendingSent = pendingBundle.pendingSent
 
             guard generation == currentLoadGeneration(for: target) else { return }
 
             // Attach recipient + pending notification as soon as we see them —
             // don't wait until accept/decline (which used to create the notice).
-            if target == .personal {
-                for item in pending where !resolvedPendingIds.contains(item.id) {
-                    await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
-                }
+            for item in pending where !resolvedPendingIds.contains(item.id) {
+                await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
             }
 
             guard generation == currentLoadGeneration(for: target) else { return }
 
             // Empty personal feed → show World so Home isn't a blank screen.
+            // Keep My Feed when there are pending accepts — those only render on Personal.
             // Only flip scope; `.task(id: scope)` loads World (avoids a double fetch).
-            if target == .personal, result.isEmpty, !didAutoSwitchToWorld {
+            if target == .personal, result.isEmpty, pending.isEmpty, !didAutoSwitchToWorld {
                 didAutoSwitchToWorld = true
                 applyPendingList(pending)
                 pendingSentCount = pendingSent
@@ -944,17 +1006,15 @@ struct FeedView: View {
             withAnimation(.easeInOut(duration: 0.28)) {
                 setItems(result, for: target)
                 setHearts(hearts, for: target)
+                applyPendingList(pending)
+                pendingSentCount = pendingSent
                 if target == .personal {
-                    applyPendingList(pending)
-                    pendingSentCount = pendingSent
                     personalLoadedOnce = true
                 } else {
                     worldLoadedOnce = true
                 }
             }
-            if target == .personal {
-                await refreshWidgetSnapshot()
-            }
+            await refreshWidgetSnapshot()
         } catch {
             if !error.isCancellation {
                 setError(error.localizedDescription, for: target)

@@ -103,8 +103,11 @@ struct MainTabView: View {
             presentLaunchSurfaces()
             AppUpdateChecker.shared.checkIfNeeded()
             CalendarConnectReminder.shared.refresh()
+            // Pending receives can land while backgrounded — refresh Home cards + badge.
+            NotificationCenter.default.post(name: .pendingThanksShouldRefresh, object: nil)
             Task {
                 await CampaignService.shared.refresh()
+                await refreshUnread()
                 if fridayReminderEnabled {
                     await NotificationService.refreshFridayReminderIfEnabled(true)
                 }
