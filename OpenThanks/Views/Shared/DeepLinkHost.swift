@@ -7,11 +7,26 @@ struct DeepLinkHostModifier: ViewModifier {
     @Bindable var deepLinks: DeepLinkRouter
     var auth: AuthService
     @Environment(UserBlockService.self) private var userBlocks
+    /// Set before the sheet dismisses on "Thank someone", so that dismiss is not a dismissal.
+    @State private var payItForwardDidThank = false
 
     private var showPayItForward: Binding<Bool> {
         Binding(
             get: { deepLinks.payItForwardFromName != nil },
-            set: { if !$0 { deepLinks.payItForwardFromName = nil } }
+            set: { presented in
+                guard !presented else { return }
+                let parentId = deepLinks.payItForwardParentId
+                let wasShowing = deepLinks.payItForwardFromName != nil
+                if wasShowing, !payItForwardDidThank, let parentId {
+                    Analytics.payItForwardDismissed(
+                        parentGratitudeId: parentId,
+                        surface: "claim",
+                        source: "claim_accept"
+                    )
+                }
+                payItForwardDidThank = false
+                deepLinks.payItForwardFromName = nil
+            }
         )
     }
 
@@ -26,12 +41,18 @@ struct DeepLinkHostModifier: ViewModifier {
                     .sheet(isPresented: showPayItForward) {
                         PayItForwardSheet(
                             fromName: deepLinks.payItForwardFromName,
+                            parentGratitudeId: deepLinks.payItForwardParentId,
+                            analyticsSurface: "claim",
+                            analyticsSource: "claim_accept",
                             onThankSomeone: {
-                                var props: [String: Any] = ["source": "claim_accept"]
+                                payItForwardDidThank = true
                                 if let parentId = deepLinks.payItForwardParentId {
-                                    props["parent_gratitude_id"] = parentId.uuidString.lowercased()
+                                    Analytics.payItForwardTapped(
+                                        parentGratitudeId: parentId,
+                                        surface: "claim",
+                                        source: "claim_accept"
+                                    )
                                 }
-                                Analytics.capture("pay_it_forward_tapped", props)
                                 let parentId = deepLinks.payItForwardParentId
                                 let fromName = deepLinks.payItForwardFromName
                                 deepLinks.payItForwardFromName = nil

@@ -153,7 +153,8 @@ struct AcceptPendingCard: View {
                 senderId: gratitude.authorId,
                 source: "pending",
                 visibility: acceptPrivately ? "private" : "public",
-                acceptedAsPrivate: acceptPrivately
+                acceptedAsPrivate: acceptPrivately,
+                payItForwardEligible: true
             )
             onAccepted(optimistic)
         } else {
