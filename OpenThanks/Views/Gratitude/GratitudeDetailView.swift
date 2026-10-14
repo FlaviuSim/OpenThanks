@@ -259,7 +259,7 @@ struct GratitudeDetailView: View {
                     .background(Theme.surfaceRaised, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .disabled(preparingShare)
+                .disabled(preparingShare || systemSharePayload != nil)
                 .accessibilityLabel("Share")
 
                 AppreciationPrivacyMark(
@@ -306,7 +306,7 @@ struct GratitudeDetailView: View {
                         .background(Theme.ctaGradient, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .disabled(preparingShare)
+                    .disabled(preparingShare || systemSharePayload != nil)
                     .accessibilityLabel("Share appreciation")
 
                     Button {
@@ -417,9 +417,11 @@ struct GratitudeDetailView: View {
     }
 
     private func presentSystemShare() async {
+        guard !preparingShare, systemSharePayload == nil else { return }
         preparingShare = true
         defer { preparingShare = false }
         await prepareSharePreviewIfNeeded()
+        guard systemSharePayload == nil else { return }
         let content = shareContent
         let items = SocialShare.systemShareItems(
             content: content,

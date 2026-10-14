@@ -65,7 +65,7 @@ struct StatsView: View {
     }
 
     private var canShareStats: Bool {
-        !loading && loadError == nil && !preparingShare
+        !loading && loadError == nil && !preparingShare && systemSharePayload == nil
     }
 
     private var shareContent: StatsShareContent {
@@ -608,13 +608,16 @@ struct StatsView: View {
 
     @MainActor
     private func presentShare() async {
-        guard canShareStats else { return }
+        // Ignore double-taps / a second Share while the sheet is already up —
+        // UIKit logs "already an activity performing" for Messages otherwise.
+        guard canShareStats, systemSharePayload == nil else { return }
         preparingShare = true
         defer { preparingShare = false }
 
         let content = shareContent
         let avatarURL = auth.currentProfile?.avatarURL
         let card = await StatsShareRenderer.prideImage(for: content, avatarURL: avatarURL)
+        guard systemSharePayload == nil else { return }
         let items = SocialShare.statsShareItems(caption: content.shareCaption, cardImage: card)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         systemSharePayload = SystemSharePayload(items: items)

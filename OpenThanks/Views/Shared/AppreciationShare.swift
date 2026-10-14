@@ -367,19 +367,37 @@ struct ActivityShareView: UIViewControllerRepresentable {
     var onComplete: ((UIActivity.ActivityType?) -> Void)?
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
+        context.coordinator.onComplete = onComplete
         let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
         vc.excludedActivityTypes = excludedActivityTypes
+        // Capture coordinator (not the view struct) so SwiftUI re-renders of the
+        // sheet don't re-enter UIKit mid-perform ("already an activity performing").
+        let coordinator = context.coordinator
         vc.completionWithItemsHandler = { activityType, completed, _, error in
             guard completed, error == nil else { return }
             let type = activityType
             Task { @MainActor in
-                onComplete?(type)
+                coordinator.onComplete?(type)
             }
         }
         return vc
     }
 
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        context.coordinator.onComplete = onComplete
+        // Never replace activityItems / re-present — UIKit rejects a second perform.
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onComplete: onComplete)
+    }
+
+    final class Coordinator {
+        var onComplete: ((UIActivity.ActivityType?) -> Void)?
+        init(onComplete: ((UIActivity.ActivityType?) -> Void)?) {
+            self.onComplete = onComplete
+        }
+    }
 }
 
 /// Rich link metadata so Messages / Mail show a nicer preview when possible.
