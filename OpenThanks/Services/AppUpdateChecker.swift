@@ -28,8 +28,8 @@ final class AppUpdateChecker {
     private var checkTask: Task<Void, Never>?
 
     private init() {
-        storeVersion = UserDefaults.standard.string(forKey: Self.storeVersionKey)
-        refreshEligibility()
+        // Don't publish from init — Home seeds `@State = .shared` during the
+        // first view update. `checkIfNeeded()` loads disk + eligibility after.
     }
 
     /// Installed marketing version (`1.2`), not build number.
@@ -39,6 +39,9 @@ final class AppUpdateChecker {
 
     /// Call on foreground / Home appear. No-ops when a check ran recently.
     func checkIfNeeded() {
+        if storeVersion == nil {
+            storeVersion = UserDefaults.standard.string(forKey: Self.storeVersionKey)
+        }
         if let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? TimeInterval,
            Date().timeIntervalSince1970 - last < Self.checkInterval {
             refreshEligibility()

@@ -17,7 +17,8 @@ final class CalendarConnectReminder {
     private(set) var shouldShowBanner = false
 
     private init() {
-        refresh()
+        // Avoid publishing during the first Home `@State` seed (view update).
+        // FeedView calls `refresh()` from onAppear / foreground.
     }
 
     /// Call on Home appear / app foreground.
