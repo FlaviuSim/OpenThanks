@@ -383,7 +383,9 @@ final class AppreciationDictation: ObservableObject {
 
     init(locale: Locale = .current) {
         speechRecognizer = SFSpeechRecognizer(locale: locale)
-        refreshAvailability()
+        // Don't publish from init — Compose creates this during the first view
+        // update via `@StateObject`, and a `@Published` write there triggers
+        // "Modifying state during view update".
     }
 
     func refreshAvailability() {
@@ -449,7 +451,7 @@ final class AppreciationDictation: ObservableObject {
         setIdleTimerDisabled(true)
 
         do {
-            try configureAudioSession()
+            try await configureAudioSession()
             beginRecognitionTask()
             try startEngineIfNeeded()
         } catch {
@@ -502,7 +504,7 @@ final class AppreciationDictation: ObservableObject {
         recognitionRequest?.endAudio()
         tearDownRecognition(cancelTask: false)
         removeInterruptionObserver()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        await deactivateAudioSession()
         if baseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            errorMessage == nil {
             errorMessage = "Didn’t catch that. Tap the mic and try again."
@@ -534,13 +536,30 @@ final class AppreciationDictation: ObservableObject {
         setIdleTimerDisabled(false)
         tearDownRecognition(cancelTask: true)
         removeInterruptionObserver()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Task { await deactivateAudioSession() }
     }
 
-    private func configureAudioSession() throws {
-        let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+    /// AVAudioSession setCategory/setActive can hang the main thread — always hop off it.
+    private func configureAudioSession() async throws {
+        try await Self.performAudioSession {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        }
+    }
+
+    private func deactivateAudioSession() async {
+        try? await Self.performAudioSession {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
+    }
+
+    nonisolated private static func performAudioSession(
+        _ work: @escaping @Sendable () throws -> Void
+    ) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try work()
+        }.value
     }
 
     private func startEngineIfNeeded() throws {
@@ -622,7 +641,7 @@ final class AppreciationDictation: ObservableObject {
             isListening = false
             tearDownRecognition(cancelTask: false)
             removeInterruptionObserver()
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            Task { await deactivateAudioSession() }
             return
         }
         restartRecognitionKeepingAudio()
@@ -644,7 +663,7 @@ final class AppreciationDictation: ObservableObject {
             self.isRestartingRecognition = false
             guard self.wantsListening else { return }
             do {
-                try self.configureAudioSession()
+                try await self.configureAudioSession()
                 self.beginRecognitionTask()
                 try self.startEngineIfNeeded()
                 if self.recognitionTask == nil {
@@ -675,7 +694,7 @@ final class AppreciationDictation: ObservableObject {
             audioEngine.inputNode.removeTap(onBus: 0)
             audioTapInstalled = false
         }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Task { await deactivateAudioSession() }
     }
 
     private enum AuthError: LocalizedError {

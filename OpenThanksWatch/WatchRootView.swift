@@ -17,7 +17,9 @@ struct WatchRootView: View {
             }
         }
         .onChange(of: session.pendingComposeFocus) { _, focus in
-            if focus { session.pendingComposeFocus = false }
+            guard focus else { return }
+            // Defer so we don't mutate the observed model mid-update.
+            Task { @MainActor in session.pendingComposeFocus = false }
         }
     }
 
@@ -352,9 +354,6 @@ struct WatchRecordView: View {
     }
 
     private func visibleInterfaceController() -> WKInterfaceController? {
-        if let controller = WKApplication.shared().visibleInterfaceController {
-            return controller
-        }
-        return WKExtension.shared().visibleInterfaceController
+        WKApplication.shared().visibleInterfaceController
     }
 }
