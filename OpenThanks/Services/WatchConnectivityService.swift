@@ -177,7 +177,7 @@ final class WatchConnectivityService: NSObject {
             publishCreateResult(reply)
             return reply
         } catch {
-            Analytics.appreciationFailed(error: error.localizedDescription, source: "watch")
+            Analytics.appreciationFailed(error: error, source: "watch")
             let reply = WatchRelay.CreateReply.failure(
                 draftId: request.id,
                 code: "network",

@@ -349,16 +349,22 @@ enum Analytics {
 
     // MARK: - Compose funnel (aligned with web PostHog events)
 
-    static func appreciationFormStarted(source: String) {
-        capture("appreciation_form_started", ["source": source])
+    static func appreciationFormStarted(source: String, formSessionId: String? = nil) {
+        capture("appreciation_form_started", formProps(["source": source], formSessionId: formSessionId))
     }
 
-    static func appreciationAIRewrite(tone: String = "warmer") {
-        capture("appreciation_ai_rewrite", ["tone": tone])
+    static func appreciationAIRewrite(tone: String = "warmer", formSessionId: String? = nil) {
+        capture(
+            "appreciation_ai_rewrite",
+            formProps(["tone": tone], formSessionId: formSessionId)
+        )
     }
 
-    static func appreciationVoiceDictation(messageLength: Int) {
-        capture("appreciation_voice_dictation", ["message_length": messageLength])
+    static func appreciationVoiceDictation(messageLength: Int, formSessionId: String? = nil) {
+        capture(
+            "appreciation_voice_dictation",
+            formProps(["message_length": messageLength], formSessionId: formSessionId)
+        )
     }
 
     /// Join keys shared with the web contract. `senderId` is `gratitudes.author_id`.
@@ -382,7 +388,8 @@ enum Analytics {
         visibility: String,
         source: String?,
         campaign: String? = nil,
-        campaignDay: Int? = nil
+        campaignDay: Int? = nil,
+        formSessionId: String? = nil
     ) {
         var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
         props["has_media"] = hasMedia
@@ -398,7 +405,7 @@ enum Analytics {
                 props["campaign_day"] = campaignDay
             }
         }
-        capture("appreciation_submitted", props)
+        capture("appreciation_submitted", formProps(props, formSessionId: formSessionId))
     }
 
     /// `acceptedAsPrivate` is sent only when true (accept-as-private). A
@@ -619,10 +626,30 @@ enum Analytics {
         ])
     }
 
-    static func appreciationFailed(error: String, source: String?) {
-        var props: [String: Any] = ["error": String(error.prefix(200))]
+    /// `capture` only enqueues. Callers must not await this or flush PostHog.
+    static func appreciationFailed(
+        error: Error,
+        source: String?,
+        stage: String? = nil,
+        attemptNumber: Int? = nil,
+        httpStatus: Int? = nil,
+        formSessionId: String? = nil
+    ) {
+        let failure = error as? AppreciationSendFailure
+        let ns = (failure?.underlying ?? error) as NSError
+        let raw = failure?.underlying.localizedDescription ?? error.localizedDescription
+        var props: [String: Any] = [
+            "error": String(raw.prefix(200)),
+            "error_domain": ns.domain,
+            "error_code": ns.code,
+            "stage": stage ?? failure?.stage ?? "send",
+            "attempt_number": attemptNumber ?? failure?.attemptNumber ?? 1,
+        ]
+        if let status = httpStatus ?? failure?.httpStatus {
+            props["http_status"] = status
+        }
         if let source { props["source"] = source }
-        capture("appreciation_failed", props)
+        capture("appreciation_failed", formProps(props, formSessionId: formSessionId))
     }
 
     /// Fired when compose is dismissed without a successful send — key drop-off signal.
@@ -632,7 +659,12 @@ enum Analytics {
         hasRecipient: Bool,
         toMember: Bool,
         recipientType: String,
-        hasMedia: Bool
+        hasMedia: Bool,
+        lastStep: String,
+        secondsOpen: Int,
+        priorErrorCount: Int,
+        autopresented: Bool,
+        formSessionId: String? = nil
     ) {
         var props: [String: Any] = [
             "message_length": messageLength,
@@ -641,8 +673,19 @@ enum Analytics {
             "recipient_type": recipientType,
             "has_media": hasMedia,
             "had_started_message": messageLength > 0,
+            "last_step": lastStep,
+            "seconds_open": max(0, secondsOpen),
+            "prior_error_count": max(0, priorErrorCount),
+            "autopresented": autopresented,
         ]
         if let source { props["source"] = source }
-        capture("appreciation_form_abandoned", props)
+        capture("appreciation_form_abandoned", formProps(props, formSessionId: formSessionId))
+    }
+
+    private static func formProps(_ props: [String: Any], formSessionId: String?) -> [String: Any] {
+        guard let formSessionId, !formSessionId.isEmpty else { return props }
+        var props = props
+        props["form_session_id"] = formSessionId
+        return props
     }
 }

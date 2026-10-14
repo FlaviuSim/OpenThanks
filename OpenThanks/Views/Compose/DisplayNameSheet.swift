@@ -8,6 +8,8 @@ struct DisplayNameSheet: View {
     @State private var fullName = ""
     @State private var saving = false
     @State private var errorMessage: String?
+    var formSessionId: String? = nil
+
     @FocusState private var nameFocused: Bool
 
     private var cleanName: String {
@@ -125,7 +127,11 @@ struct DisplayNameSheet: View {
             let updated = try await GratitudeService.updateProfile(userId: userId, update: update)
             auth.currentProfile = updated
             NotificationCenter.default.post(name: .profileDidUpdate, object: updated)
-            Analytics.capture("compose_display_name_saved")
+            var props: [String: Any] = [:]
+            if let formSessionId, !formSessionId.isEmpty {
+                props["form_session_id"] = formSessionId
+            }
+            Analytics.capture("compose_display_name_saved", props)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
