@@ -48,12 +48,14 @@ struct WelcomeView: View {
                 .padding(.bottom, 16)
 
                 VStack(spacing: 12) {
-                    // Sign in with Apple — system control, correct style for light/dark (HIG).
-                    // Cap width at 375: ASAuthorizationAppleIDButton has an internal
-                    // `width <= 375` constraint; stretching it to the iPad column (e.g. 432)
-                    // logs unsatisfiable-constraint warnings and can break the layout pass.
+                    // App Store Review 4.8 + HIG: Sign in with Apple must be first and at
+                    // least as prominent as any other third-party login. Do not place
+                    // Google (or LinkedIn) above Apple or with greater visual weight.
                     ZStack {
                         GeometryReader { geo in
+                            // Cap width at 375: ASAuthorizationAppleIDButton has an internal
+                            // `width <= 375` constraint; stretching it to the iPad column
+                            // logs unsatisfiable-constraint warnings.
                             let buttonWidth = min(geo.size.width, 375)
                             SignInWithAppleButton(.continue) { request in
                                 request.requestedScopes = [.email, .fullName]
@@ -77,9 +79,12 @@ struct WelcomeView: View {
                     }
                     .frame(height: 52)
 
+                    // Second: Google — same height as Apple; stronger fill than the
+                    // LinkedIn / passkey / email / phone rows below (never stronger than Apple).
                     authButton(
                         iconView: AnyView(GoogleGlyph()),
-                        label: oauthBusy == .google ? "Opening Google…" : "Continue with Google"
+                        label: oauthBusy == .google ? "Opening Google…" : "Continue with Google",
+                        emphasis: .primarySocial
                     ) {
                         guardRequireAge {
                             Task { await signInWithOAuth(.google) }
@@ -173,28 +178,61 @@ struct WelcomeView: View {
             .multilineTextAlignment(.center)
     }
 
-    private func authButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private enum AuthButtonEmphasis {
+        /// LinkedIn / passkey / email / phone — quieter outline rows.
+        case standard
+        /// Google — filled surface, semibold type; still ≤ Apple’s solid system button.
+        case primarySocial
+    }
+
+    private func authButton(
+        icon: String,
+        label: String,
+        emphasis: AuthButtonEmphasis = .standard,
+        action: @escaping () -> Void
+    ) -> some View {
         authButton(
             iconView: AnyView(
                 Image(systemName: icon).font(.system(size: 17))
             ),
             label: label,
+            emphasis: emphasis,
             action: action
         )
     }
 
-    private func authButton(iconView: AnyView, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func authButton(
+        iconView: AnyView,
+        label: String,
+        emphasis: AuthButtonEmphasis = .standard,
+        action: @escaping () -> Void
+    ) -> some View {
+        let isPrimary = emphasis == .primarySocial
+        return Button(action: action) {
             HStack(spacing: 10) {
                 iconView
-                Text(label).font(Theme.body(16, weight: .medium))
+                Text(label).font(Theme.body(16, weight: isPrimary ? .semibold : .medium))
             }
             .foregroundStyle(Theme.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .contentShape(Rectangle())
-            .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.hairline))
+            .background(
+                (isPrimary ? Theme.surface : Theme.surfaceRaised),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(
+                        isPrimary ? Theme.coral.opacity(0.35) : Theme.hairline,
+                        lineWidth: isPrimary ? 1.5 : 1
+                    )
+            )
+            .shadow(
+                color: isPrimary ? Color.black.opacity(colorScheme == .dark ? 0.35 : 0.08) : .clear,
+                radius: isPrimary ? 8 : 0,
+                y: isPrimary ? 2 : 0
+            )
         }
         .buttonStyle(.plain)
     }
