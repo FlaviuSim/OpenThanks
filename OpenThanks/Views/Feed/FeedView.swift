@@ -1210,7 +1210,7 @@ struct GratitudeCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(preparingShare)
+                .disabled(preparingShare || systemSharePayload != nil)
                 .accessibilityLabel("Share")
 
                 AppreciationPrivacyMark(
@@ -1247,6 +1247,7 @@ struct GratitudeCard: View {
     }
 
     private func presentSystemShare() async {
+        guard !preparingShare, systemSharePayload == nil else { return }
         preparingShare = true
         defer { preparingShare = false }
         // Feed cards share caption + tappable link only — skip ImageRenderer poster
