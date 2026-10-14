@@ -144,7 +144,7 @@ struct StatsShareCardView: View {
 
     private var appStoreFooter: some View {
         HStack(spacing: 18) {
-            AppStoreMark(size: 56)
+            OpenThanksAppIconMark(size: 56)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Get OpenThanks")
@@ -179,40 +179,28 @@ struct StatsShareCardView: View {
     }
 }
 
-/// Compact App Store–style mark for the pride-card footer (drawn, no asset).
-private struct AppStoreMark: View {
+/// Primary OpenThanks app icon for the pride-card footer (not the blue App Store “A”).
+private struct OpenThanksAppIconMark: View {
     var size: CGFloat = 56
 
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.20, green: 0.78, blue: 0.98),
-                            Color(red: 0.10, green: 0.42, blue: 0.95),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+    /// Prefer the 1024px Default asset so ImageRenderer stays sharp at 1080-wide.
+    private var icon: UIImage {
+        UIImage(named: "AppIcon-Default")
+            ?? AppIconOption.default.previewImage
+    }
 
-            // Stylized “A” that reads as the App Store glyph at small sizes.
-            Path { path in
-                let w = size
-                let h = size
-                path.move(to: CGPoint(x: w * 0.50, y: h * 0.22))
-                path.addLine(to: CGPoint(x: w * 0.22, y: h * 0.78))
-                path.move(to: CGPoint(x: w * 0.50, y: h * 0.22))
-                path.addLine(to: CGPoint(x: w * 0.78, y: h * 0.78))
-                path.move(to: CGPoint(x: w * 0.34, y: h * 0.58))
-                path.addLine(to: CGPoint(x: w * 0.66, y: h * 0.58))
-            }
-            .stroke(.white, style: StrokeStyle(lineWidth: size * 0.09, lineCap: .round, lineJoin: .round))
-        }
-        .frame(width: size, height: size)
-        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-        .accessibilityLabel("App Store")
+    var body: some View {
+        Image(uiImage: icon)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous)
+                    .strokeBorder(Color.black.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.14), radius: 4, y: 2)
+            .accessibilityLabel("OpenThanks")
     }
 }
 
