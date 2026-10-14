@@ -319,34 +319,35 @@ struct UserProfileView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            Group {
-                if let url = shownProfile.avatarURL {
-                    Button {
-                        fullScreenAvatarURL = url
-                    } label: {
-                        AvatarView(profile: shownProfile, size: 92)
-                            .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
+            profileAvatar
+
+            if isOwnProfile {
+                Button {
+                    showEditProfile = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(shownProfile.displayName)
+                            .font(Theme.display(24, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("View profile photo")
-                } else {
-                    AvatarView(profile: shownProfile, size: 92)
-                        .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit name, \(shownProfile.displayName)")
+                .accessibilityHint("Opens edit profile")
+            } else {
+                Text(shownProfile.displayName)
+                    .font(Theme.display(24, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
             }
 
-            Text(shownProfile.displayName)
-                .font(Theme.display(24, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
             Text("@\(shownProfile.username)")
                 .font(Theme.body(14))
                 .foregroundStyle(Theme.textSecondary)
-            if let headline = shownProfile.headline, !headline.isEmpty {
-                Text(headline)
-                    .font(Theme.body(14))
-                    .foregroundStyle(Theme.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
+
+            profileHeadline
 
             if !isOwnProfile {
                 Button {
@@ -376,6 +377,86 @@ struct UserProfileView: View {
             }
         }
         .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var profileAvatar: some View {
+        let avatar = AvatarView(profile: shownProfile, size: 92)
+            .overlay(Circle().strokeBorder(Theme.heartGradient, lineWidth: 2))
+
+        if isOwnProfile {
+            Button {
+                showEditProfile = true
+            } label: {
+                avatar
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Theme.coral, in: Circle())
+                            .overlay(Circle().strokeBorder(Theme.background, lineWidth: 2))
+                            .offset(x: 2, y: 2)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                shownProfile.avatarURL == nil ? "Add profile photo" : "Edit profile photo"
+            )
+            .accessibilityHint("Opens edit profile")
+            .accessibilityAction(named: "View profile photo") {
+                if let url = shownProfile.avatarURL {
+                    fullScreenAvatarURL = url
+                }
+            }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.35).onEnded { _ in
+                    if let url = shownProfile.avatarURL {
+                        fullScreenAvatarURL = url
+                    }
+                }
+            )
+        } else if let url = shownProfile.avatarURL {
+            Button {
+                fullScreenAvatarURL = url
+            } label: {
+                avatar
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View profile photo")
+        } else {
+            avatar
+        }
+    }
+
+    @ViewBuilder
+    private var profileHeadline: some View {
+        let headline = shownProfile.headline?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if isOwnProfile {
+            Button {
+                showEditProfile = true
+            } label: {
+                if headline.isEmpty {
+                    Text("Add a headline")
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textTertiary)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text(headline)
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(headline.isEmpty ? "Add a headline" : "Edit headline")
+            .accessibilityHint("Opens edit profile")
+        } else if !headline.isEmpty {
+            Text(headline)
+                .font(Theme.body(14))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+        }
     }
 
     /// Compact own-profile entry to Stats — streak days when known, else “Your Stats”.
