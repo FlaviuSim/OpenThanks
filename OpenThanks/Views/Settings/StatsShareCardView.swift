@@ -8,13 +8,12 @@ struct StatsShareContent {
     let sentCount: Int
     let acceptedCount: Int
 
-    var appStoreURL: URL { AppConfig.appStoreProductURL }
+    /// Short share link — `openthanks.com/app` (not the long App Store URL).
+    var inviteURL: URL { AppConfig.appLandingURL }
 
-    var displayAppStoreLink: String {
-        "apps.apple.com/app/id\(AppConfig.appStoreID)"
-    }
+    var displayInviteLink: String { "openthanks.com/app" }
 
-    /// Proud caption for the system share sheet (includes App Store invite).
+    /// Proud caption for the system share sheet (includes short App invite).
     var shareCaption: String {
         let body: String
         if streak > 0 {
@@ -26,7 +25,7 @@ struct StatsShareContent {
         return """
         \(body)
 
-        Get OpenThanks: \(appStoreURL.absoluteString)
+        Get OpenThanks: \(inviteURL.absoluteString)
         """
     }
 
@@ -145,21 +144,22 @@ struct StatsShareCardView: View {
 
     private var appStoreFooter: some View {
         HStack(spacing: 18) {
-            Image(systemName: "star.fill")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(coral)
-                .frame(width: 56, height: 56)
-                .background(.white, in: Circle())
+            AppStoreMark(size: 56)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Get OpenThanks")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(Color(red: 0.15, green: 0.12, blue: 0.11))
-                Text(content.displayAppStoreLink)
-                    .font(.system(size: 20, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.26))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                HStack(spacing: 8) {
+                    Image(systemName: "apple.logo")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.26))
+                    Text("App Store · \(content.displayInviteLink)")
+                        .font(.system(size: 20, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.26))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+                }
             }
 
             Spacer(minLength: 0)
@@ -176,6 +176,43 @@ struct StatsShareCardView: View {
         )
         .shadow(color: .black.opacity(0.22), radius: 16, y: 8)
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// Compact App Store–style mark for the pride-card footer (drawn, no asset).
+private struct AppStoreMark: View {
+    var size: CGFloat = 56
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.20, green: 0.78, blue: 0.98),
+                            Color(red: 0.10, green: 0.42, blue: 0.95),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            // Stylized “A” that reads as the App Store glyph at small sizes.
+            Path { path in
+                let w = size
+                let h = size
+                path.move(to: CGPoint(x: w * 0.50, y: h * 0.22))
+                path.addLine(to: CGPoint(x: w * 0.22, y: h * 0.78))
+                path.move(to: CGPoint(x: w * 0.50, y: h * 0.22))
+                path.addLine(to: CGPoint(x: w * 0.78, y: h * 0.78))
+                path.move(to: CGPoint(x: w * 0.34, y: h * 0.58))
+                path.addLine(to: CGPoint(x: w * 0.66, y: h * 0.58))
+            }
+            .stroke(.white, style: StrokeStyle(lineWidth: size * 0.09, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: size, height: size)
+        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+        .accessibilityLabel("App Store")
     }
 }
 

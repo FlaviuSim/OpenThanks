@@ -61,6 +61,11 @@ enum AppConfig {
     /// App Store Connect Apple ID (used for update checks + review links).
     static let appStoreID = "6808840343"
 
+    /// Short invite link — marketing landing that sends people to the App Store.
+    static var appLandingURL: URL {
+        webAppURL.appending(path: "app")
+    }
+
     static var appStoreProductURL: URL {
         URL(string: "https://apps.apple.com/app/id\(appStoreID)")!
     }
