@@ -5,23 +5,28 @@ struct MainTabView: View {
     enum Tab: Hashable { case feed, notifications, profile }
 
     private enum ComposeSheet: Identifiable {
-        case blank
         case launch(ComposeLaunchBridge.Request)
 
         var id: String {
             switch self {
-            case .blank: "blank"
             case .launch(let request): request.id.uuidString
             }
         }
 
-        /// Blank tab compose or empty `app_open` — notification / calendar launches replace these.
+        /// Empty `app_open` / `post_login` — notification and calendar launches replace these.
+        /// The heart button is not weak: a fixed `"blank"` id plus the weak early-return
+        /// left `composeSheet` set when the cover never appeared, and every later tap
+        /// was ignored so `tab_compose` never fired.
         var isWeakDefault: Bool {
             switch self {
-            case .blank: true
             case .launch(let request): request.isWeakDefault
             }
         }
+    }
+
+    /// Heart / sidebar “Thank Someone”. A new id every tap so the item cover presents again.
+    private static func tabComposeSheet() -> ComposeSheet {
+        .launch(ComposeLaunchBridge.Request(analyticsSource: "tab_compose"))
     }
 
     @State private var tab: Tab = .feed
@@ -31,6 +36,8 @@ struct MainTabView: View {
     /// Tracks whether the in-flight `presentCompose` is blank/`app_open` so a deferred
     /// cold-start default doesn't clobber a calendar / notification prefill mid-delay.
     @State private var composePresentIntentIsWeak = true
+    /// True while a presentCompose sleep is still going to assign `composeSheet`.
+    @State private var composePresentInFlight = false
     @State private var unreadCount = 0
     @State private var feedPath = NavigationPath()
     @State private var notificationsPath = NavigationPath()
@@ -197,9 +204,7 @@ struct MainTabView: View {
 
                 Section {
                     Button {
-                        resignKeyboard()
-                        homeSearchActive = false
-                        composeSheet = .blank
+                        presentCompose(Self.tabComposeSheet())
                     } label: {
                         Label("Thank Someone", systemImage: "heart.fill")
                             .foregroundStyle(Theme.coral)
@@ -222,7 +227,7 @@ struct MainTabView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        composeSheet = .blank
+                        presentCompose(Self.tabComposeSheet())
                     } label: {
                         Image(systemName: "square.and.pencil")
                     }
@@ -319,11 +324,17 @@ struct MainTabView: View {
         }
         .overlay(alignment: .bottom) {
             if shouldShowFirstSendTip {
-                firstSendTipOverlay
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                    .padding(.bottom, 88)
-                    .padding(.horizontal, 20)
-                    .zIndex(20)
+                VStack(spacing: 0) {
+                    firstSendTipOverlay
+                        .padding(.horizontal, 20)
+                    // Clearance under the card. Must not hit-test — this used to be
+                    // padding on the card, which swallowed taps on the heart.
+                    Color.clear
+                        .frame(height: 88)
+                        .allowsHitTesting(false)
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .zIndex(20)
             }
         }
         .ignoresSafeArea(.keyboard)
@@ -344,8 +355,6 @@ struct MainTabView: View {
     @ViewBuilder
     private func composeView(for sheet: ComposeSheet) -> some View {
         switch sheet {
-        case .blank:
-            ComposeView(analyticsSource: "tab_compose")
         case .launch(let request):
             ComposeView(
                 editing: request.editingGratitude,
@@ -395,6 +404,13 @@ struct MainTabView: View {
         resignKeyboard()
         NotificationCenter.default.post(name: .dismissTransientSheets, object: nil)
 
+        // A deep link / notification compose is already waiting out the dismiss
+        // delay. A weak app_open must not cancel it — that drops the launch and
+        // never fires appreciation_form_started.
+        if composeSheet == nil, composePresentInFlight, !composePresentIntentIsWeak, sheet.isWeakDefault {
+            return
+        }
+
         if let current = composeSheet {
             // Calendar / notification prefills must replace blank app_open compose.
             guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else { return }
@@ -402,6 +418,7 @@ struct MainTabView: View {
         }
 
         composePresentIntentIsWeak = sheet.isWeakDefault
+        composePresentInFlight = true
         composePresentGeneration += 1
         let generation = composePresentGeneration
         Task { @MainActor in
@@ -410,9 +427,13 @@ struct MainTabView: View {
             try? await Task.sleep(for: .milliseconds(350))
             guard generation == composePresentGeneration else { return }
             if let current = composeSheet {
-                guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else { return }
+                guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else {
+                    composePresentInFlight = false
+                    return
+                }
             }
             composeSheet = sheet
+            composePresentInFlight = false
         }
     }
 
@@ -460,7 +481,7 @@ struct MainTabView: View {
                     Analytics.capture("first_send_tip_tapped", ["via": "heart_button"])
                     hasSeenFirstSendTip = true
                 }
-                presentCompose(.blank)
+                presentCompose(Self.tabComposeSheet())
             } label: {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 22, weight: .bold))

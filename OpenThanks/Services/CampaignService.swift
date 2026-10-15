@@ -279,13 +279,12 @@ final class CampaignService {
         )
     }
 
-    /// Deep link / universal link. Compose still opens when the feed is missing;
-    /// campaign props are attached only when a prompt actually resolved.
+    /// Deep link / universal link. The form opens immediately from the cached feed.
+    /// Waiting on the network before queueing dropped the launch on cold start
+    /// (the cover never appeared, so `appreciation_form_started` never fired).
+    /// Campaign props are attached only when a prompt is already resolved.
     func openCompose(link: CampaignComposeLink, analyticsSource: String) async {
-        if feed == nil {
-            await refresh()
-        }
-        let match = resolvedPrompt(for: link)
+        let match = feed == nil ? nil : resolvedPrompt(for: link)
         let hint = match?.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         ComposeLaunchBridge.shared.queue(
             campaignHint: (hint?.isEmpty == false) ? hint : nil,
@@ -293,6 +292,9 @@ final class CampaignService {
             campaignDay: match?.day,
             analyticsSource: analyticsSource
         )
+        if feed == nil {
+            await refresh()
+        }
     }
 
     #if DEBUG
