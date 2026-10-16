@@ -8,6 +8,85 @@ private func idempotencyKey(from seed: String) -> String {
     return digest.map { String(format: "%02x", $0) }.joined()
 }
 
+/// A send reached the network (or the server answered) and the draft should stay.
+/// `underlying` is the Cocoa, URL, or HTTP error PostHog records.
+struct AppreciationSendFailure: LocalizedError {
+    let message: String
+    let stage: String
+    let attemptNumber: Int
+    let httpStatus: Int?
+    let underlying: Error
+
+    var errorDescription: String? { message }
+
+    static func wrapping(
+        _ error: Error,
+        stage: String,
+        attemptNumber: Int,
+        httpStatus: Int? = nil
+    ) -> AppreciationSendFailure {
+        let ns = error as NSError
+        let status = httpStatus ?? (
+            ns.domain == "OpenThanks" && (100..<600).contains(ns.code) ? ns.code : nil
+        )
+        return AppreciationSendFailure(
+            message: userFacingAppreciationSendMessage(for: error),
+            stage: stage,
+            attemptNumber: attemptNumber,
+            httpStatus: status,
+            underlying: error
+        )
+    }
+}
+
+private let retryableURLErrorCodes: Set<URLError.Code> = [
+    .timedOut,
+    .networkConnectionLost,
+    .notConnectedToInternet,
+    .cannotConnectToHost,
+    .cannotFindHost,
+    .dnsLookupFailed,
+    .cannotLoadFromNetwork,
+    .internationalRoamingOff,
+    .callIsActive,
+    .dataNotAllowed,
+]
+
+private func isRetryableNetworkError(_ error: Error) -> Bool {
+    if let failure = error as? AppreciationSendFailure {
+        return isRetryableNetworkError(failure.underlying)
+    }
+    let ns = error as NSError
+    guard ns.domain == NSURLErrorDomain else { return false }
+    return retryableURLErrorCodes.contains(URLError.Code(rawValue: ns.code))
+}
+
+func userFacingAppreciationSendMessage(for error: Error) -> String {
+    if isRetryableNetworkError(error) {
+        return "No connection. Your draft is still here."
+    }
+    let ns = error as NSError
+    let raw = ns.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+    let lower = raw.lowercased()
+    if ns.domain == NSCocoaErrorDomain && (ns.code == 3840 || ns.code == 4864)
+        || lower.contains("correct format")
+        || lower.contains("couldn’t be read")
+        || lower.contains("couldn't be read") {
+        return "Couldn't confirm the send. Your draft is still here."
+    }
+    if lower.contains("only the recipient can accept")
+        || lower.contains("failed to create gratitude")
+        || lower.contains("couldn't create the appreciation")
+        || lower.contains("couldn’t create the appreciation") {
+        return "Couldn't send this appreciation. Your draft is still here."
+    }
+    if raw.isEmpty || lower.hasPrefix("the operation couldn") {
+        return "Couldn't send this appreciation. Your draft is still here."
+    }
+    if lower.contains("draft") { return raw }
+    return raw + " Your draft is still here."
+}
+
 /// All PostgREST access. Column and relationship names are taken verbatim
 /// from the live schema (FK constraints: gratitudes_author_id_fkey,
 /// gratitudes_recipient_id_fkey), so embeds resolve unambiguously.
@@ -422,6 +501,7 @@ enum GratitudeService {
 
     /// Creates a pending appreciation via the web create API so claim email
     /// resolution matches production (profiles.email → auth.users).
+    /// One automatic retry, and only when the failure is a dropped connection.
     static func create(_ new: NewGratitude) async throws -> Gratitude {
         var payload = new
         await resolveRecipientContact(&payload)
@@ -432,6 +512,43 @@ enum GratitudeService {
             payload.inspiredByGratitudeId = await recentReceivedParentId(for: payload.authorId)
         }
 
+        let startedAt = Date()
+        do {
+            return try await performCreate(payload, startedAt: startedAt)
+        } catch let failure as AppreciationSendFailure {
+            throw failure
+        } catch {
+            guard isRetryableNetworkError(error) else {
+                throw AppreciationSendFailure.wrapping(error, stage: "create", attemptNumber: 1)
+            }
+        }
+
+        // The first request may have inserted before the connection dropped.
+        // Reuse that row instead of posting a second appreciation.
+        if let existing = await recentCreatedMatch(for: payload, around: startedAt) {
+            return existing
+        }
+
+        do {
+            return try await performCreate(payload, startedAt: startedAt)
+        } catch let failure as AppreciationSendFailure {
+            throw AppreciationSendFailure(
+                message: failure.message,
+                stage: failure.stage,
+                attemptNumber: max(failure.attemptNumber, 2),
+                httpStatus: failure.httpStatus,
+                underlying: failure.underlying
+            )
+        } catch {
+            if isRetryableNetworkError(error),
+               let existing = await recentCreatedMatch(for: payload, around: startedAt) {
+                return existing
+            }
+            throw AppreciationSendFailure.wrapping(error, stage: "create", attemptNumber: 2)
+        }
+    }
+
+    private static func performCreate(_ payload: NewGratitude, startedAt: Date) async throws -> Gratitude {
         guard let session = try? await supabase.auth.session else {
             throw URLError(.userAuthenticationRequired)
         }
@@ -447,11 +564,6 @@ enum GratitudeService {
             let visibility: String
             let source: String
             let inspired_by_gratitude_id: String?
-        }
-
-        struct CreateResponse: Decodable {
-            let gratitude: Gratitude
-            let emailSent: Bool?
         }
 
         var request = URLRequest(
@@ -506,9 +618,12 @@ enum GratitudeService {
             )
         }
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        var created = try decoder.decode(CreateResponse.self, from: data).gratitude
+        var created = try await createdGratitude(
+            from: data,
+            httpStatus: http.statusCode,
+            fallback: payload,
+            startedAt: startedAt
+        )
 
         // Fallback if an older API build didn't persist inspired_by on insert.
         if created.inspiredByGratitudeId == nil, let parentId = payload.inspiredByGratitudeId {
@@ -524,15 +639,261 @@ enum GratitudeService {
         }
 
         // Re-fetch with feed embeds (author/recipient) for the success UI.
-        if let hydrated: Gratitude = try? await supabase.from("gratitudes")
-            .select(feedSelect)
-            .eq("id", value: created.id)
-            .single()
-            .execute()
-            .value {
+        if let hydrated = await fetchGratitudeIfPresent(id: created.id) {
             return hydrated
         }
         return created
+    }
+
+    /// A 2xx create is a successful insert even when the JSON shape or dates
+    /// don't match `Gratitude`. Prefer a typed decode, then the row id, then
+    /// the author's matching note from this attempt.
+    private static func createdGratitude(
+        from data: Data,
+        httpStatus: Int,
+        fallback: NewGratitude,
+        startedAt: Date
+    ) async throws -> Gratitude {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom(decodeFlexibleDate)
+
+        struct CreateEnvelope: Decodable { let gratitude: Gratitude? }
+        if let envelope = try? decoder.decode(CreateEnvelope.self, from: data),
+           let gratitude = envelope.gratitude {
+            return gratitude
+        }
+        if let direct = try? decoder.decode(Gratitude.self, from: data) {
+            return direct
+        }
+        if let object = gratitudeDictionary(from: data),
+           let id = uuid(from: object["id"]) {
+            if let hydrated = await fetchGratitudeIfPresent(id: id) {
+                return hydrated
+            }
+            return gratitude(fromLoose: object, id: id, fallback: fallback)
+        }
+        if let matched = await recentCreatedMatch(for: fallback, around: startedAt) {
+            return matched
+        }
+
+        throw AppreciationSendFailure(
+            message: "Couldn't confirm the send. Your draft is still here.",
+            stage: "decode",
+            attemptNumber: 1,
+            httpStatus: httpStatus,
+            underlying: NSError(
+                domain: NSCocoaErrorDomain,
+                code: 4864,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "The data couldn’t be read because it isn’t in the correct format."
+                ]
+            )
+        )
+    }
+
+    private static func fetchGratitudeIfPresent(id: UUID) async -> Gratitude? {
+        let row: Gratitude? = try? await supabase.from("gratitudes")
+            .select(feedSelect)
+            .eq("id", value: id)
+            .single()
+            .execute()
+            .value
+        return row
+    }
+
+    /// Same message from this author, written during this send attempt.
+    /// The window only covers clock skew before `startedAt`; newer rows still match.
+    private static func recentCreatedMatch(for payload: NewGratitude, around startedAt: Date) async -> Gratitude? {
+        let since = startedAt.addingTimeInterval(-15)
+        let rows: [Gratitude] = (try? await supabase.from("gratitudes")
+            .select(feedSelect)
+            .eq("author_id", value: payload.authorId.uuidString.lowercased())
+            .eq("message", value: payload.message)
+            .gte("created_at", value: since.ISO8601Format())
+            .order("created_at", ascending: false)
+            .limit(5)
+            .execute()
+            .value) ?? []
+        return rows.first { recipientMatches($0, payload: payload) }
+    }
+
+    private static func recipientMatches(_ row: Gratitude, payload: NewGratitude) -> Bool {
+        if let wantedId = payload.recipientId, let rowId = row.recipientId, rowId != wantedId {
+            return false
+        }
+        if let wantedEmail = normalizedContact(payload.recipientEmail),
+           let rowEmail = normalizedContact(row.recipientEmail),
+           wantedEmail != rowEmail {
+            return false
+        }
+        if let wantedPhone = normalizedContact(payload.recipientPhone),
+           let rowPhone = normalizedContact(row.recipientPhone),
+           wantedPhone != rowPhone {
+            return false
+        }
+        // Name-only sends have no stronger identity. Don't reject a member
+        // match just because the API stored a longer profile name.
+        let hasStrongIdentity = payload.recipientId != nil
+            || normalizedContact(payload.recipientEmail) != nil
+            || normalizedContact(payload.recipientPhone) != nil
+        if !hasStrongIdentity,
+           let wantedName = normalizedContact(payload.recipientName),
+           let rowName = normalizedContact(row.recipientName),
+           wantedName != rowName {
+            return false
+        }
+        return true
+    }
+
+    private static func normalizedContact(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed.lowercased()
+    }
+
+    private static func gratitudeDictionary(from data: Data) -> [String: Any]? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        return gratitudeDictionary(json, depth: 0)
+    }
+
+    private static func gratitudeDictionary(_ json: Any, depth: Int) -> [String: Any]? {
+        guard depth < 5 else { return nil }
+        if let array = json as? [Any] {
+            for item in array {
+                if let found = gratitudeDictionary(item, depth: depth + 1) { return found }
+            }
+            return nil
+        }
+        guard let dict = json as? [String: Any] else { return nil }
+        if let nested = dict["gratitude"],
+           let found = gratitudeDictionary(nested, depth: depth + 1) {
+            return found
+        }
+        if let nested = dict["data"],
+           let found = gratitudeDictionary(nested, depth: depth + 1) {
+            return found
+        }
+        if uuid(from: dict["id"]) != nil { return dict }
+        return nil
+    }
+
+    private static func gratitude(
+        fromLoose object: [String: Any],
+        id: UUID,
+        fallback: NewGratitude
+    ) -> Gratitude {
+        let authorId = uuid(from: object["author_id"]) ?? fallback.authorId
+        let message = (object["message"] as? String).flatMap { value in
+            value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
+        } ?? fallback.message
+        let visibilityRaw = (object["visibility"] as? String) ?? fallback.visibility
+        return Gratitude(
+            id: id,
+            authorId: authorId,
+            recipientId: uuid(from: object["recipient_id"]) ?? fallback.recipientId,
+            message: message,
+            mediaUrl: string(object["media_url"]) ?? fallback.mediaUrl,
+            mediaType: string(object["media_type"]) ?? fallback.mediaType,
+            createdAt: date(from: object["created_at"]) ?? Date(),
+            acceptedAt: date(from: object["accepted_at"]),
+            status: string(object["status"]).flatMap(GratitudeStatus.init(rawValue:)) ?? .pending,
+            visibility: GratitudeVisibility(rawValue: visibilityRaw),
+            acceptedAsPrivate: object["accepted_as_private"] as? Bool,
+            recipientEmail: string(object["recipient_email"]) ?? fallback.recipientEmail,
+            recipientPhone: string(object["recipient_phone"]) ?? fallback.recipientPhone,
+            recipientName: string(object["recipient_name"]) ?? fallback.recipientName,
+            slug: string(object["slug"]),
+            claimToken: uuid(from: object["claim_token"]),
+            inspiredByGratitudeId: uuid(from: object["inspired_by_gratitude_id"]) ?? fallback.inspiredByGratitudeId,
+            recipientEmailStatus: string(object["recipient_email_status"]),
+            recipientEmailError: string(object["recipient_email_error"]),
+            author: nil,
+            recipient: nil,
+            hearts: nil,
+            inspiredByParent: nil
+        )
+    }
+
+    private static func uuid(from value: Any?) -> UUID? {
+        if let uuid = value as? UUID { return uuid }
+        if let string = value as? String { return UUID(uuidString: string) }
+        return nil
+    }
+
+    private static func string(_ value: Any?) -> String? {
+        guard let string = value as? String else { return nil }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func date(from value: Any?) -> Date? {
+        guard let raw = value as? String else { return nil }
+        return parseISO8601(raw)
+    }
+
+    private static let fractionalISO8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let internetISO8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static func parseISO8601(_ raw: String) -> Date? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let date = fractionalISO8601.date(from: trimmed) { return date }
+        if let date = internetISO8601.date(from: trimmed) { return date }
+        guard let dot = trimmed.firstIndex(of: ".") else { return nil }
+        let tail = trimmed[dot...]
+        guard let zone = tail.firstIndex(where: { $0 == "Z" || $0 == "+" || $0 == "-" }) else {
+            return nil
+        }
+        let stripped = String(trimmed[..<dot]) + String(trimmed[zone...])
+        return internetISO8601.date(from: stripped)
+    }
+
+    private static func decodeFlexibleDate(_ decoder: Decoder) throws -> Date {
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if let date = parseISO8601(raw) { return date }
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Unrecognized date \(raw)"
+        )
+    }
+
+    /// Runs `operation` a second time only when the first failure is a network drop.
+    /// HTTP responses and decode failures are returned as-is.
+    private static func withNetworkRetry<T>(
+        stage: String,
+        _ operation: () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await operation()
+        } catch let failure as AppreciationSendFailure {
+            throw failure
+        } catch {
+            guard isRetryableNetworkError(error) else {
+                throw AppreciationSendFailure.wrapping(error, stage: stage, attemptNumber: 1)
+            }
+        }
+
+        do {
+            return try await operation()
+        } catch let failure as AppreciationSendFailure {
+            throw AppreciationSendFailure(
+                message: failure.message,
+                stage: failure.stage,
+                attemptNumber: max(failure.attemptNumber, 2),
+                httpStatus: failure.httpStatus,
+                underlying: failure.underlying
+            )
+        } catch {
+            throw AppreciationSendFailure.wrapping(error, stage: stage, attemptNumber: 2)
+        }
     }
 
     /// Most recent accepted appreciation this user received within 7 days.
@@ -648,13 +1009,34 @@ enum GratitudeService {
     }
 
     /// Update a pending appreciation you authored.
+    /// A 2xx body that doesn't match `Gratitude` still counts — the row is re-read.
     static func update(id: UUID, update: GratitudeUpdate) async throws -> Gratitude {
-        try await supabase.from("gratitudes")
-            .update(update)
-            .eq("id", value: id)
-            .select(feedSelect)
-            .single()
-            .execute().value
+        try await withNetworkRetry(stage: "update") {
+            do {
+                let updated: Gratitude = try await supabase.from("gratitudes")
+                    .update(update)
+                    .eq("id", value: id)
+                    .select(feedSelect)
+                    .single()
+                    .execute().value
+                return updated
+            } catch {
+                if isResponseDecodingError(error),
+                   let row = await fetchGratitudeIfPresent(id: id) {
+                    return row
+                }
+                throw error
+            }
+        }
+    }
+
+
+    private static func isResponseDecodingError(_ error: Error) -> Bool {
+        if error is DecodingError { return true }
+        let ns = error as NSError
+        if ns.domain == NSCocoaErrorDomain && (ns.code == 3840 || ns.code == 4864) { return true }
+        let lower = ns.localizedDescription.lowercased()
+        return lower.contains("correct format") || lower.contains("couldn't be read") || lower.contains("couldn’t be read")
     }
 
     /// Delete an appreciation you authored (typically still pending).
@@ -672,7 +1054,9 @@ enum GratitudeService {
 
     /// Uploads a post photo/video and returns its public URL.
     static func uploadMedia(data: Data, contentType: String, userId: UUID) async throws -> URL {
-        try await uploadToBucket(AppConfig.mediaBucket, data: data, contentType: contentType, userId: userId)
+        try await withNetworkRetry(stage: "upload") {
+            try await uploadToBucket(AppConfig.mediaBucket, data: data, contentType: contentType, userId: userId)
+        }
     }
 
     private static func uploadToBucket(

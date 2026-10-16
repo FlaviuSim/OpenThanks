@@ -116,6 +116,12 @@ struct ComposeView: View {
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
     @State private var didCompleteSend = false
+    /// One id for every PostHog event from this open of the form.
+    @State private var formSessionId = UUID().uuidString.lowercased()
+    @State private var formOpenedAt = Date()
+    @State private var priorErrorCount = 0
+    /// True after a send failure so the draft stays and Retry is offered.
+    @State private var sendFailed = false
     /// Cancel from the share screen's Edit returns to share without an abandon event.
     @State private var suppressAbandonTracking = false
     /// Kept so create can set `recipient_id` even if the typed field is a name.
@@ -299,10 +305,24 @@ struct ComposeView: View {
                 visibilitySection
 
                 if let error {
-                    Text(error)
-                        .font(Theme.body(13))
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, 4)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(error)
+                            .font(Theme.body(13))
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if sendFailed {
+                            Button("Retry") {
+                                messageFocused = false
+                                recipientFocused = false
+                                Task { await send() }
+                            }
+                            .font(Theme.body(15, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                            .disabled(sending)
+                            .accessibilityLabel("Retry sending this appreciation")
+                        }
+                    }
+                    .padding(.horizontal, 4)
                 }
 
                 // CTA lives in scroll content so it isn’t pinned above the keyboard
@@ -329,7 +349,7 @@ struct ComposeView: View {
             photoLibrary: .shared()
         )
         .sheet(isPresented: $showDisplayNameSheet) {
-            DisplayNameSheet()
+            DisplayNameSheet(formSessionId: formSessionId)
                 .presentationDetents([.medium])
                 .syncAppAppearance()
         }
@@ -436,13 +456,17 @@ struct ComposeView: View {
             if !listening {
                 applyDictationTranscript()
                 if wasListening, dictation.lastUtteranceLength > 0 {
-                    Analytics.appreciationVoiceDictation(messageLength: dictation.lastUtteranceLength)
+                    Analytics.appreciationVoiceDictation(
+                        messageLength: dictation.lastUtteranceLength,
+                        formSessionId: formSessionId
+                    )
                 }
             }
         }
         .onChange(of: dictation.errorMessage) { _, err in
             if let err, !err.isEmpty {
                 error = err
+                sendFailed = false
             }
         }
     }
@@ -450,7 +474,7 @@ struct ComposeView: View {
     private func trackFormStartIfNeeded() {
         guard !didTrackFormStart else { return }
         didTrackFormStart = true
-        Analytics.appreciationFormStarted(source: analyticsSource)
+        Analytics.appreciationFormStarted(source: analyticsSource, formSessionId: formSessionId)
     }
 
     private func trackAbandonIfNeeded() {
@@ -468,7 +492,12 @@ struct ComposeView: View {
             hasRecipient: recipientKind != "none",
             toMember: recipientKind == "member",
             recipientType: recipientKind,
-            hasMedia: hasAttachedMedia
+            hasMedia: hasAttachedMedia,
+            lastStep: abandonLastStep,
+            secondsOpen: formSecondsOpen,
+            priorErrorCount: priorErrorCount,
+            autopresented: formWasAutopresented,
+            formSessionId: formSessionId
         )
         // Watch: dismiss = keep Pending on server, stop auto-opening compose.
         if analyticsSource == "watch" {
@@ -477,6 +506,24 @@ struct ComposeView: View {
                 await WatchVoiceDraftStore.finishReviewSession(authorId: authorId)
             }
         }
+    }
+
+    /// Blank post-login compose is opened for the user. Everything else is a tap.
+    private var formWasAutopresented: Bool {
+        analyticsSource == "app_open" || analyticsSource == "post_login"
+    }
+
+    private var formSecondsOpen: Int {
+        max(0, Int(Date().timeIntervalSince(formOpenedAt)))
+    }
+
+    /// Furthest step still on screen when the form closes without a send.
+    private var abandonLastStep: String {
+        if priorErrorCount > 0 { return "send" }
+        if hasAttachedMedia { return "photo" }
+        if !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "message" }
+        if hasRecipient { return "recipient" }
+        return "compose"
     }
 
     /// member | email | phone | name | none — shared by submit + abandon analytics.
@@ -830,6 +877,7 @@ struct ComposeView: View {
         recipientFocused = false
         Analytics.capture("compose_guest_recipient_added", [
             "recipient_kind": looksLikeEmail(trimmed) ? "email" : "name",
+            "form_session_id": formSessionId,
         ])
     }
 
@@ -1645,6 +1693,7 @@ struct ComposeView: View {
         guard polishing == nil else { return }
         polishing = style
         error = nil
+        sendFailed = false
         messageFocused = false
         defer { polishing = nil }
         do {
@@ -1660,7 +1709,7 @@ struct ComposeView: View {
                 messageBeforeAI = original
                 message = next
             }
-            Analytics.appreciationAIRewrite(tone: style.rawValue)
+            Analytics.appreciationAIRewrite(tone: style.rawValue, formSessionId: formSessionId)
             messageFocused = true
         } catch {
             self.error = error.localizedDescription
@@ -1999,6 +2048,8 @@ struct ComposeView: View {
     // MARK: Send
 
     private func send() async {
+        // Set before any await so a second tap cannot start another request.
+        guard !sending else { return }
         guard let userId = auth.userId else { return }
         if needsDisplayName {
             showDisplayNameSheet = true
@@ -2007,6 +2058,8 @@ struct ComposeView: View {
         guard canSend else { return }
         sending = true
         error = nil
+        sendFailed = false
+        defer { sending = false }
         do {
             await resolveRecipientBeforeSend()
 
@@ -2100,7 +2153,8 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     source: analyticsSource,
                     campaign: campaignId,
-                    campaignDay: campaignDay
+                    campaignDay: campaignDay,
+                    formSessionId: formSessionId
                 )
                 onSaved?(updated)
                 deliverIfFirstRecipient(previous: editing, updated: updated, authorId: userId)
@@ -2155,13 +2209,15 @@ struct ComposeView: View {
                     visibility: visibility.rawValue,
                     source: analyticsSource,
                     campaign: campaignId,
-                    campaignDay: campaignDay
+                    campaignDay: campaignDay,
+                    formSessionId: formSessionId
                 )
                 if let parentId = inspiredByGratitudeId {
                     Analytics.capture("ripple_created", [
                         "parent_gratitude_id": parentId.uuidString.lowercased(),
                         "depth": 1,
                         "source": analyticsSource,
+                        "form_session_id": formSessionId,
                     ])
                 }
                 NotificationCenter.default.post(name: .gratitudeCreated, object: result)
@@ -2172,10 +2228,11 @@ struct ComposeView: View {
                 }
             }
         } catch {
-            self.error = error.localizedDescription
-            Analytics.appreciationFailed(error: error.localizedDescription, source: analyticsSource)
+            priorErrorCount += 1
+            sendFailed = true
+            self.error = userFacingAppreciationSendMessage(for: error)
+            Analytics.appreciationFailed(error: error, source: analyticsSource, formSessionId: formSessionId)
         }
-        sending = false
     }
 
     private func refreshWidgetAfterSend() async {

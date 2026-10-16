@@ -168,7 +168,7 @@ enum WatchVoiceDraftStore {
                 analyticsSource: "watch",
                 allowsEmptyRecipient: true
             )
-            Analytics.appreciationFailed(error: error.localizedDescription, source: "watch")
+            Analytics.appreciationFailed(error: error, source: "watch")
         }
 
         await notifyIfNeeded(draftId: draftId)
