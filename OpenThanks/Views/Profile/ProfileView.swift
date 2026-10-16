@@ -221,6 +221,14 @@ struct UserProfileView: View {
         showCompose = true
     }
 
+    /// Blank send form, same cover as the tab heart: a new launch id through
+    /// `presentCompose`, not the profile’s boolean cover and not a weak
+    /// `app_open`. `ComposeView` enqueues `appreciation_form_started` with
+    /// `source=ripple_tab` when the form appears. Nothing is fetched first.
+    private func startOwnRipple() {
+        ComposeLaunchBridge.shared.queue(analyticsSource: "ripple_tab")
+    }
+
     /// Patch embedded author/recipient avatars after a profile photo/name edit.
     private func applyProfileUpdate(_ updated: Profile) {
         for i in sent.indices where sent[i].authorId == updated.id {
@@ -818,7 +826,27 @@ struct UserProfileView: View {
                     }
                 }
             }
+
+            startOwnRippleButton
         }
+    }
+
+    /// Always on the Ripple tab. Opens a blank appreciation (not “thank this profile”).
+    private var startOwnRippleButton: some View {
+        Button(action: startOwnRipple) {
+            HStack(spacing: 6) {
+                Image(systemName: "water.waves")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Start your own ripple")
+                    .font(Theme.body(14, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 11)
+            .background(Theme.ctaGradient, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Start your own ripple")
     }
 
     /// Compact intro — story + chips, no tall empty hero.
