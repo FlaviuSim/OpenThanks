@@ -336,7 +336,9 @@ final class AuthService {
     func signInWithPasskey(presentationAnchor: ASPresentationAnchor? = nil) async -> Bool {
         errorMessage = nil
         guard #available(iOS 16.0, *) else {
-            errorMessage = "Passkeys need iOS 16 or later."
+            let message = "Passkeys need iOS 16 or later."
+            errorMessage = message
+            recordSignInFailure(method: "passkey", error: message)
             return false
         }
         do {
@@ -346,7 +348,9 @@ final class AuthService {
             return true
         } catch {
             if Self.isPasskeyCancellation(error) { return false }
-            errorMessage = Self.passkeyErrorMessage(error)
+            let message = Self.passkeyErrorMessage(error)
+            errorMessage = message
+            recordSignInFailure(method: "passkey", error: message)
             return false
         }
     }
@@ -455,7 +459,9 @@ final class AuthService {
             return true
         } catch {
             if Self.isOAuthCancellation(error) { return false }
-            errorMessage = error.localizedDescription
+            let message = error.localizedDescription
+            errorMessage = message
+            recordSignInFailure(method: method, error: message)
             return false
         }
     }
@@ -552,7 +558,9 @@ final class AuthService {
         } catch {
             pendingOAuthFullName = nil
             pendingOAuthEmail = nil
-            errorMessage = Self.friendlyAuthError(error)
+            let message = Self.friendlyAuthError(error)
+            errorMessage = message
+            recordSignInFailure(method: "apple", error: message)
             return false
         }
     }
@@ -671,7 +679,9 @@ extension AuthService {
             await handleAuthSuccess(method: "email")
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            let message = error.localizedDescription
+            errorMessage = message
+            recordSignInFailure(method: "email", error: message)
             return false
         }
     }
@@ -685,7 +695,9 @@ extension AuthService {
             try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: true)
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            let message = error.localizedDescription
+            errorMessage = message
+            recordSignInFailure(method: "email", error: message)
             return false
         }
     }
@@ -703,7 +715,9 @@ extension AuthService {
                 try await supabase.auth.verifyOTP(email: email, token: code, type: .signup)
                 verified = true
             } catch {
-                errorMessage = error.localizedDescription
+                let message = error.localizedDescription
+                errorMessage = message
+                recordSignInFailure(method: "email", error: message)
             }
         }
         if verified {
@@ -755,7 +769,9 @@ extension AuthService {
             try await supabase.auth.signInWithOTP(phone: phone)
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            let message = error.localizedDescription
+            errorMessage = message
+            recordSignInFailure(method: "phone", error: message)
             return false
         }
     }
@@ -765,7 +781,9 @@ extension AuthService {
             try await supabase.auth.verifyOTP(phone: phone, token: code, type: .sms)
             await handleAuthSuccess(method: "phone")
         } catch {
-            errorMessage = error.localizedDescription
+            let message = error.localizedDescription
+            errorMessage = message
+            recordSignInFailure(method: "phone", error: message)
         }
     }
 
@@ -773,10 +791,18 @@ extension AuthService {
     private func handleAuthSuccess(method: String) async {
         guard let session = try? await supabase.auth.session else { return }
         let isSignup = Self.isFreshSignup(user: session.user)
+        // Link the anonymous install id to this user before anything else.
+        // identify/capture only enqueue — they do not wait on the network.
+        Analytics.identify(userId: session.user.id, email: session.user.email)
+        Analytics.authSignedIn(method: method, isSignup: isSignup)
         if isSignup {
             await persistSignupMetadata(method: method, platform: "ios")
         }
-        Analytics.authSignedIn(method: method, isSignup: isSignup)
+    }
+
+    /// Queues a sign-in failure. Does not change the error shown in the UI.
+    private func recordSignInFailure(method: String, error: String) {
+        Analytics.signInFailed(method: method, error: error)
     }
 
     /// True when the auth user was created within the last couple of minutes.
