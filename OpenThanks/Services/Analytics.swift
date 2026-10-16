@@ -325,11 +325,72 @@ enum Analytics {
         return nil
     }
 
+    // MARK: - Sign-in funnel
+    //
+    // Welcome page → Get Started (`prelogin_onboarding_completed`) →
+    // sign-in screen → 18+ ticked → method tapped →
+    // `auth_signed_in` (method) or `sign_in_failed` (method, error).
+    // `capture` / `identify` only enqueue with PostHog. Callers must not await them.
+
+    /// First screen (the one-page promise). Once per time that screen appears.
+    static func welcomePageViewed() {
+        capture("welcome_page_viewed")
+    }
+
+    /// Sign-in screen (Apple, Google, LinkedIn, passkey, email, phone).
+    static func signInScreenViewed() {
+        capture("sign_in_screen_viewed")
+    }
+
+    /// 18+ checkbox turned on. Unticking does not emit.
+    static func signInAgeConfirmed() {
+        capture("sign_in_age_confirmed")
+    }
+
+    /// A sign-in method button was tapped after the age gate. `method` is
+    /// `apple`, `google`, `linkedin`, `passkey`, `email`, or `phone`.
+    static func signInMethodTapped(_ method: String) {
+        capture("sign_in_method_tapped", ["method": method])
+    }
+
+    /// Sign-in attempt failed. `error` is a short, redacted message — no
+    /// address, phone number, code, or token.
+    static func signInFailed(method: String, error: String) {
+        let message = sanitizedAuthError(error)
+        capture("sign_in_failed", [
+            "method": method,
+            "error": message.isEmpty ? "unknown" : message,
+        ])
+    }
+
     /// Successful sign-in (all methods). Includes `platform: ios` automatically.
+    /// This is the funnel's sign-in succeeded event (`method`, plus `is_signup` when true).
     static func authSignedIn(method: String, isSignup: Bool = false) {
         var props: [String: Any] = ["method": method]
         if isSignup { props["is_signup"] = true }
         capture("auth_signed_in", props)
+    }
+
+    /// Strip contact details before a failed sign-in is queued.
+    private static func sanitizedAuthError(_ error: String) -> String {
+        var text = error.trimmingCharacters(in: .whitespacesAndNewlines)
+        let patterns = [
+            (#"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#, "[email]"),
+            (#"\+?\d[\d\s().-]{6,}\d"#, "[phone]"),
+        ]
+        for (pattern, replacement) in patterns {
+            guard let regex = try? NSRegularExpression(
+                pattern: pattern,
+                options: [.caseInsensitive]
+            ) else { continue }
+            let range = NSRange(text.startIndex..., in: text)
+            text = regex.stringByReplacingMatches(
+                in: text,
+                range: range,
+                withTemplate: replacement
+            )
+        }
+        return String(text.prefix(200))
     }
 
     // MARK: - Campaign prompts

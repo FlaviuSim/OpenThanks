@@ -3,6 +3,8 @@ import SwiftUI
 struct OnboardingView: View {
     var onFinish: () -> Void
 
+    @State private var didTrackWelcomePage = false
+
     private struct Point: Identifiable {
         let id: String
         let icon: String
@@ -39,6 +41,7 @@ struct OnboardingView: View {
 
             Button("Get Started") {
                 WarmHaptics.selection()
+                // Existing funnel event for Get Started. Name kept for current insights.
                 Analytics.capture("prelogin_onboarding_completed")
                 onFinish()
             }
@@ -52,6 +55,11 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .readableWidth()
+        .onAppear {
+            guard !didTrackWelcomePage else { return }
+            didTrackWelcomePage = true
+            Analytics.welcomePageViewed()
+        }
     }
 
     private var slideContent: some View {

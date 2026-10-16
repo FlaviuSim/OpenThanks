@@ -15,6 +15,7 @@ struct WelcomeView: View {
     @State private var oauthBusy: OAuthBusy?
     @State private var ageConfirmed = false
     @State private var showAgeHint = false
+    @State private var didTrackSignInScreen = false
 
     var body: some View {
         ScrollView {
@@ -58,6 +59,7 @@ struct WelcomeView: View {
                             // logs unsatisfiable-constraint warnings.
                             let buttonWidth = min(geo.size.width, 375)
                             SignInWithAppleButton(.continue) { request in
+                                Analytics.signInMethodTapped("apple")
                                 request.requestedScopes = [.email, .fullName]
                             } onCompletion: { result in
                                 handleAppleResult(result)
@@ -87,6 +89,7 @@ struct WelcomeView: View {
                         emphasis: .primarySocial
                     ) {
                         guardRequireAge {
+                            Analytics.signInMethodTapped("google")
                             Task { await signInWithOAuth(.google) }
                         }
                     }
@@ -98,6 +101,7 @@ struct WelcomeView: View {
                         label: oauthBusy == .linkedin ? "Opening LinkedIn…" : "Continue with LinkedIn"
                     ) {
                         guardRequireAge {
+                            Analytics.signInMethodTapped("linkedin")
                             Task { await signInWithOAuth(.linkedin) }
                         }
                     }
@@ -109,6 +113,7 @@ struct WelcomeView: View {
                         label: oauthBusy == .passkey ? "Waiting for passkey…" : "Continue with Passkey"
                     ) {
                         guardRequireAge {
+                            Analytics.signInMethodTapped("passkey")
                             Task { await signInWithPasskey() }
                         }
                     }
@@ -116,13 +121,19 @@ struct WelcomeView: View {
                     .opacity(authControlOpacity)
 
                     authButton(icon: "envelope.fill", label: "Continue with Email") {
-                        guardRequireAge { showEmailSheet = true }
+                        guardRequireAge {
+                            Analytics.signInMethodTapped("email")
+                            showEmailSheet = true
+                        }
                     }
                     .disabled(oauthBusy != nil)
                     .opacity(authControlOpacity)
 
                     authButton(icon: "phone.fill", label: "Continue with Phone") {
-                        guardRequireAge { showPhoneSheet = true }
+                        guardRequireAge {
+                            Analytics.signInMethodTapped("phone")
+                            showPhoneSheet = true
+                        }
                     }
                     .disabled(oauthBusy != nil)
                     .opacity(authControlOpacity)
@@ -148,6 +159,11 @@ struct WelcomeView: View {
         .background(Theme.background.ignoresSafeArea())
         .sheet(isPresented: $showEmailSheet) { OTPSheet(mode: .email) }
         .sheet(isPresented: $showPhoneSheet) { OTPSheet(mode: .phone) }
+        .onAppear {
+            guard !didTrackSignInScreen else { return }
+            didTrackSignInScreen = true
+            Analytics.signInScreenViewed()
+        }
     }
 
     private var authControlOpacity: Double {
@@ -265,7 +281,9 @@ struct WelcomeView: View {
                authError.code == .canceled || authError.code == .unknown {
                 return
             }
-            auth.errorMessage = error.localizedDescription
+            let message = error.localizedDescription
+            auth.errorMessage = message
+            Analytics.signInFailed(method: "apple", error: message)
         case .success(let authorization):
             guard ageConfirmed else {
                 nudgeAgeConfirmation()
@@ -275,7 +293,9 @@ struct WelcomeView: View {
                   let tokenData = credential.identityToken,
                   let idToken = String(data: tokenData, encoding: .utf8)
             else {
-                auth.errorMessage = "Couldn't complete Sign in with Apple."
+                let message = "Couldn't complete Sign in with Apple."
+                auth.errorMessage = message
+                Analytics.signInFailed(method: "apple", error: message)
                 return
             }
             var appleFullName: String?
@@ -329,6 +349,9 @@ struct AgeConfirmationToggle: View {
                     if isConfirmed { showHint = false }
                 }
                 WarmHaptics.selection()
+                if isConfirmed {
+                    Analytics.signInAgeConfirmed()
+                }
             } label: {
                 HStack(alignment: .top, spacing: 12) {
                     ZStack {
@@ -551,7 +574,9 @@ struct OTPSheet: View {
                 await auth.verifyEmailCode(email: destination, code: code)
             } else {
                 guard let phone = AuthService.normalizedPhone(destination) else {
-                    auth.errorMessage = "Enter a valid phone number."
+                    let message = "Enter a valid phone number."
+                    auth.errorMessage = message
+                    Analytics.signInFailed(method: "phone", error: message)
                     return
                 }
                 await auth.verifyPhoneCode(phone: phone, code: code)
@@ -572,7 +597,9 @@ struct OTPSheet: View {
                 ok = await auth.sendEmailCode(to: destination)
             } else {
                 guard let phone = AuthService.normalizedPhone(destination) else {
-                    auth.errorMessage = "Enter a valid phone number."
+                    let message = "Enter a valid phone number."
+                    auth.errorMessage = message
+                    Analytics.signInFailed(method: "phone", error: message)
                     return
                 }
                 ok = await auth.sendPhoneCode(to: phone)
