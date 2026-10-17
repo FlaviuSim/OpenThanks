@@ -1252,6 +1252,15 @@ enum GratitudeService {
             .execute()
     }
 
+    /// Accepted notes addressed to this user. Head count only — no row payloads.
+    static func acceptedReceivedCount(recipientId: UUID) async throws -> Int {
+        try await supabase.from("gratitudes")
+            .select("id", head: true, count: .exact)
+            .eq("recipient_id", value: recipientId)
+            .eq("status", value: "accepted")
+            .execute().count ?? 0
+    }
+
     // MARK: Stats
 
     static func stats(userId: UUID) async throws -> ProfileStats {
