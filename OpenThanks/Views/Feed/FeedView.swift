@@ -478,6 +478,8 @@ struct FeedView: View {
         .sheet(isPresented: $showCalendarConnect, onDismiss: {
             calendarReminder.refresh()
         }) {
+            // 5.1.1(iv): no Close / swipe-dismiss that skips the Calendar
+            // permission request after this custom rationale.
             NavigationStack {
                 CalendarPermissionView(
                     onFinished: {
@@ -486,18 +488,10 @@ struct FeedView: View {
                     },
                     analyticsSource: "home_banner"
                 )
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Close") {
-                            showCalendarConnect = false
-                        }
-                        .font(Theme.body(16, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
-                    }
-                }
             }
             .syncAppAppearance()
             .presentationDetents([.large])
+            .interactiveDismissDisabled()
         }
         .onChange(of: scope) { _, next in
             dismissSearchKeyboard()
@@ -651,7 +645,7 @@ struct FeedView: View {
                 VStack(spacing: 16) {
                     HeartMark(size: 48)
                     Text(page == .personal
-                         ? "No appreciations yet. Send your first one."
+                         ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
                          : "Nothing public yet — be the first.")
                         .font(Theme.body(15))
                         .foregroundStyle(Theme.textSecondary)

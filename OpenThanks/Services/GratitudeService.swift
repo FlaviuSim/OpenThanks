@@ -134,15 +134,67 @@ enum GratitudeService {
             .execute().value
     }
 
-    /// Personal feed: accepted appreciations you sent or received.
+    /// Personal (“My”) feed: accepted appreciations from your circle —
+    /// people who thanked you, people you thanked, and people whose posts you
+    /// hearted — matching web `getRelevantUserIds`. World feed stays everyone.
+    /// Private posts still only appear when you are the author or recipient.
     static func personalFeed(userId: UUID, limit: Int = 30) async throws -> [Gratitude] {
-        try await supabase.from("gratitudes")
+        let relevantIds = try await personalFeedRelevantUserIds(userId: userId)
+        let list = relevantIds.map { $0.uuidString.lowercased() }.joined(separator: ",")
+        let rows: [Gratitude] = try await supabase.from("gratitudes")
             .select(feedSelect)
-            .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
             .eq("status", value: "accepted")
+            .or("author_id.in.(\(list)),recipient_id.in.(\(list))")
             .order("accepted_at", ascending: false)
-            .limit(limit)
+            .limit(max(limit * 2, 60))
             .execute().value
+        return Array(rows.filter { $0.isVisible(to: userId) }.prefix(limit))
+    }
+
+    /// User IDs for My Feed: self + thank connections + people on posts I hearted.
+    private static func personalFeedRelevantUserIds(userId: UUID) async throws -> [UUID] {
+        var relevant = Set<UUID>([userId])
+
+        struct Edge: Decodable {
+            let authorId: UUID?
+            let recipientId: UUID?
+            enum CodingKeys: String, CodingKey {
+                case authorId = "author_id"
+                case recipientId = "recipient_id"
+            }
+        }
+
+        let mine: [Edge] = try await supabase.from("gratitudes")
+            .select("author_id, recipient_id")
+            .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
+            .execute().value
+        for g in mine {
+            if g.authorId == userId, let other = g.recipientId { relevant.insert(other) }
+            if g.recipientId == userId, let other = g.authorId { relevant.insert(other) }
+        }
+
+        struct HeartRow: Decodable {
+            let gratitudeId: UUID
+            enum CodingKeys: String, CodingKey { case gratitudeId = "gratitude_id" }
+        }
+        let hearts: [HeartRow] = (try? await supabase.from("hearts")
+            .select("gratitude_id")
+            .eq("user_id", value: userId)
+            .limit(500)
+            .execute().value) ?? []
+        let heartedIds = hearts.map(\.gratitudeId)
+        if !heartedIds.isEmpty {
+            let heartedPosts: [Edge] = try await supabase.from("gratitudes")
+                .select("author_id, recipient_id")
+                .in("id", values: heartedIds.map { $0.uuidString.lowercased() })
+                .execute().value
+            for g in heartedPosts {
+                if let id = g.authorId { relevant.insert(id) }
+                if let id = g.recipientId { relevant.insert(id) }
+            }
+        }
+
+        return Array(relevant)
     }
 
     static func pending(authorId: UUID) async throws -> [Gratitude] {
@@ -855,6 +907,7 @@ enum GratitudeService {
         return internetISO8601.date(from: stripped)
     }
 
+    @Sendable
     private static func decodeFlexibleDate(_ decoder: Decoder) throws -> Date {
         let container = try decoder.singleValueContainer()
         let raw = try container.decode(String.self)
