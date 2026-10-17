@@ -743,6 +743,14 @@ enum Analytics {
         capture("appreciation_form_abandoned", formProps(props, formSessionId: formSessionId))
     }
 
+    /// Draft funnel. Returns immediately; `capture` only enqueues. No draft text.
+    static func captureDraftEvent(_ event: String, hasRecipient: Bool) {
+        let props: [String: Any] = ["has_recipient": hasRecipient]
+        Task { @MainActor in
+            capture(event, props)
+        }
+    }
+
     private static func formProps(_ props: [String: Any], formSessionId: String?) -> [String: Any] {
         guard let formSessionId, !formSessionId.isEmpty else { return props }
         var props = props

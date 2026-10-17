@@ -230,6 +230,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             await MainActor.run {
                 NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
             }
+        case ComposeDraftStore.typeValue:
+            let hasRecipient = !(ComposeDraftStore.restore()?.recipient
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+            Analytics.captureDraftEvent("draft_reminder_opened", hasRecipient: hasRecipient)
+            await MainActor.run {
+                ComposeLaunchBridge.shared.queue(analyticsSource: "draft_reminder")
+            }
         case NotificationService.calendarNudgeTypeValue:
             NotificationService.recordDeliveredCalendarNudge(userInfo: info)
             let name = (info[NotificationService.calendarNudgeNameKey] as? String)?
