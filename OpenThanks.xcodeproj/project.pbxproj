@@ -46,6 +46,7 @@
 		3FC8D98D88D2290835A45166 /* AppIcon-Dawn.png in Resources */ = {isa = PBXBuildFile; fileRef = 802960DCA74AB23ED5D9DF85 /* AppIcon-Dawn.png */; };
 		400CBBEBE155B1C58A997825 /* AppIcon-Night@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = BBEBB652FA46260CBEA94500 /* AppIcon-Night@2x~ipad.png */; };
 		400E1CD96FA8D62CD08C05AE /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C1F5AF689FF4B940FFDD36 /* Analytics.swift */; };
+		B7E2A94C1D5F4E8A90C6B2D4 /* ComposeDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D4A51E7B6F4A2D8E9C1F03 /* ComposeDraftStore.swift */; };
 		4021724FC307B51712A5E085 /* AppIcon-Dawn@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = F2F9C5D2E49314B2E04B5E8A /* AppIcon-Dawn@2x~ipad.png */; };
 		42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */; };
 		472E06539772B7665712C59E /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
@@ -327,6 +328,7 @@
 		A7100E64F1ACD16964F60A63 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudePromptWidget.swift; sourceTree = "<group>"; };
 		ABCC3FCB36E9DCB6DB82AFC8 /* CampaignService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignService.swift; sourceTree = "<group>"; };
+		C0D4A51E7B6F4A2D8E9C1F03 /* ComposeDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeDraftStore.swift; sourceTree = "<group>"; };
 		AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeShareHandoff.swift; sourceTree = "<group>"; };
 		ACE734EF8985A181EF2C08D5 /* AppIcon-Ember@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@3x.png"; sourceTree = "<group>"; };
 		B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksApp.swift; sourceTree = "<group>"; };
@@ -437,6 +439,7 @@
 				2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */,
 				ABCC3FCB36E9DCB6DB82AFC8 /* CampaignService.swift */,
 				306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */,
+				C0D4A51E7B6F4A2D8E9C1F03 /* ComposeDraftStore.swift */,
 				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
@@ -971,6 +974,7 @@
 			files = (
 				C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */,
 				400E1CD96FA8D62CD08C05AE /* Analytics.swift in Sources */,
+				B7E2A94C1D5F4E8A90C6B2D4 /* ComposeDraftStore.swift in Sources */,
 				B9C2C7DCFAA6309EC4401A8D /* AppConfig.swift in Sources */,
 				D114CD44AF748B2FE6CCBCAB /* AppGroup+Files.swift in Sources */,
 				8D9BF6AE672BFC3C51751D04 /* AppGroup.swift in Sources */,
