@@ -82,7 +82,7 @@ struct WelcomeView: View {
                     .frame(height: 52)
 
                     // Second: Google — same height as Apple; stronger fill than the
-                    // LinkedIn / passkey / email / phone rows below (never stronger than Apple).
+                    // LinkedIn / email / phone / passkey rows below (never stronger than Apple).
                     authButton(
                         iconView: AnyView(GoogleGlyph()),
                         label: oauthBusy == .google ? "Opening Google…" : "Continue with Google",
@@ -108,18 +108,6 @@ struct WelcomeView: View {
                     .disabled(oauthBusy != nil)
                     .opacity(authControlOpacity)
 
-                    authButton(
-                        icon: "person.badge.key.fill",
-                        label: oauthBusy == .passkey ? "Waiting for passkey…" : "Continue with Passkey"
-                    ) {
-                        guardRequireAge {
-                            Analytics.signInMethodTapped("passkey")
-                            Task { await signInWithPasskey() }
-                        }
-                    }
-                    .disabled(oauthBusy != nil)
-                    .opacity(authControlOpacity)
-
                     authButton(icon: "envelope.fill", label: "Continue with Email") {
                         guardRequireAge {
                             Analytics.signInMethodTapped("email")
@@ -133,6 +121,18 @@ struct WelcomeView: View {
                         guardRequireAge {
                             Analytics.signInMethodTapped("phone")
                             showPhoneSheet = true
+                        }
+                    }
+                    .disabled(oauthBusy != nil)
+                    .opacity(authControlOpacity)
+
+                    authButton(
+                        icon: "person.badge.key.fill",
+                        label: oauthBusy == .passkey ? "Waiting for passkey…" : "Continue with Passkey"
+                    ) {
+                        guardRequireAge {
+                            Analytics.signInMethodTapped("passkey")
+                            Task { await signInWithPasskey() }
                         }
                     }
                     .disabled(oauthBusy != nil)
@@ -195,7 +195,7 @@ struct WelcomeView: View {
     }
 
     private enum AuthButtonEmphasis {
-        /// LinkedIn / passkey / email / phone — quieter outline rows.
+        /// LinkedIn / email / phone / passkey — quieter outline rows.
         case standard
         /// Google — filled surface, semibold type; still ≤ Apple’s solid system button.
         case primarySocial

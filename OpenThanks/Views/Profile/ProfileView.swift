@@ -826,12 +826,10 @@ struct UserProfileView: View {
                     }
                 }
             }
-
-            startOwnRippleButton
         }
     }
 
-    /// Always on the Ripple tab. Opens a blank appreciation (not “thank this profile”).
+    /// Blank send form — not “thank this profile”. Lives inside the ripple box.
     private var startOwnRippleButton: some View {
         Button(action: startOwnRipple) {
             HStack(spacing: 6) {
@@ -849,7 +847,7 @@ struct UserProfileView: View {
         .accessibilityLabel("Start your own ripple")
     }
 
-    /// Compact intro — story + chips, no tall empty hero.
+    /// Compact intro — story + chips + Start your own ripple (replaces Thank Name).
     private var rippleStoryCard: some View {
         let inspiredCount = inspirations.count
         let rippleCount = ripplePassOns.count
@@ -874,6 +872,8 @@ struct UserProfileView: View {
                 rippleChip(value: rippleCount, label: rippleCount == 1 ? "ripple" : "ripples", systemImage: "water.waves")
                 rippleChip(value: inspiredCount, label: "inspired", systemImage: "heart.fill")
             }
+
+            startOwnRippleButton
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -926,7 +926,8 @@ struct UserProfileView: View {
         .accessibilityLabel("\(title), \(count)")
     }
 
-    /// Shown when there are zero ripples — explains the idea + invites action.
+    /// Shown when there are zero ripples — explains the idea.
+    /// CTA lives on `rippleStoryCard` (“Start your own ripple”).
     private var rippleZeroExplainer: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(isOwnProfile ? "What’s a ripple?" : "No ripples yet")
@@ -939,24 +940,6 @@ struct UserProfileView: View {
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Button {
-                openComposeFromRipple(source: isOwnProfile ? "profile_ripple_zero" : "profile_ripple_zero_thank")
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text(isOwnProfile ? "Start a ripple — thank someone" : "Thank \(firstName)")
-                        .font(Theme.body(14, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 11)
-                .background(Theme.ctaGradient, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 2)
-            .accessibilityLabel(isOwnProfile ? "Start a ripple — thank someone" : "Thank \(shownProfile.displayName)")
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1023,19 +1006,8 @@ struct UserProfileView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .card()
 
-            Button {
-                openComposeFromRipple(source: isOwnProfile ? "profile_ripple_empty" : "profile_ripple_empty_thank")
-            } label: {
-                Text(isOwnProfile ? "Send an appreciation" : "Thank \(firstName)")
-                    .font(Theme.body(15, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.ctaGradient, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .padding(.bottom, 8)
-            .accessibilityLabel(isOwnProfile ? "Send an appreciation" : "Thank \(shownProfile.displayName)")
+            startOwnRippleButton
+                .padding(.bottom, 8)
         }
     }
 

@@ -337,7 +337,7 @@ enum Analytics {
         capture("welcome_page_viewed")
     }
 
-    /// Sign-in screen (Apple, Google, LinkedIn, passkey, email, phone).
+    /// Sign-in screen (Apple, Google, LinkedIn, email, phone, passkey).
     static func signInScreenViewed() {
         capture("sign_in_screen_viewed")
     }

@@ -65,7 +65,11 @@ struct StatsView: View {
     }
 
     private var canShareStats: Bool {
-        !loading && loadError == nil && !preparingShare && systemSharePayload == nil
+        currentStreak > 0
+            && !loading
+            && loadError == nil
+            && !preparingShare
+            && systemSharePayload == nil
     }
 
     private var shareContent: StatsShareContent {
@@ -108,19 +112,21 @@ struct StatsView: View {
         .navigationTitle("Your Stats")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task { await presentShare() }
-                } label: {
-                    if preparingShare {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "square.and.arrow.up")
+            if currentStreak > 0 {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await presentShare() }
+                    } label: {
+                        if preparingShare {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                        }
                     }
+                    .disabled(!canShareStats)
+                    .accessibilityLabel("Share my streak")
                 }
-                .disabled(!canShareStats)
-                .accessibilityLabel("Share my streak")
             }
         }
         .sheet(item: $systemSharePayload) { payload in
@@ -196,30 +202,32 @@ struct StatsView: View {
 
             streakKeepBanner(for: keep)
 
-            Button {
-                Task { await presentShare() }
-            } label: {
-                HStack(spacing: 8) {
-                    if preparingShare {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.white)
-                    } else {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 13, weight: .semibold))
+            if currentStreak > 0 {
+                Button {
+                    Task { await presentShare() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if preparingShare {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        Text("Share my streak")
+                            .font(Theme.body(14, weight: .semibold))
                     }
-                    Text("Share my streak")
-                        .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Theme.ctaGradient, in: Capsule())
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Theme.ctaGradient, in: Capsule())
+                .buttonStyle(.plain)
+                .disabled(!canShareStats)
+                .opacity(canShareStats ? 1 : 0.55)
+                .accessibilityLabel("Share my streak")
             }
-            .buttonStyle(.plain)
-            .disabled(!canShareStats)
-            .opacity(canShareStats ? 1 : 0.55)
-            .accessibilityLabel("Share my streak")
 
             // Contest progress is send-only; hide the acceptance card while a
             // challenge is enabled so Stats doesn't imply acceptances are required.
