@@ -63,6 +63,9 @@ struct FeedView: View {
     @State private var composeInspiredByName: String?
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
+    /// Bumped when auto-switching so the page `TabView` resyncs (iPad often
+    /// ignores a programmatic selection change without recreating the pager).
+    @State private var feedPagerEpoch = 0
     /// Suppresses the scope-change haptic for the automatic empty→World handoff.
     @State private var suppressNextScopeHaptic = false
     @State private var scrollToPendingToken = 0
@@ -462,6 +465,7 @@ struct FeedView: View {
                     .tag(Scope.world)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .id(feedPagerEpoch)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .animation(.easeInOut(duration: 0.2), value: shouldShowUpdateBanner)
@@ -979,9 +983,10 @@ struct FeedView: View {
 
             guard generation == currentLoadGeneration(for: target) else { return }
 
-            // Empty personal feed → show World so Home isn't a blank screen.
-            // Keep My Feed when there are pending accepts — those only render on Personal.
-            // Only flip scope; `.task(id: scope)` loads World (avoids a double fetch).
+            // Empty personal feed → show World so Home isn't a blank screen
+            // (especially on iPad, where the page TabView can ignore a bare
+            // selection flip). Keep My Feed when there are pending accepts —
+            // those only render on Personal.
             if target == .personal, result.isEmpty, pending.isEmpty, !didAutoSwitchToWorld {
                 didAutoSwitchToWorld = true
                 applyPendingList(pending)
@@ -992,9 +997,13 @@ struct FeedView: View {
                 setLoading(false, for: .personal)
                 await refreshWidgetSnapshot()
                 suppressNextScopeHaptic = true
+                feedPagerEpoch += 1
                 withAnimation(Self.scopeSwitchAnimation) {
                     scope = .world
                 }
+                // Load World here so the rebuilt pager isn't stuck on an empty page
+                // waiting for `.task(id: scope)` (unreliable after the id bump on iPad).
+                await load(for: .world)
                 return
             }
 
