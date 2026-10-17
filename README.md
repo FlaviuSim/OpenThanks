@@ -78,6 +78,8 @@ The design can use Fraunces (display) and DM Sans (body), but the font files are
 2. Create an APNs Auth Key in Apple Developer; enable Push on `com.openthanks.gratitude`.
 3. Set Edge Function secrets + Vault `send_apns_service_role`, then deploy `send-apns`.
 
+Unsent thank-you drafts also email the author when push is off, or 24 hours after a push they do not open. Apply `20261017_compose_draft_reminders.sql`, deploy `send-draft-reminders`, and set `RESEND_API_KEY` plus `DRAFT_REMINDER_FROM`. See [`supabase/functions/send-draft-reminders/README.md`](supabase/functions/send-draft-reminders/README.md). The website calls `upsert_compose_draft` / `delete_compose_draft` so the same reminder covers web and Android.
+
 ## Structure
 
 ```

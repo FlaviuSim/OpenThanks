@@ -126,6 +126,7 @@
 		C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C5038208573746C9F0E519 /* AcceptPendingCard.swift */; };
 		C80AB6ED3BBB395562BA4C3B /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		C0D4A7E8F15B4A6C9D2E3F40 /* ComposeDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E5B8A9C26C5B7D0E3F4051 /* ComposeDraftStore.swift */; };
+		E4A91C7B2F6D4E8A91B03C5D /* ComposeDraftSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5B02D8C3A7E4F9B02C14D6E /* ComposeDraftSync.swift */; };
 		C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */; };
 		C84278A64A98CA238E9303C3 /* CalendarGratitudeBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */; };
 		C8DB929803C920F0E53E0682 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0320D5FF717E6D107693552A /* Supabase */; };
@@ -350,6 +351,7 @@
 		CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x~ipad.png"; sourceTree = "<group>"; };
 		D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareSheet.swift; sourceTree = "<group>"; };
 		D1E5B8A9C26C5B7D0E3F4051 /* ComposeDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeDraftStore.swift; sourceTree = "<group>"; };
+		F5B02D8C3A7E4F9B02C14D6E /* ComposeDraftSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeDraftSync.swift; sourceTree = "<group>"; };
 		D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchBridge.swift; sourceTree = "<group>"; };
 		D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserBlockService.swift; sourceTree = "<group>"; };
 		D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropper.swift; sourceTree = "<group>"; };
@@ -440,6 +442,7 @@
 				ABCC3FCB36E9DCB6DB82AFC8 /* CampaignService.swift */,
 				306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */,
 				D1E5B8A9C26C5B7D0E3F4051 /* ComposeDraftStore.swift */,
+				F5B02D8C3A7E4F9B02C14D6E /* ComposeDraftSync.swift */,
 				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
@@ -998,6 +1001,7 @@
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
 				4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */,
 				C0D4A7E8F15B4A6C9D2E3F40 /* ComposeDraftStore.swift in Sources */,
+				E4A91C7B2F6D4E8A91B03C5D /* ComposeDraftSync.swift in Sources */,
 				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
 				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
 				77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */,

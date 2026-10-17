@@ -7,6 +7,10 @@ import UserNotifications
 /// A prefilled launch (profile, calendar, Siri, campaign, share, edit) keeps its
 /// own fields so existing entry points stay the same. Older builds ignore this
 /// key and this notification type.
+///
+/// When someone is signed in, the same draft is also stored on their account so
+/// an email can follow if push is off, or if they never open the push. That
+/// sync is best-effort and never blocks the local save.
 enum ComposeDraftStore {
     private static let defaultsKey = "openthanks.composeDraft.v1"
     static let notificationTypeValue = "compose_draft_reminder"
@@ -88,6 +92,7 @@ enum ComposeDraftStore {
         if changed {
             Analytics.draftSaved()
         }
+        ComposeDraftSync.scheduleSync()
         guard shouldSchedule else { return }
         let draftId = scheduledDraftId
         let generation = token
@@ -96,8 +101,32 @@ enum ComposeDraftStore {
         }
     }
 
+    /// Puts a draft loaded from the account into the local slot without
+    /// scheduling another notification or uploading it again.
+    static func adopt(
+        id: UUID,
+        recipient: String,
+        message: String,
+        reminderScheduled: Bool
+    ) {
+        let draft = Draft(
+            id: id,
+            recipient: normalize(recipient),
+            message: normalizeMessage(message),
+            reminderScheduled: reminderScheduled
+        )
+        guard !draft.recipient.isEmpty || !draft.message.isEmpty else { return }
+        lock.lock()
+        scheduleToken &+= 1
+        schedulingDraftId = nil
+        write(draft)
+        lock.unlock()
+    }
+
     /// Sent or cleared. Removes the draft and its pending or delivered reminder.
-    static func discard() {
+    /// `forceRemote` also drops the account copy when this session owned the
+    /// draft but nothing was stored on the device yet (email link, send).
+    static func discard(forceRemote: Bool = false) {
         lock.lock()
         let existing = read()
         scheduleToken &+= 1
@@ -106,6 +135,9 @@ enum ComposeDraftStore {
         lock.unlock()
         if let existing {
             cancelNotification(for: existing.id)
+        }
+        if existing != nil || forceRemote {
+            ComposeDraftSync.scheduleSync()
         }
     }
 
@@ -199,6 +231,7 @@ enum ComposeDraftStore {
 
         if didSchedule {
             await MainActor.run { Analytics.draftReminderScheduled() }
+            ComposeDraftSync.scheduleSync()
         } else {
             // This draft was sent, cleared, or replaced while the request was added.
             cancelNotification(for: draftId)

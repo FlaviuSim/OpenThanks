@@ -192,6 +192,23 @@ final class DeepLinkRouter {
         } else {
             analyticsSource = "universal_link_compose"
         }
+        if analyticsSource == "draft_reminder" {
+            let hintedRecipient = (recipient?.isEmpty == false) ? recipient : nil
+            Task { @MainActor in
+                let remote = await ComposeDraftSync.fetch()
+                let remoteRecipient = remote?.recipient
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let remoteMessage = remote?.message
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let name = (remoteRecipient?.isEmpty == false) ? remoteRecipient : hintedRecipient
+                ComposeLaunchBridge.shared.queue(
+                    recipientName: name,
+                    message: (remoteMessage?.isEmpty == false) ? remoteMessage : nil,
+                    analyticsSource: analyticsSource
+                )
+            }
+            return
+        }
         ComposeLaunchBridge.shared.queue(
             recipientName: (recipient?.isEmpty == false) ? recipient : nil,
             analyticsSource: analyticsSource

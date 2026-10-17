@@ -1948,9 +1948,37 @@ struct ComposeView: View {
             recipient = draft.recipient
             message = String(draft.message.prefix(maxLength))
             Analytics.draftRestored()
+        } else if canRestoreLocalDraft {
+            Task { await restoreServerDraftIfBlank() }
         }
         localDraftBaselineRecipient = draftRecipientText
         localDraftBaselineMessage = draftMessageText
+    }
+
+    /// A draft saved on the website (or another device) fills a still-blank form.
+    /// Typing that started before the fetch returns is left alone.
+    private func restoreServerDraftIfBlank() async {
+        guard let remote = await ComposeDraftSync.fetch() else { return }
+        let recipientText = remote.recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+        let messageText = String(
+            remote.message.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxLength)
+        )
+        guard !recipientText.isEmpty || !messageText.isEmpty else { return }
+        await MainActor.run {
+            guard canRestoreLocalDraft else { return }
+            guard draftRecipientText.isEmpty, draftMessageText.isEmpty else { return }
+            ComposeDraftStore.adopt(
+                id: remote.id,
+                recipient: recipientText,
+                message: messageText,
+                reminderScheduled: remote.suppressesAnotherLocalPush
+            )
+            recipient = recipientText
+            message = messageText
+            localDraftBaselineRecipient = draftRecipientText
+            localDraftBaselineMessage = draftMessageText
+            Analytics.draftRestored()
+        }
     }
 
     /// Blank form: text saves, an empty close discards. A prefilled form saves
@@ -1975,10 +2003,13 @@ struct ComposeView: View {
 
     private func clearLocalDraftAfterSendIfNeeded() {
         guard participatesInLocalDraft else { return }
-        if canRestoreLocalDraft
-            || ComposeDraftStore.matches(recipient: draftRecipientText, message: draftMessageText) {
-            ComposeDraftStore.discard()
-        }
+        let ownsDraft = canRestoreLocalDraft
+            || analyticsSource == "draft_reminder"
+            || ComposeDraftStore.matches(recipient: draftRecipientText, message: draftMessageText)
+        guard ownsDraft else { return }
+        // forceRemote covers an email open that prefilled the form without a
+        // device copy. An empty close of a blank form does not use this path.
+        ComposeDraftStore.discard(forceRemote: true)
     }
 
     /// Auto-opening compose after login shouldn't steal the first Cancel tap

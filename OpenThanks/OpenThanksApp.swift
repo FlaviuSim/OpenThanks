@@ -266,7 +266,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             }
         case ComposeDraftStore.notificationTypeValue:
             // Tap opens a blank form; Compose restores whatever draft is still on device.
+            // Opening the push cancels the later email. Dismiss does neither.
             guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { break }
+            ComposeDraftSync.markPushResponded()
             await MainActor.run {
                 Analytics.draftReminderOpened()
                 ComposeLaunchBridge.shared.queue(analyticsSource: "draft_reminder")
