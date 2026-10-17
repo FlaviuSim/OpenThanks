@@ -264,6 +264,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(analyticsSource: "streak_live_activity_wake")
             }
+        case ComposeDraftStore.notificationTypeValue:
+            // Tap opens a blank form; Compose restores whatever draft is still on device.
+            guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { break }
+            await MainActor.run {
+                Analytics.draftReminderOpened()
+                ComposeLaunchBridge.shared.queue(analyticsSource: "draft_reminder")
+            }
         case "gratitude_pending":
             // Open My Feed pending section (forces Personal + scroll).
             await MainActor.run {

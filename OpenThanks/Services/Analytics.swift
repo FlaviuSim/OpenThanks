@@ -743,6 +743,34 @@ enum Analytics {
         capture("appreciation_form_abandoned", formProps(props, formSessionId: formSessionId))
     }
 
+    /// Unsent compose draft. No message text, names, or emails.
+    /// `capture` only enqueues. Flush so a leave or a notification open still
+    /// uploads if the process suspends. Callers must not await these.
+    static func draftSaved() {
+        capture("draft_saved")
+        flushDraftEvent()
+    }
+
+    static func draftReminderScheduled() {
+        capture("draft_reminder_scheduled")
+        flushDraftEvent()
+    }
+
+    static func draftReminderOpened() {
+        capture("draft_reminder_opened")
+        flushDraftEvent()
+    }
+
+    static func draftRestored() {
+        capture("draft_restored")
+        flushDraftEvent()
+    }
+
+    private static func flushDraftEvent() {
+        guard !shouldSkipCapture, didSetup else { return }
+        PostHogSDK.shared.flush()
+    }
+
     private static func formProps(_ props: [String: Any], formSessionId: String?) -> [String: Any] {
         guard let formSessionId, !formSessionId.isEmpty else { return props }
         var props = props

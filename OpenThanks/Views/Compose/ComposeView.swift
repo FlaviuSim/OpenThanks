@@ -124,6 +124,10 @@ struct ComposeView: View {
     @State private var sendFailed = false
     /// Cancel from the share screen's Edit returns to share without an abandon event.
     @State private var suppressAbandonTracking = false
+    /// Recipient/message after prefill (and local-draft restore). Used so a prefilled
+    /// launch that is closed unchanged does not overwrite a saved draft.
+    @State private var localDraftBaselineRecipient = ""
+    @State private var localDraftBaselineMessage = ""
     /// Kept so create can set `recipient_id` even if the typed field is a name.
     @State private var linkedRecipient: Profile?
     /// Email for the linked member — loaded eagerly so claim mail can send
@@ -499,6 +503,7 @@ struct ComposeView: View {
             autopresented: formWasAutopresented,
             formSessionId: formSessionId
         )
+        persistLocalDraftOnLeave()
         // Watch: dismiss = keep Pending on server, stop auto-opening compose.
         if analyticsSource == "watch" {
             let authorId = auth.userId
@@ -1897,7 +1902,83 @@ struct ComposeView: View {
             cropItem = CropItem(image: prepared)
             ComposeShareStore.removeImage(fileName: fileName)
         }
+        restoreLocalDraftIfNeeded()
         autofocusMessageIfNeeded()
+    }
+
+    /// Blank new compose only. Edits, Watch, and launches that already carry a
+    /// recipient, message, prompt, or photo keep that behavior.
+    private var participatesInLocalDraft: Bool {
+        analyticsSource != "watch" && !isEditing && !opensOnShareScreen
+    }
+
+    private var hasExternalComposeSeed: Bool {
+        func filled(_ value: String?) -> Bool {
+            guard let value else { return false }
+            return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return initialRecipientProfile != nil
+            || filled(initialRecipient)
+            || filled(initialMessage)
+            || filled(initialMessagePlaceholder)
+            || filled(initialImageFileName)
+            || filled(campaignHint)
+            || inspiredByGratitudeId != nil
+    }
+
+    private var canRestoreLocalDraft: Bool {
+        participatesInLocalDraft && !hasExternalComposeSeed
+    }
+
+    /// Name shown for a member chip, otherwise the text in the To field.
+    private var draftRecipientText: String {
+        if let linked = linkedRecipient {
+            return linked.displayName
+        }
+        return recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var draftMessageText: String {
+        String(message.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxLength))
+    }
+
+    private func restoreLocalDraftIfNeeded() {
+        guard participatesInLocalDraft else { return }
+        if canRestoreLocalDraft, let draft = ComposeDraftStore.load() {
+            recipient = draft.recipient
+            message = String(draft.message.prefix(maxLength))
+            Analytics.draftRestored()
+        }
+        localDraftBaselineRecipient = draftRecipientText
+        localDraftBaselineMessage = draftMessageText
+    }
+
+    /// Blank form: text saves, an empty close discards. A prefilled form saves
+    /// only when the person changed the recipient or message.
+    private func persistLocalDraftOnLeave() {
+        guard participatesInLocalDraft else { return }
+        let recipientText = draftRecipientText
+        let messageText = draftMessageText
+        if canRestoreLocalDraft {
+            if recipientText.isEmpty && messageText.isEmpty {
+                ComposeDraftStore.discard()
+            } else {
+                ComposeDraftStore.save(recipient: recipientText, message: messageText)
+            }
+            return
+        }
+        let changed = recipientText != localDraftBaselineRecipient
+            || messageText != localDraftBaselineMessage
+        guard changed, !recipientText.isEmpty || !messageText.isEmpty else { return }
+        ComposeDraftStore.save(recipient: recipientText, message: messageText)
+    }
+
+    private func clearLocalDraftAfterSendIfNeeded() {
+        guard participatesInLocalDraft else { return }
+        if canRestoreLocalDraft
+            || ComposeDraftStore.matches(recipient: draftRecipientText, message: draftMessageText) {
+            ComposeDraftStore.discard()
+        }
     }
 
     /// Auto-opening compose after login shouldn't steal the first Cancel tap
@@ -2192,6 +2273,7 @@ struct ComposeView: View {
                 }
                 created = result
                 didCompleteSend = true
+                clearLocalDraftAfterSendIfNeeded()
                 if analyticsSource == "watch" {
                     WatchVoiceDraftStore.clear()
                 }
