@@ -64,6 +64,9 @@ struct PendingAppreciationReviewView: View {
                                     showPayItForward = false
                                 }
                                 AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                    PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_accept")
+                                }
                             },
                             analyticsParentId: gratitude.id,
                             analyticsSurface: "claim",

@@ -165,8 +165,15 @@ struct FeedView: View {
                 source: "feed_accept"
             )
         }
+        // Thank-someone opens compose — offer permissions after that send instead.
+        let shouldOfferPermissions = wasShowing && !payItForwardDidThank
         payItForwardDidThank = false
         payItForwardFromName = nil
+        if shouldOfferPermissions {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_accept")
+            }
+        }
     }
 
     var body: some View {
@@ -467,7 +474,8 @@ struct FeedView: View {
                         showCalendarConnect = false
                         calendarReminder.refresh()
                     },
-                    analyticsSource: "home_banner"
+                    analyticsSource: "home_banner",
+                    marksLaunchGateCompleteOnSkip: true
                 )
             }
             .syncAppAppearance()

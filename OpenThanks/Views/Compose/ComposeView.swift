@@ -265,7 +265,13 @@ struct ComposeView: View {
                 preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
                 offerEnjoymentPrompt: offerEnjoymentPrompt,
                 onEdit: { beginEditing(created) },
-                onDone: { dismiss() }
+                onDone: {
+                    dismiss()
+                    // Defer so compose cover can dismiss before the permission sheet.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_send")
+                    }
+                }
             )
             .id(shareScreenIdentity(created))
         } else {

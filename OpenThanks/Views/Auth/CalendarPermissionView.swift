@@ -1,16 +1,21 @@
 import SwiftUI
 import UIKit
 
-/// Calendar connect UI — full-screen onboarding gate, or Home-banner sheet.
+/// Calendar connect UI — deferred full-screen gate, Home-banner sheet, or post-appreciation sheet.
 ///
 /// App Store 5.1.1(iv): a custom rationale before Calendar access must proceed
 /// to the system permission request. Do not offer “Not now” / dismiss that
 /// skips EventKit. After the system dialog (allow or deny), leave this screen
 /// so the user’s choice is respected.
+///
+/// After a successful connect, if notifications aren’t authorized yet, show a
+/// branded follow-up so evening thank-you nudges can actually fire.
 struct CalendarPermissionView: View {
     var onFinished: () -> Void
-    /// Analytics source for connect helpers (`onboarding`, `home_banner`, …).
-    var analyticsSource: String = "onboarding"
+    /// Analytics source for connect helpers (`deferred_open`, `home_banner`, `post_send`, …).
+    var analyticsSource: String = "deferred_open"
+    /// When true, leaving without a calendar marks the launch gate complete (3rd-open full-screen).
+    var marksLaunchGateCompleteOnSkip: Bool = true
 
     @Environment(AuthService.self) private var auth
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
@@ -20,10 +25,29 @@ struct CalendarPermissionView: View {
     @State private var appeared = false
     /// After EventKit was prompted (or was already decided), offer Settings + Done.
     @State private var showPostDenialActions = false
+    /// After connect without notification auth — show branded notif step.
+    @State private var showNotificationFollowUp = false
 
     private var busy: Bool { busyApple || busyGoogle }
 
     var body: some View {
+        Group {
+            if showNotificationFollowUp {
+                NotificationPermissionView(
+                    onFinished: {
+                        PermissionPromptScheduler.shared.markCalendarPromptCompleted()
+                        onFinished()
+                    },
+                    pitch: .postCalendar,
+                    analyticsSource: "post_calendar"
+                )
+            } else {
+                calendarChooser
+            }
+        }
+    }
+
+    private var calendarChooser: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 24)
 
@@ -149,7 +173,7 @@ struct CalendarPermissionView: View {
 
         if granted {
             showPostDenialActions = false
-            await finishWithNudge(requestAppleIfNeeded: false)
+            await finishAfterConnect()
             return
         }
 
@@ -174,12 +198,27 @@ struct CalendarPermissionView: View {
         do {
             try await GoogleCalendarAuth.connect(analyticsSource: analyticsSource)
             showPostDenialActions = false
-            await finishWithNudge(requestAppleIfNeeded: false)
+            await finishAfterConnect()
         } catch {
             if GoogleCalendarAuth.isUserCancellation(error) {
                 return
             }
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func finishAfterConnect() async {
+        PermissionPromptScheduler.shared.markCalendarPromptCompleted()
+
+        if await NotificationService.isAuthorized() {
+            await finishWithNudge(requestAppleIfNeeded: false)
+            return
+        }
+
+        // Explain that evening nudges need notifications — don’t silently fail.
+        calendarNudgeEnabled = false
+        withAnimation(.easeInOut(duration: 0.22)) {
+            showNotificationFollowUp = true
         }
     }
 
@@ -195,8 +234,9 @@ struct CalendarPermissionView: View {
             CalendarGratitudeBackgroundRefresh.schedule()
             onFinished()
         } else if failure == .notificationsDenied {
-            errorMessage = "Notifications are needed for evening thank-you nudges. Enable them in iPhone Settings."
-            showPostDenialActions = true
+            withAnimation(.easeInOut(duration: 0.22)) {
+                showNotificationFollowUp = true
+            }
         } else {
             errorMessage = "Pick Apple or Google Calendar to turn on evening thank-you nudges."
         }
@@ -214,6 +254,12 @@ struct CalendarPermissionView: View {
         Analytics.calendarPermissionSkipped(source: analyticsSource)
         calendarNudgeEnabled = false
         Task { await NotificationService.disableCalendarGratitudeNudge() }
+        if marksLaunchGateCompleteOnSkip {
+            PermissionPromptScheduler.shared.markCalendarPromptCompleted()
+        } else {
+            // Post-appreciation sheet — re-ask on a later send/receive after cooldown.
+            PermissionPromptScheduler.shared.snoozeAppreciationCalendarPrompt()
+        }
         onFinished()
     }
 
