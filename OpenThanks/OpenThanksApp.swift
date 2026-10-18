@@ -296,15 +296,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 struct RootView: View {
     enum HomeGate {
-        case checking, needsNotifications, needsCalendar, needsSiriTip, ready
+        case checking, needsCalendar, needsSiriTip, ready
     }
 
     @Environment(AuthService.self) private var auth
     @Environment(DeepLinkRouter.self) private var deepLinks
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
-    /// One-time gate after sign-in — ask for Friday reminder notifications.
+    /// Completed when OS already decided, or after deferred post-appreciation / post-calendar ask.
     @AppStorage("hasCompletedNotificationPrompt") private var hasCompletedNotificationPrompt = false
-    /// One-time gate for calendar access (evening thank-you nudges).
+    /// Completed after deferred 3rd-open gate (connect or skip), or when already connected.
     @AppStorage("hasCompletedCalendarPrompt") private var hasCompletedCalendarPrompt = false
     /// Legacy flag — trust beat now lives on the one-page pre-login onboarding.
     @AppStorage("hasSeenTrustIntro") private var hasSeenTrustIntro = false
@@ -317,6 +317,8 @@ struct RootView: View {
     @State private var homeGate: HomeGate = .checking
     /// Keeps the deferred Siri tip from appearing again during the same process.
     @State private var deferredSiriThisProcess = false
+    /// One open-count increment per process when reaching `.ready`.
+    @State private var countedMainAppOpenThisProcess = false
 
     var body: some View {
         ZStack {
@@ -344,7 +346,8 @@ struct RootView: View {
                     HeartMark(size: 64)
                         .transition(.opacity)
                 } else {
-                    // After login: notifications → calendar → app (Siri tip on the second open).
+                    // Straight into the app; calendar gate on 3rd open; Siri tip on 2nd.
+                    // Notifications wait until send/receive (or after calendar connect).
                     signedInHome
                         .transition(.opacity)
                 }
@@ -365,16 +368,15 @@ struct RootView: View {
         switch effectiveHomeGate {
         case .checking:
             HeartMark(size: 64)
-        case .needsNotifications:
-            NotificationPermissionView {
-                hasCompletedNotificationPrompt = true
-                homeGate = nextGateAfterNotifications()
-            }
         case .needsCalendar:
-            CalendarPermissionView {
-                hasCompletedCalendarPrompt = true
-                homeGate = nextGateAfterCalendar()
-            }
+            CalendarPermissionView(
+                onFinished: {
+                    hasCompletedCalendarPrompt = true
+                    homeGate = gateAfterCalendarOrReady()
+                },
+                analyticsSource: "deferred_open",
+                marksLaunchGateCompleteOnSkip: true
+            )
         case .needsSiriTip:
             SiriIntroView {
                 hasCompletedSiriPrompt = true
@@ -386,37 +388,23 @@ struct RootView: View {
         }
     }
 
-    private func nextGateAfterNotifications() -> HomeGate {
-        if !hasCompletedCalendarPrompt { return .needsCalendar }
-        return gateAfterCalendarOrReady()
-    }
-
-    private func nextGateAfterCalendar() -> HomeGate {
-        gateAfterCalendarOrReady()
-    }
-
     /// Siri tip waits until the second app open to avoid first-session overload.
     private var shouldShowSiriTipNow: Bool {
-        !hasCompletedSiriPrompt && hasEnteredMainAppOnce && !deferredSiriThisProcess
+        !hasCompletedSiriPrompt
+            && PermissionPromptScheduler.mainAppOpenCount >= 2
+            && !deferredSiriThisProcess
     }
 
     private func gateAfterCalendarOrReady() -> HomeGate {
         // Pre-login onboarding now carries the trust beat.
         if !hasSeenTrustIntro { hasSeenTrustIntro = true }
         if shouldShowSiriTipNow { return .needsSiriTip }
-        if !hasEnteredMainAppOnce {
-            hasEnteredMainAppOnce = true
-            deferredSiriThisProcess = true
-        }
         return .ready
     }
 
     private var effectiveHomeGate: HomeGate {
-        if !hasCompletedNotificationPrompt {
-            return homeGate == .needsNotifications ? .needsNotifications : homeGate
-        }
-        if !hasCompletedCalendarPrompt {
-            return homeGate == .needsCalendar ? .needsCalendar : homeGate
+        if homeGate == .needsCalendar {
+            return .needsCalendar
         }
         if homeGate == .checking {
             return .checking
@@ -431,7 +419,8 @@ struct RootView: View {
     private var homeGateTaskID: String {
         let user = auth.userId?.uuidString ?? "out"
         let resolved = auth.hasResolvedProfile
-        return "\(user)-\(resolved)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)"
+        let openCount = PermissionPromptScheduler.mainAppOpenCount
+        return "\(user)-\(resolved)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)-\(openCount)"
     }
 
     private func resolveHomeGate() async {
@@ -442,28 +431,34 @@ struct RootView: View {
 
         OpenThanksShortcuts.updateAppShortcutParameters()
 
+        // Count this process as a main-app open up front so the 3rd open can show calendar.
+        let openCount = PermissionPromptScheduler.recordMainAppOpenIfNeeded(
+            processAlreadyCounted: &countedMainAppOpenThisProcess
+        )
+        if openCount >= 1 {
+            hasEnteredMainAppOnce = true
+        }
+
         // Returning users who never saw the new one-pager still skip TrustIntro.
         if !hasSeenTrustIntro { hasSeenTrustIntro = true }
 
+        // Notifications are deferred until send/receive — only sync if OS already decided.
         if !hasCompletedNotificationPrompt {
             if await NotificationService.hasResolvedAuthorization() {
                 if await NotificationService.isAuthorized() {
                     let failure = await NotificationService.enableFridayReminder(
-                        analyticsSource: "onboarding"
+                        analyticsSource: "deferred_sync"
                     )
                     fridayReminderEnabled = failure == nil
                 }
                 hasCompletedNotificationPrompt = true
-            } else {
-                homeGate = .needsNotifications
-                return
             }
+            // else: leave incomplete so post-appreciation can offer the branded ask.
         }
 
         if !hasCompletedCalendarPrompt {
             if CalendarMeetingAggregator.hasAnyConnectedSource {
-                // Already connected (Apple and/or Google) — silently mark done,
-                // keep nudge on, and schedule. Never show the picker screen.
+                // Already connected — silently mark done; keep nudge on when possible.
                 hasCompletedCalendarPrompt = true
                 calendarNudgeEnabled = true
                 var emails = Set<String>()
@@ -476,12 +471,12 @@ struct RootView: View {
                     selfEmails: emails
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
-                // Fall through — do not return; continue to ready/Siri below.
-            } else {
-                // Last first-login step — which calendar to use for evening nudges.
+            } else if PermissionPromptScheduler.shouldShowDeferredCalendarGate {
+                // 3rd+ main-app open — full-screen calendar connect.
                 homeGate = .needsCalendar
                 return
             }
+            // else: first/second open — enter the app without asking.
         }
 
         if fridayReminderEnabled, hasCompletedNotificationPrompt {

@@ -59,8 +59,21 @@ struct MainTabView: View {
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var pendingAcceptCount = 0
     @State private var didLogFirstSendTipShown = false
+    /// Deferred notification / calendar sheets after send or accept.
+    @State private var permissionScheduler = PermissionPromptScheduler.shared
 
     private var usesSidebar: Bool { sizeClass == .regular }
+
+    private var showPermissionPrompt: Binding<Bool> {
+        Binding(
+            get: { permissionScheduler.pending != nil },
+            set: { presented in
+                if !presented {
+                    permissionScheduler.clearPending()
+                }
+            }
+        )
+    }
     private var shouldShowFirstSendTip: Bool {
         !hasSeenFirstSendTip
             && tab == .feed
@@ -80,9 +93,14 @@ struct MainTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .syncAppAppearance()
+        // Keep Observation tracking on `pending` so the deferred sheet presents.
+        .animation(.easeInOut(duration: 0.2), value: permissionScheduler.pending != nil)
         .sheet(isPresented: $showProfileSettings) {
             SettingsView()
                 .syncAppAppearance()
+        }
+        .sheet(isPresented: showPermissionPrompt) {
+            permissionPromptSheet
         }
         .composeCover(item: $composeSheet) { sheet in
             composeView(for: sheet)
@@ -156,6 +174,8 @@ struct MainTabView: View {
                 if !hasSeenFirstSendTip {
                     hasSeenFirstSendTip = true
                 }
+            } else {
+                CalendarConnectReminder.shared.refresh()
             }
         }
         .onChange(of: shouldShowFirstSendTip) { _, show in
@@ -164,6 +184,71 @@ struct MainTabView: View {
                 Analytics.capture("first_send_tip_shown")
             }
         }
+    }
+
+    @ViewBuilder
+    private var permissionPromptSheet: some View {
+        NavigationStack {
+            Group {
+                switch permissionScheduler.pending {
+                case .notificationsAppreciation(let source):
+                    NotificationPermissionView(
+                        onFinished: {
+                            let finished = PermissionPromptScheduler.Prompt.notificationsAppreciation(source: source)
+                            permissionScheduler.advanceAfterFinishing(finished)
+                        },
+                        pitch: .appreciation,
+                        analyticsSource: source
+                    )
+                case .notificationsAfterCalendar(let source):
+                    NotificationPermissionView(
+                        onFinished: {
+                            let finished = PermissionPromptScheduler.Prompt.notificationsAfterCalendar(source: source)
+                            permissionScheduler.advanceAfterFinishing(finished)
+                            CalendarConnectReminder.shared.refresh()
+                        },
+                        pitch: .postCalendar,
+                        analyticsSource: source
+                    )
+                case .calendar(let source):
+                    CalendarPermissionView(
+                        onFinished: {
+                            let finished = PermissionPromptScheduler.Prompt.calendar(source: source)
+                            permissionScheduler.advanceAfterFinishing(finished)
+                            CalendarConnectReminder.shared.refresh()
+                        },
+                        analyticsSource: source,
+                        marksLaunchGateCompleteOnSkip: false
+                    )
+                case .none:
+                    Color.clear
+                        .onAppear { permissionScheduler.clearPending() }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        if let pending = permissionScheduler.pending {
+                            // Closing a calendar sheet snoozes re-ask; notif close marks completed.
+                            switch pending {
+                            case .calendar:
+                                PermissionPromptScheduler.shared.snoozeAppreciationCalendarPrompt()
+                            case .notificationsAppreciation, .notificationsAfterCalendar:
+                                PermissionPromptScheduler.shared.markNotificationPromptCompleted()
+                            }
+                            permissionScheduler.advanceAfterFinishing(pending)
+                        } else {
+                            permissionScheduler.clearPending()
+                        }
+                        CalendarConnectReminder.shared.refresh()
+                    }
+                    .font(Theme.body(16, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+                }
+            }
+        }
+        .syncAppAppearance()
+        .presentationDetents([.large])
     }
 
     // MARK: - iPad sidebar shell

@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Calendar connect UI — full-screen onboarding gate, or Home-banner sheet.
+/// Calendar connect UI — full-screen deferred gate, Home-banner sheet, or post-appreciation sheet.
 struct CalendarPermissionView: View {
     var onFinished: () -> Void
-    /// Analytics source for connect helpers (`onboarding`, `home_banner`, …).
-    var analyticsSource: String = "onboarding"
+    /// Analytics source for connect helpers (`deferred_open`, `home_banner`, `post_send`, …).
+    var analyticsSource: String = "deferred_open"
+    /// When true, skipping marks the launch gate complete (3rd-open full-screen).
+    var marksLaunchGateCompleteOnSkip: Bool = true
 
     @Environment(AuthService.self) private var auth
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
@@ -12,10 +14,29 @@ struct CalendarPermissionView: View {
     @State private var busyGoogle = false
     @State private var errorMessage: String?
     @State private var appeared = false
+    /// After connect without notification auth — show branded notif step.
+    @State private var showNotificationFollowUp = false
 
     private var busy: Bool { busyApple || busyGoogle }
 
     var body: some View {
+        Group {
+            if showNotificationFollowUp {
+                NotificationPermissionView(
+                    onFinished: {
+                        PermissionPromptScheduler.shared.markCalendarPromptCompleted()
+                        onFinished()
+                    },
+                    pitch: .postCalendar,
+                    analyticsSource: "post_calendar"
+                )
+            } else {
+                calendarChooser
+            }
+        }
+    }
+
+    private var calendarChooser: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 24)
 
@@ -126,7 +147,7 @@ struct CalendarPermissionView: View {
             errorMessage = "Apple Calendar wasn’t allowed. Try Google, or turn it on later in Settings."
             return
         }
-        await finishWithNudge(requestAppleIfNeeded: false)
+        await finishAfterConnect()
     }
 
     private func connectGoogle() async {
@@ -136,12 +157,27 @@ struct CalendarPermissionView: View {
 
         do {
             try await GoogleCalendarAuth.connect(analyticsSource: analyticsSource)
-            await finishWithNudge(requestAppleIfNeeded: false)
+            await finishAfterConnect()
         } catch {
             if GoogleCalendarAuth.isUserCancellation(error) {
                 return
             }
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func finishAfterConnect() async {
+        PermissionPromptScheduler.shared.markCalendarPromptCompleted()
+
+        if await NotificationService.isAuthorized() {
+            await finishWithNudge(requestAppleIfNeeded: false)
+            return
+        }
+
+        // Explain that evening nudges need notifications — don’t silently fail.
+        calendarNudgeEnabled = false
+        withAnimation(.easeInOut(duration: 0.22)) {
+            showNotificationFollowUp = true
         }
     }
 
@@ -157,7 +193,9 @@ struct CalendarPermissionView: View {
             CalendarGratitudeBackgroundRefresh.schedule()
             onFinished()
         } else if failure == .notificationsDenied {
-            errorMessage = "Notifications are needed for evening thank-you nudges. Enable them in iPhone Settings."
+            withAnimation(.easeInOut(duration: 0.22)) {
+                showNotificationFollowUp = true
+            }
         } else {
             errorMessage = "Pick Apple or Google Calendar to turn on evening thank-you nudges."
         }
@@ -175,6 +213,12 @@ struct CalendarPermissionView: View {
         Analytics.calendarPermissionSkipped(source: analyticsSource)
         calendarNudgeEnabled = false
         Task { await NotificationService.disableCalendarGratitudeNudge() }
+        if marksLaunchGateCompleteOnSkip {
+            PermissionPromptScheduler.shared.markCalendarPromptCompleted()
+        } else {
+            // Post-appreciation sheet — re-ask on a later send/receive after cooldown.
+            PermissionPromptScheduler.shared.snoozeAppreciationCalendarPrompt()
+        }
         onFinished()
     }
 }

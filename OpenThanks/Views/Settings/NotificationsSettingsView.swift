@@ -14,6 +14,8 @@ struct NotificationsSettingsView: View {
     @State private var calendarToggleTask: Task<Void, Never>?
     @State private var fridayToggleEpoch = 0
     @State private var calendarToggleEpoch = 0
+    /// After connecting a calendar without notification auth.
+    @State private var showPostCalendarNotifications = false
 
     private var fridayBinding: Binding<Bool> {
         Binding(
@@ -102,6 +104,32 @@ struct NotificationsSettingsView: View {
         .onDisappear {
             fridayToggleTask?.cancel()
             calendarToggleTask?.cancel()
+        }
+        .sheet(isPresented: $showPostCalendarNotifications) {
+            NavigationStack {
+                NotificationPermissionView(
+                    onFinished: {
+                        showPostCalendarNotifications = false
+                        calendarAccessTick += 1
+                    },
+                    pitch: .postCalendar,
+                    analyticsSource: "post_calendar"
+                )
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Close") {
+                            PermissionPromptScheduler.shared.markNotificationPromptCompleted()
+                            calendarNudgeEnabled = false
+                            Task { await NotificationService.disableCalendarGratitudeNudge() }
+                            showPostCalendarNotifications = false
+                        }
+                        .font(Theme.body(16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+            }
+            .syncAppAppearance()
+            .presentationDetents([.large])
         }
     }
 
@@ -385,7 +413,7 @@ struct NotificationsSettingsView: View {
             let granted = await CalendarMeetingService.requestAccess(analyticsSource: "settings")
             calendarAccessTick += 1
             if granted {
-                await refreshCalendarNudge()
+                await finishSettingsCalendarConnect()
             } else {
                 errorMessage = "Apple Calendar wasn’t allowed. You can connect Google Calendar instead."
                 showOpenSystemSettings = CalendarMeetingService.accessState == .denied
@@ -402,12 +430,24 @@ struct NotificationsSettingsView: View {
         do {
             try await GoogleCalendarAuth.connect(analyticsSource: "settings")
             calendarAccessTick += 1
-            await refreshCalendarNudge()
+            await finishSettingsCalendarConnect()
         } catch {
             if !GoogleCalendarAuth.isUserCancellation(error) {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    /// Calendar alone isn’t enough for evening nudges — prompt for notifications when needed.
+    private func finishSettingsCalendarConnect() async {
+        PermissionPromptScheduler.shared.markCalendarPromptCompleted()
+        if await NotificationService.isAuthorized() {
+            await refreshCalendarNudge()
+            return
+        }
+        calendarNudgeEnabled = false
+        await NotificationService.disableCalendarGratitudeNudge()
+        showPostCalendarNotifications = true
     }
 
     private func disconnectGoogle() async {
