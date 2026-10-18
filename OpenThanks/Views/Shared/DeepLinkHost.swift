@@ -24,8 +24,15 @@ struct DeepLinkHostModifier: ViewModifier {
                         source: "claim_accept"
                     )
                 }
+                // Thank-someone queues compose — offer permissions after that send instead.
+                let shouldOfferPermissions = wasShowing && !payItForwardDidThank
                 payItForwardDidThank = false
                 deepLinks.payItForwardFromName = nil
+                if shouldOfferPermissions {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_accept")
+                    }
+                }
             }
         )
     }

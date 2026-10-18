@@ -1,7 +1,9 @@
 import Foundation
 
-/// Soft Home reminder when the user finished the calendar gate but never connected
-/// Apple or Google. Dismissible with a 14-day snooze — never blocks the app.
+/// Soft Home reminder when the user finished the deferred calendar gate (3rd open)
+/// but never connected Apple or Google. Dismissible with a 14-day snooze — never
+/// blocks the app. Post-appreciation calendar sheets are handled separately by
+/// `PermissionPromptScheduler`.
 @MainActor
 @Observable
 final class CalendarConnectReminder {

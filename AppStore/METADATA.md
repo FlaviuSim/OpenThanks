@@ -10,7 +10,7 @@ Use these fields when creating the listing in [App Store Connect](https://appsto
 | Name                 | OpenThanks                                                                                                                                                                                                                                   |
 | Subtitle (30 chars)  | Share real appreciation                                                                                                                                                                                                                      |
 | Bundle ID            | `com.openthanks.gratitude`                                                                                                                                                                                                                   |
-| Devices (1.3)        | **iPhone + iPad** (universal — `TARGETED_DEVICE_FAMILY = 1,2`)                                                                                                                                                                               |
+| Devices (1.4)        | **iPhone + iPad** (universal — `TARGETED_DEVICE_FAMILY = 1,2`)                                                                                                                                                                               |
 | SKU                  | `openthanks-ios`                                                                                                                                                                                                                             |
 | Primary language     | English (U.S.)                                                                                                                                                                                                                               |
 | Category (Primary)   | Social Networking                                                                                                                                                                                                                            |
@@ -68,16 +68,16 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 
 
-## What’s New (1.3)
+## What’s New (1.4)
 
 Do **not** mention age gates, 18+, adult content, unrestricted media, or Apple Watch in What’s New / promotional text.
 
 ```
-You can accept a public thank-you and keep it just between the two of you.
+Sending thank-yous is more reliable, and the heart and campaign links open the compose form again.
 
-Home is easier to move through: swipe between feeds, share a thank-you from the card, and tap Profile again to return to the top.
+Start your own ripple from the Ripple tab. Share your gratitude streak with a short invite link.
 
-30 Days of Thanks: a daily prompt on Home through November, free on iPhone and iPad.
+You can accept a public thank-you and keep it just between the two of you. 30 Days of Thanks continues through November on iPhone and iPad.
 ```
 
 
@@ -160,5 +160,6 @@ Complete in App Store Connect before submit:
 - [ ] Reviewer demo account ready (do not delete the demo account before review finishes)
 - [ ] Sign in with Apple works if other third-party login is offered (Google)
 - [x] `accepted_as_private` column and visibility triggers are on production (`supabase/migrations/20261008_accept_as_private.sql`)
-- [ ] Apply `scripts/025_content_reports.sql` on production Supabase before shipping Report
-- [ ] Deploy web `/api/report` to openthanks.com
+- [x] Accept-privately path narrowed on production (`supabase/migrations/20261014_accept_privately_accept_path_only.sql`)
+- [x] Apply `scripts/025_content_reports.sql` on production Supabase before shipping Report
+- [x] Deploy web `/api/report` to openthanks.com

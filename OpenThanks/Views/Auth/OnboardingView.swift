@@ -12,14 +12,7 @@ struct OnboardingView: View {
         let body: String
     }
 
-    private let headline = ["Feel happier", "through", "gratitude"]
     private let points: [Point] = [
-        .init(
-            id: "happier",
-            icon: "sun.max.fill",
-            title: "A more grateful life",
-            body: "Noticing the people who matter — and thanking them — is one of the simplest ways to feel more fulfilled."
-        ),
         .init(
             id: "send",
             icon: "paperplane.fill",
@@ -30,14 +23,17 @@ struct OnboardingView: View {
             id: "trust",
             icon: "checkmark.shield.fill",
             title: "They accept before anything is public",
-            body: "Recipients review every note first. This isn’t marketing or spam — it’s real gratitude."
+            body: "Recipients review every note first. Nothing posts until they say yes."
         ),
     ]
 
     var body: some View {
         VStack(spacing: 0) {
-            slideContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            ScrollView {
+                slideContent
+                    .padding(.bottom, 16)
+            }
+            .scrollIndicators(.hidden)
 
             Button("Get Started") {
                 WarmHaptics.selection()
@@ -63,20 +59,29 @@ struct OnboardingView: View {
     }
 
     private var slideContent: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(headline.indices, id: \.self) { i in
-                    Text(headline[i])
-                        .font(Theme.display(40, weight: .semibold))
-                        .foregroundStyle(i == headline.count - 1
-                                         ? AnyShapeStyle(Theme.heartGradient)
-                                         : AnyShapeStyle(Theme.textPrimary))
-                }
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Being thanked")
+                    .font(Theme.display(36, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("changes everything")
+                    .font(Theme.display(36, weight: .semibold))
+                    .foregroundStyle(Theme.heartGradient)
             }
-            .padding(.top, 24)
+            .padding(.top, 16)
             .softNoteReveal(delay: 0.02)
 
-            VStack(alignment: .leading, spacing: 22) {
+            Text("A sincere note can make someone’s whole day — and they feel it the moment they open it.")
+                .font(Theme.body(16))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .softNoteReveal(delay: 0.06)
+
+            ReceiveMomentPreview()
+                .softNoteReveal(delay: 0.1)
+                .padding(.vertical, 4)
+
+            VStack(alignment: .leading, spacing: 18) {
                 ForEach(Array(points.enumerated()), id: \.element.id) { pointIndex, point in
                     HStack(alignment: .top, spacing: 14) {
                         Image(systemName: point.icon)
@@ -94,12 +99,76 @@ struct OnboardingView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .softNoteReveal(delay: 0.08 + Double(pointIndex) * 0.06)
+                    .softNoteReveal(delay: 0.14 + Double(pointIndex) * 0.05)
                 }
             }
-            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
+    }
+}
+
+/// Composed preview of receiving an appreciation — the emotional hook for Get Started.
+private struct ReceiveMomentPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    .frame(width: 28, height: 28)
+                    .background(Theme.coral.opacity(0.16), in: Circle())
+                Text("You received thanks")
+                    .font(Theme.body(13, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer(minLength: 0)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("From Alex")
+                    .font(Theme.body(12, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                    .textCase(.uppercase)
+                    .tracking(0.3)
+
+                Text("Thank you for jumping in when I was stuck. You made a hard week feel lighter.")
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    Label("Accept", systemImage: "checkmark")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Color(hex: 0x2B1209))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Theme.ctaGradient, in: Capsule())
+
+                    Text("You choose what becomes public")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 2)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Theme.hairline, lineWidth: 1)
+            )
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Theme.coral.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Theme.coral.opacity(0.28), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Preview of receiving a thank-you note you can accept before it’s public")
     }
 }

@@ -57,6 +57,10 @@ struct UserProfileView: View {
     @State private var received: [Gratitude] = []
     @State private var inspirations: [Inspiration] = []
     @State private var ripplePassOns: [Gratitude] = []
+    @State private var sentHasMore = false
+    @State private var receivedHasMore = false
+    @State private var sentLoadingMore = false
+    @State private var receivedLoadingMore = false
     @State private var loaded = false
     @State private var fullScreenAvatarURL: URL?
     @State private var showCompose = false
@@ -632,16 +636,11 @@ struct UserProfileView: View {
     }
 
     private func count(for s: Section) -> Int {
-        // Prefer the filtered lists so the number matches what's shown
-        // (accepted + visibility). Fall back to stats while loading.
+        // Always use head-count stats — never list.length (lists are paginated).
         switch s {
-        case .sent: return loaded ? sent.count : stats.sent
-        case .received: return loaded ? received.count : stats.received
-        case .ripple:
-            if loaded {
-                return inspirations.count + ripplePassOns.count
-            }
-            return stats.inspired + stats.ripplesPassedOn
+        case .sent: return stats.sent
+        case .received: return stats.received
+        case .ripple: return stats.inspired + stats.ripplesPassedOn
         }
     }
 
@@ -662,16 +661,19 @@ struct UserProfileView: View {
     }
 
     private func gratitudeList(_ list: [Gratitude], empty: String) -> some View {
-        VStack(spacing: 12) {
+        let isSent = section == .sent
+        let hasMore = isSent ? sentHasMore : receivedHasMore
+        let loadingMore = isSent ? sentLoadingMore : receivedLoadingMore
+        return VStack(spacing: 12) {
             if list.isEmpty && loaded {
                 Text(empty)
                     .font(Theme.body(14))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.vertical, 32)
             }
-            ForEach(list) { g in
+            ForEach(Array(list.enumerated()), id: \.element.id) { index, g in
                 HStack(alignment: .top, spacing: 12) {
-                    ProfileAvatarLink(profile: section == .sent ? g.recipient : g.author, size: 40)
+                    ProfileAvatarLink(profile: isSent ? g.recipient : g.author, size: 40)
                     NavigationLink(value: g) {
                         HStack(alignment: .top, spacing: 8) {
                             VStack(alignment: .leading, spacing: 4) {
@@ -704,6 +706,19 @@ struct UserProfileView: View {
                 }
                 .padding(14)
                 .card()
+                .onAppear {
+                    if index >= list.count - 3 {
+                        Task { await loadMoreProfileList(sent: isSent) }
+                    }
+                }
+            }
+            if loadingMore {
+                ProgressView()
+                    .tint(Theme.coral)
+                    .padding(.vertical, 8)
+            } else if hasMore, !list.isEmpty {
+                Color.clear.frame(height: 1)
+                    .onAppear { Task { await loadMoreProfileList(sent: isSent) } }
             }
         }
     }
@@ -1129,18 +1144,18 @@ struct UserProfileView: View {
                 freshProfile = try await p
             }
 
-            async let sentList = GratitudeService.sentBy(userId: profile.id, viewerId: viewerId)
-            async let receivedList = GratitudeService.receivedBy(userId: profile.id, viewerId: viewerId)
+            async let sentPage = GratitudeService.sentBy(userId: profile.id, viewerId: viewerId)
+            async let receivedPage = GratitudeService.receivedBy(userId: profile.id, viewerId: viewerId)
             async let inspiredList = GratitudeService.inspirations(userId: profile.id, viewerId: viewerId)
             // Soft-fail: missing inspired_by migration / embed must not blank Sent/Received.
             async let rippleList = Result {
                 try await GratitudeService.ripples(userId: profile.id, viewerId: viewerId)
             }
-            // Accurate counts via head queries (lists are capped).
+            // Accurate counts via head queries (lists are paginated).
             async let statsTask = GratitudeService.stats(userId: profile.id)
 
             let (sentResult, receivedResult, inspiredResult, rippleOutcome, statsResult) =
-                try await (sentList, receivedList, inspiredList, rippleList, statsTask)
+                try await (sentPage, receivedPage, inspiredList, rippleList, statsTask)
             let rippleResult = (try? rippleOutcome.get()) ?? []
             var pendingResult = 0
             var streakResult: Int?
@@ -1153,8 +1168,10 @@ struct UserProfileView: View {
                 }
             }
             withAnimation(.easeInOut(duration: 0.2)) {
-                sent = sentResult
-                received = receivedResult
+                sent = sentResult.items
+                received = receivedResult.items
+                sentHasMore = sentResult.hasMore
+                receivedHasMore = receivedResult.hasMore
                 inspirations = inspiredResult
                 ripplePassOns = rippleResult
                 stats = statsResult
@@ -1175,5 +1192,47 @@ struct UserProfileView: View {
             if error.isCancellation { /* keep existing content */ }
         }
         loaded = true
+    }
+
+    /// Append the next page of given/received when the user scrolls near the end.
+    private func loadMoreProfileList(sent isSent: Bool) async {
+        let viewerId = auth.userId
+        if isSent {
+            guard sentHasMore, !sentLoadingMore else { return }
+            guard let before = sent.last?.acceptedAt ?? sent.last?.createdAt else { return }
+            sentLoadingMore = true
+            defer { sentLoadingMore = false }
+            do {
+                let page = try await GratitudeService.sentBy(
+                    userId: profile.id,
+                    viewerId: viewerId,
+                    before: before
+                )
+                var existing = Set(sent.map(\.id))
+                let fresh = page.items.filter { existing.insert($0.id).inserted }
+                sent.append(contentsOf: fresh)
+                sentHasMore = page.hasMore
+            } catch {
+                if !error.isCancellation { /* keep what we have */ }
+            }
+        } else {
+            guard receivedHasMore, !receivedLoadingMore else { return }
+            guard let before = received.last?.acceptedAt ?? received.last?.createdAt else { return }
+            receivedLoadingMore = true
+            defer { receivedLoadingMore = false }
+            do {
+                let page = try await GratitudeService.receivedBy(
+                    userId: profile.id,
+                    viewerId: viewerId,
+                    before: before
+                )
+                var existing = Set(received.map(\.id))
+                let fresh = page.items.filter { existing.insert($0.id).inserted }
+                received.append(contentsOf: fresh)
+                receivedHasMore = page.hasMore
+            } catch {
+                if !error.isCancellation { /* keep what we have */ }
+            }
+        }
     }
 }

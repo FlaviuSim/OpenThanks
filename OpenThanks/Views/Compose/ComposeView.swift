@@ -278,7 +278,7 @@ struct ComposeView: View {
                     preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
                     offerEnjoymentPrompt: offerEnjoymentPrompt,
                     onEdit: { beginEditing(self.created ?? created) },
-                    onDone: { dismiss() },
+                    onDone: { finishPostSaveFlow() },
                     onUpdated: { updated in onSaved?(updated) }
                 )
                 .id(shareScreenIdentity(self.created ?? created))
@@ -289,12 +289,21 @@ struct ComposeView: View {
                     preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
                     offerEnjoymentPrompt: offerEnjoymentPrompt,
                     onEdit: { beginEditing(created) },
-                    onDone: { dismiss() }
+                    onDone: { finishPostSaveFlow() }
                 )
                 .id(shareScreenIdentity(created))
             }
         } else {
             form
+        }
+    }
+
+    /// Dismiss compose, then offer deferred permission prompts from main.
+    private func finishPostSaveFlow() {
+        dismiss()
+        // Defer so compose cover can dismiss before the permission sheet.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_send")
         }
     }
 
@@ -450,7 +459,26 @@ struct ComposeView: View {
         }
         .onDisappear {
             Task { await dictation.finishListening() }
+            let completedSend = didCompleteSend || sent
             trackAbandonIfNeeded()
+            guard ownsUnsentDraft, !completedSend else { return }
+            let keptRecipient = recipient
+            let keptMessage = message
+            Task {
+                let effect = await ComposeDraftStore.leave(
+                    recipient: keptRecipient,
+                    message: keptMessage
+                )
+                if effect.saved {
+                    Analytics.captureDraftEvent("draft_saved", hasRecipient: effect.hasRecipient)
+                }
+                if effect.scheduled {
+                    Analytics.captureDraftEvent(
+                        "draft_reminder_scheduled",
+                        hasRecipient: effect.hasRecipient
+                    )
+                }
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -1958,7 +1986,33 @@ struct ComposeView: View {
             cropItem = CropItem(image: prepared)
             ComposeShareStore.removeImage(fileName: fileName)
         }
+        if ownsUnsentDraft, let draft = ComposeDraftStore.restore() {
+            // Two-step write hides To — only restore the message; recipient is chosen on deliver.
+            if !usesTwoStepFlow {
+                recipient = draft.recipient
+            }
+            message = String(draft.message.prefix(maxLength))
+            Analytics.captureDraftEvent(
+                "draft_restored",
+                hasRecipient: !usesTwoStepFlow
+                    && !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+        }
         autofocusMessageIfNeeded()
+    }
+
+    /// Heart-tab and other blank sends. November, Watch, and explicit prefills stay put.
+    private var ownsUnsentDraft: Bool {
+        ComposeDraftStore.ownsDraft(ComposeDraftStore.FormContext(
+            isEditing: editingTarget != nil,
+            analyticsSource: analyticsSource,
+            hasInitialRecipient: !isBlank(initialRecipient),
+            hasInitialProfile: initialRecipientProfile != nil,
+            hasInitialMessage: !isBlank(initialMessage),
+            hasInitialImage: !isBlank(initialImageFileName),
+            hasInspiredBy: inspiredByGratitudeId != nil,
+            hasCampaign: !isBlank(campaignId) || !isBlank(campaignHint)
+        ))
     }
 
     /// Auto-opening compose after login shouldn't steal the first Cancel tap
@@ -2261,6 +2315,10 @@ struct ComposeView: View {
                 onSaved?(result)
                 if analyticsSource == "watch" {
                     WatchVoiceDraftStore.clear()
+                }
+                if ownsUnsentDraft {
+                    ComposeDraftStore.clearAfterSend()
+                    Analytics.captureDraftEvent("sent", hasRecipient: hasRecipient)
                 }
                 EnjoymentPrompt.recordSuccessfulSend()
                 offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)

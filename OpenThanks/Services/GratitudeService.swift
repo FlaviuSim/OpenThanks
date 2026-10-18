@@ -116,11 +116,21 @@ enum GratitudeService {
 
     // MARK: Feeds
 
+    /// Page size for feed and profile appreciation lists.
+    static let listPageSize = 20
+
+    /// One cursor page of appreciations (`hasMore` when a further page exists).
+    struct GratitudePage: Sendable {
+        let items: [Gratitude]
+        let hasMore: Bool
+    }
+
     /// World feed: public, accepted appreciations, newest accepted first.
     /// A recipient who accepts a public appreciation as private sets
     /// `visibility` to `private`, so this filter keeps it out of the feed.
     /// Do not filter on `accepted_as_private` — visibility is the source of truth.
-    static func worldFeed(limit: Int = 30, before: Date? = nil) async throws -> [Gratitude] {
+    /// Pass `before` (oldest `accepted_at` already shown) to load the next page.
+    static func worldFeed(limit: Int = listPageSize, before: Date? = nil) async throws -> GratitudePage {
         var query = supabase.from("gratitudes")
             .select(feedSelect)
             .eq("visibility", value: "public")
@@ -128,21 +138,104 @@ enum GratitudeService {
         if let before {
             query = query.lt("accepted_at", value: before.ISO8601Format())
         }
-        return try await query
+        let rows: [Gratitude] = try await query
             .order("accepted_at", ascending: false)
-            .limit(limit)
+            .limit(limit + 1)
             .execute().value
+        return page(from: rows, limit: limit)
     }
 
-    /// Personal feed: accepted appreciations you sent or received.
-    static func personalFeed(userId: UUID, limit: Int = 30) async throws -> [Gratitude] {
-        try await supabase.from("gratitudes")
+    /// Personal (“My”) feed: accepted appreciations from your circle —
+    /// people who thanked you, people you thanked, and people whose posts you
+    /// hearted — matching web `getRelevantUserIds`. World feed stays everyone.
+    /// Private posts still only appear when you are the author or recipient.
+    /// Pass `before` to load older pages.
+    static func personalFeed(
+        userId: UUID,
+        limit: Int = listPageSize,
+        before: Date? = nil
+    ) async throws -> GratitudePage {
+        let relevantIds = try await personalFeedRelevantUserIds(userId: userId)
+        let list = relevantIds.map { $0.uuidString.lowercased() }.joined(separator: ",")
+        var query = supabase.from("gratitudes")
             .select(feedSelect)
-            .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
             .eq("status", value: "accepted")
+            .or("author_id.in.(\(list)),recipient_id.in.(\(list))")
+            .or(visibilityOrFilter(viewerId: userId))
+        if let before {
+            query = query.lt("accepted_at", value: before.ISO8601Format())
+        }
+        let rows: [Gratitude] = try await query
             .order("accepted_at", ascending: false)
-            .limit(limit)
+            .limit(limit + 1)
             .execute().value
+        // Belt-and-suspenders: visibility is in the query, but keep client filter.
+        let visible = rows.filter { $0.isVisible(to: userId) }
+        return page(from: visible, limit: limit, rawCount: rows.count)
+    }
+
+    /// Public rows, plus private rows the viewer authored or received.
+    private static func visibilityOrFilter(viewerId: UUID?) -> String {
+        if let viewerId {
+            let id = viewerId.uuidString.lowercased()
+            return "visibility.eq.public,visibility.is.null,author_id.eq.\(id),recipient_id.eq.\(id)"
+        }
+        return "visibility.eq.public,visibility.is.null"
+    }
+
+    private static func page(
+        from rows: [Gratitude],
+        limit: Int,
+        rawCount: Int? = nil
+    ) -> GratitudePage {
+        let hasMore = (rawCount ?? rows.count) > limit
+        return GratitudePage(items: Array(rows.prefix(limit)), hasMore: hasMore)
+    }
+
+    /// User IDs for My Feed: self + thank connections + people on posts I hearted.
+    private static func personalFeedRelevantUserIds(userId: UUID) async throws -> [UUID] {
+        var relevant = Set<UUID>([userId])
+
+        struct Edge: Decodable {
+            let authorId: UUID?
+            let recipientId: UUID?
+            enum CodingKeys: String, CodingKey {
+                case authorId = "author_id"
+                case recipientId = "recipient_id"
+            }
+        }
+
+        let mine: [Edge] = try await supabase.from("gratitudes")
+            .select("author_id, recipient_id")
+            .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
+            .execute().value
+        for g in mine {
+            if g.authorId == userId, let other = g.recipientId { relevant.insert(other) }
+            if g.recipientId == userId, let other = g.authorId { relevant.insert(other) }
+        }
+
+        struct HeartRow: Decodable {
+            let gratitudeId: UUID
+            enum CodingKeys: String, CodingKey { case gratitudeId = "gratitude_id" }
+        }
+        let hearts: [HeartRow] = (try? await supabase.from("hearts")
+            .select("gratitude_id")
+            .eq("user_id", value: userId)
+            .limit(500)
+            .execute().value) ?? []
+        let heartedIds = hearts.map(\.gratitudeId)
+        if !heartedIds.isEmpty {
+            let heartedPosts: [Edge] = try await supabase.from("gratitudes")
+                .select("author_id, recipient_id")
+                .in("id", values: heartedIds.map { $0.uuidString.lowercased() })
+                .execute().value
+            for g in heartedPosts {
+                if let id = g.authorId { relevant.insert(id) }
+                if let id = g.recipientId { relevant.insert(id) }
+            }
+        }
+
+        return Array(relevant)
     }
 
     static func pending(authorId: UUID) async throws -> [Gratitude] {
@@ -230,27 +323,50 @@ enum GratitudeService {
 
     /// Accepted appreciations sent by a user, restricted to what `viewerId`
     /// may see: public posts, plus private ones the viewer is party to.
-    static func sentBy(userId: UUID, viewerId: UUID?, limit: Int = 50) async throws -> [Gratitude] {
-        let all: [Gratitude] = try await supabase.from("gratitudes")
+    /// Pass `before` (oldest `accepted_at` already shown) for the next page.
+    static func sentBy(
+        userId: UUID,
+        viewerId: UUID?,
+        limit: Int = listPageSize,
+        before: Date? = nil
+    ) async throws -> GratitudePage {
+        var query = supabase.from("gratitudes")
             .select(feedSelect)
             .eq("author_id", value: userId)
             .eq("status", value: "accepted")
+            .or(visibilityOrFilter(viewerId: viewerId))
+        if let before {
+            query = query.lt("accepted_at", value: before.ISO8601Format())
+        }
+        let rows: [Gratitude] = try await query
             .order("accepted_at", ascending: false)
-            .limit(limit)
+            .limit(limit + 1)
             .execute().value
-        return all.filter { $0.isVisible(to: viewerId) }
+        let visible = rows.filter { $0.isVisible(to: viewerId) }
+        return page(from: visible, limit: limit, rawCount: rows.count)
     }
 
     /// Accepted appreciations received by a user, same visibility rules.
-    static func receivedBy(userId: UUID, viewerId: UUID?, limit: Int = 50) async throws -> [Gratitude] {
-        let all: [Gratitude] = try await supabase.from("gratitudes")
+    static func receivedBy(
+        userId: UUID,
+        viewerId: UUID?,
+        limit: Int = listPageSize,
+        before: Date? = nil
+    ) async throws -> GratitudePage {
+        var query = supabase.from("gratitudes")
             .select(feedSelect)
             .eq("recipient_id", value: userId)
             .eq("status", value: "accepted")
+            .or(visibilityOrFilter(viewerId: viewerId))
+        if let before {
+            query = query.lt("accepted_at", value: before.ISO8601Format())
+        }
+        let rows: [Gratitude] = try await query
             .order("accepted_at", ascending: false)
-            .limit(limit)
+            .limit(limit + 1)
             .execute().value
-        return all.filter { $0.isVisible(to: viewerId) }
+        let visible = rows.filter { $0.isVisible(to: viewerId) }
+        return page(from: visible, limit: limit, rawCount: rows.count)
     }
 
     /// Single post (for notification taps).
@@ -855,6 +971,7 @@ enum GratitudeService {
         return internetISO8601.date(from: stripped)
     }
 
+    @Sendable
     private static func decodeFlexibleDate(_ decoder: Decoder) throws -> Date {
         let container = try decoder.singleValueContainer()
         let raw = try container.decode(String.self)
@@ -1250,6 +1367,15 @@ enum GratitudeService {
             .eq("user_id", value: userId)
             .eq("read", value: false)
             .execute()
+    }
+
+    /// Accepted notes addressed to this user. Head count only — no row payloads.
+    static func acceptedReceivedCount(recipientId: UUID) async throws -> Int {
+        try await supabase.from("gratitudes")
+            .select("id", head: true, count: .exact)
+            .eq("recipient_id", value: recipientId)
+            .eq("status", value: "accepted")
+            .execute().count ?? 0
     }
 
     // MARK: Stats
