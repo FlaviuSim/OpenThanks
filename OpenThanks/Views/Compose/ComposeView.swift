@@ -2248,7 +2248,6 @@ struct ComposeView: View {
                 }
                 EnjoymentPrompt.recordSuccessfulSend()
                 offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)
-                PushPermissionPreprompt.considerAfterSuccessfulSend()
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
                     gratitudeId: result.id,

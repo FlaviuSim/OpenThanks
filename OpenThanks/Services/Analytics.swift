@@ -234,20 +234,6 @@ enum Analytics {
         )
     }
 
-    /// Contextual pre-prompt impressions. `capture` enqueues; the prompt does not wait on the network.
-    /// `trigger` is `send` or `accept`.
-    static func pushPrepromptShown(trigger: String) {
-        capture("push_preprompt_shown", ["trigger": trigger])
-    }
-
-    static func pushPrepromptAllowed(trigger: String) {
-        capture("push_preprompt_allowed", ["trigger": trigger])
-    }
-
-    static func pushPrepromptDismissed(trigger: String) {
-        capture("push_preprompt_dismissed", ["trigger": trigger])
-    }
-
     /// APNs registration succeeded — never include the token value.
     static func pushTokenRegistered() {
         capture("push_token_registered")
