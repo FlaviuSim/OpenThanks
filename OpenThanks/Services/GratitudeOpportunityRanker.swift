@@ -190,7 +190,7 @@ enum GratitudeOpportunityRanker {
         guard let cutoff = cal.date(byAdding: .day, value: -recentThankWindowDays, to: now) else {
             return []
         }
-        let sent = (try? await GratitudeService.sentBy(userId: authorId, viewerId: authorId, limit: 80)) ?? []
+        let sent = (try? await GratitudeService.sentBy(userId: authorId, viewerId: authorId, limit: 80))?.items ?? []
         var keys = Set<String>()
         for g in sent {
             let when = g.createdAt ?? g.acceptedAt ?? .distantPast
