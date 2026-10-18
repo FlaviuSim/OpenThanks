@@ -28,7 +28,7 @@ struct DeliverAppreciationView: View {
     @State private var error: String?
     @State private var copied = false
     @State private var showEnjoymentPrompt = false
-    @State private var systemShareText: String?
+    @State private var systemSharePayload: SystemSharePayload?
     @State private var didPrefillRecipient = false
 
     @FocusState private var recipientFocused: Bool
@@ -104,14 +104,9 @@ struct DeliverAppreciationView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: Binding(
-            get: { systemShareText != nil },
-            set: { if !$0 { systemShareText = nil } }
-        )) {
-            if let systemShareText {
-                ActivityShareView(items: [systemShareText]) { activityType in
-                    noteShared(channel: SocialShare.analyticsChannel(for: activityType))
-                }
+        .sheet(item: $systemSharePayload) { payload in
+            ActivityShareView(items: payload.items) { activityType in
+                noteShared(channel: SocialShare.analyticsChannel(for: activityType))
             }
         }
         .sheet(isPresented: $showEnjoymentPrompt) {
@@ -278,7 +273,13 @@ struct DeliverAppreciationView: View {
                     systemImage: "square.and.arrow.up",
                     subtitle: "Messages, Mail, and more"
                 ) {
-                    systemShareText = shareMessage
+                    systemSharePayload = SystemSharePayload(
+                        items: SocialShare.pendingSystemShareItems(
+                            caption: gratitude.pendingShareInviteCaption,
+                            url: shareURL,
+                            title: gratitude.pendingShareEmailSubject
+                        )
+                    )
                 }
             }
         }

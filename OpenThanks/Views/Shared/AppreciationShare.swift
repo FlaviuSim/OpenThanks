@@ -400,36 +400,42 @@ struct ActivityShareView: UIViewControllerRepresentable {
     }
 }
 
-/// Rich link metadata so Messages / Mail show a nicer preview when possible.
-final class AppreciationLinkMetadata: NSObject, UIActivityItemSource {
-    let content: AppreciationShareContent
+/// Rich link metadata so the system share sheet shows our brand icon instead of
+/// whatever favicon/OG fallback LinkPresentation scrapes from the web page.
+final class BrandLinkMetadata: NSObject, UIActivityItemSource {
+    let url: URL
+    let title: String
+    /// Optional large preview (story card). The small header icon always uses the app mark.
     let image: UIImage?
 
-    init(content: AppreciationShareContent, image: UIImage?) {
-        self.content = content
+    init(url: URL, title: String, image: UIImage? = nil) {
+        self.url = url
+        self.title = title
         self.image = image
     }
 
     func activityViewControllerPlaceholderItem(
         _ activityViewController: UIActivityViewController
     ) -> Any {
-        content.url
+        url
     }
 
     func activityViewController(
         _ activityViewController: UIActivityViewController,
         itemForActivityType activityType: UIActivity.ActivityType?
     ) -> Any? {
-        content.url
+        url
     }
 
     func activityViewControllerLinkMetadata(
         _ activityViewController: UIActivityViewController
     ) -> LPLinkMetadata? {
         let metadata = LPLinkMetadata()
-        metadata.originalURL = content.url
-        metadata.url = content.url
-        metadata.title = content.linkMetadataTitle
+        metadata.originalURL = url
+        metadata.url = url
+        metadata.title = title
+        // `iconProvider` is the square mark at the top of the share sheet.
+        metadata.iconProvider = NSItemProvider(object: AppIconOption.current.previewImage)
         if let image {
             metadata.imageProvider = NSItemProvider(object: image)
         }
@@ -440,7 +446,47 @@ final class AppreciationLinkMetadata: NSObject, UIActivityItemSource {
         _ activityViewController: UIActivityViewController,
         subjectForActivityType activityType: UIActivity.ActivityType?
     ) -> String {
-        content.linkMetadataTitle
+        title
+    }
+}
+
+/// Accepted-appreciation share: URL + title from `AppreciationShareContent`.
+final class AppreciationLinkMetadata: NSObject, UIActivityItemSource {
+    private let brand: BrandLinkMetadata
+
+    init(content: AppreciationShareContent, image: UIImage?) {
+        brand = BrandLinkMetadata(
+            url: content.url,
+            title: content.linkMetadataTitle,
+            image: image
+        )
+        super.init()
+    }
+
+    func activityViewControllerPlaceholderItem(
+        _ activityViewController: UIActivityViewController
+    ) -> Any {
+        brand.activityViewControllerPlaceholderItem(activityViewController)
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        brand.activityViewController(activityViewController, itemForActivityType: activityType)
+    }
+
+    func activityViewControllerLinkMetadata(
+        _ activityViewController: UIActivityViewController
+    ) -> LPLinkMetadata? {
+        brand.activityViewControllerLinkMetadata(activityViewController)
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        subjectForActivityType activityType: UIActivity.ActivityType?
+    ) -> String {
+        brand.activityViewController(activityViewController, subjectForActivityType: activityType)
     }
 }
 
@@ -603,6 +649,19 @@ enum SocialShare {
             items.insert(cardImage, at: 0)
         }
         return items
+    }
+
+    /// Pending claim invite: personalized caption + claim URL with brand icon metadata.
+    @MainActor
+    static func pendingSystemShareItems(
+        caption: String,
+        url: URL,
+        title: String
+    ) -> [Any] {
+        [
+            caption,
+            BrandLinkMetadata(url: url, title: title),
+        ]
     }
 
     /// Stats pride card: rendered image + caption (includes App Store URL).
