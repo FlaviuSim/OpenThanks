@@ -162,9 +162,6 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { _ in
             // Fallback if pay-it-forward isn't shown; delayed so it stays gentle.
             AppStoreReviewPrompt.scheduleAfterReceivingAppreciation()
-            if let userId = auth.userId {
-                PushPermissionPreprompt.considerAfterSuccessfulAccept(userId: userId)
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .homePendingAcceptCount)) { note in
             if let count = note.userInfo?["count"] as? Int {
