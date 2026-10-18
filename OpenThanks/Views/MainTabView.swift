@@ -134,6 +134,10 @@ struct MainTabView: View {
             Task {
                 await CampaignService.shared.refresh()
                 await refreshUnread()
+                if let userId = auth.userId {
+                    let pending = (try? await GratitudeService.pending(authorId: userId)) ?? []
+                    await UnsentDraftReminderStore.reconcile(pending: pending)
+                }
                 if fridayReminderEnabled {
                     await NotificationService.refreshFridayReminderIfEnabled(true)
                 }
@@ -489,7 +493,8 @@ struct MainTabView: View {
                 campaignId: request.campaignId,
                 campaignDay: request.campaignDay,
                 analyticsSource: request.analyticsSource,
-                allowsEmptyRecipient: request.allowsEmptyRecipient
+                allowsEmptyRecipient: request.allowsEmptyRecipient,
+                opensOnShareScreen: request.opensOnShareScreen
             )
         }
     }

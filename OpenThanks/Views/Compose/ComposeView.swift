@@ -182,20 +182,29 @@ struct ComposeView: View {
     /// Watch / pending row that still has nobody to notify.
     private var isFirstDelivery: Bool { editingTarget?.hasNoRecipient == true }
 
+    /// Two-step write → deliver when no recipient was prefilled (`allowsEmptyRecipient`).
+    private var usesTwoStepFlow: Bool { allowsEmptyRecipient }
+
     private var toolbarSaveTitle: String {
+        if usesTwoStepFlow {
+            return isEditing ? "Continue" : "Continue"
+        }
         if isEditing {
             if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
             return "Save Changes"
         }
-        return allowsEmptyRecipient ? "Save to Pending" : "Save"
+        return "Save"
     }
 
     private var primarySaveTitle: String {
+        if usesTwoStepFlow {
+            return "Continue"
+        }
         if isEditing {
             if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
             return "Save Changes"
         }
-        return allowsEmptyRecipient ? "Save to Pending" : "Save Appreciation"
+        return "Save Appreciation"
     }
 
     private enum AttachedMediaKind {
@@ -259,23 +268,42 @@ struct ComposeView: View {
     @ViewBuilder
     private var composeRoot: some View {
         if sent, let created, activeEditing == nil {
-            SuccessView(
-                gratitude: created,
-                preferredEmail: auth.currentProfile?.email,
-                preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
-                offerEnjoymentPrompt: offerEnjoymentPrompt,
-                onEdit: { beginEditing(created) },
-                onDone: {
-                    dismiss()
-                    // Defer so compose cover can dismiss before the permission sheet.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_send")
-                    }
-                }
-            )
-            .id(shareScreenIdentity(created))
+            if usesTwoStepFlow {
+                DeliverAppreciationView(
+                    gratitude: Binding(
+                        get: { self.created ?? created },
+                        set: { self.created = $0 }
+                    ),
+                    preferredEmail: auth.currentProfile?.email,
+                    preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
+                    offerEnjoymentPrompt: offerEnjoymentPrompt,
+                    onEdit: { beginEditing(self.created ?? created) },
+                    onDone: { finishPostSaveFlow() },
+                    onUpdated: { updated in onSaved?(updated) }
+                )
+                .id(shareScreenIdentity(self.created ?? created))
+            } else {
+                SuccessView(
+                    gratitude: created,
+                    preferredEmail: auth.currentProfile?.email,
+                    preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
+                    offerEnjoymentPrompt: offerEnjoymentPrompt,
+                    onEdit: { beginEditing(created) },
+                    onDone: { finishPostSaveFlow() }
+                )
+                .id(shareScreenIdentity(created))
+            }
         } else {
             form
+        }
+    }
+
+    /// Dismiss compose, then offer deferred permission prompts from main.
+    private func finishPostSaveFlow() {
+        dismiss()
+        // Defer so compose cover can dismiss before the permission sheet.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_send")
         }
     }
 
@@ -294,21 +322,27 @@ struct ComposeView: View {
     private var form: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                if allowsEmptyRecipient {
+                if usesTwoStepFlow && analyticsSource == "watch" {
                     watchDraftBanner
+                } else if usesTwoStepFlow && !isEditing {
+                    twoStepWriteBanner
                 }
 
                 if isEditing {
                     intro
                 }
 
-                recipientSection
+                if !usesTwoStepFlow {
+                    recipientSection
+                }
 
                 messageSection
 
                 photoSection
 
-                visibilitySection
+                if !usesTwoStepFlow {
+                    visibilitySection
+                }
 
                 if let error {
                     VStack(alignment: .leading, spacing: 8) {
@@ -586,7 +620,32 @@ struct ComposeView: View {
                 Text("From your Watch")
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Saved to Pending from your Watch. You can save without a recipient — add who it’s for whenever you’re ready, or Cancel and finish later from Pending Appreciations.")
+                Text("Polish your note, then Continue to choose who it’s for and share the link — or Cancel and finish later from Pending.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Theme.coral.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Theme.coral.opacity(0.22), lineWidth: 1)
+        )
+    }
+
+    private var twoStepWriteBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Write your appreciation")
+                    .font(Theme.body(14, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Add your message and an optional photo. Next you’ll choose who to send it to.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1464,7 +1523,9 @@ struct ComposeView: View {
                     ProgressView()
                         .tint(Color(hex: 0x2B1209))
                 } else {
-                    Image(systemName: needsDisplayName ? "person.crop.circle.badge.plus" : "heart.fill")
+                    Image(systemName: needsDisplayName
+                          ? "person.crop.circle.badge.plus"
+                          : (usesTwoStepFlow ? "arrow.right" : "heart.fill"))
                         .font(.system(size: 14, weight: .bold))
                 }
                 Text(sending ? "Saving…" : (needsDisplayName ? "Add your name to send" : primarySaveTitle))
@@ -1478,7 +1539,10 @@ struct ComposeView: View {
         .padding(.top, 4)
         .accessibilityHint(needsDisplayName
             ? "Opens a short form to add your name"
-            : (saveBlockedReason ?? "Saves this appreciation"))
+            : (saveBlockedReason
+               ?? (usesTwoStepFlow
+                   ? "Saves your note, then lets you choose a recipient"
+                   : "Saves this appreciation")))
     }
 
     // MARK: Message tools
@@ -1923,11 +1987,15 @@ struct ComposeView: View {
             ComposeShareStore.removeImage(fileName: fileName)
         }
         if ownsUnsentDraft, let draft = ComposeDraftStore.restore() {
-            recipient = draft.recipient
+            // Two-step write hides To — only restore the message; recipient is chosen on deliver.
+            if !usesTwoStepFlow {
+                recipient = draft.recipient
+            }
             message = String(draft.message.prefix(maxLength))
             Analytics.captureDraftEvent(
                 "draft_restored",
-                hasRecipient: !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                hasRecipient: !usesTwoStepFlow
+                    && !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
         }
         autofocusMessageIfNeeded()
@@ -2205,12 +2273,17 @@ struct ComposeView: View {
                 )
                 onSaved?(updated)
                 deliverIfFirstRecipient(previous: editing, updated: updated, authorId: userId)
-                // Same completion as a note created on the phone: share screen when
-                // someone can receive it. No recipient yet → stay in Pending.
                 if updated.hasNoRecipient {
-                    dismiss()
+                    // Two-step: open deliver screen. Classic empty-recipient edit dismisses.
+                    if usesTwoStepFlow {
+                        sent = true
+                        await UnsentDraftReminderStore.scheduleIfNeeded(for: updated)
+                    } else {
+                        dismiss()
+                    }
                 } else {
                     sent = true
+                    UnsentDraftReminderStore.markRecipientAdded(id: updated.id)
                 }
             } else {
                 let new = NewGratitude(
@@ -2239,6 +2312,7 @@ struct ComposeView: View {
                 }
                 created = result
                 didCompleteSend = true
+                onSaved?(result)
                 if analyticsSource == "watch" {
                     WatchVoiceDraftStore.clear()
                 }
@@ -2273,6 +2347,11 @@ struct ComposeView: View {
                 }
                 NotificationCenter.default.post(name: .gratitudeCreated, object: result)
                 sent = true
+                if result.hasNoRecipient {
+                    await UnsentDraftReminderStore.scheduleIfNeeded(for: result)
+                } else {
+                    UnsentDraftReminderStore.markRecipientAdded(id: result.id)
+                }
                 await refreshWidgetAfterSend()
                 if let userId = auth.userId {
                     await StreakLiveActivityController.appreciationDidSend(userId: userId)

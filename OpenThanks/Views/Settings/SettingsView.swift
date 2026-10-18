@@ -348,6 +348,8 @@ struct PendingAppreciationsView: View {
     @State private var pending: [Gratitude] = []
     @State private var sharing: Gratitude?
     @State private var editing: Gratitude?
+    /// Opens the deliver / share step for a no-recipient draft.
+    @State private var delivering: Gratitude?
     @State private var deleting: Gratitude?
     @State private var busyId: UUID?
     @State private var errorMessage: String?
@@ -390,12 +392,23 @@ struct PendingAppreciationsView: View {
                 .presentationDetents([.medium])
         }
         .composeCover(item: $editing) { g in
-            // Watch drafts (and any pending with no recipient yet) must stay savable
-            // without a name/email — same as the initial Watch → phone compose path.
+            // No-recipient drafts use two-step write → deliver.
             ComposeView(
                 editing: g,
-                analyticsSource: g.hasNoRecipient ? "watch" : "edit_pending",
+                analyticsSource: "edit_pending",
                 allowsEmptyRecipient: g.hasNoRecipient
+            ) { updated in
+                if let index = pending.firstIndex(where: { $0.id == updated.id }) {
+                    pending[index] = updated
+                }
+            }
+        }
+        .composeCover(item: $delivering) { g in
+            ComposeView(
+                editing: g,
+                analyticsSource: "edit_pending",
+                allowsEmptyRecipient: g.hasNoRecipient,
+                opensOnShareScreen: true
             ) { updated in
                 if let index = pending.firstIndex(where: { $0.id == updated.id }) {
                     pending[index] = updated
@@ -426,17 +439,28 @@ struct PendingAppreciationsView: View {
         guard !didApplyHighlight, let highlightId else { return }
         didApplyHighlight = true
         if let match = pending.first(where: { $0.id == highlightId }) {
-            sharing = match
+            if match.hasNoRecipient {
+                beginDeliver(match)
+            } else {
+                sharing = match
+            }
         }
     }
 
     /// Drop a stale share sheet so it can't reappear under the editor after save.
     private func beginEdit(_ g: Gratitude) {
         sharing = nil
+        delivering = nil
         editing = g
     }
 
-    /// True when the appreciation has no recipient at all (Watch one-tap drafts).
+    private func beginDeliver(_ g: Gratitude) {
+        sharing = nil
+        editing = nil
+        delivering = g
+    }
+
+    /// True when the appreciation has no recipient at all (Watch / two-step drafts).
     private func hasNoRecipient(_ g: Gratitude) -> Bool {
         g.hasNoRecipient
     }
@@ -444,9 +468,9 @@ struct PendingAppreciationsView: View {
     private func pendingCard(_ g: Gratitude) -> some View {
         let noRecipient = hasNoRecipient(g)
         return VStack(alignment: .leading, spacing: 12) {
-            Button { noRecipient ? beginEdit(g) : (sharing = g) } label: {
+            Button { noRecipient ? beginDeliver(g) : (sharing = g) } label: {
                 HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: noRecipient ? "waveform" : "clock")
+                    Image(systemName: noRecipient ? "person.badge.plus" : "clock")
                         .foregroundStyle(noRecipient ? Theme.coral : Theme.textSecondary)
                         .frame(width: 36, height: 36)
                         .background(
@@ -458,7 +482,7 @@ struct PendingAppreciationsView: View {
                             Text("Add who to thank")
                                 .font(Theme.body(14, weight: .semibold))
                                 .foregroundStyle(Theme.coral)
-                            Text("Recorded from Apple Watch — tap to add a recipient and share.")
+                            Text("Tap to choose a recipient and share the link — or edit your note first.")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -499,8 +523,10 @@ struct PendingAppreciationsView: View {
                 actionButton(title: "Edit", systemImage: "square.and.pencil") {
                     beginEdit(g)
                 }
-                if !noRecipient {
-                    actionButton(title: "Send", systemImage: "link") {
+                actionButton(title: "Send", systemImage: "link") {
+                    if noRecipient {
+                        beginDeliver(g)
+                    } else {
                         sharing = g
                     }
                 }
@@ -569,6 +595,7 @@ struct PendingAppreciationsView: View {
         }
         do {
             try await GratitudeService.delete(id: gratitude.id)
+            UnsentDraftReminderStore.clear(id: gratitude.id)
             withAnimation {
                 pending.removeAll { $0.id == gratitude.id }
             }
