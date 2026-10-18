@@ -196,11 +196,14 @@ struct UserProfileView: View {
             FullScreenImageView(url: url)
         }
         .composeCover(isPresented: $showCompose) {
+            let prefilledProfile = composeUsesProfileRecipient && !isOwnProfile
+                ? shownProfile
+                : nil
             ComposeView(
-                initialRecipientProfile: composeUsesProfileRecipient && !isOwnProfile
-                    ? shownProfile
-                    : nil,
-                analyticsSource: composeAnalyticsSource
+                initialRecipientProfile: prefilledProfile,
+                analyticsSource: composeAnalyticsSource,
+                // Own-profile / Start your own ripple has no recipient yet.
+                allowsEmptyRecipient: prefilledProfile == nil
             )
         }
     }

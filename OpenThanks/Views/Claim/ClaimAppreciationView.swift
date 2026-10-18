@@ -90,7 +90,8 @@ struct PendingAppreciationReviewView: View {
             ComposeView(
                 inspiredByGratitudeId: gratitude.id,
                 inspiredByAuthorName: authorProfile?.fullName ?? authorProfile?.displayName,
-                analyticsSource: "post_accept_pay_it_forward"
+                analyticsSource: "post_accept_pay_it_forward",
+                allowsEmptyRecipient: true
             )
         }
         .task {
