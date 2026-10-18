@@ -433,12 +433,13 @@ struct RootView: View {
         return .ready
     }
 
-    /// Re-check when the user signs in or finishes permissions.
+    /// Re-check only when the signed-in user / profile resolution changes.
+    /// Do **not** include AppStorage flags or open-count here — `resolveHomeGate`
+    /// mutates those, which would cancel this `.task` mid-flight and leave the
+    /// heart splash stuck on `.checking` (common after logout → Sign in with Apple).
     private var homeGateTaskID: String {
         let user = auth.userId?.uuidString ?? "out"
-        let resolved = auth.hasResolvedProfile
-        let openCount = PermissionPromptScheduler.mainAppOpenCount
-        return "\(user)-\(resolved)-\(hasCompletedNotificationPrompt)-\(hasCompletedCalendarPrompt)-\(hasCompletedSiriPrompt)-\(hasEnteredMainAppOnce)-\(openCount)"
+        return "\(user)-\(auth.hasResolvedProfile)"
     }
 
     private func resolveHomeGate() async {
@@ -446,6 +447,22 @@ struct RootView: View {
             homeGate = .checking
             return
         }
+
+        do {
+            try await resolveHomeGateBody()
+        } catch is CancellationError {
+            // Replacement task (new sign-in) owns the outcome — don't clear `.ready`.
+            return
+        } catch {
+            // Never leave the splash forever on a transient permission/network glitch.
+            if case .signedIn = auth.state, auth.hasResolvedProfile, homeGate == .checking {
+                homeGate = .ready
+            }
+        }
+    }
+
+    private func resolveHomeGateBody() async throws {
+        try Task.checkCancellation()
 
         OpenThanksShortcuts.updateAppShortcutParameters()
 
@@ -460,9 +477,12 @@ struct RootView: View {
         // Returning users who never saw the new one-pager still skip TrustIntro.
         if !hasSeenTrustIntro { hasSeenTrustIntro = true }
 
+        try Task.checkCancellation()
+
         // Notifications are deferred until send/receive — only sync if OS already decided.
         if !hasCompletedNotificationPrompt {
             if await NotificationService.hasResolvedAuthorization() {
+                try Task.checkCancellation()
                 if await NotificationService.isAuthorized() {
                     let failure = await NotificationService.enableFridayReminder(
                         analyticsSource: "deferred_sync"
@@ -473,6 +493,8 @@ struct RootView: View {
             }
             // else: leave incomplete so post-appreciation can offer the branded ask.
         }
+
+        try Task.checkCancellation()
 
         if !hasCompletedCalendarPrompt {
             if CalendarMeetingAggregator.hasAnyConnectedSource {
@@ -497,6 +519,8 @@ struct RootView: View {
             // else: first/second open — enter the app without asking.
         }
 
+        try Task.checkCancellation()
+
         if fridayReminderEnabled, hasCompletedNotificationPrompt {
             await NotificationService.refreshFridayReminderIfEnabled(true)
         }
@@ -514,6 +538,7 @@ struct RootView: View {
             CalendarGratitudeBackgroundRefresh.schedule()
         }
 
+        try Task.checkCancellation()
         homeGate = gateAfterCalendarOrReady()
     }
 
