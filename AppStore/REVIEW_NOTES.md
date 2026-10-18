@@ -3,7 +3,7 @@
 Copy everything inside the box below into **App Review Information → Notes**.
 
 ```
-UNIVERSAL APP — iPhone + iPad (build 1.3). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
+UNIVERSAL APP — iPhone + iPad (build 1.4). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
 
 DEMO ACCOUNT (no OTP / no inbox needed)
 1. On welcome → Continue with Email
@@ -73,7 +73,7 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 3. Fill / confirm: **iPhone + iPad** screenshots (skip age-gate welcome frames), description, keywords, support URL, marketing URL, privacy URL  
 4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info) — do **not** market as adult content in Description  
 5. **App Privacy** → nutrition labels (see `METADATA.md`) → **Tracking = No**  
-6. **Build** → **+** → select processed **1.3 (1)** (universal iPhone + iPad) → Done  
+6. **Build** → **+** → select processed **1.4 (5)** (universal iPhone + iPad) → Done  
 
 ### C. App Review Information (this page)
 
@@ -93,7 +93,19 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 4. **Submit to App Review**  
 5. Status should move to **Waiting for Review**
 
-### E. Resolution Center reply (rejection resubmit — Watch icon + metadata)
+### E. Resolution Center reply (rejection resubmit — 5.1.1(iv) Calendar)
+
+Paste after uploading **1.4 (5)** (the build that removes calendar “Not now”):
+
+```
+Thank you for the feedback on Guideline 5.1.1(iv).
+
+We removed the “Not now” control (and sheet dismiss) from the calendar rationale screen. After that custom message, the user continues by choosing Apple Calendar, which presents the system Calendar permission request. If they deny, we respect that choice and continue into the app; if access was previously denied, we offer Open Settings. Google Calendar remains an alternate connect path and does not skip the Apple Calendar permission when the user chooses Apple Calendar.
+
+Please review build 1.4 (5). Calendar remains optional for core thank-you flows. Demo account unchanged: test@test.com / PlayStoreTest2026!
+```
+
+### E2. Resolution Center reply (older — Watch icon + metadata)
 
 Paste after uploading **1.1 (7)**, updating Connect **Description** + **What’s New** from `METADATA.md`, and selecting that build:
 

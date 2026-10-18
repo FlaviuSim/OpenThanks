@@ -1,6 +1,12 @@
 import SwiftUI
+import UIKit
 
 /// Calendar connect UI — full-screen onboarding gate, or Home-banner sheet.
+///
+/// App Store 5.1.1(iv): a custom rationale before Calendar access must proceed
+/// to the system permission request. Do not offer “Not now” / dismiss that
+/// skips EventKit. After the system dialog (allow or deny), leave this screen
+/// so the user’s choice is respected.
 struct CalendarPermissionView: View {
     var onFinished: () -> Void
     /// Analytics source for connect helpers (`onboarding`, `home_banner`, …).
@@ -12,6 +18,8 @@ struct CalendarPermissionView: View {
     @State private var busyGoogle = false
     @State private var errorMessage: String?
     @State private var appeared = false
+    /// After EventKit was prompted (or was already decided), offer Settings + Done.
+    @State private var showPostDenialActions = false
 
     private var busy: Bool { busyApple || busyGoogle }
 
@@ -61,7 +69,7 @@ struct CalendarPermissionView: View {
 
                 CalendarSourceChoice(
                     title: "Apple Calendar",
-                    subtitle: "Meetings stay on this device",
+                    subtitle: "Meetings stay on this device — you’ll get a permission prompt next",
                     systemImage: "apple.logo",
                     isBusy: busyApple,
                     disabled: busy
@@ -88,17 +96,31 @@ struct CalendarPermissionView: View {
                     .padding(.top, 4)
                     .softNoteReveal(delay: 0.28)
 
-                Button {
-                    skip()
-                } label: {
-                    Text("Not now")
-                        .font(Theme.body(16, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                // Only after the system Calendar prompt was shown (or access was
+                // already decided). Never a way to skip the permission request.
+                if showPostDenialActions {
+                    Button {
+                        openSystemSettings()
+                    } label: {
+                        Text("Open Settings")
+                            .font(Theme.body(16, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .disabled(busy)
+
+                    Button {
+                        finishWithoutCalendar()
+                    } label: {
+                        Text("Continue without calendar")
+                            .font(Theme.body(16, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+                    .disabled(busy)
                 }
-                .disabled(busy)
-                .padding(.top, 4)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 36)
@@ -108,6 +130,7 @@ struct CalendarPermissionView: View {
         .syncAppAppearance()
         .readableWidth()
         .animation(.easeOut(duration: 0.2), value: errorMessage)
+        .animation(.easeOut(duration: 0.2), value: showPostDenialActions)
         .onAppear {
             Analytics.calendarPermissionPrompted(source: analyticsSource)
             withAnimation(.easeOut(duration: 0.45)) {
@@ -121,12 +144,26 @@ struct CalendarPermissionView: View {
         errorMessage = nil
         defer { busyApple = false }
 
+        let wasUndetermined = CalendarMeetingService.accessState == .notDetermined
         let granted = await CalendarMeetingService.requestAccess(analyticsSource: analyticsSource)
-        guard granted else {
-            errorMessage = "Apple Calendar wasn’t allowed. Try Google, or turn it on later in Settings."
+
+        if granted {
+            showPostDenialActions = false
+            await finishWithNudge(requestAppleIfNeeded: false)
             return
         }
-        await finishWithNudge(requestAppleIfNeeded: false)
+
+        // System dialog was shown (or access was already denied). Respect the
+        // choice — never leave a “Not now” path that avoids EventKit.
+        if wasUndetermined {
+            // Just denied the first prompt: continue into the app.
+            finishWithoutCalendar()
+            return
+        }
+
+        // Previously denied / restricted — point to Settings, then allow Done.
+        errorMessage = "Calendar access is off. Enable it in Settings to get meeting thank-you ideas."
+        showPostDenialActions = true
     }
 
     private func connectGoogle() async {
@@ -136,6 +173,7 @@ struct CalendarPermissionView: View {
 
         do {
             try await GoogleCalendarAuth.connect(analyticsSource: analyticsSource)
+            showPostDenialActions = false
             await finishWithNudge(requestAppleIfNeeded: false)
         } catch {
             if GoogleCalendarAuth.isUserCancellation(error) {
@@ -158,6 +196,7 @@ struct CalendarPermissionView: View {
             onFinished()
         } else if failure == .notificationsDenied {
             errorMessage = "Notifications are needed for evening thank-you nudges. Enable them in iPhone Settings."
+            showPostDenialActions = true
         } else {
             errorMessage = "Pick Apple or Google Calendar to turn on evening thank-you nudges."
         }
@@ -171,11 +210,16 @@ struct CalendarPermissionView: View {
         return emails
     }
 
-    private func skip() {
+    private func finishWithoutCalendar() {
         Analytics.calendarPermissionSkipped(source: analyticsSource)
         calendarNudgeEnabled = false
         Task { await NotificationService.disableCalendarGratitudeNudge() }
         onFinished()
+    }
+
+    private func openSystemSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 
