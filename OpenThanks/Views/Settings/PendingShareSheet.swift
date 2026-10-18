@@ -9,7 +9,7 @@ struct PendingShareSheet: View {
     @Environment(\.openURL) private var openURL
     @State private var copied = false
     @State private var emailState: EmailState = .idle
-    @State private var systemShare: String?
+    @State private var systemSharePayload: SystemSharePayload?
 
     private enum EmailState: Equatable {
         case idle, sending, sent, failed(String)
@@ -167,7 +167,13 @@ struct PendingShareSheet: View {
                                 systemImage: "square.and.arrow.up",
                                 subtitle: "Messages, Mail, and more"
                             ) {
-                                systemShare = messageBody
+                                systemSharePayload = SystemSharePayload(
+                                    items: SocialShare.pendingSystemShareItems(
+                                        caption: gratitude.pendingShareInviteCaption,
+                                        url: shareURL,
+                                        title: gratitude.pendingShareEmailSubject
+                                    )
+                                )
                             }
 
                             if recipientEmail != nil || gratitude.recipientId != nil {
@@ -207,14 +213,9 @@ struct PendingShareSheet: View {
             props["status"] = gratitude.status?.rawValue ?? "pending"
             Analytics.capture("pending_share_shown", props)
         }
-        .sheet(isPresented: Binding(
-            get: { systemShare != nil },
-            set: { if !$0 { systemShare = nil } }
-        )) {
-            if let systemShare {
-                ActivityShareView(items: [systemShare]) { activityType in
-                    trackShare(channel: SocialShare.analyticsChannel(for: activityType))
-                }
+        .sheet(item: $systemSharePayload) { payload in
+            ActivityShareView(items: payload.items) { activityType in
+                trackShare(channel: SocialShare.analyticsChannel(for: activityType))
             }
         }
     }

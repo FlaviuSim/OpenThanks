@@ -2501,7 +2501,7 @@ struct SuccessView: View {
     @Environment(\.openURL) private var openURL
     @State private var copied = false
     @State private var showEnjoymentPrompt = false
-    @State private var systemShareText: String?
+    @State private var systemSharePayload: SystemSharePayload?
 
     private var shareURL: URL {
         gratitude.claimURL ?? gratitude.webURL
@@ -2589,7 +2589,13 @@ struct SuccessView: View {
                                 systemImage: "square.and.arrow.up",
                                 subtitle: "Messages, Mail, and more"
                             ) {
-                                systemShareText = shareMessage
+                                systemSharePayload = SystemSharePayload(
+                                    items: SocialShare.pendingSystemShareItems(
+                                        caption: gratitude.pendingShareInviteCaption,
+                                        url: shareURL,
+                                        title: gratitude.pendingShareEmailSubject
+                                    )
+                                )
                             }
                         }
                     }
@@ -2624,14 +2630,9 @@ struct SuccessView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: Binding(
-            get: { systemShareText != nil },
-            set: { if !$0 { systemShareText = nil } }
-        )) {
-            if let systemShareText {
-                ActivityShareView(items: [systemShareText]) { activityType in
-                    trackShare(channel: SocialShare.analyticsChannel(for: activityType))
-                }
+        .sheet(item: $systemSharePayload) { payload in
+            ActivityShareView(items: payload.items) { activityType in
+                trackShare(channel: SocialShare.analyticsChannel(for: activityType))
             }
         }
         .sheet(isPresented: $showEnjoymentPrompt) {

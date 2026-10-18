@@ -192,16 +192,21 @@ struct Gratitude: Codable, Identifiable, Hashable {
             : "I wrote you an appreciation on OpenThanks"
     }
 
-    /// Body for Text / WhatsApp / Email / system share when inviting the recipient.
-    /// Mentions privacy when the sender marked the note private.
-    func pendingShareInviteMessage(shareURL: URL) -> String {
+    /// Invite copy without the claim URL — system share attaches the link via
+    /// `LPLinkMetadata` so the sheet can show the OpenThanks icon.
+    var pendingShareInviteCaption: String {
         let greeting = shareGreetingFirstName.map { "Hey \($0)! " } ?? "Hey! "
         let preview = Self.pendingShareMessagePreview(message)
         let previewBit = preview.map { " It starts: “\($0)”" } ?? ""
         let kind = visibility == .private ? "a private appreciation" : "an appreciation"
         return greeting
-            + "I wrote you \(kind) on OpenThanks 💛\(previewBit) You can read and accept it here: "
-            + shareURL.absoluteString
+            + "I wrote you \(kind) on OpenThanks 💛\(previewBit) You can read and accept it here:"
+    }
+
+    /// Body for Text / WhatsApp / Email when inviting the recipient.
+    /// Mentions privacy when the sender marked the note private.
+    func pendingShareInviteMessage(shareURL: URL) -> String {
+        "\(pendingShareInviteCaption) \(shareURL.absoluteString)"
     }
 
     private static func pendingShareMessagePreview(_ message: String, maxChars: Int = 120) -> String? {
