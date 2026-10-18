@@ -352,7 +352,9 @@ struct RootView: View {
                         .transition(.opacity)
                 } else {
                     // After login: notifications → calendar → app (Siri tip on the second open).
+                    // Start the store lookup during those gates so Home can show an update immediately.
                     signedInHome
+                        .onAppear { AppUpdateChecker.shared.checkIfNeeded() }
                         .transition(.opacity)
                 }
             }
