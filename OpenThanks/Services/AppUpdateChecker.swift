@@ -1,8 +1,10 @@
 import Foundation
 import UIKit
 
-/// Soft App Store update check — never blocks the app.
-/// Looks up the live marketing version at most once per day and drives a Home banner.
+/// App Store update check — never blocks the app.
+/// Looks up the live marketing version at most once per day.
+/// The shell banner shows on every tab while this install is behind the store,
+/// including on top of the first-send tip. Later hides it until the next day.
 @MainActor
 @Observable
 final class AppUpdateChecker {
@@ -15,14 +17,15 @@ final class AppUpdateChecker {
     private static let lastShownVersionKey = "appUpdate.lastShownVersion.v1"
 
     private static let checkInterval: TimeInterval = 24 * 60 * 60
-    private static let snoozeDays = 7
+    /// Later is a pause, not a dismissal of the update.
+    private static let snoozeInterval: TimeInterval = 24 * 60 * 60
 
     /// Latest App Store marketing version from the last successful lookup.
     private(set) var storeVersion: String? {
         didSet { refreshEligibility() }
     }
 
-    /// True when Home should show the dismissible update banner.
+    /// True when the shell should show the update banner.
     private(set) var shouldShowBanner = false
 
     private var checkTask: Task<Void, Never>?
@@ -37,26 +40,31 @@ final class AppUpdateChecker {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
     }
 
-    /// Call on foreground / Home appear. No-ops when a check ran recently.
+    /// Call on launch and whenever the app becomes active. Skips the network when a check already succeeded today.
     func checkIfNeeded() {
         if storeVersion == nil {
             storeVersion = UserDefaults.standard.string(forKey: Self.storeVersionKey)
         }
+        refreshEligibility()
         if let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? TimeInterval,
+           storeVersion != nil,
            Date().timeIntervalSince1970 - last < Self.checkInterval {
-            refreshEligibility()
             return
         }
         guard checkTask == nil else { return }
         checkTask = Task {
             defer { checkTask = nil }
-            await lookupStoreVersion()
+            if await lookupStoreVersion() { return }
+            // One same-session retry. A failed lookup must not wait until tomorrow.
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            _ = await lookupStoreVersion()
         }
     }
 
     func snooze() {
         guard let storeVersion else { return }
-        let until = Date().timeIntervalSince1970 + Double(Self.snoozeDays) * 24 * 60 * 60
+        let until = Date().timeIntervalSince1970 + Self.snoozeInterval
         UserDefaults.standard.set(until, forKey: Self.snoozeUntilKey)
         UserDefaults.standard.set(storeVersion, forKey: Self.snoozeVersionKey)
         Analytics.capture("app_update_banner_dismissed", [
@@ -78,19 +86,20 @@ final class AppUpdateChecker {
 
     // MARK: - Private
 
-    private func lookupStoreVersion() async {
+    /// Returns true when Apple returned a version. Failures leave the last check unset so the next foreground tries again.
+    private func lookupStoreVersion() async -> Bool {
         var components = URLComponents(string: "https://itunes.apple.com/lookup")!
         components.queryItems = [
             URLQueryItem(name: "id", value: AppConfig.appStoreID),
             // Bust intermediary caches lightly; Apple still rate-limits by IP.
             URLQueryItem(name: "t", value: String(Int(Date().timeIntervalSince1970))),
         ]
-        guard let url = components.url else { return }
+        guard let url = components.url else { return false }
 
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard (200...299).contains(status) else { return }
+            guard (200...299).contains(status) else { return false }
 
             struct LookupResponse: Decodable {
                 let results: [Result]
@@ -103,7 +112,7 @@ final class AppUpdateChecker {
             guard let version = decoded.results.first?.version?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                   !version.isEmpty
-            else { return }
+            else { return false }
 
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
             UserDefaults.standard.set(version, forKey: Self.storeVersionKey)
@@ -114,8 +123,10 @@ final class AppUpdateChecker {
                 "store_version": version,
                 "update_available": Self.isVersion(installedVersion, lessThan: version),
             ])
+            return true
         } catch {
-            // Silent — update nudge is best-effort.
+            // Silent — update nudge is best-effort. Caller retries once.
+            return false
         }
     }
 
@@ -138,7 +149,7 @@ final class AppUpdateChecker {
         shouldShowBanner = true
     }
 
-    /// Call from the banner’s `onAppear` so we only count real Home impressions.
+    /// Call from the banner’s `onAppear` so we only count real impressions.
     /// Once per store version (tab switches shouldn’t re-fire).
     func trackBannerShown() {
         guard let storeVersion else { return }

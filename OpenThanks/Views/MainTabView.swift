@@ -59,6 +59,7 @@ struct MainTabView: View {
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var pendingAcceptCount = 0
     @State private var didLogFirstSendTipShown = false
+    @State private var updateChecker = AppUpdateChecker.shared
 
     private var usesSidebar: Bool { sizeClass == .regular }
     private var shouldShowFirstSendTip: Bool {
@@ -238,7 +239,13 @@ struct MainTabView: View {
                 }
             }
         } detail: {
-            detailColumn
+            VStack(spacing: 0) {
+                appUpdateBanner
+                detailColumn
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeInOut(duration: 0.2), value: updateChecker.shouldShowBanner)
         }
         .navigationSplitViewStyle(.balanced)
     }
@@ -294,6 +301,34 @@ struct MainTabView: View {
         // the floating bar mid-feed. Avoid `.move(edge:)` transitions — an
         // interrupted insert (compose auto-presents ~350ms after login) can freeze
         // the bar halfway up the screen.
+        VStack(spacing: 0) {
+            appUpdateBanner
+            phoneTabs
+        }
+        .animation(.easeInOut(duration: 0.2), value: updateChecker.shouldShowBanner)
+    }
+
+    /// Update notice sits above every tab, including while the first-send tip is up.
+    @ViewBuilder
+    private var appUpdateBanner: some View {
+        if updateChecker.shouldShowBanner {
+            AppUpdateBanner(
+                storeVersion: updateChecker.storeVersion,
+                onUpdate: { updateChecker.openAppStore() },
+                onLater: { updateChecker.snooze() }
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .readableWidth()
+            .frame(maxWidth: .infinity)
+            .background(Theme.background)
+            .transition(.opacity)
+            .onAppear { updateChecker.trackBannerShown() }
+        }
+    }
+
+    private var phoneTabs: some View {
         ZStack {
             FeedView(
                 path: $feedPath,
