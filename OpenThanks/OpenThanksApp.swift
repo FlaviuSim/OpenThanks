@@ -355,7 +355,9 @@ struct RootView: View {
                 } else {
                     // Straight into the app; calendar gate on 3rd open; Siri tip on 2nd.
                     // Notifications wait until send/receive (or after calendar connect).
+                    // Start the store lookup early so Home can show an update immediately.
                     signedInHome
+                        .onAppear { AppUpdateChecker.shared.checkIfNeeded() }
                         .transition(.opacity)
                 }
             }

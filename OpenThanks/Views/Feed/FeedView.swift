@@ -26,7 +26,6 @@ struct FeedView: View {
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
-    @State private var updateChecker = AppUpdateChecker.shared
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
     @State private var showCalendarConnect = false
@@ -129,15 +128,7 @@ struct FeedView: View {
     }
     private var isSearchChromeVisible: Bool { searchBarVisible || searchFocused || searchHasQuery }
     private var shouldKeepSearchVisible: Bool { searchFocused || searchHasQuery }
-    /// Soft update nudge — skip while first-send tip / compose / pay-it-forward are up.
-    private var shouldShowUpdateBanner: Bool {
-        updateChecker.shouldShowBanner
-            && hasSeenFirstSendTip
-            && !showCompose
-            && payItForwardFromName == nil
-            && isSelected
-    }
-    /// Soft calendar reconnect — same quiet conditions as the update banner.
+    /// Soft calendar reconnect — skip while the first-send tip, compose, or pay-it-forward is up.
     private var shouldShowCalendarBanner: Bool {
         calendarReminder.shouldShowBanner
             && hasSeenFirstSendTip
@@ -383,19 +374,6 @@ struct FeedView: View {
     private var feedChrome: some View {
         VStack(spacing: 0) {
             header
-            if shouldShowUpdateBanner {
-                AppUpdateBanner(
-                    storeVersion: updateChecker.storeVersion,
-                    onUpdate: { updateChecker.openAppStore() },
-                    onLater: { updateChecker.snooze() }
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-                .readableWidth()
-                .transition(.opacity.combined(with: .move(edge: .top)))
-                .onAppear { updateChecker.trackBannerShown() }
-            }
             if shouldShowCalendarBanner {
                 CalendarConnectBanner(
                     onConnect: {
@@ -405,7 +383,7 @@ struct FeedView: View {
                     onLater: { calendarReminder.snooze() }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, shouldShowUpdateBanner ? 4 : 10)
+                .padding(.top, 10)
                 .padding(.bottom, 4)
                 .readableWidth()
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -414,7 +392,7 @@ struct FeedView: View {
             if pendingSentCount > 0 {
                 PendingAppreciationsBanner(count: pendingSentCount)
                     .padding(.horizontal, 16)
-                    .padding(.top, (shouldShowUpdateBanner || shouldShowCalendarBanner) ? 4 : 10)
+                    .padding(.top, shouldShowCalendarBanner ? 4 : 10)
                     .padding(.bottom, 4)
                     .readableWidth()
             }
@@ -428,7 +406,7 @@ struct FeedView: View {
                     onThank: { thankFromCampaign(prompt) }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, (shouldShowUpdateBanner || shouldShowCalendarBanner || pendingSentCount > 0) ? 4 : 10)
+                .padding(.top, (shouldShowCalendarBanner || pendingSentCount > 0) ? 4 : 10)
                 .padding(.bottom, 4)
                 .readableWidth()
                 .task(id: prompt.day) {
@@ -479,7 +457,6 @@ struct FeedView: View {
             .id(feedPagerEpoch)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .animation(.easeInOut(duration: 0.2), value: shouldShowUpdateBanner)
         .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
         .onAppear { calendarReminder.refresh() }
         .task { await campaign.refresh() }
@@ -523,7 +500,7 @@ struct FeedView: View {
     }
 
     private var hasTopHomeBanner: Bool {
-        shouldShowUpdateBanner || shouldShowCalendarBanner || pendingSentCount > 0 || campaign.todayPrompt != nil
+        shouldShowCalendarBanner || pendingSentCount > 0 || campaign.todayPrompt != nil
     }
 
     private func thankFromCampaign(_ prompt: CampaignPrompt) {

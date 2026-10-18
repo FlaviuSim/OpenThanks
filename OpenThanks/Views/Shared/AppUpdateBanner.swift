@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Soft Home banner when the App Store has a newer OpenThanks than this install.
+/// Banner when the App Store has a newer OpenThanks than this install.
 struct AppUpdateBanner: View {
     var storeVersion: String?
     var onUpdate: () -> Void
