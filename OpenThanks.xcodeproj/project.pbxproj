@@ -147,6 +147,7 @@
 		E572E04E435299778F0B0B98 /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		E678F1530BB1512B50C46448 /* CalendarConnectBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1200BBA4D98DF3DBDD4530F /* CalendarConnectBanner.swift */; };
 		E92A44E68681638A822A948D /* EnjoymentPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */; };
+		D5F9B28C307E4B01C4D26F38 /* PushPermissionPreprompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4E8A17B2F6D4A90B3C15E27 /* PushPermissionPreprompt.swift */; };
 		E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */; };
 		EA81503A5D6E988AB4201319 /* CalendarMeetingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */; };
 		EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */; };
@@ -362,6 +363,7 @@
 		E67315A6A24A67FF141DDE75 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeSharePayload.swift; sourceTree = "<group>"; };
 		EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnjoymentPrompt.swift; sourceTree = "<group>"; };
+		C4E8A17B2F6D4A90B3C15E27 /* PushPermissionPreprompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushPermissionPreprompt.swift; sourceTree = "<group>"; };
 		ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayItForwardNudge.swift; sourceTree = "<group>"; };
 		EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotRefresher.swift; sourceTree = "<group>"; };
 		EE58C9232B92D8AAD5346A26 /* OpenThanks.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenThanks.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -445,6 +447,7 @@
 				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
 				EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */,
+				C4E8A17B2F6D4A90B3C15E27 /* PushPermissionPreprompt.swift */,
 				96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */,
 				D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */,
 				65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */,
@@ -1010,6 +1013,7 @@
 				B44A3CEFF76027AF0F586362 /* EditProfileSheet.swift in Sources */,
 				8919BA37DE030A47ABF439B9 /* EnjoyingOpenThanksSheet.swift in Sources */,
 				E92A44E68681638A822A948D /* EnjoymentPrompt.swift in Sources */,
+				D5F9B28C307E4B01C4D26F38 /* PushPermissionPreprompt.swift in Sources */,
 				F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */,
 				EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */,
 				1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */,
