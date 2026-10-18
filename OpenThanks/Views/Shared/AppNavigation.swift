@@ -290,7 +290,7 @@ struct AuthorShareCompose: View {
     var body: some View {
         ComposeView(
             editing: gratitude,
-            analyticsSource: gratitude.hasNoRecipient ? "watch" : "edit_own",
+            analyticsSource: "edit_own",
             allowsEmptyRecipient: gratitude.hasNoRecipient,
             opensOnShareScreen: true,
             useParentNavigation: true

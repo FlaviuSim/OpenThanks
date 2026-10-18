@@ -40,10 +40,12 @@ final class ComposeLaunchBridge {
         var campaignDay: Int?
         /// PostHog compose funnel `source`.
         var analyticsSource: String
-        /// Watch voice drafts can save to Pending without a recipient.
+        /// No-recipient launches use the two-step write → deliver flow.
         var allowsEmptyRecipient: Bool
-        /// Watch voice: edit the pending appreciation that was auto-created.
+        /// Watch voice / pending: edit the pending appreciation that was auto-created.
         var editingGratitude: Gratitude?
+        /// Open on the post-save deliver / share screen for an existing draft.
+        var opensOnShareScreen: Bool
 
         init(
             id: UUID = UUID(),
@@ -59,7 +61,8 @@ final class ComposeLaunchBridge {
             campaignDay: Int? = nil,
             analyticsSource: String = "compose_launch",
             allowsEmptyRecipient: Bool = false,
-            editingGratitude: Gratitude? = nil
+            editingGratitude: Gratitude? = nil,
+            opensOnShareScreen: Bool = false
         ) {
             self.id = id
             self.recipientName = recipientName
@@ -73,8 +76,18 @@ final class ComposeLaunchBridge {
             self.campaignId = campaignId
             self.campaignDay = campaignDay
             self.analyticsSource = analyticsSource
-            self.allowsEmptyRecipient = allowsEmptyRecipient || analyticsSource == "watch"
             self.editingGratitude = editingGratitude
+            self.opensOnShareScreen = opensOnShareScreen
+            // Two-step whenever nothing is prefilled as a recipient (blank compose,
+            // deep link without ?for=, Watch, widgets, etc.). Prefill stays classic.
+            let hasPrefillRecipient =
+                (recipientName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+                || profile != nil
+                || (editingGratitude.map { !$0.hasNoRecipient } ?? false)
+            self.allowsEmptyRecipient =
+                allowsEmptyRecipient
+                || analyticsSource == "watch"
+                || !hasPrefillRecipient
         }
 
         /// Blank post-login / legacy app_open compose — richer launches replace these.
@@ -107,7 +120,8 @@ final class ComposeLaunchBridge {
         campaignDay: Int? = nil,
         analyticsSource: String = "compose_launch",
         allowsEmptyRecipient: Bool = false,
-        editingGratitude: Gratitude? = nil
+        editingGratitude: Gratitude? = nil,
+        opensOnShareScreen: Bool = false
     ) {
         let trimmedName = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedMessage = message?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -130,7 +144,8 @@ final class ComposeLaunchBridge {
             campaignDay: campaignDay,
             analyticsSource: analyticsSource,
             allowsEmptyRecipient: allowsEmptyRecipient,
-            editingGratitude: editingGratitude
+            editingGratitude: editingGratitude,
+            opensOnShareScreen: opensOnShareScreen
         )
         // Never let blank app_open clobber a calendar / notification / share prefill
         // that landed milliseconds earlier on cold start.

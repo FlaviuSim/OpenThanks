@@ -87,9 +87,12 @@ enum WatchVoiceDraftStore {
                         email: nil,
                         phone: nil
                     )
-                    _ = created
+                    await UnsentDraftReminderStore.scheduleIfNeeded(for: created)
                 }
             }
+        } else if let gratitudeId = draft.gratitudeId,
+                  let existing = try? await GratitudeService.gratitude(id: gratitudeId) {
+            await UnsentDraftReminderStore.scheduleIfNeeded(for: existing)
         }
         clear()
     }
@@ -148,6 +151,7 @@ enum WatchVoiceDraftStore {
                 gratitudeId: created.id
             )
             save(draft)
+            await UnsentDraftReminderStore.scheduleIfNeeded(for: created)
             ComposeLaunchBridge.shared.queue(
                 message: cleaned,
                 analyticsSource: "watch",

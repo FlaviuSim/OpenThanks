@@ -230,6 +230,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             await MainActor.run {
                 NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
             }
+        case UnsentDraftReminderStore.notificationTypeValue:
+            let gratitudeId = (info[UnsentDraftReminderStore.gratitudeIdKey] as? String)
+                .flatMap(UUID.init)
+            if let gratitudeId {
+                await UnsentDraftReminderStore.openDeliver(gratitudeId: gratitudeId)
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .composeLaunchQueued, object: nil)
+                }
+            }
         case NotificationService.calendarNudgeTypeValue:
             NotificationService.recordDeliveredCalendarNudge(userInfo: info)
             let name = (info[NotificationService.calendarNudgeNameKey] as? String)?

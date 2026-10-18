@@ -408,7 +408,7 @@ struct ClaimAppreciationView: View {
             if case .ownAppreciation = phase, let gratitude {
                 ComposeView(
                     editing: gratitude,
-                    analyticsSource: gratitude.hasNoRecipient ? "watch" : "edit_own",
+                    analyticsSource: "edit_own",
                     allowsEmptyRecipient: gratitude.hasNoRecipient,
                     opensOnShareScreen: true
                 )
