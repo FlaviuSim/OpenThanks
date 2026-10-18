@@ -237,7 +237,8 @@ struct GratitudeLoaderView: View {
                 inspiredByGratitudeId: gratitude?.id,
                 inspiredByAuthorName: gratitude?.author?.fullName
                     ?? gratitude?.author?.displayName,
-                analyticsSource: "post_accept_pay_it_forward"
+                analyticsSource: "post_accept_pay_it_forward",
+                allowsEmptyRecipient: true
             )
         }
         .task {

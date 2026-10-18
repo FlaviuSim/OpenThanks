@@ -80,14 +80,31 @@ final class ComposeLaunchBridge {
             self.opensOnShareScreen = opensOnShareScreen
             // Two-step whenever nothing is prefilled as a recipient (blank compose,
             // deep link without ?for=, Watch, widgets, etc.). Prefill stays classic.
+            self.allowsEmptyRecipient = Self.resolveAllowsEmptyRecipient(
+                explicit: allowsEmptyRecipient,
+                recipientName: recipientName,
+                profile: profile,
+                editingGratitude: editingGratitude,
+                analyticsSource: analyticsSource
+            )
+        }
+
+        /// True when compose should use write → deliver (no recipient chosen yet).
+        static func resolveAllowsEmptyRecipient(
+            explicit: Bool = false,
+            recipientName: String? = nil,
+            profile: Profile? = nil,
+            editingGratitude: Gratitude? = nil,
+            analyticsSource: String? = nil
+        ) -> Bool {
+            if explicit { return true }
+            if analyticsSource == "watch" { return true }
+            let trimmed = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let hasPrefillRecipient =
-                (recipientName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+                !trimmed.isEmpty
                 || profile != nil
                 || (editingGratitude.map { !$0.hasNoRecipient } ?? false)
-            self.allowsEmptyRecipient =
-                allowsEmptyRecipient
-                || analyticsSource == "watch"
-                || !hasPrefillRecipient
+            return !hasPrefillRecipient
         }
 
         /// Blank post-login / legacy app_open compose — richer launches replace these.

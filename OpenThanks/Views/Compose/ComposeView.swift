@@ -69,7 +69,16 @@ struct ComposeView: View {
         self.campaignId = campaignId
         self.campaignDay = campaignDay
         self.analyticsSource = analyticsSource
-        self.allowsEmptyRecipient = allowsEmptyRecipient
+        // Match ComposeLaunchBridge: any launch without a prefilled recipient uses
+        // write → deliver, so Home “Thank Someone” and similar CTAs never land on
+        // the classic one-screen form by accident.
+        self.allowsEmptyRecipient = ComposeLaunchBridge.Request.resolveAllowsEmptyRecipient(
+            explicit: allowsEmptyRecipient,
+            recipientName: initialRecipient,
+            profile: initialRecipientProfile,
+            editingGratitude: editing,
+            analyticsSource: analyticsSource
+        )
         self.opensOnShareScreen = opensOnShareScreen
         self.useParentNavigation = useParentNavigation
         self.onSaved = onSaved

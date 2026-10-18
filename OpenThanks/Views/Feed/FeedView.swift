@@ -211,7 +211,10 @@ struct FeedView: View {
                     initialRecipient: composeRecipient,
                     inspiredByGratitudeId: composeInspiredById,
                     inspiredByAuthorName: composeInspiredByName,
-                    analyticsSource: composeAnalyticsSource
+                    analyticsSource: composeAnalyticsSource,
+                    // Blank Thank Someone / pay-it-forward → two-step deliver screen.
+                    allowsEmptyRecipient: composeRecipient == nil
+                        || composeRecipient?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true
                 )
             }
             .sheet(isPresented: showPayItForward) {
