@@ -29,7 +29,7 @@ enum WidgetSnapshotRefresher {
         let pendingCount = pendingToAccept ?? pendingList.count
         let sentMonth = (try? await month) ?? previous.sentThisMonth
         let profileStats = await stats
-        let accepted = await recentAccepted ?? []
+        let accepted = await recentAccepted?.items ?? []
 
         let latestReceived = Self.makeTeaser(pending: pendingList, accepted: accepted)
             ?? previous.latestReceived

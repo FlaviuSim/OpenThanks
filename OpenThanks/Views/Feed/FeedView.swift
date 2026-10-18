@@ -42,6 +42,10 @@ struct FeedView: View {
     @State private var worldError: String?
     @State private var personalLoadedOnce = false
     @State private var worldLoadedOnce = false
+    @State private var personalHasMore = false
+    @State private var worldHasMore = false
+    @State private var personalLoadingMore = false
+    @State private var worldLoadingMore = false
     @State private var pendingToAccept: [Gratitude] = []
     /// Ids the user already accepted/declined this session — keeps pull-to-refresh
     /// from resurrecting a card when a stale pending query races the accept write.
@@ -485,6 +489,8 @@ struct FeedView: View {
         .sheet(isPresented: $showCalendarConnect, onDismiss: {
             calendarReminder.refresh()
         }) {
+            // 5.1.1(iv): no Close / swipe-dismiss that skips the Calendar
+            // permission request after this custom rationale.
             NavigationStack {
                 CalendarPermissionView(
                     onFinished: {
@@ -494,18 +500,10 @@ struct FeedView: View {
                     analyticsSource: "home_banner",
                     marksLaunchGateCompleteOnSkip: true
                 )
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Close") {
-                            showCalendarConnect = false
-                        }
-                        .font(Theme.body(16, weight: .medium))
-                        .foregroundStyle(Theme.textSecondary)
-                    }
-                }
             }
             .syncAppAppearance()
             .presentationDetents([.large])
+            .interactiveDismissDisabled()
         }
         .onChange(of: scope) { _, next in
             dismissSearchKeyboard()
@@ -659,7 +657,7 @@ struct FeedView: View {
                 VStack(spacing: 16) {
                     HeartMark(size: 48)
                     Text(page == .personal
-                         ? "No appreciations yet. Send your first one."
+                         ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
                          : "Nothing public yet — be the first.")
                         .font(Theme.body(15))
                         .foregroundStyle(Theme.textSecondary)
@@ -720,7 +718,7 @@ struct FeedView: View {
                             }
                         }
 
-                        ForEach(pageItems) { item in
+                        ForEach(Array(pageItems.enumerated()), id: \.element.id) { index, item in
                             GratitudeCard(
                                 gratitude: item,
                                 isHearted: pageHearts.contains(item.id),
@@ -729,6 +727,18 @@ struct FeedView: View {
                                 isSelected: splitSelection?.wrappedValue?.id == item.id,
                                 onOpenProfile: { path.append($0) }
                             )
+                            .onAppear {
+                                if index >= pageItems.count - 3 {
+                                    Task { await loadMore(for: page) }
+                                }
+                            }
+                        }
+
+                        if (page == .personal ? personalLoadingMore : worldLoadingMore) {
+                            ProgressView()
+                                .tint(Theme.coral)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -971,12 +981,13 @@ struct FeedView: View {
         setLoading(true, for: target)
         setError(nil, for: target)
         do {
-            async let feedTask: [Gratitude] = target == .personal
+            async let feedTask = target == .personal
                 ? GratitudeService.personalFeed(userId: userId)
                 : GratitudeService.worldFeed()
 
             // World refresh still reloads pending-to-accept so receive isn’t Personal-only.
-            let result = userBlocks.filterGratitudes(try await feedTask)
+            let pageResult = try await feedTask
+            let result = userBlocks.filterGratitudes(pageResult.items)
             let pendingBundle = await loadPendingAcceptBundle(userId: userId)
             let pending = pendingBundle.pending
             let pendingSent = pendingBundle.pendingSent
@@ -1001,6 +1012,7 @@ struct FeedView: View {
                 pendingSentCount = pendingSent
                 setItems([], for: .personal)
                 setHearts([], for: .personal)
+                personalHasMore = false
                 personalLoadedOnce = true
                 setLoading(false, for: .personal)
                 await refreshWidgetSnapshot()
@@ -1023,13 +1035,15 @@ struct FeedView: View {
             withAnimation(.easeInOut(duration: 0.28)) {
                 setItems(result, for: target)
                 setHearts(hearts, for: target)
-                applyPendingList(pending)
-                pendingSentCount = pendingSent
                 if target == .personal {
+                    personalHasMore = pageResult.hasMore
                     personalLoadedOnce = true
                 } else {
+                    worldHasMore = pageResult.hasMore
                     worldLoadedOnce = true
                 }
+                applyPendingList(pending)
+                pendingSentCount = pendingSent
             }
             await refreshWidgetSnapshot()
         } catch {
@@ -1040,6 +1054,52 @@ struct FeedView: View {
         if generation == currentLoadGeneration(for: target) {
             withAnimation(.easeInOut(duration: 0.28)) {
                 setLoading(false, for: target)
+            }
+        }
+    }
+
+    /// Append older feed items when the user scrolls near the end of the list.
+    private func loadMore(for target: Scope) async {
+        guard let userId = auth.userId else { return }
+        let hasMore = target == .personal ? personalHasMore : worldHasMore
+        let loadingMore = target == .personal ? personalLoadingMore : worldLoadingMore
+        guard hasMore, !loadingMore, !isLoading(for: target) else { return }
+        let current = items(for: target)
+        guard let before = current.last?.acceptedAt ?? current.last?.createdAt else { return }
+
+        if target == .personal { personalLoadingMore = true } else { worldLoadingMore = true }
+        defer {
+            if target == .personal { personalLoadingMore = false } else { worldLoadingMore = false }
+        }
+
+        do {
+            let pageResult = try await (
+                target == .personal
+                    ? GratitudeService.personalFeed(userId: userId, before: before)
+                    : GratitudeService.worldFeed(before: before)
+            )
+            let fresh = userBlocks.filterGratitudes(pageResult.items)
+            var existing = Set(current.map(\.id))
+            let appended = fresh.filter { existing.insert($0.id).inserted }
+            guard !appended.isEmpty || !pageResult.hasMore else {
+                // Cursor didn't advance — stop to avoid a tight loop.
+                if target == .personal { personalHasMore = false } else { worldHasMore = false }
+                return
+            }
+            let newHearts = (try? await GratitudeService.myHearts(
+                userId: userId,
+                among: appended.map(\.id)
+            )) ?? []
+            mutateItems(for: target) { $0.append(contentsOf: appended) }
+            mutateHearts(for: target) { $0.formUnion(newHearts) }
+            if target == .personal {
+                personalHasMore = pageResult.hasMore
+            } else {
+                worldHasMore = pageResult.hasMore
+            }
+        } catch {
+            if !error.isCancellation {
+                // Soft-fail: keep current list; user can pull to refresh.
             }
         }
     }

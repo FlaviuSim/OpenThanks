@@ -425,7 +425,26 @@ struct ComposeView: View {
         }
         .onDisappear {
             Task { await dictation.finishListening() }
+            let completedSend = didCompleteSend || sent
             trackAbandonIfNeeded()
+            guard ownsUnsentDraft, !completedSend else { return }
+            let keptRecipient = recipient
+            let keptMessage = message
+            Task {
+                let effect = await ComposeDraftStore.leave(
+                    recipient: keptRecipient,
+                    message: keptMessage
+                )
+                if effect.saved {
+                    Analytics.captureDraftEvent("draft_saved", hasRecipient: effect.hasRecipient)
+                }
+                if effect.scheduled {
+                    Analytics.captureDraftEvent(
+                        "draft_reminder_scheduled",
+                        hasRecipient: effect.hasRecipient
+                    )
+                }
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -1903,7 +1922,29 @@ struct ComposeView: View {
             cropItem = CropItem(image: prepared)
             ComposeShareStore.removeImage(fileName: fileName)
         }
+        if ownsUnsentDraft, let draft = ComposeDraftStore.restore() {
+            recipient = draft.recipient
+            message = String(draft.message.prefix(maxLength))
+            Analytics.captureDraftEvent(
+                "draft_restored",
+                hasRecipient: !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
+        }
         autofocusMessageIfNeeded()
+    }
+
+    /// Heart-tab and other blank sends. November, Watch, and explicit prefills stay put.
+    private var ownsUnsentDraft: Bool {
+        ComposeDraftStore.ownsDraft(ComposeDraftStore.FormContext(
+            isEditing: editingTarget != nil,
+            analyticsSource: analyticsSource,
+            hasInitialRecipient: !isBlank(initialRecipient),
+            hasInitialProfile: initialRecipientProfile != nil,
+            hasInitialMessage: !isBlank(initialMessage),
+            hasInitialImage: !isBlank(initialImageFileName),
+            hasInspiredBy: inspiredByGratitudeId != nil,
+            hasCampaign: !isBlank(campaignId) || !isBlank(campaignHint)
+        ))
     }
 
     /// Auto-opening compose after login shouldn't steal the first Cancel tap
@@ -2201,8 +2242,13 @@ struct ComposeView: View {
                 if analyticsSource == "watch" {
                     WatchVoiceDraftStore.clear()
                 }
+                if ownsUnsentDraft {
+                    ComposeDraftStore.clearAfterSend()
+                    Analytics.captureDraftEvent("sent", hasRecipient: hasRecipient)
+                }
                 EnjoymentPrompt.recordSuccessfulSend()
                 offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)
+                PushPermissionPreprompt.considerAfterSuccessfulSend()
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
                     gratitudeId: result.id,
