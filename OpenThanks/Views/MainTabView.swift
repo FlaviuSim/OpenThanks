@@ -505,6 +505,8 @@ struct MainTabView: View {
             ComposeShareHandoff.applyPendingShare()
         }
         guard let request = ComposeLaunchBridge.shared.consume() else { return false }
+        // Blank app_open / post_login. Other queued requests still present.
+        guard !request.isWeakDefault else { return false }
         presentCompose(.launch(request))
         return true
     }
