@@ -205,9 +205,12 @@ enum GratitudeService {
             }
         }
 
+        // Cap history — unbounded edge loads make My Feed open slowly for heavy users.
         let mine: [Edge] = try await supabase.from("gratitudes")
             .select("author_id, recipient_id")
             .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
+            .order("created_at", ascending: false)
+            .limit(500)
             .execute().value
         for g in mine {
             if g.authorId == userId, let other = g.recipientId { relevant.insert(other) }

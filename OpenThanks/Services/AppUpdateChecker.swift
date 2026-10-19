@@ -163,7 +163,7 @@ final class AppUpdateChecker {
     }
 
     /// Semver-ish numeric compare: `1.2` < `1.2.1` < `1.3` < `2.0`.
-    static func isVersion(_ lhs: String, lessThan rhs: String) -> Bool {
+    nonisolated static func isVersion(_ lhs: String, lessThan rhs: String) -> Bool {
         let left = lhs.split(separator: ".").map { Int($0) ?? 0 }
         let right = rhs.split(separator: ".").map { Int($0) ?? 0 }
         let count = max(left.count, right.count)

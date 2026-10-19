@@ -15,6 +15,27 @@ Native SwiftUI app for openthanks.com, wired directly to the production `open-th
 
 If the project file ever fails to open on a newer Xcode, regenerate it: `brew install xcodegen && xcodegen` (a `project.yml` is included).
 
+## Tests
+
+```bash
+# Unit + UI (signed-out welcome / launch metric). Prefer a booted Simulator.
+xcodegen
+xcodebuild test \
+  -scheme OpenThanks \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -only-testing:OpenThanksTests \
+  -only-testing:OpenThanksUITests/WelcomeFlowUITests \
+  -only-testing:OpenThanksUITests/LaunchPerformanceUITests
+
+# Optional live review-account e2e (network):
+RUN_NETWORK_E2E=1 xcodebuild test \
+  -scheme OpenThanks \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -only-testing:OpenThanksUITests/DemoLoginUITests
+```
+
+Ship checklist for **1.5 (6):** `AppStore/SHIP_GATE_1.5.md`.
+
 ## Backend wiring — what's verified vs. what you must confirm
 
 **Verified against the live project (2026-07-06):**
