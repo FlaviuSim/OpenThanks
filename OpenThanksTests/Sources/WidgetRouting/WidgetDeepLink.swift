@@ -1,0 +1,1 @@
+../../../OpenThanksShared/WidgetDeepLink.swift

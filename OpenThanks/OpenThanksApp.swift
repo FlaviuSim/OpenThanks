@@ -64,9 +64,11 @@ struct OpenThanksApp: App {
                                 analyticsSource: "campaign_deeplink"
                             )
                         }
-                    } else {
+                    } else if case .openCompose(let analyticsSource, let recipientName) =
+                        ComposeLaunchDecisions.customSchemeComposeRoute(fromControlCenter: fromControl) {
                         ComposeLaunchBridge.shared.queue(
-                            analyticsSource: fromControl ? "control_center" : "deep_link_compose"
+                            recipientName: recipientName,
+                            analyticsSource: analyticsSource
                         )
                     }
                 case .received:
@@ -197,17 +199,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         switch type {
         case NotificationService.thankReminderTypeValue:
             let name = info[NotificationService.thankReminderNameKey] as? String
+            let route = ComposeLaunchDecisions.notificationRoute(
+                type: type,
+                hasCampaignPrompt: false
+            )
+            guard case .openCompose(let analyticsSource) = route else { break }
             await MainActor.run {
-                ComposeLaunchBridge.shared.queue(recipientName: name, analyticsSource: "notification_thank_reminder")
+                ComposeLaunchBridge.shared.queue(recipientName: name, analyticsSource: analyticsSource)
             }
         case NotificationService.fridayReminderTypeValue:
             if let campaign = NotificationService.campaignContext(from: info) {
+                let route = ComposeLaunchDecisions.notificationRoute(
+                    type: type,
+                    hasCampaignPrompt: true
+                )
+                guard case .openCompose(let analyticsSource) = route else { break }
                 await MainActor.run {
                     ComposeLaunchBridge.shared.queue(
                         campaignHint: campaign.prompt,
                         campaignId: campaign.id,
                         campaignDay: campaign.day,
-                        analyticsSource: "notification_campaign"
+                        analyticsSource: analyticsSource
                     )
                 }
                 break
@@ -219,10 +231,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 return Date()
             }()
             let starter = FridayPrompts.prompt(for: promptDate).starterIdea
+            let route = ComposeLaunchDecisions.notificationRoute(
+                type: type,
+                hasCampaignPrompt: false
+            )
+            guard case .openCompose(let analyticsSource) = route else { break }
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(
                     messagePlaceholder: starter,
-                    analyticsSource: "notification_friday"
+                    analyticsSource: analyticsSource
                 )
             }
         case WatchVoiceDraftStore.notificationTypeValue:

@@ -505,6 +505,12 @@ struct MainTabView: View {
             ComposeShareHandoff.applyPendingShare()
         }
         guard let request = ComposeLaunchBridge.shared.consume() else { return false }
+        // Cold start and foreground used to invent a blank `app_open` / `post_login`
+        // sheet. Drop only that automatic request so Home stays up. Notification,
+        // deep link, Siri, share, and draft requests are not blank launches.
+        guard ComposeLaunchDecisions.shouldPresent(isAutomaticBlankLaunch: request.isWeakDefault) else {
+            return false
+        }
         presentCompose(.launch(request))
         return true
     }
