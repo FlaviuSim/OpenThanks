@@ -144,10 +144,9 @@ final class DeepLinkRouter {
 
     /// `/gratitude/new` opens the create-appreciation sheet (not a detail cover).
     static func isComposePath(_ url: URL) -> Bool {
-        if case .openCompose = ComposeLaunchDecisions.universalLinkRoute(url) {
-            return true
-        }
-        return false
+        let parts = pathParts(url)
+        guard parts.count >= 2 else { return false }
+        return parts[0].lowercased() == "gratitude" && parts[1].lowercased() == "new"
     }
 
     /// `/notifications` opens the in-app Notifications tab.
@@ -166,7 +165,7 @@ final class DeepLinkRouter {
 
     /// `https://openthanks.com/november` opens compose for the November campaign.
     static func isCampaignPath(_ url: URL) -> Bool {
-        ComposeLaunchDecisions.isCampaignComposeURL(url)
+        pathParts(url).first?.lowercased() == "november"
     }
 
     static func queueCampaign(from url: URL) {
@@ -183,11 +182,18 @@ final class DeepLinkRouter {
     }
 
     static func queueCompose(from url: URL) {
-        guard case .openCompose(let analyticsSource, let recipientName) =
-            ComposeLaunchDecisions.universalLinkRoute(url)
-        else { return }
+        let source = queryValue(url, name: "source")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let recipient = queryValue(url, name: "for")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let analyticsSource: String
+        if let source, !source.isEmpty {
+            analyticsSource = source
+        } else {
+            analyticsSource = "universal_link_compose"
+        }
         ComposeLaunchBridge.shared.queue(
-            recipientName: recipientName,
+            recipientName: (recipient?.isEmpty == false) ? recipient : nil,
             analyticsSource: analyticsSource
         )
     }

@@ -130,8 +130,6 @@
 		C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C5038208573746C9F0E519 /* AcceptPendingCard.swift */; };
 		C80AB6ED3BBB395562BA4C3B /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */; };
-		F5B02D1C8E304B7F9C2D4E61 /* ComposeLaunchDecisions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A91C0B7D2F4A6E8B1C3D50 /* ComposeLaunchDecisions.swift */; };
-		B7D24F3E0A526D91AE4F6083 /* ComposeLaunchDecisionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C13E2D9F415C809D3E5F72 /* ComposeLaunchDecisionsTests.swift */; };
 		C84278A64A98CA238E9303C3 /* CalendarGratitudeBackgroundRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 566D0B89EFB879E8449A998D /* CalendarGratitudeBackgroundRefresh.swift */; };
 		C8DB929803C920F0E53E0682 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0320D5FF717E6D107693552A /* Supabase */; };
 		C996A0D049573420EF57C322 /* AppIcon-Ember.png in Resources */ = {isa = PBXBuildFile; fileRef = E127445E45EA6D660852EB3D /* AppIcon-Ember.png */; };
@@ -368,8 +366,6 @@
 		CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x~ipad.png"; sourceTree = "<group>"; };
 		D29750C4393F4810682B3BE0 /* PendingShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareSheet.swift; sourceTree = "<group>"; };
 		D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchBridge.swift; sourceTree = "<group>"; };
-		E4A91C0B7D2F4A6E8B1C3D50 /* ComposeLaunchDecisions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchDecisions.swift; sourceTree = "<group>"; };
-		A6C13E2D9F415C809D3E5F72 /* ComposeLaunchDecisionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeLaunchDecisionsTests.swift; sourceTree = "<group>"; };
 		D8C79753ED3DF022F58B0D63 /* UserBlockService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserBlockService.swift; sourceTree = "<group>"; };
 		D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCropper.swift; sourceTree = "<group>"; };
 		D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarService.swift; sourceTree = "<group>"; };
@@ -462,7 +458,6 @@
 				306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */,
 				FA25F3F122BE0ABDACB69D0B /* ComposeDraftStore.swift */,
 				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
-				E4A91C0B7D2F4A6E8B1C3D50 /* ComposeLaunchDecisions.swift */,
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
@@ -661,7 +656,6 @@
 			children = (
 				92D1758D44DAE99282D21567 /* .gitignore */,
 				7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */,
-				A6C13E2D9F415C809D3E5F72 /* ComposeLaunchDecisionsTests.swift */,
 			);
 			path = OpenThanksTests;
 			sourceTree = "<group>";
@@ -1059,7 +1053,6 @@
 				4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */,
 				8A54DF9A1FBD61A881B5D86C /* ComposeDraftStore.swift in Sources */,
 				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
-				F5B02D1C8E304B7F9C2D4E61 /* ComposeLaunchDecisions.swift in Sources */,
 				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
 				77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */,
 				06F2D3E145B798C680888431 /* ComposeView.swift in Sources */,
@@ -1134,7 +1127,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				49B68B3ADB996D214C4C61FB /* ComposeDraftStoreTests.swift in Sources */,
-				B7D24F3E0A526D91AE4F6083 /* ComposeLaunchDecisionsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -8,20 +8,12 @@ let package = Package(
             name: "ComposeDraft",
             path: "Sources/ComposeDraft"
         ),
-        .target(
-            name: "LaunchDecisions",
-            path: "Sources/LaunchDecisions"
-        ),
-        .target(
-            name: "WidgetRouting",
-            path: "Sources/WidgetRouting"
-        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "LaunchDecisions", "WidgetRouting"],
+            dependencies: ["ComposeDraft"],
             path: ".",
             exclude: ["Sources", ".build"],
-            sources: ["ComposeDraftStoreTests.swift", "ComposeLaunchDecisionsTests.swift"]
+            sources: ["ComposeDraftStoreTests.swift"]
         ),
     ]
 )

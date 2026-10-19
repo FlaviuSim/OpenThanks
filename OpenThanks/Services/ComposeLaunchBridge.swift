@@ -108,20 +108,17 @@ final class ComposeLaunchBridge {
         }
 
         /// Blank post-login / legacy app_open compose — richer launches replace these.
-        /// Ordinary launch no longer presents these; see `ComposeLaunchDecisions`.
         var isWeakDefault: Bool {
-            ComposeLaunchDecisions.isAutomaticBlankLaunch(
-                analyticsSource: analyticsSource,
-                hasRecipient: recipientName != nil,
-                hasMessage: message != nil,
-                hasPlaceholder: messagePlaceholder != nil,
-                hasProfile: profile != nil,
-                hasImage: imageFileName != nil,
-                hasInspiredBy: inspiredByGratitudeId != nil,
-                hasCampaignHint: campaignHint != nil,
-                hasCampaignId: campaignId != nil,
-                isEditing: editingGratitude != nil
-            )
+            (analyticsSource == "app_open" || analyticsSource == "post_login")
+                && recipientName == nil
+                && message == nil
+                && messagePlaceholder == nil
+                && profile == nil
+                && imageFileName == nil
+                && inspiredByGratitudeId == nil
+                && campaignHint == nil
+                && campaignId == nil
+                && editingGratitude == nil
         }
     }
 

@@ -93,6 +93,20 @@ final class ComposeDraftStoreTests: XCTestCase {
     }
 }
 
+/// Same rule as `MainTabView.presentPendingComposeIfNeeded`.
+enum QueuedComposePresentation {
+    static func shouldPresent(isWeakDefault: Bool) -> Bool {
+        !isWeakDefault
+    }
+}
+
+final class QueuedComposePresentationTests: XCTestCase {
+    func testAutomaticBlankLaunchIsNotPresented() {
+        XCTAssertFalse(QueuedComposePresentation.shouldPresent(isWeakDefault: true))
+        XCTAssertTrue(QueuedComposePresentation.shouldPresent(isWeakDefault: false))
+    }
+}
+
 private final class FakeScheduler: ComposeDraftStore.Scheduling {
     var granted = true
     var scheduledTitles: [String] = []
