@@ -129,4 +129,4 @@ Demo account unchanged: test@test.com / PlayStoreTest2026!
 - Upload welcome/sign-in screenshots that show the “I am 18 or older” checkbox (Guideline 1.1)  
 - Archive an iPhone-only (`1`) binary by mistake — confirm Devices = **iPhone + iPad** in the archive’s Info before upload  
 - Leave “18+”, adult, dating, or unrestricted-media language in Description / What’s New / promo text  
-- Resubmit without the cream Watch icon (black background will fail Guideline 4 again)
+- Ship a Watch icon that is pure near-black edge-to-edge (Guideline 4 — circular mask blends into the Watch face). Keep the brand-dark heart with a light rim (see `make_watch_icon` in `scripts/generate_appstore_assets.py`)

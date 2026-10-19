@@ -100,7 +100,7 @@ Skip `_excluded/` (age-gate welcome). Optional: 6.7" / 6.5" iPhone and 12.9" iPa
 ## Icons
 
 - Xcode asset catalog: `OpenThanks/Assets.xcassets/AppIcon.appiconset/` (light / dark / tinted, 1024×1024, **no alpha**)
-- Watch: `OpenThanksWatch/Assets.xcassets/AppIcon.appiconset/AppIcon.png` — **light cream background** (not black) so the icon reads circular on watchOS
+- Watch: `OpenThanksWatch/Assets.xcassets/AppIcon.appiconset/AppIcon.png` — **same dark + coral heart as iPhone**, with a thin cream rim so the circular mask still reads on the black Watch face (Guideline 4)
 - Standalone upload copy: `AppStore/Icons/AppStore-Icon-1024.png`; Watch preview: `AppStore/Icons/Watch-AppIcon-1024.png`
 - Alternate icons (Appearance settings): `OpenThanks/AlternateIcons/`
   - iPhone: `AppIcon-{Ember,Dawn,Night}@2x.png` (120) / `@3x.png` (180)
