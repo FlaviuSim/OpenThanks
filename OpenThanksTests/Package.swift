@@ -8,12 +8,16 @@ let package = Package(
             name: "ComposeDraft",
             path: "Sources/ComposeDraft"
         ),
+        .target(
+            name: "PasskeySignIn",
+            path: "Sources/PasskeySignIn"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft"],
+            dependencies: ["ComposeDraft", "PasskeySignIn"],
             path: ".",
             exclude: ["Sources", ".build"],
-            sources: ["ComposeDraftStoreTests.swift"]
+            sources: ["ComposeDraftStoreTests.swift", "PasskeySignInTests.swift"]
         ),
     ]
 )

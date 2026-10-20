@@ -30,6 +30,7 @@
 		1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */; };
 		21977B9A924DA0B6F4BDA725 /* StatsShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA02D07C225359BD53E5EEBB /* StatsShareCardView.swift */; };
 		2270D9CF3FCD6F77D6F1916C /* LaunchPerformanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFA7065510B9B4F1C3732596 /* LaunchPerformanceUITests.swift */; };
+		22E46CBDD7477F6890F10C44 /* PasskeySignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF727241F360830DC973475 /* PasskeySignIn.swift */; };
 		25E669420F46DD1D94EA265F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C167FB354536416CA8B7FD1B /* Assets.xcassets */; };
 		26A488DAA41E84652B3F4D22 /* DeliverAppreciationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65CA62FBC43AC03AF299C265 /* DeliverAppreciationView.swift */; };
 		28D7DF15FF9851D231434B2C /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
@@ -131,6 +132,7 @@
 		C1318DF39F4BE550102C8587 /* WatchGratitudeWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C91180B6593FFEAD765F2A8A /* WatchGratitudeWidget.swift */; };
 		C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */; };
 		C1EBE991BF70111269A7BD87 /* GoogleCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */; };
+		C2FB81DB552C1863D3809608 /* PasskeySignInTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */; };
 		C3D72B15B5AD7623BA50758F /* PayItForwardNudge.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */; };
 		C6687434983E53879007E179 /* AppIcon-Ember-Preview.png in Resources */ = {isa = PBXBuildFile; fileRef = 577A7DCBD2C1FAA8BC48AD61 /* AppIcon-Ember-Preview.png */; };
 		C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C5038208573746C9F0E519 /* AcceptPendingCard.swift */; };
@@ -363,10 +365,12 @@
 		ACE734EF8985A181EF2C08D5 /* AppIcon-Ember@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@3x.png"; sourceTree = "<group>"; };
 		B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksApp.swift; sourceTree = "<group>"; };
 		B863B534795C67594B79C1DC /* TabLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabLaunchBridge.swift; sourceTree = "<group>"; };
+		BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasskeySignInTests.swift; sourceTree = "<group>"; };
 		BB6414A3C798499A155142DF /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
 		BBEBB652FA46260CBEA94500 /* AppIcon-Night@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night@2x~ipad.png"; sourceTree = "<group>"; };
 		BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkHost.swift; sourceTree = "<group>"; };
 		BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlCenterHandoff.swift; sourceTree = "<group>"; };
+		BEF727241F360830DC973475 /* PasskeySignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasskeySignIn.swift; sourceTree = "<group>"; };
 		BFA7065510B9B4F1C3732596 /* LaunchPerformanceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchPerformanceUITests.swift; sourceTree = "<group>"; };
 		C167FB354536416CA8B7FD1B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C1A1612FD16ABCA6168C5A99 /* OpenThanksWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenThanksWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -499,6 +503,7 @@
 				7C91C4B36B035A0262E9EDC1 /* KeychainStore.swift */,
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
+				BEF727241F360830DC973475 /* PasskeySignIn.swift */,
 				E6F2FFF1EE721FF698FF5BE9 /* PermissionPromptScheduler.swift */,
 				6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */,
 				45105695C56A05D8C6192577 /* StreakMath.swift */,
@@ -690,6 +695,7 @@
 			children = (
 				92D1758D44DAE99282D21567 /* .gitignore */,
 				7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */,
+				BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */,
 				D7EA679AC94A8C92C95A8913 /* ReleaseGateTests.swift */,
 			);
 			path = OpenThanksTests;
@@ -1161,6 +1167,7 @@
 				945528A94EF7AE2F469AA0ED /* OneTimeCodeField.swift in Sources */,
 				56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */,
 				5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */,
+				22E46CBDD7477F6890F10C44 /* PasskeySignIn.swift in Sources */,
 				C3D72B15B5AD7623BA50758F /* PayItForwardNudge.swift in Sources */,
 				5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */,
 				F0BBB7DDA001702A0076A2F0 /* PermissionPromptScheduler.swift in Sources */,
@@ -1198,6 +1205,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				49B68B3ADB996D214C4C61FB /* ComposeDraftStoreTests.swift in Sources */,
+				C2FB81DB552C1863D3809608 /* PasskeySignInTests.swift in Sources */,
 				7F72656FB1A5C8D0C99F4110 /* ReleaseGateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
