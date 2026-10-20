@@ -329,8 +329,10 @@ final class AuthService {
     // MARK: Sign-in methods
 
     /// Passkey (WebAuthn) sign-in — Face ID / Touch ID / device unlock.
-    /// Requires Passkeys enabled in Supabase (RP ID `openthanks.com`) and
-    /// `webcredentials:openthanks.com` Associated Domains.
+    /// The relying party id is the server challenge's `rpId` (`openthanks.com`),
+    /// matched by the `webcredentials:openthanks.com` entitlement. A device with
+    /// no passkey fails the system ceremony (`ASAuthorizationError` 1004) and
+    /// stays on the sign-in screen.
     @discardableResult
     @MainActor
     func signInWithPasskey(presentationAnchor: ASPresentationAnchor? = nil) async -> Bool {
@@ -347,11 +349,14 @@ final class AuthService {
             await handleAuthSuccess(method: "passkey")
             return true
         } catch {
-            if Self.isPasskeyCancellation(error) { return false }
-            let message = Self.passkeyErrorMessage(error)
-            errorMessage = message
-            recordSignInFailure(method: "passkey", error: message)
-            return false
+            switch PasskeySignInFailure.screen(after: error) {
+            case .staySilent:
+                return false
+            case .stayShowing(let message):
+                errorMessage = message
+                recordSignInFailure(method: "passkey", error: error.localizedDescription)
+                return false
+            }
         }
     }
 
