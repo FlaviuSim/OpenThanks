@@ -16,7 +16,11 @@ final class AppUpdateChecker {
     private static let snoozeVersionKey = "appUpdate.snoozeVersion.v1"
     private static let lastShownVersionKey = "appUpdate.lastShownVersion.v1"
 
-    private static let checkInterval: TimeInterval = 24 * 60 * 60
+    /// How long to keep a known “update available” result before re-hitting Apple.
+    private static let updateKnownCheckInterval: TimeInterval = 24 * 60 * 60
+    /// When the cache says we’re current, re-check much sooner so a newly
+    /// released store version isn’t delayed up to a full day (1.4→1.5 miss).
+    private static let upToDateCheckInterval: TimeInterval = 15 * 60
     /// Later is a pause, not a dismissal of the update.
     private static let snoozeInterval: TimeInterval = 24 * 60 * 60
 
@@ -40,15 +44,20 @@ final class AppUpdateChecker {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
     }
 
-    /// Call on launch and whenever the app becomes active. Skips the network when a check already succeeded today.
-    func checkIfNeeded() {
+    /// Call on launch and whenever the app becomes active.
+    /// Skips the network when a recent successful lookup is still fresh.
+    func checkIfNeeded(force: Bool = false) {
         if storeVersion == nil {
             storeVersion = UserDefaults.standard.string(forKey: Self.storeVersionKey)
         }
         refreshEligibility()
-        if let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? TimeInterval,
-           storeVersion != nil,
-           Date().timeIntervalSince1970 - last < Self.checkInterval {
+        if !force,
+           let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? TimeInterval,
+           let cached = storeVersion,
+           Date().timeIntervalSince1970 - last < Self.recheckInterval(
+            installed: installedVersion,
+            cachedStore: cached
+           ) {
             return
         }
         guard checkTask == nil else { return }
@@ -60,6 +69,14 @@ final class AppUpdateChecker {
             guard !Task.isCancelled else { return }
             _ = await lookupStoreVersion()
         }
+    }
+
+    /// Network TTL: long while an update is already known; short while “up to date”.
+    nonisolated static func recheckInterval(installed: String, cachedStore: String) -> TimeInterval {
+        if isVersion(installed, lessThan: cachedStore) {
+            return updateKnownCheckInterval
+        }
+        return upToDateCheckInterval
     }
 
     func snooze() {

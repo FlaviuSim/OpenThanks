@@ -73,7 +73,7 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 3. Fill / confirm: **iPhone + iPad** screenshots (skip age-gate welcome frames), description, keywords, support URL, marketing URL, privacy URL  
 4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info) — do **not** market as adult content in Description  
 5. **App Privacy** → nutrition labels (see `METADATA.md`) → **Tracking = No**  
-6. **Build** → **+** → select processed **1.5 (6)** (universal iPhone + iPad) → Done 
+6. **Build** → **+** → select processed **1.5 (7)** (universal iPhone + iPad) → Done 
 
 ### C. App Review Information (this page)
 

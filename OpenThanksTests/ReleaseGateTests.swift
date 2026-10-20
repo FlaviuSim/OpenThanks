@@ -37,6 +37,14 @@ final class AppUpdateVersionTests: XCTestCase {
         XCTAssertFalse(AppUpdateChecker.isVersion("1.5", lessThan: "1.4"))
         XCTAssertTrue(AppUpdateChecker.isVersion("1.4.9", lessThan: "1.5"))
     }
+
+    func testRecheckIsFasterWhenCacheSaysUpToDate() {
+        let whenBehind = AppUpdateChecker.recheckInterval(installed: "1.4", cachedStore: "1.5")
+        let whenCurrent = AppUpdateChecker.recheckInterval(installed: "1.4", cachedStore: "1.4")
+        XCTAssertGreaterThan(whenBehind, whenCurrent)
+        XCTAssertEqual(whenBehind, 24 * 60 * 60)
+        XCTAssertEqual(whenCurrent, 15 * 60)
+    }
 }
 
 final class FeedPagingTests: XCTestCase {
