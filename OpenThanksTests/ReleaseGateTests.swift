@@ -61,3 +61,68 @@ final class UITestBootstrapTests: XCTestCase {
         XCTAssertEqual(UITestBootstrap.freshInstallArgument, "-ui-testing-fresh")
     }
 }
+
+final class DeliverRecipientGuidanceTests: XCTestCase {
+    func testGuestEmailCopy() {
+        XCTAssertEqual(
+            DeliverRecipientGuidance.line(for: .guestEmail),
+            "We’ll email this person the link"
+        )
+    }
+
+    func testNameOnlyCopyIncludesName() {
+        XCTAssertEqual(
+            DeliverRecipientGuidance.line(for: .nameOnly("Ada")),
+            "Share the link with Ada to accept"
+        )
+    }
+
+    func testMemberCopy() {
+        XCTAssertEqual(
+            DeliverRecipientGuidance.line(for: .member),
+            "We’ll notify them — and you can share the link too"
+        )
+    }
+}
+
+final class DeliverMailtoTests: XCTestCase {
+    func testPrefersConfirmedThenDraftThenProfile() {
+        XCTAssertEqual(
+            DeliverMailto.toAddress(
+                confirmed: "a@example.com",
+                draft: "b@example.com",
+                profileEmail: "c@example.com"
+            ),
+            "a@example.com"
+        )
+        XCTAssertEqual(
+            DeliverMailto.toAddress(
+                confirmed: nil,
+                draft: "b@example.com",
+                profileEmail: "c@example.com"
+            ),
+            "b@example.com"
+        )
+        XCTAssertEqual(
+            DeliverMailto.toAddress(
+                confirmed: "  ",
+                draft: nil,
+                profileEmail: "c@example.com"
+            ),
+            "c@example.com"
+        )
+        XCTAssertNil(DeliverMailto.toAddress(confirmed: "not-an-email", draft: nil, profileEmail: nil))
+    }
+}
+
+final class ShareScreenIdentityTests: XCTestCase {
+    func testIdentityIgnoresRecipientFields() {
+        let id = UUID()
+        let a = ShareScreenIdentity.make(id: id, message: "Thanks", mediaUrl: nil)
+        let b = ShareScreenIdentity.make(id: id, message: "Thanks", mediaUrl: nil)
+        XCTAssertEqual(a, b)
+        XCTAssertFalse(a.contains("@"))
+        let edited = ShareScreenIdentity.make(id: id, message: "Thanks again", mediaUrl: nil)
+        XCTAssertNotEqual(a, edited)
+    }
+}

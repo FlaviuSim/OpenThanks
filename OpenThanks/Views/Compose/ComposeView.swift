@@ -317,15 +317,13 @@ struct ComposeView: View {
     }
 
     /// New identity after edit/save so the share screen can't keep the pre-edit note.
+    /// Recipient fields are omitted — changing Send-to must not remount Deliver.
     private func shareScreenIdentity(_ gratitude: Gratitude) -> String {
-        [
-            gratitude.id.uuidString,
-            gratitude.message,
-            gratitude.recipientDisplayName,
-            gratitude.recipientEmail ?? "",
-            gratitude.recipientPhone ?? "",
-            gratitude.mediaUrl ?? "",
-        ].joined(separator: "|")
+        ShareScreenIdentity.make(
+            id: gratitude.id,
+            message: gratitude.message,
+            mediaUrl: gratitude.mediaUrl
+        )
     }
 
     private var form: some View {
@@ -2166,7 +2164,18 @@ struct ComposeView: View {
         let hasDelivery = updated.recipientId != nil || !isBlank(updated.recipientEmail)
         guard !hadDelivery, hasDelivery else { return }
         let author = authorId
-        Task { await GratitudeService.deliverPendingAppreciation(updated, authorId: author) }
+        Task {
+            do {
+                try await GratitudeService.deliverPendingAppreciation(updated, authorId: author)
+            } catch {
+                // Watch / edit path — recipient is saved; claim email can be resent from Pending.
+                Analytics.capture("appreciation_deliver_email_failed", [
+                    "gratitude_id": updated.id.uuidString,
+                    "source": "compose_edit",
+                    "message": String(error.localizedDescription.prefix(120)),
+                ])
+            }
+        }
     }
 
     // MARK: Send
