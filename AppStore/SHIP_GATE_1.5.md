@@ -3,7 +3,7 @@
 ## Done in-repo
 
 - [x] Marketing version **1.5**, build **7** (`project.yml` → all app/extension targets)
-- [x] Update banner re-checks within ~15 min when cache says “up to date” (was 24h; missed 1.4→1.5)
+- [x] Update banner itunes lookup once per **cold launch** (warm resume uses cache; fixes 24h “up to date” miss)
 - [x] Apple re-login splash hang fix on `main` (#54)
 - [x] Stop blank auto-compose on returning launch (#55)
 - [x] Home feed: overlap pending + feed fetches; cap personal-circle edge scan at 500
