@@ -17,11 +17,7 @@ let package = Package(
             dependencies: ["ComposeDraft", "PasskeySignIn"],
             path: ".",
             exclude: ["Sources", ".build"],
-            sources: [
-                "ComposeDraftStoreTests.swift",
-                "PasskeySignInTests.swift",
-                "SignInFailureTrackingTests.swift",
-            ]
+            sources: ["ComposeDraftStoreTests.swift", "PasskeySignInTests.swift"]
         ),
     ]
 )

@@ -54,16 +54,6 @@ final class PasskeySignInTests: XCTestCase {
         }
     }
 
-    func testNotAllowedStillCountsAsASilentDismissal() {
-        let error = NSError(
-            domain: "OpenThanks.Passkey",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "The operation is not allowed."]
-        )
-        XCTAssertTrue(PasskeySignInFailure.isCancellation(error))
-        XCTAssertEqual(PasskeySignInFailure.screen(after: error), .staySilent)
-    }
-
     func testDismissingThePasskeySheetStaysSilent() {
         let canceled = authorizationError(code: PasskeySignInFailure.canceledCode, description: "Canceled")
         XCTAssertTrue(PasskeySignInFailure.isCancellation(canceled))

@@ -277,11 +277,8 @@ struct WelcomeView: View {
     private func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
         switch result {
         case .failure(let error):
-            if let authError = error as? ASAuthorizationError, authError.code == .canceled {
-                Analytics.signInFailed(method: "apple", error: "canceled")
-                return
-            }
-            if let authError = error as? ASAuthorizationError, authError.code == .unknown {
+            if let authError = error as? ASAuthorizationError,
+               authError.code == .canceled || authError.code == .unknown {
                 return
             }
             let message = error.localizedDescription
@@ -461,9 +458,6 @@ struct OTPSheet: View {
     @State private var codeSent = false
     @State private var busy = false
     @FocusState private var destinationFocused: Bool
-    /// Set only when verify already signed the user in, so dismiss is not an abandon.
-    @State private var completedSignIn = false
-    @State private var didTrackOTPAbandon = false
 
     var body: some View {
         NavigationStack {
@@ -549,18 +543,6 @@ struct OTPSheet: View {
         // Medium-only clips the CTA on iPad / Stage Manager — allow large.
         .presentationDetents(sizeClass == .regular ? [.large] : [.medium, .large])
         .presentationDragIndicator(.visible)
-        .onDisappear { trackAbandonedOTPIfNeeded() }
-    }
-
-    /// Code was sent and the sheet closed without a session. No banner.
-    private func trackAbandonedOTPIfNeeded() {
-        guard codeSent, !completedSignIn, !didTrackOTPAbandon else { return }
-        if case .signedIn = auth.state { return }
-        didTrackOTPAbandon = true
-        Analytics.signInFailed(
-            method: mode == .email ? "email" : "phone",
-            error: "abandoned"
-        )
     }
 
     private var canSubmit: Bool {
@@ -599,10 +581,7 @@ struct OTPSheet: View {
                 }
                 await auth.verifyPhoneCode(phone: phone, code: code)
             }
-            if case .signedIn = auth.state {
-                completedSignIn = true
-                dismiss()
-            }
+            if case .signedIn = auth.state { dismiss() }
         } else {
             destinationFocused = false
             // Review account: password sign-in, no OTP step (matches web).
