@@ -121,6 +121,8 @@ struct ComposeView: View {
     @State private var messageBeforeAI: String?
     /// Queued chip insert for `MessageEditor` (places caret after the emoji).
     @State private var pendingMessageInsert: MessageEditor.PendingInsert?
+    /// Drives UITextView first-responder (SwiftUI FocusState alone can't).
+    @State private var messageWantsFocus = false
     @StateObject private var dictation = AppreciationDictation()
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
@@ -1086,6 +1088,10 @@ struct ComposeView: View {
                             messageFocused = focused
                             if focused { recipientFocused = false }
                         },
+                        wantsFocus: messageWantsFocus,
+                        onFocusRequestConsumed: {
+                            messageWantsFocus = false
+                        },
                         pendingInsert: pendingMessageInsert,
                         onPendingInsertConsumed: { id in
                             if pendingMessageInsert?.id == id {
@@ -2023,16 +2029,20 @@ struct ComposeView: View {
     }
 
     /// Auto-opening compose after login shouldn't steal the first Cancel tap
-    /// to the keyboard.
+    /// to the keyboard. Two-step blank compose always focuses the note.
     private var shouldAutofocusMessage: Bool {
-        analyticsSource != "app_open" && analyticsSource != "post_login"
+        if usesTwoStepFlow, !isEditing { return true }
+        return analyticsSource != "app_open" && analyticsSource != "post_login"
     }
 
     private func autofocusMessageIfNeeded() {
         guard shouldAutofocusMessage else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+        // Wait for the sheet / cover to finish presenting so becomeFirstResponder sticks.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             guard shouldAutofocusMessage else { return }
+            recipientFocused = false
             messageFocused = true
+            messageWantsFocus = true
         }
     }
 
