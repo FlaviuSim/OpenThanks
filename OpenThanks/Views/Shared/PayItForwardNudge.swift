@@ -105,11 +105,9 @@ struct PayItForwardSheet: View {
                     // presentation binding, so that path is not counted as a dismiss.
                     onThankSomeone()
                     dismiss()
-                    AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
                 },
                 onDismiss: {
                     dismiss()
-                    AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
                 },
                 analyticsParentId: parentGratitudeId,
                 analyticsSurface: analyticsSurface,
@@ -119,7 +117,6 @@ struct PayItForwardSheet: View {
 
             Button("Not now") {
                 dismiss()
-                AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
             }
             .font(Theme.body(15, weight: .medium))
             .foregroundStyle(Theme.textSecondary)

@@ -12,12 +12,20 @@ let package = Package(
             name: "PasskeySignIn",
             path: "Sources/PasskeySignIn"
         ),
+        .target(
+            name: "ReviewPrompt",
+            path: "Sources/ReviewPrompt"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt"],
             path: ".",
             exclude: ["Sources", ".build"],
-            sources: ["ComposeDraftStoreTests.swift", "PasskeySignInTests.swift"]
+            sources: [
+                "ComposeDraftStoreTests.swift",
+                "PasskeySignInTests.swift",
+                "AppStoreReviewPromptTests.swift",
+            ]
         ),
     ]
 )
