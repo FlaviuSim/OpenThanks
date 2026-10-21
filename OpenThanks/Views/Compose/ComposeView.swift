@@ -2330,6 +2330,9 @@ struct ComposeView: View {
                     Analytics.captureDraftEvent("sent", hasRecipient: hasRecipient)
                 }
                 EnjoymentPrompt.recordSuccessfulSend()
+                AppStoreReviewPrompt.schedule(
+                    .successfulSend(count: EnjoymentPrompt.successfulSendCount)
+                )
                 offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
                 Analytics.appreciationSubmitted(
