@@ -351,6 +351,7 @@ final class AuthService {
         } catch {
             switch PasskeySignInFailure.screen(after: error) {
             case .staySilent:
+                recordSignInFailure(method: "passkey", error: "canceled")
                 return false
             case .stayShowing(let message):
                 errorMessage = message
@@ -463,7 +464,10 @@ final class AuthService {
             await handleAuthSuccess(method: method)
             return true
         } catch {
-            if Self.isOAuthCancellation(error) { return false }
+            if Self.isOAuthCancellation(error) {
+                recordSignInFailure(method: method, error: "canceled")
+                return false
+            }
             let message = error.localizedDescription
             errorMessage = message
             recordSignInFailure(method: method, error: message)
@@ -794,7 +798,10 @@ extension AuthService {
 
     /// Post-sign-in analytics + one-time signup metadata (`signup_platform`, `signup_method`).
     private func handleAuthSuccess(method: String) async {
-        guard let session = try? await supabase.auth.session else { return }
+        guard let session = try? await supabase.auth.session else {
+            recordSignInFailure(method: method, error: "no session")
+            return
+        }
         let isSignup = Self.isFreshSignup(user: session.user)
         // Link the anonymous install id to this user before anything else.
         // identify/capture only enqueue — they do not wait on the network.
