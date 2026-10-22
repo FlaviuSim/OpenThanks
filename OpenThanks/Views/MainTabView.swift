@@ -142,14 +142,11 @@ struct MainTabView: View {
                     await NotificationService.refreshFridayReminderIfEnabled(true)
                 }
                 if calendarNudgeEnabled {
-                    var emails = Set<String>()
-                    if let email = auth.currentProfile?.email?.lowercased() {
-                        emails.insert(email)
-                    }
+                    let identity = await CalendarSelfIdentity.collect(from: auth)
                     await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
                         true,
                         authorId: auth.userId,
-                        selfEmails: emails
+                        selfIdentity: identity
                     )
                     CalendarGratitudeBackgroundRefresh.schedule()
                 }

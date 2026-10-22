@@ -223,9 +223,10 @@ struct CalendarPermissionView: View {
     }
 
     private func finishWithNudge(requestAppleIfNeeded: Bool) async {
+        let identity = await CalendarSelfIdentity.collect(from: auth)
         let failure = await NotificationService.enableCalendarGratitudeNudge(
             authorId: auth.userId,
-            selfEmails: selfEmails,
+            selfIdentity: identity,
             requestAppleIfNeeded: requestAppleIfNeeded,
             analyticsSource: analyticsSource
         )
@@ -240,14 +241,6 @@ struct CalendarPermissionView: View {
         } else {
             errorMessage = "Pick Apple or Google Calendar to turn on evening thank-you nudges."
         }
-    }
-
-    private var selfEmails: Set<String> {
-        var emails = Set<String>()
-        if let email = auth.currentProfile?.email?.lowercased() {
-            emails.insert(email)
-        }
-        return emails
     }
 
     private func finishWithoutCalendar() {

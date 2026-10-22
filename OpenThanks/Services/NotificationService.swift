@@ -246,8 +246,13 @@ enum NotificationService {
     static func refreshCalendarGratitudeNudgeIfEnabled(
         _ enabled: Bool,
         authorId: UUID? = nil,
+        selfIdentity: CalendarSelfIdentity = .empty,
         selfEmails: Set<String> = []
     ) async {
+        var identity = selfIdentity
+        for email in selfEmails {
+            identity.insert(email: email)
+        }
         guard enabled else {
             await disableCalendarGratitudeNudge()
             return
@@ -283,7 +288,7 @@ enum NotificationService {
                let nudge = await GratitudeOpportunityRanker.pickNudge(
                    for: now,
                    authorId: resolvedAuthorId,
-                   selfEmails: selfEmails,
+                   selfIdentity: identity,
                    now: now
                ) {
                 CalendarThankSuggestionStore.upsert(from: nudge, at: eightPM)
@@ -300,7 +305,7 @@ enum NotificationService {
         guard let nudge = await GratitudeOpportunityRanker.pickNudge(
             for: now,
             authorId: resolvedAuthorId,
-            selfEmails: selfEmails,
+            selfIdentity: identity,
             now: now
         ) else {
             return
@@ -409,10 +414,15 @@ enum NotificationService {
     /// - Parameter requestAppleIfNeeded: When true and no source is connected, prompts EventKit.
     static func enableCalendarGratitudeNudge(
         authorId: UUID?,
-        selfEmails: Set<String>,
+        selfIdentity: CalendarSelfIdentity = .empty,
+        selfEmails: Set<String> = [],
         requestAppleIfNeeded: Bool = true,
         analyticsSource: String = "settings"
     ) async -> ReminderEnableFailure? {
+        var identity = selfIdentity
+        for email in selfEmails {
+            identity.insert(email: email)
+        }
         guard await requestAuthorizationAndRegisterForPushes(analyticsSource: analyticsSource) else {
             return .notificationsDenied
         }
@@ -440,7 +450,7 @@ enum NotificationService {
         await refreshCalendarGratitudeNudgeIfEnabled(
             true,
             authorId: authorId,
-            selfEmails: selfEmails
+            selfIdentity: identity
         )
         return nil
     }

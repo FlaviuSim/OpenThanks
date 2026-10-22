@@ -126,3 +126,73 @@ final class ShareScreenIdentityTests: XCTestCase {
         XCTAssertNotEqual(a, edited)
     }
 }
+
+final class CalendarSelfIdentityTests: XCTestCase {
+    func testCollectMergesProfileAccountIdentitiesAndRemembered() {
+        let identity = CalendarSelfIdentity.collect(
+            profileEmail: "apple@icloud.com",
+            profileFullName: "Flaviu Sim",
+            accountEmail: "relay@privaterelay.appleid.com",
+            identityEmails: ["work@company.com", "not-an-email"],
+            googleCalendarEmail: "me@gmail.com",
+            remembered: ["alias@company.com"]
+        )
+        XCTAssertEqual(
+            identity.emails,
+            [
+                "apple@icloud.com",
+                "relay@privaterelay.appleid.com",
+                "work@company.com",
+                "me@gmail.com",
+                "alias@company.com",
+            ]
+        )
+        XCTAssertTrue(identity.fullNames.contains("flaviu sim"))
+    }
+
+    func testMatchesOtherInboxAndFullNameButNotFirstNameAlone() {
+        let identity = CalendarSelfIdentity.collect(
+            profileEmail: "apple@icloud.com",
+            profileFullName: "Flaviu Sim",
+            remembered: []
+        )
+        let workSelf = CalendarAttendee(name: "Flaviu", email: "apple@icloud.com", isCurrentUser: false)
+        let namedSelf = CalendarAttendee(name: "Flaviu Sim", email: "other@x.com", isCurrentUser: false)
+        let otherAlex = CalendarAttendee(name: "Alex", email: "alex@x.com", isCurrentUser: false)
+        let colleague = CalendarAttendee(name: "Jordan Lee", email: "jordan@x.com", isCurrentUser: false)
+
+        XCTAssertTrue(identity.matches(attendee: workSelf))
+        XCTAssertTrue(identity.matches(attendee: namedSelf))
+        XCTAssertFalse(identity.matches(attendee: otherAlex))
+        XCTAssertFalse(identity.matches(attendee: colleague))
+    }
+
+    func testSanitizedMeetingTopicStripsAuthorName() {
+        let identity = CalendarSelfIdentity.collect(
+            profileFullName: "Flaviu Sim",
+            remembered: []
+        )
+        XCTAssertEqual(identity.sanitizedMeetingTopic("Flaviu Sim / Jordan Lee"), "Jordan Lee")
+        XCTAssertEqual(identity.sanitizedMeetingTopic("Jordan and Flaviu Sim"), "Jordan")
+        XCTAssertNil(identity.sanitizedMeetingTopic("Flaviu Sim / 1:1"))
+    }
+
+    func testHarvestedSelfIdentityFromMarkedAttendees() {
+        let meeting = CalendarMeeting(
+            id: "1",
+            title: "Sync",
+            start: Date(),
+            end: Date().addingTimeInterval(1800),
+            isAllDay: false,
+            isCancelled: false,
+            isRecurring: false,
+            attendees: [
+                CalendarAttendee(name: "Flaviu Sim", email: "work@company.com", isCurrentUser: true),
+                CalendarAttendee(name: "Jordan", email: "jordan@x.com", isCurrentUser: false),
+            ]
+        )
+        let harvested = GratitudeOpportunityRanker.harvestedSelfIdentity(from: [meeting])
+        XCTAssertTrue(harvested.emails.contains("work@company.com"))
+        XCTAssertTrue(harvested.fullNames.contains("flaviu sim"))
+    }
+}

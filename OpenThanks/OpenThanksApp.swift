@@ -528,14 +528,11 @@ struct RootView: View {
                 // Already connected — silently mark done; keep nudge on when possible.
                 hasCompletedCalendarPrompt = true
                 calendarNudgeEnabled = true
-                var emails = Set<String>()
-                if let email = auth.currentProfile?.email?.lowercased() {
-                    emails.insert(email)
-                }
+                let identity = await CalendarSelfIdentity.collect(from: auth)
                 await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
                     true,
                     authorId: auth.userId,
-                    selfEmails: emails
+                    selfIdentity: identity
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
             } else if PermissionPromptScheduler.shouldShowDeferredCalendarGate {
@@ -553,14 +550,11 @@ struct RootView: View {
         }
 
         if calendarNudgeEnabled, hasCompletedCalendarPrompt {
-            var emails = Set<String>()
-            if let email = auth.currentProfile?.email?.lowercased() {
-                emails.insert(email)
-            }
+            let identity = await CalendarSelfIdentity.collect(from: auth)
             await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
                 true,
                 authorId: auth.userId,
-                selfEmails: emails
+                selfIdentity: identity
             )
             CalendarGratitudeBackgroundRefresh.schedule()
         }
