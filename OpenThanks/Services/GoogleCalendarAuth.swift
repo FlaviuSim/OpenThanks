@@ -8,6 +8,27 @@ enum GoogleCalendarAuth {
     private static let accessTokenKey = "accessToken"
     private static let refreshTokenKey = "refreshToken"
     private static let expiryKey = "expiry"
+    private static let accountEmailKey = "googleCalendarAccountEmail"
+
+    /// Cached Google account email for the connected calendar (used to avoid self-thanks).
+    static func storedAccountEmail() -> String? {
+        CalendarSelfIdentity.normalizeEmail(KeychainStore.string(forKey: accountEmailKey))
+    }
+
+    /// Refreshes/caches the Google account email when Calendar is connected.
+    static func cachedAccountEmail() async -> String? {
+        if let existing = storedAccountEmail() { return existing }
+        guard isConnected else { return nil }
+        do {
+            let token = try await validAccessToken()
+            guard let email = try await fetchAccountEmail(accessToken: token) else { return nil }
+            KeychainStore.set(email, forKey: accountEmailKey)
+            CalendarSelfIdentity.remember(emails: [email])
+            return email
+        } catch {
+            return nil
+        }
+    }
 
     static var isConnected: Bool {
         KeychainStore.string(forKey: refreshTokenKey) != nil
@@ -38,7 +59,10 @@ enum GoogleCalendarAuth {
             URLQueryItem(name: "client_id", value: AppConfig.googleCalendarClientID),
             URLQueryItem(name: "redirect_uri", value: AppConfig.googleCalendarRedirectURL.absoluteString),
             URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "scope", value: "https://www.googleapis.com/auth/calendar.readonly"),
+            URLQueryItem(
+                name: "scope",
+                value: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email"
+            ),
             URLQueryItem(name: "access_type", value: "offline"),
             URLQueryItem(name: "prompt", value: "consent"),
             URLQueryItem(name: "include_granted_scopes", value: "true"),
@@ -65,6 +89,7 @@ enum GoogleCalendarAuth {
         }
 
         try await exchangeCode(code, verifier: verifier)
+        _ = await cachedAccountEmail()
         Analytics.calendarConnected(
             provider: "google",
             accessLevel: "full",
@@ -92,10 +117,23 @@ enum GoogleCalendarAuth {
             request.httpBody = "token=\(token.urlQueryEscaped)".data(using: .utf8)
             _ = try? await URLSession.shared.data(for: request)
         }
-        KeychainStore.removeAll(keys: [accessTokenKey, refreshTokenKey, expiryKey])
+        KeychainStore.removeAll(keys: [accessTokenKey, refreshTokenKey, expiryKey, accountEmailKey])
         if wasConnected {
             Analytics.calendarDisconnected(provider: "google")
         }
+    }
+
+    private static func fetchAccountEmail(accessToken: String) async throws -> String? {
+        var request = URLRequest(url: URL(string: "https://www.googleapis.com/oauth2/v3/userinfo")!)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            return nil
+        }
+        struct UserInfo: Decodable { let email: String? }
+        let decoded = try JSONDecoder().decode(UserInfo.self, from: data)
+        return CalendarSelfIdentity.normalizeEmail(decoded.email)
     }
 
     /// Valid access token, refreshing if needed.

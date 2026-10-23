@@ -144,13 +144,10 @@ struct NotificationPermissionView: View {
             }
             fridayReminderEnabled = true
             _ = await NotificationService.enableFridayReminder(analyticsSource: analyticsSource)
-            var emails = Set<String>()
-            if let email = auth.currentProfile?.email?.lowercased() {
-                emails.insert(email)
-            }
+            let identity = await CalendarSelfIdentity.collect(from: auth)
             let failure = await NotificationService.enableCalendarGratitudeNudge(
                 authorId: auth.userId,
-                selfEmails: emails,
+                selfIdentity: identity,
                 requestAppleIfNeeded: false,
                 analyticsSource: analyticsSource
             )

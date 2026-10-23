@@ -3,7 +3,7 @@
 Copy everything inside the box below into **App Review Information → Notes**.
 
 ```
-UNIVERSAL APP — iPhone + iPad (build 1.4). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
+UNIVERSAL APP — iPhone + iPad (build 1.5). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
 
 DEMO ACCOUNT (no OTP / no inbox needed)
 1. On welcome → Continue with Email
@@ -73,7 +73,7 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 3. Fill / confirm: **iPhone + iPad** screenshots (skip age-gate welcome frames), description, keywords, support URL, marketing URL, privacy URL  
 4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info) — do **not** market as adult content in Description  
 5. **App Privacy** → nutrition labels (see `METADATA.md`) → **Tracking = No**  
-6. **Build** → **+** → select processed **1.4 (5)** (universal iPhone + iPad) → Done  
+6. **Build** → **+** → select processed **1.5 (7)** (universal iPhone + iPad) → Done 
 
 ### C. App Review Information (this page)
 
@@ -129,4 +129,4 @@ Demo account unchanged: test@test.com / PlayStoreTest2026!
 - Upload welcome/sign-in screenshots that show the “I am 18 or older” checkbox (Guideline 1.1)  
 - Archive an iPhone-only (`1`) binary by mistake — confirm Devices = **iPhone + iPad** in the archive’s Info before upload  
 - Leave “18+”, adult, dating, or unrestricted-media language in Description / What’s New / promo text  
-- Resubmit without the cream Watch icon (black background will fail Guideline 4 again)
+- Ship a Watch icon that is pure near-black edge-to-edge (Guideline 4 — circular mask blends into the Watch face). Keep the brand-dark heart with a light rim (see `make_watch_icon` in `scripts/generate_appstore_assets.py`)

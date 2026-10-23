@@ -42,7 +42,11 @@ enum Analytics {
     }
 
     /// Simulator and DEBUG never capture unless the Settings toggle is on.
+    /// UI tests always skip so launch performance stays free of PostHog I/O.
     private static var shouldSkipCapture: Bool {
+        if ProcessInfo.processInfo.arguments.contains(UITestBootstrap.uiTestingArgument) {
+            return true
+        }
         #if targetEnvironment(simulator)
         return !forceEnabled
         #elseif DEBUG
