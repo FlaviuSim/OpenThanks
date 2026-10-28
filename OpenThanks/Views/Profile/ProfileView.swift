@@ -793,7 +793,8 @@ struct UserProfileView: View {
                 rippleSectionHeader(
                     "Latest",
                     count: min(3, latestAppreciations.count),
-                    systemImage: "sparkles"
+                    systemImage: "sparkles",
+                    showsSendOneLikeThis: true
                 )
                 ForEach(Array(latestAppreciations.prefix(3))) { g in
                     latestAppreciationRow(g)
@@ -805,7 +806,12 @@ struct UserProfileView: View {
             } else {
                 rippleStoryCard
 
-                rippleSectionHeader("Ripple Effect", count: ripplePassOns.count, systemImage: "water.waves")
+                rippleSectionHeader(
+                    "Ripple Effect",
+                    count: ripplePassOns.count,
+                    systemImage: "water.waves",
+                    showsSendOneLikeThis: loaded && latestAppreciations.isEmpty
+                )
                 if ripplePassOns.isEmpty {
                     rippleZeroExplainer
                 } else {
@@ -925,23 +931,85 @@ struct UserProfileView: View {
         .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
     }
 
-    private func rippleSectionHeader(_ title: String, count: Int, systemImage: String) -> some View {
+    private func rippleSectionHeader(
+        _ title: String,
+        count: Int,
+        systemImage: String,
+        showsSendOneLikeThis: Bool = false
+    ) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.coral)
-            Text(title)
-                .font(Theme.body(13, weight: .semibold))
-                .foregroundStyle(Theme.textSecondary)
-            Text("\(count)")
-                .font(Theme.body(12, weight: .semibold))
-                .foregroundStyle(Theme.textTertiary)
-                .monospacedDigit()
-            Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                Text(title)
+                    .font(Theme.body(13, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(showsSendOneLikeThis ? 0.85 : 1)
+                Text("\(count)")
+                    .font(Theme.body(12, weight: .semibold))
+                    .foregroundStyle(Theme.textTertiary)
+                    .monospacedDigit()
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(title), \(count)")
+
+            Spacer(minLength: showsSendOneLikeThis ? 8 : 0)
+
+            if showsSendOneLikeThis {
+                sendOneLikeThisButton
+            }
         }
         .padding(.top, 2)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(count)")
+    }
+
+    /// Trailing control on the first Ripple header. Same compose cover as the heart button.
+    private var sendOneLikeThisButton: some View {
+        Button(action: sendOneLikeThis) {
+            HStack(spacing: 4) {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Send one like this")
+                    .font(Theme.body(12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(Theme.coral)
+        }
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: true, vertical: false)
+        .layoutPriority(1)
+        .accessibilityLabel("Send one like this")
+        .accessibilityHint("Opens a new appreciation")
+    }
+
+    /// Examples sitting under the button — the ones “like this” refers to.
+    private var sendOneLikeThisExamples: [Gratitude] {
+        if !latestAppreciations.isEmpty {
+            return Array(latestAppreciations.prefix(3))
+        }
+        return ripplePassOns
+    }
+
+    private func sendOneLikeThis() {
+        let launch = RippleSend.launch(
+            isOwnProfile: isOwnProfile,
+            profileId: profile.id,
+            viewerId: auth.userId,
+            examples: sendOneLikeThisExamples.map {
+                RippleSend.Example(
+                    id: $0.id,
+                    recipientId: $0.recipientId,
+                    authorName: $0.author?.displayName
+                )
+            }
+        )
+        Analytics.capture(launch.analyticsEvent, launch.analyticsProperties())
+        ComposeLaunchBridge.shared.queue(
+            inspiredByGratitudeId: launch.inspiredByGratitudeId,
+            inspiredByAuthorName: launch.inspiredByAuthorName,
+            analyticsSource: launch.composeAnalyticsSource
+        )
     }
 
     /// Shown when there are zero ripples — explains the idea.
