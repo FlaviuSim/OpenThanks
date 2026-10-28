@@ -16,15 +16,20 @@ let package = Package(
             name: "ReviewPrompt",
             path: "Sources/ReviewPrompt"
         ),
+        .target(
+            name: "CampaignPush",
+            path: "Sources/CampaignPush"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
                 "ComposeDraftStoreTests.swift",
                 "PasskeySignInTests.swift",
                 "AppStoreReviewPromptTests.swift",
+                "CampaignPushPermissionTests.swift",
             ]
         ),
     ]

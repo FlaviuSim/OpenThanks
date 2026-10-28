@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 
 /// Queues deferred notification / calendar prompts after send, accept, or calendar connect.
 /// Never blocks first login — RootView only shows calendar on the 3rd main-app open.
@@ -12,6 +13,8 @@ final class PermissionPromptScheduler {
         case notificationsAppreciation(source: String)
         /// Calendar evening-nudge pitch after calendar connect without push auth.
         case notificationsAfterCalendar(source: String)
+        /// 30 Days of Thanks screen or join, while push permission is still undetermined.
+        case notificationsCampaign(source: String)
         /// Calendar connect sheet after appreciation (or when queued behind notifs).
         case calendar(source: String)
     }
@@ -96,8 +99,23 @@ final class PermissionPromptScheduler {
         pending = .notificationsAfterCalendar(source: source)
     }
 
+    /// 30 Days screen or join. Does not replace a prompt that's already up.
+    func scheduleCampaignPrompt(source: String) {
+        guard pending == nil else { return }
+        pending = .notificationsCampaign(source: source)
+    }
+
     func clearPending() {
+        let finishingCampaign: Bool
+        if case .notificationsCampaign = pending {
+            finishingCampaign = true
+        } else {
+            finishingCampaign = false
+        }
         pending = nil
+        if finishingCampaign {
+            CampaignPushOffer.finish()
+        }
     }
 
     /// Call when the current sheet finishes so a queued calendar prompt can follow.
@@ -115,6 +133,9 @@ final class PermissionPromptScheduler {
         case .notificationsAfterCalendar, .calendar:
             queuedCalendarSource = nil
             pending = nil
+        case .notificationsCampaign:
+            queuedCalendarSource = nil
+            clearPending()
         }
     }
 
@@ -145,5 +166,69 @@ final class PermissionPromptScheduler {
             return false
         }
         return true
+    }
+}
+
+/// Presents the existing notification pre-prompt for 30 Days, once per session,
+/// and only while permission is still undetermined.
+@MainActor
+enum CampaignPushOffer {
+    /// Set once the main tab UI is on screen, so a link can't wait on a sheet
+    /// that has nowhere to appear.
+    static var interfaceReady = false
+    private static var decision: Task<Void, Never>?
+    private static var continuation: CheckedContinuation<Void, Never>?
+
+    static func authorization(from status: UNAuthorizationStatus) -> CampaignPushAuthorization {
+        switch status {
+        case .notDetermined:
+            return .notDetermined
+        case .denied:
+            return .denied
+        case .authorized, .provisional, .ephemeral:
+            return .authorized
+        @unknown default:
+            return .authorized
+        }
+    }
+
+    /// Opening the campaign card starts the ask without blocking the feed.
+    /// Joining waits until that sheet closes so compose is not stacked on it.
+    static func offer(moment: CampaignPushMoment) async {
+        if moment == .openedScreen {
+            interfaceReady = true
+        }
+        guard interfaceReady else { return }
+        if decision == nil {
+            decision = Task { await present() }
+        }
+        guard moment == .joined, let decision else { return }
+        await decision.value
+    }
+
+    static func finish() {
+        let cont = continuation
+        continuation = nil
+        cont?.resume()
+    }
+
+    private static func present() async {
+        let status = authorization(from: await NotificationService.authorizationStatus())
+        guard CampaignPushPermission.shouldRequest(
+            status,
+            moment: .openedScreen,
+            alreadyOfferedThisSession: false
+        ) else { return }
+        guard PermissionPromptScheduler.shared.pending == nil else {
+            // Another prompt is up. Allow a later join to try once it clears.
+            decision = nil
+            return
+        }
+        PermissionPromptScheduler.shared.scheduleCampaignPrompt(
+            source: CampaignPushPermission.analyticsSource
+        )
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            continuation = cont
+        }
     }
 }
