@@ -542,18 +542,37 @@ enum NotificationService {
         #else
         let environment = "production"
         #endif
-        let row = DevicePushToken(
-            userId: userId,
-            token: token,
-            platform: "ios",
-            environment: environment
-        )
+        // Prefer RPC so a token previously owned by another account on this
+        // device can be reassigned (plain upsert fails UPDATE RLS USING).
+        struct RPCParams: Encodable {
+            let p_token: String
+            let p_platform: String
+            let p_environment: String
+        }
         do {
-            try await supabase.from("device_push_tokens")
-                .upsert(row, onConflict: "token", returning: .minimal)
-                .execute()
+            try await supabase.rpc(
+                "upsert_my_device_push_token",
+                params: RPCParams(
+                    p_token: token,
+                    p_platform: "ios",
+                    p_environment: environment
+                )
+            ).execute()
         } catch {
-            print("Couldn't save push token: \(error.localizedDescription)")
+            // Fallback for projects that haven't applied the RPC migration yet.
+            let row = DevicePushToken(
+                userId: userId,
+                token: token,
+                platform: "ios",
+                environment: environment
+            )
+            do {
+                try await supabase.from("device_push_tokens")
+                    .upsert(row, onConflict: "token", returning: .minimal)
+                    .execute()
+            } catch {
+                print("Couldn't save push token: \(error.localizedDescription)")
+            }
         }
     }
 }
