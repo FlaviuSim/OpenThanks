@@ -30,7 +30,7 @@ supabase functions deploy send-apns --project-ref dsftvyuzmhlqadhbubgw
 
 ## Auto-fire on `notifications` INSERT
 
-Apply migration `20261012_dispatch_notification_push.sql`. It calls this function from a DB trigger for:
+Apply migration `20261012_dispatch_notification_push.sql`, then `20261029_web_push_subscriptions.sql`. The second migration replaces the trigger so each allowlisted insert calls this function and `send-web-push`. Types:
 
 - `gratitude_pending`
 - `gratitude_received`
