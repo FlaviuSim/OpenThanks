@@ -107,6 +107,7 @@ struct MainTabView: View {
             composeView(for: sheet)
         }
         .task { await refreshUnread() }
+        .onAppear { CampaignPushOffer.interfaceReady = true }
         .onAppear {
             // Pending CTAs only — do not auto-open blank compose on every launch.
             presentLaunchSurfaces()
@@ -160,10 +161,6 @@ struct MainTabView: View {
             }
             // Keep list↔detail selection when switching tabs so return feels continuous.
         }
-        .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { _ in
-            // Fallback if pay-it-forward isn't shown; delayed so it stays gentle.
-            AppStoreReviewPrompt.scheduleAfterReceivingAppreciation()
-        }
         .onReceive(NotificationCenter.default.publisher(for: .homePendingAcceptCount)) { note in
             if let count = note.userInfo?["count"] as? Int {
                 pendingAcceptCount = count
@@ -212,6 +209,15 @@ struct MainTabView: View {
                         pitch: .postCalendar,
                         analyticsSource: source
                     )
+                case .notificationsCampaign(let source):
+                    NotificationPermissionView(
+                        onFinished: {
+                            let finished = PermissionPromptScheduler.Prompt.notificationsCampaign(source: source)
+                            permissionScheduler.advanceAfterFinishing(finished)
+                        },
+                        pitch: .campaign,
+                        analyticsSource: source
+                    )
                 case .calendar(let source):
                     CalendarPermissionView(
                         onFinished: {
@@ -237,6 +243,8 @@ struct MainTabView: View {
                                 PermissionPromptScheduler.shared.snoozeAppreciationCalendarPrompt()
                             case .notificationsAppreciation, .notificationsAfterCalendar:
                                 PermissionPromptScheduler.shared.markNotificationPromptCompleted()
+                            case .notificationsCampaign:
+                                break
                             }
                             permissionScheduler.advanceAfterFinishing(pending)
                         } else {

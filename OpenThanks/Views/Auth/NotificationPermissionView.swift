@@ -8,6 +8,8 @@ struct NotificationPermissionView: View {
         case appreciation
         /// Evening calendar nudges need alerts.
         case postCalendar
+        /// Daily 30 Days of Thanks prompt, while permission is still undetermined.
+        case campaign
     }
 
     var onFinished: () -> Void
@@ -27,6 +29,8 @@ struct NotificationPermissionView: View {
             return "Don’t miss kindness coming back"
         case .postCalendar:
             return "Turn on notifications for evening thank-you ideas"
+        case .campaign:
+            return CampaignPushPermission.contextLine
         }
     }
 
@@ -36,6 +40,8 @@ struct NotificationPermissionView: View {
             return "We’ll let you know when someone appreciates you, and when they accept the note you sent — so nothing important slips by."
         case .postCalendar:
             return "Your calendar is connected. Notifications are needed to deliver the weekday 8pm nudge with someone to thank from today’s meetings."
+        case .campaign:
+            return CampaignPushPermission.contextDetail
         }
     }
 
@@ -155,9 +161,20 @@ struct NotificationPermissionView: View {
             if failure == nil {
                 CalendarGratitudeBackgroundRefresh.schedule()
             }
+        case .campaign:
+            let granted = await NotificationService.requestAuthorizationAndRegisterForPushes(
+                analyticsSource: analyticsSource
+            )
+            guard granted else {
+                systemDenied = await NotificationService.authorizationStatus() == .denied
+                return
+            }
         }
 
-        PermissionPromptScheduler.shared.markNotificationPromptCompleted()
+        // 30 Days uses the same screen but must not consume the post-send gate.
+        if pitch != .campaign {
+            PermissionPromptScheduler.shared.markNotificationPromptCompleted()
+        }
         onFinished()
     }
 
@@ -170,8 +187,12 @@ struct NotificationPermissionView: View {
             // Calendar stays connected; evening nudge waits until notifications are on.
             calendarNudgeEnabled = false
             Task { await NotificationService.disableCalendarGratitudeNudge() }
+        case .campaign:
+            break
         }
-        PermissionPromptScheduler.shared.markNotificationPromptCompleted()
+        if pitch != .campaign {
+            PermissionPromptScheduler.shared.markNotificationPromptCompleted()
+        }
         onFinished()
     }
 }

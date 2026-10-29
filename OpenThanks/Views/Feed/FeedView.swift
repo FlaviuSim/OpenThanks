@@ -415,6 +415,7 @@ struct FeedView: View {
                 .task(id: prompt.day) {
                     guard let id = campaign.feed?.id else { return }
                     Analytics.campaignPromptShown(campaign: id, day: prompt.day)
+                    await CampaignPushOffer.offer(moment: .openedScreen)
                     if let userId = auth.userId {
                         await campaign.refreshProgress(authorId: userId)
                     }
@@ -511,7 +512,11 @@ struct FeedView: View {
         if let id = campaign.feed?.id {
             Analytics.campaignPromptTapped(campaign: id, day: prompt.day)
         }
-        campaign.openCompose(prompt: prompt, analyticsSource: "campaign_home")
+        CampaignPushOffer.interfaceReady = true
+        Task {
+            await CampaignPushOffer.offer(moment: .joined)
+            campaign.openCompose(prompt: prompt, analyticsSource: "campaign_home")
+        }
     }
 
     @ViewBuilder

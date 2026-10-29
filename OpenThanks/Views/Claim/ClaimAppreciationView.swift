@@ -52,7 +52,6 @@ struct PendingAppreciationReviewView: View {
                                     source: "claim_accept"
                                 )
                                 showCompose = true
-                                AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
                             },
                             onDismiss: {
                                 Analytics.payItForwardDismissed(
@@ -63,7 +62,6 @@ struct PendingAppreciationReviewView: View {
                                 withAnimation(Motion.note) {
                                     showPayItForward = false
                                 }
-                                AppStoreReviewPrompt.scheduleAfterPostAcceptMoment()
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                                     PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_accept")
                                 }
