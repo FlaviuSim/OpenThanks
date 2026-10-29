@@ -17,18 +17,23 @@ let package = Package(
             path: "Sources/ReviewPrompt"
         ),
         .target(
+            name: "RippleSend",
+            path: "Sources/RippleSend"
+        ),
+        .target(
             name: "CampaignPush",
             path: "Sources/CampaignPush"
         ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "RippleSend", "CampaignPush"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
                 "ComposeDraftStoreTests.swift",
                 "PasskeySignInTests.swift",
                 "AppStoreReviewPromptTests.swift",
+                "RippleSendTests.swift",
                 "CampaignPushPermissionTests.swift",
             ]
         ),

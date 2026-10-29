@@ -97,6 +97,8 @@
 		87E3E62EF67CABA629297F7B /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
 		8919BA37DE030A47ABF439B9 /* EnjoyingOpenThanksSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */; };
 		8A54DF9A1FBD61A881B5D86C /* ComposeDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA25F3F122BE0ABDACB69D0B /* ComposeDraftStore.swift */; };
+		F5B02D1C8E704349B2C1D0F3 /* RippleSend.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A91C0B7D6F5238A1B0C9E2 /* RippleSend.swift */; };
+		B7D24F3E0A92656BD4E3F215 /* RippleSendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C13E2D9F81545AC3D2E104 /* RippleSendTests.swift */; };
 		8D9BF6AE672BFC3C51751D04 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		8F58135D57989CF95689F8B7 /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96F3FD90C322331B012FD48F /* AppNavigation.swift */; };
 		9334F241FD77D164F8A1CE22 /* OpenThanksWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 619D90CE716A58A110F2F745 /* OpenThanksWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -315,6 +317,8 @@
 		7B876396921E9835E95D4BAF /* OpenThanksWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OpenThanksWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7BEFAF07C21753839CBCCE3B /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
 		7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeDraftStoreTests.swift; sourceTree = "<group>"; };
+		A6C13E2D9F81545AC3D2E104 /* RippleSendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RippleSendTests.swift; sourceTree = "<group>"; };
+		E4A91C0B7D6F5238A1B0C9E2 /* RippleSend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RippleSend.swift; sourceTree = "<group>"; };
 		7C91C4B36B035A0262E9EDC1 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentReportService.swift; sourceTree = "<group>"; };
 		7D72AA8FF83837C77EAD56B9 /* OpenThanksWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWatch.entitlements; sourceTree = "<group>"; };
@@ -474,6 +478,7 @@
 				D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */,
 				65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */,
 				0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */,
+				E4A91C0B7D6F5238A1B0C9E2 /* RippleSend.swift */,
 				7C91C4B36B035A0262E9EDC1 /* KeychainStore.swift */,
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
@@ -665,6 +670,7 @@
 				92D1758D44DAE99282D21567 /* .gitignore */,
 				7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */,
 				9C2E6B48A1D75F03E8B4C6A2 /* PasskeySignInTests.swift */,
+				A6C13E2D9F81545AC3D2E104 /* RippleSendTests.swift */,
 			);
 			path = OpenThanksTests;
 			sourceTree = "<group>";
@@ -1063,6 +1069,7 @@
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
 				4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */,
 				8A54DF9A1FBD61A881B5D86C /* ComposeDraftStore.swift in Sources */,
+				F5B02D1C8E704349B2C1D0F3 /* RippleSend.swift in Sources */,
 				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
 				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
 				77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */,
@@ -1138,6 +1145,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				49B68B3ADB996D214C4C61FB /* ComposeDraftStoreTests.swift in Sources */,
+				B7D24F3E0A92656BD4E3F215 /* RippleSendTests.swift in Sources */,
 				5D1F7A39C8E26B40D9A3F1C7 /* PasskeySignInTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
