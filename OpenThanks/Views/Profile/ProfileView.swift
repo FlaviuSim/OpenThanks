@@ -794,7 +794,7 @@ struct UserProfileView: View {
                     "Latest",
                     count: min(3, latestAppreciations.count),
                     systemImage: "sparkles",
-                    showsSendOneLikeThis: true
+                    showsSendOneLikeThis: isOwnProfile
                 )
                 ForEach(Array(latestAppreciations.prefix(3))) { g in
                     latestAppreciationRow(g)
@@ -810,7 +810,7 @@ struct UserProfileView: View {
                     "Ripple Effect",
                     count: ripplePassOns.count,
                     systemImage: "water.waves",
-                    showsSendOneLikeThis: loaded && latestAppreciations.isEmpty
+                    showsSendOneLikeThis: isOwnProfile && loaded && latestAppreciations.isEmpty
                 )
                 if ripplePassOns.isEmpty {
                     rippleZeroExplainer
@@ -968,7 +968,7 @@ struct UserProfileView: View {
     private var sendOneLikeThisButton: some View {
         Button(action: sendOneLikeThis) {
             HStack(spacing: 4) {
-                Image(systemName: "heart.fill")
+                Image(systemName: "water.waves")
                     .font(.system(size: 10, weight: .semibold))
                 Text("Send one like this")
                     .font(Theme.body(12, weight: .semibold))
