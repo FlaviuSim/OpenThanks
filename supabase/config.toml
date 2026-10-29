@@ -2,3 +2,8 @@
 # Auth is enforced inside the function (service_role JWT required).
 # Gateway JWT verify would reject some valid service-role callers.
 verify_jwt = false
+
+[functions.send-web-push]
+# POST auth is enforced inside the function (service role).
+# GET returns only the VAPID application server public key.
+verify_jwt = false
