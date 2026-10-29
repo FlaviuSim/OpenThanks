@@ -57,6 +57,12 @@ struct MainTabView: View {
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     /// One-time Home tip pointing at the heart compose button.
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
+    /// Opens of the composer on this device. Does not flip `hasSeenFirstSendTip`.
+    @State private var hasOpenedComposer = FirstSendTip.hasOpenedComposer()
+    /// Successful creates on this device (`EnjoymentPrompt.successfulSendCountKey`).
+    @AppStorage(EnjoymentPrompt.successfulSendCountKey) private var successfulSendCount = 0
+    /// True while the post-accept ripple sheet is pending or visible.
+    @State private var rippleSheetPresented = false
     @State private var pendingAcceptCount = 0
     @State private var didLogFirstSendTipShown = false
     /// Deferred notification / calendar sheets after send or accept.
@@ -76,11 +82,16 @@ struct MainTabView: View {
         )
     }
     private var shouldShowFirstSendTip: Bool {
-        !hasSeenFirstSendTip
-            && tab == .feed
-            && composeSheet == nil
-            && !homeSearchActive
-            && pendingAcceptCount == 0
+        FirstSendTip.shouldShow(
+            hasSeenTip: hasSeenFirstSendTip,
+            isFeedTab: tab == .feed,
+            tabComposerPresented: composeSheet != nil,
+            searchActive: homeSearchActive,
+            pendingAcceptCount: pendingAcceptCount,
+            rippleSheetPresented: rippleSheetPresented,
+            hasOpenedComposer: hasOpenedComposer,
+            hasSentAppreciation: successfulSendCount > 0
+        )
     }
 
     var body: some View {
@@ -168,6 +179,14 @@ struct MainTabView: View {
             if let count = note.userInfo?["count"] as? Int {
                 pendingAcceptCount = count
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .payItForwardSheetPresented)) { note in
+            if let presented = note.userInfo?["presented"] as? Bool {
+                rippleSheetPresented = presented
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: FirstSendTip.composerOpened)) { _ in
+            hasOpenedComposer = true
         }
         .onChange(of: composeSheet != nil) { _, open in
             if open {
@@ -649,10 +668,10 @@ struct MainTabView: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(Theme.coral)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Start sending your first appreciation")
+                Text(FirstSendTip.title)
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Tap the heart button below")
+                Text(FirstSendTip.detail)
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -693,7 +712,7 @@ struct MainTabView: View {
             )
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Start sending your first appreciation")
+        .accessibilityLabel(FirstSendTip.title)
     }
 
     private func tabItem(icon: String, label: String, value: Tab, badge: Int = 0) -> some View {

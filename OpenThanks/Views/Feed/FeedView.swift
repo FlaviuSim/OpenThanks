@@ -167,8 +167,15 @@ struct FeedView: View {
         }
         // Thank-someone opens compose — offer permissions after that send instead.
         let shouldOfferPermissions = wasShowing && !payItForwardDidThank
+        let didThank = payItForwardDidThank
         payItForwardDidThank = false
         payItForwardFromName = nil
+        // Mark the composer before the sheet flag drops so the tip does not
+        // appear in the gap between "Send a note" and the cover.
+        if didThank {
+            FirstSendTip.markComposerOpened()
+        }
+        postRippleSheetPresented(false)
         if shouldOfferPermissions {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_accept")
@@ -225,6 +232,7 @@ struct FeedView: View {
                     analyticsSource: "feed_accept",
                     onThankSomeone: {
                         payItForwardDidThank = true
+                        FirstSendTip.markComposerOpened()
                         composeRecipient = nil
                         composeInspiredById = payItForwardParentId
                         composeInspiredByName = payItForwardFromName
@@ -256,7 +264,10 @@ struct FeedView: View {
                 )
             }
             .onChange(of: showCompose) { _, open in
-                if open { dismissSearchKeyboard() }
+                if open {
+                    dismissSearchKeyboard()
+                    FirstSendTip.markComposerOpened()
+                }
                 if !open {
                     composeRecipient = nil
                     composeInspiredById = nil
@@ -289,6 +300,7 @@ struct FeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
                 payItForwardFromName = nil
                 payItForwardParentId = nil
+                postRippleSheetPresented(false)
             }
             .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
                 guard let gratitude = note.object as? Gratitude else { return }
@@ -888,12 +900,23 @@ struct FeedView: View {
         let name = gratitude.author?.fullName
             ?? gratitude.author?.displayName
             ?? gratitude.author?.username
+        // Hide the first-send tip for the settle delay, before the sheet exists.
+        postRippleSheetPresented(true)
         // Slight delay so the pending card dismiss animation settles first.
         // The impression fires from the card's onAppear, not from this delay.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             payItForwardParentId = gratitude.id
             payItForwardFromName = name ?? "someone"
+            postRippleSheetPresented(true)
         }
+    }
+
+    private func postRippleSheetPresented(_ presented: Bool) {
+        NotificationCenter.default.post(
+            name: .payItForwardSheetPresented,
+            object: nil,
+            userInfo: ["presented": presented]
+        )
     }
 
     private func applyPendingList(_ pending: [Gratitude]) {
