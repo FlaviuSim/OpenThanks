@@ -34,7 +34,7 @@ RUN_NETWORK_E2E=1 xcodebuild test \
   -only-testing:OpenThanksUITests/DemoLoginUITests
 ```
 
-Ship checklist for **1.5 (6):** `AppStore/SHIP_GATE_1.5.md`.
+Ship checklist for **1.6 (1):** `AppStore/SHIP_GATE_1.6.md`.
 
 ## Backend wiring — what's verified vs. what you must confirm
 

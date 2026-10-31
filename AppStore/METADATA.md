@@ -10,7 +10,7 @@ Use these fields when creating the listing in [App Store Connect](https://appsto
 | Name                 | OpenThanks                                                                                                                                                                                                                                   |
 | Subtitle (30 chars)  | Share real appreciation                                                                                                                                                                                                                      |
 | Bundle ID            | `com.openthanks.gratitude`                                                                                                                                                                                                                   |
-| Devices (1.5)        | **iPhone + iPad** (universal — `TARGETED_DEVICE_FAMILY = 1,2`)                                                                                                                                                                               |
+| Devices (1.6)        | **iPhone + iPad** (universal — `TARGETED_DEVICE_FAMILY = 1,2`)                                                                                                                                                                               |
 | SKU                  | `openthanks-ios`                                                                                                                                                                                                                             |
 | Primary language     | English (U.S.)                                                                                                                                                                                                                               |
 | Category (Primary)   | Social Networking                                                                                                                                                                                                                            |
@@ -68,14 +68,16 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 
 
-## What’s New (1.5)
+## What’s New (1.6)
 
 Do **not** mention age gates, 18+, adult content, unrestricted media, or Apple Watch in What’s New / promotional text.
 
 ```
 Signing back in is smoother, Home loads faster, and the app no longer opens a blank thank-you form every time you return.
 
-Thank Someone still opens from the heart button whenever you want. Progressive feeds and profile lists keep scrolling snappy.
+Compose is clearer when you write first and choose who it’s for next — the keyboard is ready, previews look right, and sharing a link by email is easier. Declining a pending thank-you on Home no longer freezes the card.
+
+Update checks run when you cold-launch the app, so you won’t miss a new version. Calendar thank-you suggestions avoid thanking yourself, and drafts stay in first person.
 
 30 Days of Thanks continues through November on iPhone and iPad.
 ```
