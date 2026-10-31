@@ -8,6 +8,9 @@ extension Notification.Name {
     static let dismissTransientSheets = Notification.Name("openthanks.dismissTransientSheets")
     /// Home feed posts pending-to-accept count so first-send coachmark can wait.
     static let homePendingAcceptCount = Notification.Name("openthanks.homePendingAcceptCount")
+    /// `userInfo["presented"]` is true from the moment an accept will show the
+    /// ripple sheet (including the short settle delay) until that sheet closes.
+    static let payItForwardSheetPresented = Notification.Name("openthanks.payItForwardSheetPresented")
     /// Reload My Feed pending cards (push arrived, Home selected, World refresh).
     static let pendingThanksShouldRefresh = Notification.Name("openthanks.pendingThanksShouldRefresh")
 }

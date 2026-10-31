@@ -457,6 +457,7 @@ struct ComposeView: View {
             }
         }
         .onAppear {
+            FirstSendTip.markComposerOpened()
             prefillIfNeeded()
             trackFormStartIfNeeded()
             dictation.refreshAvailability()
