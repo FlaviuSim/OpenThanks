@@ -127,6 +127,29 @@ final class ShareScreenIdentityTests: XCTestCase {
     }
 }
 
+final class ThankedPersonNameGuessTests: XCTestCase {
+    func testHeuristicFindsNameInOpening() {
+        XCTAssertEqual(
+            ThankedPersonNameGuess.heuristic(from: "Thank you, Sarah — you made my week."),
+            "Sarah"
+        )
+        XCTAssertEqual(
+            ThankedPersonNameGuess.heuristic(from: "Thanks Jordan Lee for jumping in."),
+            "Jordan Lee"
+        )
+        XCTAssertEqual(
+            ThankedPersonNameGuess.heuristic(from: "Dear Mom, I appreciate you."),
+            "Mom"
+        )
+    }
+
+    func testHeuristicReturnsNilWhenNoName() {
+        XCTAssertNil(ThankedPersonNameGuess.heuristic(from: "I really appreciated our conversation today."))
+        XCTAssertNil(ThankedPersonNameGuess.sanitizeAIName("NONE"))
+        XCTAssertNil(ThankedPersonNameGuess.sanitizeAIName("you"))
+    }
+}
+
 final class CalendarSelfIdentityTests: XCTestCase {
     func testCollectMergesProfileAccountIdentitiesAndRemembered() {
         let identity = CalendarSelfIdentity.collect(

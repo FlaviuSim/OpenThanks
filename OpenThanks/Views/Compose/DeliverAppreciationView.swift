@@ -30,6 +30,7 @@ struct DeliverAppreciationView: View {
     @State private var showEnjoymentPrompt = false
     @State private var systemSharePayload: SystemSharePayload?
     @State private var didPrefillRecipient = false
+    @State private var isGuessingRecipientName = false
 
     @FocusState private var recipientFocused: Bool
 
@@ -119,6 +120,9 @@ struct DeliverAppreciationView: View {
         }
         .onAppear {
             prefillIfNeeded()
+        }
+        .task(id: gratitude.id) {
+            await guessRecipientNameIfNeeded()
         }
         .onChange(of: offerEnjoymentPrompt) { _, offer in
             guard !offer, showEnjoymentPrompt else { return }
@@ -366,20 +370,27 @@ struct DeliverAppreciationView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Name or Email", text: $recipient)
-                    .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
-                    .autocorrectionDisabled()
-                    .keyboardType(recipient.contains("@") ? .emailAddress : .default)
-                    .textContentType(recipient.contains("@") ? .emailAddress : .name)
-                    .focused($recipientFocused)
-                    .padding(14)
-                    .foregroundStyle(Theme.textPrimary)
-                    .submitLabel(.done)
-                    .onSubmit {
-                        if shouldShowAddGuestRow {
-                            confirmGuestRecipient()
+                HStack(spacing: 8) {
+                    TextField("Name or Email", text: $recipient)
+                        .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
+                        .autocorrectionDisabled()
+                        .keyboardType(recipient.contains("@") ? .emailAddress : .default)
+                        .textContentType(recipient.contains("@") ? .emailAddress : .name)
+                        .focused($recipientFocused)
+                        .foregroundStyle(Theme.textPrimary)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            if shouldShowAddGuestRow {
+                                confirmGuestRecipient()
+                            }
                         }
+                    if isGuessingRecipientName {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("Guessing name from your note")
                     }
+                }
+                .padding(14)
             }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -593,6 +604,34 @@ struct DeliverAppreciationView: View {
             recipient = email
             guestRecipientConfirmed = true
         }
+    }
+
+    /// When name + email are both empty, guess who it’s for from the note text.
+    private func guessRecipientNameIfNeeded() async {
+        guard linkedRecipient == nil,
+              !guestRecipientConfirmed,
+              recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              isBlank(gratitude.recipientName),
+              isBlank(gratitude.recipientEmail),
+              gratitude.recipientId == nil
+        else { return }
+
+        let message = gratitude.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+
+        isGuessingRecipientName = true
+        defer { isGuessingRecipientName = false }
+
+        guard let guess = await AppreciationAI.guessThankedPersonName(from: message) else { return }
+        // User may have started typing while AI ran — don’t overwrite.
+        guard linkedRecipient == nil,
+              !guestRecipientConfirmed,
+              recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+
+        recipient = guess
+        // Leave unconfirmed so they can edit; focus so it’s obvious.
+        recipientFocused = true
     }
 
     private func finishAndDismiss() {
