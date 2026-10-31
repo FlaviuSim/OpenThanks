@@ -8,6 +8,11 @@ struct OpenThanksApp: App {
     @State private var auth = AuthService()
     @State private var deepLinks = DeepLinkRouter()
     @State private var userBlocks = UserBlockService()
+    @State private var didApplyUITestAuth = false
+
+    init() {
+        UITestBootstrap.applyLaunchDefaults()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -16,6 +21,7 @@ struct OpenThanksApp: App {
                     appDelegate.auth = auth
                     appDelegate.deepLinks = deepLinks
                     WatchConnectivityService.shared.activate(auth: auth)
+                    applyUITestAuthIfNeeded()
                     Task { @MainActor in
                         await StreakLiveActivityController.authDidBecomeReady(userId: auth.userId)
                         await userBlocks.refresh(for: auth.userId)
@@ -43,6 +49,18 @@ struct OpenThanksApp: App {
                     guard let url = activity.webpageURL else { return }
                     handleIncomingURL(url)
                 }
+        }
+    }
+
+    private func applyUITestAuthIfNeeded() {
+        guard UITestBootstrap.isUITesting, !didApplyUITestAuth else { return }
+        didApplyUITestAuth = true
+        Task { @MainActor in
+            if UITestBootstrap.wantsDemoLogin {
+                _ = await auth.signInTestAccount()
+            } else if UITestBootstrap.wantsForcedSignedOut {
+                await auth.signOut()
+            }
         }
     }
 
@@ -108,6 +126,15 @@ struct OpenThanksApp: App {
     }
 }
 
+/// Stable id for RootView's home-gate `.task` — kept free of AppStorage so mid-flight
+/// mutations cannot cancel the task and leave the splash stuck.
+enum HomeGateTask {
+    static func taskID(userId: UUID?, hasResolvedProfile: Bool) -> String {
+        let user = userId?.uuidString ?? "out"
+        return "\(user)-\(hasResolvedProfile)"
+    }
+}
+
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     weak var auth: AuthService?
     weak var deepLinks: DeepLinkRouter?
@@ -116,6 +143,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        UITestBootstrap.applyLaunchDefaults()
         UNUserNotificationCenter.current().delegate = self
         WatchComposeNotification.registerCategories()
         CalendarGratitudeBackgroundRefresh.register()
@@ -438,8 +466,7 @@ struct RootView: View {
     /// mutates those, which would cancel this `.task` mid-flight and leave the
     /// heart splash stuck on `.checking` (common after logout → Sign in with Apple).
     private var homeGateTaskID: String {
-        let user = auth.userId?.uuidString ?? "out"
-        return "\(user)-\(auth.hasResolvedProfile)"
+        HomeGateTask.taskID(userId: auth.userId, hasResolvedProfile: auth.hasResolvedProfile)
     }
 
     private func resolveHomeGate() async {
@@ -501,14 +528,11 @@ struct RootView: View {
                 // Already connected — silently mark done; keep nudge on when possible.
                 hasCompletedCalendarPrompt = true
                 calendarNudgeEnabled = true
-                var emails = Set<String>()
-                if let email = auth.currentProfile?.email?.lowercased() {
-                    emails.insert(email)
-                }
+                let identity = await CalendarSelfIdentity.collect(from: auth)
                 await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
                     true,
                     authorId: auth.userId,
-                    selfEmails: emails
+                    selfIdentity: identity
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
             } else if PermissionPromptScheduler.shouldShowDeferredCalendarGate {
@@ -526,14 +550,11 @@ struct RootView: View {
         }
 
         if calendarNudgeEnabled, hasCompletedCalendarPrompt {
-            var emails = Set<String>()
-            if let email = auth.currentProfile?.email?.lowercased() {
-                emails.insert(email)
-            }
+            let identity = await CalendarSelfIdentity.collect(from: auth)
             await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
                 true,
                 authorId: auth.userId,
-                selfEmails: emails
+                selfIdentity: identity
             )
             CalendarGratitudeBackgroundRefresh.schedule()
         }

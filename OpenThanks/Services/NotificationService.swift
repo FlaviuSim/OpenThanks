@@ -246,8 +246,13 @@ enum NotificationService {
     static func refreshCalendarGratitudeNudgeIfEnabled(
         _ enabled: Bool,
         authorId: UUID? = nil,
+        selfIdentity: CalendarSelfIdentity = .empty,
         selfEmails: Set<String> = []
     ) async {
+        var identity = selfIdentity
+        for email in selfEmails {
+            identity.insert(email: email)
+        }
         guard enabled else {
             await disableCalendarGratitudeNudge()
             return
@@ -283,7 +288,7 @@ enum NotificationService {
                let nudge = await GratitudeOpportunityRanker.pickNudge(
                    for: now,
                    authorId: resolvedAuthorId,
-                   selfEmails: selfEmails,
+                   selfIdentity: identity,
                    now: now
                ) {
                 CalendarThankSuggestionStore.upsert(from: nudge, at: eightPM)
@@ -300,7 +305,7 @@ enum NotificationService {
         guard let nudge = await GratitudeOpportunityRanker.pickNudge(
             for: now,
             authorId: resolvedAuthorId,
-            selfEmails: selfEmails,
+            selfIdentity: identity,
             now: now
         ) else {
             return
@@ -409,10 +414,15 @@ enum NotificationService {
     /// - Parameter requestAppleIfNeeded: When true and no source is connected, prompts EventKit.
     static func enableCalendarGratitudeNudge(
         authorId: UUID?,
-        selfEmails: Set<String>,
+        selfIdentity: CalendarSelfIdentity = .empty,
+        selfEmails: Set<String> = [],
         requestAppleIfNeeded: Bool = true,
         analyticsSource: String = "settings"
     ) async -> ReminderEnableFailure? {
+        var identity = selfIdentity
+        for email in selfEmails {
+            identity.insert(email: email)
+        }
         guard await requestAuthorizationAndRegisterForPushes(analyticsSource: analyticsSource) else {
             return .notificationsDenied
         }
@@ -440,7 +450,7 @@ enum NotificationService {
         await refreshCalendarGratitudeNudgeIfEnabled(
             true,
             authorId: authorId,
-            selfEmails: selfEmails
+            selfIdentity: identity
         )
         return nil
     }
@@ -532,18 +542,37 @@ enum NotificationService {
         #else
         let environment = "production"
         #endif
-        let row = DevicePushToken(
-            userId: userId,
-            token: token,
-            platform: "ios",
-            environment: environment
-        )
+        // Prefer RPC so a token previously owned by another account on this
+        // device can be reassigned (plain upsert fails UPDATE RLS USING).
+        struct RPCParams: Encodable {
+            let p_token: String
+            let p_platform: String
+            let p_environment: String
+        }
         do {
-            try await supabase.from("device_push_tokens")
-                .upsert(row, onConflict: "token", returning: .minimal)
-                .execute()
+            try await supabase.rpc(
+                "upsert_my_device_push_token",
+                params: RPCParams(
+                    p_token: token,
+                    p_platform: "ios",
+                    p_environment: environment
+                )
+            ).execute()
         } catch {
-            print("Couldn't save push token: \(error.localizedDescription)")
+            // Fallback for projects that haven't applied the RPC migration yet.
+            let row = DevicePushToken(
+                userId: userId,
+                token: token,
+                platform: "ios",
+                environment: environment
+            )
+            do {
+                try await supabase.from("device_push_tokens")
+                    .upsert(row, onConflict: "token", returning: .minimal)
+                    .execute()
+            } catch {
+                print("Couldn't save push token: \(error.localizedDescription)")
+            }
         }
     }
 }

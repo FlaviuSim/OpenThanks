@@ -969,11 +969,13 @@ struct FeedView: View {
             async let feedTask = target == .personal
                 ? GratitudeService.personalFeed(userId: userId)
                 : GratitudeService.worldFeed()
+            // Overlap pending with the feed round-trip so Home isn't pay-two-trips slow.
+            async let pendingBundleTask = loadPendingAcceptBundle(userId: userId)
 
             // World refresh still reloads pending-to-accept so receive isn’t Personal-only.
             let pageResult = try await feedTask
             let result = userBlocks.filterGratitudes(pageResult.items)
-            let pendingBundle = await loadPendingAcceptBundle(userId: userId)
+            let pendingBundle = await pendingBundleTask
             let pending = pendingBundle.pending
             let pendingSent = pendingBundle.pendingSent
 
