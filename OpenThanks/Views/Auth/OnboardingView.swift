@@ -77,10 +77,6 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .softNoteReveal(delay: 0.06)
 
-            ReceiveMomentPreview()
-                .softNoteReveal(delay: 0.1)
-                .padding(.vertical, 4)
-
             VStack(alignment: .leading, spacing: 18) {
                 ForEach(Array(points.enumerated()), id: \.element.id) { pointIndex, point in
                     HStack(alignment: .top, spacing: 14) {
@@ -99,9 +95,13 @@ struct OnboardingView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .softNoteReveal(delay: 0.14 + Double(pointIndex) * 0.05)
+                    .softNoteReveal(delay: 0.1 + Double(pointIndex) * 0.05)
                 }
             }
+
+            ReceiveMomentPreview()
+                .softNoteReveal(delay: 0.22)
+                .padding(.vertical, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)

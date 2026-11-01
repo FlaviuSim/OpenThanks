@@ -154,14 +154,11 @@ struct MainTabView: View {
                     await NotificationService.refreshFridayReminderIfEnabled(true)
                 }
                 if calendarNudgeEnabled {
-                    var emails = Set<String>()
-                    if let email = auth.currentProfile?.email?.lowercased() {
-                        emails.insert(email)
-                    }
+                    let identity = await CalendarSelfIdentity.collect(from: auth)
                     await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
                         true,
                         authorId: auth.userId,
-                        selfEmails: emails
+                        selfIdentity: identity
                     )
                     CalendarGratitudeBackgroundRefresh.schedule()
                 }
@@ -645,6 +642,7 @@ struct MainTabView: View {
                     .shadow(color: Theme.coral.opacity(0.5), radius: 12, y: 4)
             }
             .accessibilityLabel("Send an appreciation")
+            .accessibilityIdentifier("tab.compose")
             .offset(y: -12)
             .frame(width: 72)
 
@@ -655,6 +653,8 @@ struct MainTabView: View {
             tabItem(icon: "person.fill", label: "Profile", value: .profile)
                 .frame(maxWidth: .infinity)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("tab.bar")
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 4)
@@ -735,6 +735,15 @@ struct MainTabView: View {
             }
             .foregroundStyle(tab == value ? Theme.coral : Theme.textTertiary)
             .frame(maxWidth: .infinity)
+        }
+        .accessibilityIdentifier(tabAccessibilityID(value))
+    }
+
+    private func tabAccessibilityID(_ value: Tab) -> String {
+        switch value {
+        case .feed: return "tab.home"
+        case .notifications: return "tab.notifications"
+        case .profile: return "tab.profile"
         }
     }
 

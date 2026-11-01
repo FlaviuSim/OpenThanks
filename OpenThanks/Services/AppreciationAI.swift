@@ -100,6 +100,66 @@ enum AppreciationAI {
         throw AIError.unavailable
     }
 
+    /// Warm calendar-nudge draft written as the sender (first person only).
+    static func rewriteCalendarNudge(
+        _ text: String,
+        recipientName: String,
+        forbiddenAuthorNames: [String]
+    ) async throws -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw AIError.emptyMessage }
+
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            guard SystemLanguageModel.default.isAvailable else {
+                throw AIError.unavailable
+            }
+
+            let recipient = recipientName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let forbidden = forbiddenAuthorNames
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            let forbiddenLine = forbidden.isEmpty
+                ? "(none provided)"
+                : forbidden.joined(separator: ", ")
+
+            let session = LanguageModelSession(instructions: """
+                You write short thank-you notes the sender will send on OpenThanks.
+                Always write in first person as the sender ("I", "me", "my").
+                Address the recipient as "you".
+                Never refer to the sender by name or in third person.
+                Never thank or describe the sender as if they were someone else.
+                Do not invent names. Keep roughly the same length and meaning.
+                Return only the thank-you message — no preamble, labels, or commentary.
+                """)
+            let prompt = """
+            Warm up this thank-you for \(recipient.isEmpty ? "the recipient" : recipient).
+            Forbidden author names (never write these): \(forbiddenLine)
+
+            Message:
+            \"\"\"
+            \(trimmed)
+            \"\"\"
+            """
+            let response = try await session.respond(
+                to: prompt,
+                options: GenerationOptions(temperature: 0.7)
+            )
+            let content = sanitize(String(response.content))
+            guard !content.isEmpty else {
+                throw AIError.failed("Apple Intelligence returned an empty suggestion. Try again.")
+            }
+            // If the model still slipped an author name in, fall back to the seed.
+            let lower = content.lowercased()
+            if forbidden.contains(where: { lower.contains($0.lowercased()) }) {
+                return trimmed
+            }
+            return content
+        }
+        #endif
+        throw AIError.unavailable
+    }
+
     /// Fix speech-to-text glitches using the full dictated message (on-device).
     static func cleanupDictation(_ text: String) async throws -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

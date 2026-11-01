@@ -205,9 +205,12 @@ enum GratitudeService {
             }
         }
 
+        // Cap history — unbounded edge loads make My Feed open slowly for heavy users.
         let mine: [Edge] = try await supabase.from("gratitudes")
             .select("author_id, recipient_id")
             .or("author_id.eq.\(userId.uuidString),recipient_id.eq.\(userId.uuidString)")
+            .order("created_at", ascending: false)
+            .limit(500)
             .execute().value
         for g in mine {
             if g.authorId == userId, let other = g.recipientId { relevant.insert(other) }
@@ -1109,8 +1112,10 @@ enum GratitudeService {
     }
 
     /// Claim email + in-app notice for a pending row that was saved before it had
-    /// a recipient (Watch drafts). Same delivery the create API does on first save.
-    static func deliverPendingAppreciation(_ gratitude: Gratitude, authorId: UUID) async {
+    /// a recipient (Watch drafts / two-step deliver). Same delivery create does on first save.
+    /// Inserts `gratitude_pending` (APNs via DB trigger) for members, then emails when possible.
+    /// Throws when the claim email request fails so the UI can surface a retry hint.
+    static func deliverPendingAppreciation(_ gratitude: Gratitude, authorId: UUID) async throws {
         if let recipientId = gratitude.recipientId, recipientId != authorId {
             await insertNotification(
                 userId: recipientId,
@@ -1120,8 +1125,17 @@ enum GratitudeService {
             )
         }
         let email = gratitude.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if gratitude.recipientId != nil || !email.isEmpty {
-            try? await sendEmailReminder(gratitudeId: gratitude.id)
+        guard gratitude.recipientId != nil || !email.isEmpty else { return }
+        do {
+            try await sendEmailReminder(gratitudeId: gratitude.id)
+        } catch {
+            Analytics.capture("appreciation_deliver_email_failed", [
+                "gratitude_id": gratitude.id.uuidString,
+                "has_recipient_id": gratitude.recipientId != nil,
+                "has_recipient_email": !email.isEmpty,
+                "message": String(error.localizedDescription.prefix(120)),
+            ])
+            throw error
         }
     }
 
