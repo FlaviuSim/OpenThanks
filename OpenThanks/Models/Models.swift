@@ -390,7 +390,7 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case "reply":
             return "💬 replied to your appreciation"
         case "competition_winner":
-            return "🏆 You finished the challenge — unlock $30 to give away to a classroom."
+            return NovemberCampaignCard.winnerVerb
         case "email_bounced":
             return "⚠️ Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
         case "calendar_gratitude_nudge":
@@ -408,12 +408,12 @@ struct AppNotification: Codable, Identifiable, Hashable {
         }
     }
 
-    /// Prefer remote winner copy when available (Notifications UI).
+    /// Prefer remote winner copy when it is not the retired $30 classroom challenge.
     var displayVerb: String {
         if type == "competition_winner" {
             let body = CompetitionConfigService.cached.winnerNotifyBody
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !body.isEmpty {
+            if !body.isEmpty, !NovemberCampaignCard.isRetiredChallengeCopy(body) {
                 return body.hasPrefix("🏆") ? body : "🏆 \(body)"
             }
         }
