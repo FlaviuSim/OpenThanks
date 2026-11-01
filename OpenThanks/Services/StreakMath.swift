@@ -33,7 +33,7 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
         requireOtherRecipient: true,
         termsUrl: "https://openthanks.com/competition",
         rulesSummary: [],
-        winnerNotifyBody: "You finished the challenge! We'll follow up with how to unlock your $30 classroom gift."
+        winnerNotifyBody: NovemberCampaignCard.winnerNotifyBody
     )
 
     var termsURL: URL? {

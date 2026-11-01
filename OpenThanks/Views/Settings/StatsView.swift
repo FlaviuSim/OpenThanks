@@ -381,7 +381,7 @@ struct StatsView: View {
             Text(
                 complete
                     ? "Every day in your streak has been accepted — beautiful."
-                    : "Your streak counts the days you send. Unlock the classroom gift when those appreciations are accepted."
+                    : "Your streak counts the days you send."
             )
             .font(Theme.body(13))
             .foregroundStyle(Theme.textSecondary)
@@ -442,22 +442,31 @@ struct StatsView: View {
 
     // MARK: - Competition
 
+    private var novemberDaysSent: Int {
+        NovemberCampaignCard.sendDayCount(dates: personalDayDates)
+    }
+
     private var competitionPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(competition.title)
+                    Text(NovemberCampaignCard.title)
                         .font(Theme.display(22, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text(competition.subtitle)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(NovemberCampaignCard.subtitle)
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
-                Text(competition.prizeLabel)
+                Text(NovemberCampaignCard.prizeLabel)
                     .font(Theme.display(28, weight: .semibold))
                     .foregroundStyle(Theme.coral)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: 160, alignment: .trailing)
             }
 
             if !competition.isActive() {
@@ -467,41 +476,37 @@ struct StatsView: View {
             }
 
             competitionMetricRow(
-                title: "Your streak",
-                value: "\(competitionSentStreak) of \(competition.targetDays)",
-                detail: "Days in a row you sent a thanks",
-                progress: Double(competitionSentStreak),
-                total: Double(max(competition.targetDays, 1)),
+                title: NovemberCampaignCard.progressLabel,
+                value: NovemberCampaignCard.progressValue(daysSent: novemberDaysSent),
+                detail: "",
+                progress: Double(novemberDaysSent),
+                total: Double(NovemberCampaignCard.targetDays),
                 tint: Theme.coral
             )
 
-            Text("Send one thanks a day for \(competition.targetDays) days in a row. Finishers unlock $30 to give away to a classroom.")
+            Text(NovemberCampaignCard.body)
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if !competition.rulesSummary.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(competition.rulesSummary.enumerated()), id: \.offset) { _, rule in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text("·")
-                                .foregroundStyle(Theme.coral)
-                            Text(rule)
-                                .font(Theme.body(12))
-                                .foregroundStyle(Theme.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(NovemberCampaignCard.rules, id: \.self) { rule in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("·")
+                            .foregroundStyle(Theme.coral)
+                        Text(rule)
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.top, 2)
             }
+            .padding(.top, 2)
 
             HStack(spacing: 12) {
-                if let url = competition.termsURL {
-                    Link("Full terms", destination: url)
-                        .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                }
+                Link("Full terms", destination: NovemberCampaignCard.termsURL)
+                    .font(Theme.body(13, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
                 Spacer()
                 Button {
                     ComposeLaunchBridge.shared.queue(analyticsSource: "stats_competition")
@@ -540,20 +545,24 @@ struct StatsView: View {
         tint: Color
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 Text(title)
                     .font(Theme.body(12, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
-                Spacer()
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
                 Text(value)
                     .font(Theme.body(13, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
+                    .layoutPriority(1)
             }
             ProgressView(value: progress, total: total)
                 .tint(tint)
-            Text(detail)
-                .font(Theme.body(11))
-                .foregroundStyle(Theme.textTertiary)
+            if !detail.isEmpty {
+                Text(detail)
+                    .font(Theme.body(11))
+                    .foregroundStyle(Theme.textTertiary)
+            }
         }
     }
 

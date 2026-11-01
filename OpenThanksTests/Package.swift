@@ -24,9 +24,13 @@ let package = Package(
             name: "PostAcceptPrompt",
             path: "Sources/PostAcceptPrompt"
         ),
+        .target(
+            name: "NovemberCampaign",
+            path: "Sources/NovemberCampaign"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "NovemberCampaign"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
@@ -35,6 +39,7 @@ let package = Package(
                 "AppStoreReviewPromptTests.swift",
                 "CampaignPushPermissionTests.swift",
                 "PostAcceptPromptTests.swift",
+                "NovemberCampaignCardTests.swift",
             ]
         ),
     ]
