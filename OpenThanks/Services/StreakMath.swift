@@ -18,6 +18,10 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
     var termsUrl: String
     var rulesSummary: [String]
     var winnerNotifyBody: String
+    /// Sentence under the progress bar. Omitted keys stay nil (synthesized `decodeIfPresent`).
+    var body: String? = nil
+    /// Metric title. Omitted keys stay nil; the stats panel falls back to "Your streak".
+    var progressLabel: String? = nil
 
     static let disabled = CompetitionConfig(
         enabled: false,
@@ -33,7 +37,7 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
         requireOtherRecipient: true,
         termsUrl: "https://openthanks.com/competition",
         rulesSummary: [],
-        winnerNotifyBody: NovemberCampaignCard.winnerNotifyBody
+        winnerNotifyBody: ""
     )
 
     var termsURL: URL? {
@@ -214,6 +218,8 @@ enum StreakMath {
     }
 
     /// Current competition streak (consecutive eligible days ending today/yesterday).
+    /// Posts outside `[startsAt, endsAt)` are dropped first, so a run that began
+    /// before the window cannot carry in.
     static func competitionCurrentStreak(
         posts: [SentActivity],
         config: CompetitionConfig,
@@ -226,6 +232,8 @@ enum StreakMath {
     }
 
     /// Consecutive days posted toward the challenge (send streak), ignoring acceptance.
+    /// Posts outside `[startsAt, endsAt)` are dropped first, so a run that began
+    /// before the window cannot carry in.
     static func competitionSentStreak(
         posts: [SentActivity],
         config: CompetitionConfig,
@@ -238,6 +246,7 @@ enum StreakMath {
     }
 
     /// Distinct eligible days toward the prize (capped display uses min with target).
+    /// Only sends inside `[startsAt, endsAt)` count when those bounds are set.
     static func competitionEligibleDayCount(
         posts: [SentActivity],
         config: CompetitionConfig,
@@ -248,6 +257,25 @@ enum StreakMath {
             from: competitionEligiblePosts(posts, config: config, now: now),
             calendar: calendar
         ).count
+    }
+
+    /// Progress for the stats competition panel and ring.
+    ///
+    /// When both `startsAt` and `endsAt` are set, this is the number of distinct
+    /// send days in the half-open window `[startsAt, endsAt)`. Days from a streak
+    /// that started earlier are not included. When either bound is nil, this is
+    /// the rolling consecutive send streak.
+    static func competitionProgressCount(
+        posts: [SentActivity],
+        config: CompetitionConfig,
+        calendar: Calendar = .current,
+        now: Date = .now
+    ) -> Int {
+        if let start = config.startsAt, let end = config.endsAt {
+            let dates = competitionSentPosts(posts, config: config, now: now).compactMap(\.createdAt)
+            return distinctSendDays(dates: dates, from: start, until: end, calendar: calendar).count
+        }
+        return competitionSentStreak(posts: posts, config: config, calendar: calendar, now: now)
     }
 
     /// Counts per day for heatmap intensity.
@@ -367,7 +395,6 @@ enum StreakMath {
     }
 
     /// Distinct calendar days with at least one send inside an inclusive day range.
-    /// Campaign progress uses this on the same dates the streak query already loads.
     static func distinctSendDays(
         dates: [Date],
         from start: Date,
@@ -382,6 +409,22 @@ enum StreakMath {
             if day >= first && day <= last {
                 days.insert(day)
             }
+        }
+        return days
+    }
+
+    /// Distinct calendar days with at least one send in the half-open interval
+    /// `[start, end)`. Matches `CompetitionConfig.startsAt` / `endsAt`.
+    static func distinctSendDays(
+        dates: [Date],
+        from start: Date,
+        until end: Date,
+        calendar: Calendar
+    ) -> Set<Date> {
+        var days = Set<Date>()
+        for date in dates {
+            guard date >= start, date < end else { continue }
+            days.insert(calendar.startOfDay(for: date))
         }
         return days
     }
