@@ -55,6 +55,7 @@
 		4021724FC307B51712A5E085 /* AppIcon-Dawn@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = F2F9C5D2E49314B2E04B5E8A /* AppIcon-Dawn@2x~ipad.png */; };
 		4075ECEDD198C28C6358651C /* DeliverRecipientGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC48FFD39581C9A33E57F11E /* DeliverRecipientGuidance.swift */; };
 		42427BCAE225903570F8278A /* LockScreenWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0AC5D23D2A9C641B48C3F9C /* LockScreenWidgets.swift */; };
+		463461052773116DAF58A9B0 /* PendingShareInviteCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83397D22249C676D58A002BF /* PendingShareInviteCopy.swift */; };
 		472E06539772B7665712C59E /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
 		474DDEA20ECB5BCF2BC75529 /* StreakLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */; };
 		4798A548394575A109C3A749 /* StreakLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C1A67A77A55D99DD8040136 /* StreakLiveActivityAttributes.swift */; };
@@ -337,6 +338,7 @@
 		7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentReportService.swift; sourceTree = "<group>"; };
 		7D72AA8FF83837C77EAD56B9 /* OpenThanksWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanksWatch.entitlements; sourceTree = "<group>"; };
 		802960DCA74AB23ED5D9DF85 /* AppIcon-Dawn.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn.png"; sourceTree = "<group>"; };
+		83397D22249C676D58A002BF /* PendingShareInviteCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareInviteCopy.swift; sourceTree = "<group>"; };
 		85B4CF870C280FA94F05D8B8 /* OpenThanks.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenThanks.entitlements; sourceTree = "<group>"; };
 		87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksIntents.swift; sourceTree = "<group>"; };
 		88382B39EC95AA443DDE696C /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
@@ -514,6 +516,7 @@
 				475B3E155C6168A97BD17C48 /* NotificationService.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
 				BEF727241F360830DC973475 /* PasskeySignIn.swift */,
+				83397D22249C676D58A002BF /* PendingShareInviteCopy.swift */,
 				E6F2FFF1EE721FF698FF5BE9 /* PermissionPromptScheduler.swift */,
 				6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */,
 				45105695C56A05D8C6192577 /* StreakMath.swift */,
@@ -1183,6 +1186,7 @@
 				5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */,
 				22E46CBDD7477F6890F10C44 /* PasskeySignIn.swift in Sources */,
 				C3D72B15B5AD7623BA50758F /* PayItForwardNudge.swift in Sources */,
+				463461052773116DAF58A9B0 /* PendingShareInviteCopy.swift in Sources */,
 				5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */,
 				F0BBB7DDA001702A0076A2F0 /* PermissionPromptScheduler.swift in Sources */,
 				6C538E48BED0F8D5D2DF4472 /* PostMediaViews.swift in Sources */,

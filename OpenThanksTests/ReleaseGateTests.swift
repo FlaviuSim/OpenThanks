@@ -127,6 +127,36 @@ final class ShareScreenIdentityTests: XCTestCase {
     }
 }
 
+final class PendingShareInviteCopyTests: XCTestCase {
+    func testSpanishInviteMatchesMessageLanguage() {
+        let language = PendingShareInviteCopy.Language.detect(
+            from: "Gracias Ana por ayudarme tanto esta semana con el proyecto."
+        )
+        XCTAssertEqual(language, .spanish)
+        let caption = PendingShareInviteCopy.inviteCaption(
+            firstName: "Ana",
+            preview: "Gracias Ana por ayudarme",
+            isPrivate: false,
+            language: .spanish
+        )
+        XCTAssertTrue(caption.contains("¡Hola Ana!"))
+        XCTAssertTrue(caption.contains("agradecimiento"))
+        XCTAssertTrue(caption.localizedCaseInsensitiveContains("aquí"))
+    }
+
+    func testEnglishFallbackForShortOrAmbiguousText() {
+        XCTAssertEqual(
+            PendingShareInviteCopy.Language.detect(from: "Thanks!"),
+            .english
+        )
+    }
+
+    func testRomanianSubject() {
+        let subject = PendingShareInviteCopy.emailSubject(isPrivate: true, language: .romanian)
+        XCTAssertTrue(subject.localizedCaseInsensitiveContains("privată"))
+    }
+}
+
 final class ThankedPersonNameGuessTests: XCTestCase {
     func testHeuristicFindsNameInOpening() {
         XCTAssertEqual(
