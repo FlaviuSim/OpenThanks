@@ -390,7 +390,7 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case "reply":
             return "💬 replied to your appreciation"
         case "competition_winner":
-            return NovemberCampaignCard.winnerVerb
+            return ""
         case "email_bounced":
             return "⚠️ Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
         case "calendar_gratitude_nudge":
@@ -408,16 +408,23 @@ struct AppNotification: Codable, Identifiable, Hashable {
         }
     }
 
-    /// Prefer remote winner copy when it is not the retired $30 classroom challenge.
+    /// Winner copy comes only from remote `winnerNotifyBody`. Empty remote copy
+    /// stays blank. Stale "$30" / classroom challenge text is still suppressed.
     var displayVerb: String {
         if type == "competition_winner" {
             let body = CompetitionConfigService.cached.winnerNotifyBody
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !body.isEmpty, !NovemberCampaignCard.isRetiredChallengeCopy(body) {
+            if !body.isEmpty, !Self.isRetiredChallengeCopy(body) {
                 return body.hasPrefix("🏆") ? body : "🏆 \(body)"
             }
+            return ""
         }
         return verb
+    }
+
+    private static func isRetiredChallengeCopy(_ text: String) -> Bool {
+        let folded = text.lowercased()
+        return folded.contains("$30") || folded.contains("classroom")
     }
 }
 

@@ -1,1 +1,0 @@
-../../../OpenThanks/Services/NovemberCampaignCard.swift

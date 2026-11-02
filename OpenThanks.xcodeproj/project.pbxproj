@@ -144,7 +144,6 @@
 		D53447D17D5B6C753839B3D2 /* AppIcon-Ember@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = ACE734EF8985A181EF2C08D5 /* AppIcon-Ember@3x.png */; };
 		D7AF72D5C38D29EAF4E070F7 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		D82CB0FCB88A88CA6DDEFAA6 /* CampaignService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCC3FCB36E9DCB6DB82AFC8 /* CampaignService.swift */; };
-		A11CE0A7C0DE4B01A1C0FF11 /* NovemberCampaignCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B22CE0A7C0DE4B01A1C0FF22 /* NovemberCampaignCard.swift */; };
 		A1C0FFEE529A4B01A1C0FF01 /* CampaignPushPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C0FFEE529A4B01A1C0FF02 /* CampaignPushPermission.swift */; };
 		DB55A08FDC17F22B1E931B1D /* WatchRelay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F96BC2DE837FAC91410810 /* WatchRelay.swift */; };
 		DF5DD2D1A0CF2C9B30E53033 /* DeepLinkHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */; };
@@ -350,7 +349,6 @@
 		A7100E64F1ACD16964F60A63 /* NotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsView.swift; sourceTree = "<group>"; };
 		AA461C642E73C5913FEB0343 /* GratitudePromptWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudePromptWidget.swift; sourceTree = "<group>"; };
 		ABCC3FCB36E9DCB6DB82AFC8 /* CampaignService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignService.swift; sourceTree = "<group>"; };
-		B22CE0A7C0DE4B01A1C0FF22 /* NovemberCampaignCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NovemberCampaignCard.swift; sourceTree = "<group>"; };
 		B1C0FFEE529A4B01A1C0FF02 /* CampaignPushPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignPushPermission.swift; sourceTree = "<group>"; };
 		AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeShareHandoff.swift; sourceTree = "<group>"; };
 		ACE734EF8985A181EF2C08D5 /* AppIcon-Ember@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@3x.png"; sourceTree = "<group>"; };
@@ -464,7 +462,6 @@
 				21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */,
 				2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */,
 				ABCC3FCB36E9DCB6DB82AFC8 /* CampaignService.swift */,
-				B22CE0A7C0DE4B01A1C0FF22 /* NovemberCampaignCard.swift */,
 				B1C0FFEE529A4B01A1C0FF02 /* CampaignPushPermission.swift */,
 				306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */,
 				FA25F3F122BE0ABDACB69D0B /* ComposeDraftStore.swift */,
@@ -1062,7 +1059,6 @@
 				0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */,
 				35C9A108E6BBFF63834E092D /* CampaignPromptCard.swift in Sources */,
 				D82CB0FCB88A88CA6DDEFAA6 /* CampaignService.swift in Sources */,
-				A11CE0A7C0DE4B01A1C0FF11 /* NovemberCampaignCard.swift in Sources */,
 				A1C0FFEE529A4B01A1C0FF01 /* CampaignPushPermission.swift in Sources */,
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
 				4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */,
