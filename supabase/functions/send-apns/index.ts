@@ -21,39 +21,22 @@
  *     "data": { "type": "gratitude_pending", "gratitude_id": "..." },
  *     "badge": 1                         // optional
  *   }
+ *
+ * Web Push for Android and the website is send-web-push, not this function.
+ * Alert copy for both lives in ../_shared/push.ts.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { SignJWT, importPKCS8 } from "https://esm.sh/jose@5.9.6";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-type PushRequest = {
-  user_id?: string;
-  token?: string;
-  environment?: "sandbox" | "production";
-  title?: string;
-  body?: string;
-  data?: Record<string, string>;
-  badge?: number;
-  /** When set, derive title/body from notification type (optional helper). */
-  type?: string;
-  notification_id?: string;
-  gratitude_id?: string;
-};
-
-/** Types that get a phone push. Local-only / noisy types are skipped. */
-const PUSH_TYPES = new Set([
-  "gratitude_pending",
-  "gratitude_received",
-  "heart_received",
-  "email_bounced",
-  "competition_winner",
-]);
+import {
+  assertServiceRole,
+  composeAlert,
+  corsHeaders,
+  json,
+  normalizePushRequest,
+  PUSH_TYPES,
+  type PushRequest,
+} from "../_shared/push.ts";
 
 type TokenRow = {
   token: string;
@@ -158,71 +141,6 @@ Deno.serve(async (req) => {
   }
 });
 
-/**
- * Accepts either a direct push body or a Supabase Database Webhook envelope
- * (`{ type: "INSERT", table: "notifications", record: { ... } }`).
- */
-function normalizePushRequest(raw: unknown): PushRequest | null {
-  if (!raw || typeof raw !== "object") return null;
-  const body = raw as Record<string, unknown>;
-
-  // Database Webhook / trigger envelope.
-  if (
-    typeof body.type === "string" &&
-    (body.type === "INSERT" || body.type === "UPDATE" || body.type === "DELETE") &&
-    body.record &&
-    typeof body.record === "object"
-  ) {
-    if (body.type !== "INSERT") return null;
-    const record = body.record as Record<string, unknown>;
-    const userId = asString(record.user_id);
-    const notifType = asString(record.type);
-    if (!userId || !notifType) return null;
-    return {
-      user_id: userId,
-      type: notifType,
-      notification_id: asString(record.id),
-      gratitude_id: asString(record.gratitude_id),
-    };
-  }
-
-  return body as PushRequest;
-}
-
-function asString(value: unknown): string | undefined {
-  if (typeof value === "string" && value.length > 0) return value;
-  if (typeof value === "number") return String(value);
-  return undefined;
-}
-
-function assertServiceRole(req: Request) {
-  const auth = req.headers.get("Authorization") ?? "";
-  const bearer = auth.replace(/^Bearer\s+/i, "").trim();
-  if (!bearer) {
-    throw new Error("Unauthorized — use the service role key to invoke send-apns");
-  }
-
-  // Exact match against the function's configured service role key (when set).
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (serviceKey && bearer === serviceKey) return;
-
-  // Also accept any JWT whose role claim is service_role. Supabase may inject a
-  // different copy of the key into Deno.env than the caller holds (rotate/sync),
-  // and Vercel/webhooks call with their own SUPABASE_SERVICE_ROLE_KEY.
-  try {
-    const payloadPart = bearer.split(".")[1];
-    if (payloadPart) {
-      const json = atob(payloadPart.replace(/-/g, "+").replace(/_/g, "/"));
-      const payload = JSON.parse(json) as { role?: string };
-      if (payload.role === "service_role") return;
-    }
-  } catch {
-    // fall through
-  }
-
-  throw new Error("Unauthorized — use the service role key to invoke send-apns");
-}
-
 function adminClient() {
   const url = Deno.env.get("SUPABASE_URL") ?? "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -262,73 +180,6 @@ async function resolveTargets(
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as TokenRow[];
-}
-
-function composeAlert(payload: PushRequest): {
-  title?: string;
-  body?: string;
-  data?: Record<string, string>;
-} {
-  const data: Record<string, string> = { ...(payload.data ?? {}) };
-  if (payload.type) data.type = payload.type;
-  if (payload.notification_id) data.notification_id = payload.notification_id;
-  if (payload.gratitude_id) data.gratitude_id = payload.gratitude_id;
-
-  if (payload.title || payload.body) {
-    return { title: payload.title, body: payload.body, data };
-  }
-
-  // Sensible defaults when only `type` is provided (e.g. from a DB webhook).
-  switch (payload.type) {
-    case "gratitude_pending":
-      return {
-        title: "🙏 Someone appreciated you",
-        body: "Open OpenThanks to accept it.",
-        data,
-      };
-    case "gratitude_received":
-      return {
-        title: "✅ Your appreciation was accepted",
-        body: "They saw your note — take a look.",
-        data,
-      };
-    case "heart_received":
-      return {
-        title: "❤️ Someone hearted your appreciation",
-        body: "A little more kindness came your way.",
-        data,
-      };
-    case "competition_winner":
-      return {
-        title: "🏆 You finished 30 Days of Thanks",
-        body: "Unlock $30 to give away to a classroom — open notifications for next steps.",
-        data,
-      };
-    case "email_bounced":
-      return {
-        title: "⚠️ Email may be invalid",
-        body: "Your appreciation notification couldn't be delivered. Check the address or share the claim link.",
-        data,
-      };
-    case "pay_it_forward_reminder":
-      return {
-        title: "🫶 Ready to pay it forward?",
-        body: "Someone appreciated you — thank someone else to keep it going.",
-        data,
-      };
-    case "gratitude_friday":
-      return {
-        title: "✨ Gratitude Friday",
-        body: "Share an appreciation for someone who made your week better.",
-        data,
-      };
-    default:
-      return {
-        title: "OpenThanks",
-        body: "You have a new update.",
-        data,
-      };
-  }
 }
 
 let cachedJwt: { token: string; exp: number } | null = null;
@@ -372,11 +223,4 @@ function normalizeP8(raw: string): string {
     .replace(/\\n/g, "")
     .replace(/\s+/g, "");
   return `-----BEGIN PRIVATE KEY-----\n${base64}\n-----END PRIVATE KEY-----`;
-}
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 }

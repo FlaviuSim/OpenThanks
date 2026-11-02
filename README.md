@@ -68,15 +68,18 @@ The design can use Fraunces (display) and DM Sans (body), but the font files are
 - Universal Links require Associated Domains enabled on App ID `com.openthanks.gratitude` in the Apple Developer portal (entitlements already include `applinks:openthanks.com` + www). After a TestFlight/App Store install, long-press a share link in Notes — you should see “Open in OpenThanks”.
 - Realtime feed updates: pull-to-refresh only in v1.
 
-## Push notifications (APNs via Supabase)
+## Push notifications
 
-**App (ready):** requests permission, registers the device token, upserts into `device_push_tokens` with `environment` = `sandbox` (DEBUG) or `production` (Release / TestFlight).
+**iOS (ready):** requests permission, registers the device token, upserts into `device_push_tokens` with `platform` = `ios` and `environment` = `sandbox` (DEBUG) or `production` (Release / TestFlight).
 
-**Server:** Edge Function `supabase/functions/send-apns` talks to APNs with a `.p8` key. Notification inserts fan out via migration `20261012_dispatch_notification_push.sql` (Vault secret `send_apns_service_role`) or a Dashboard Database Webhook — see [`supabase/functions/send-apns/README.md`](supabase/functions/send-apns/README.md).
+**Android and the website:** Edge Function `supabase/functions/send-web-push` sends Web Push to rows with `platform` = `web` (endpoint in `token`, keys in `p256dh` and `auth_key`). The Android app is a Trusted Web Activity, so Chrome shows those notifications. No FCM project. The site service worker still needs the handlers in [`supabase/functions/send-web-push/README.md`](supabase/functions/send-web-push/README.md).
 
-1. Apply migrations `20260731_device_push_tokens_apns.sql`, `20261012_notify_recipient_on_gratitude_insert.sql`, and `20261012_dispatch_notification_push.sql`.
+**Server:** `supabase/functions/send-apns` talks to APNs with a `.p8` key. Migration `20261029_web_push_subscriptions.sql` fans the same allowlist out to both functions (Vault secret `send_apns_service_role`). Alert copy is shared in `supabase/functions/_shared/push.ts`.
+
+1. Apply migrations `20260731_device_push_tokens_apns.sql`, `20261012_notify_recipient_on_gratitude_insert.sql`, `20261012_dispatch_notification_push.sql`, and `20261029_web_push_subscriptions.sql`.
 2. Create an APNs Auth Key in Apple Developer; enable Push on `com.openthanks.gratitude`.
-3. Set Edge Function secrets + Vault `send_apns_service_role`, then deploy `send-apns`.
+3. Generate VAPID keys with `scripts/generate_vapid_keys.ts` and set `WEB_PUSH_VAPID_KEYS` (see the web push README).
+4. Set Edge Function secrets + Vault `send_apns_service_role`, then deploy `send-apns` and `send-web-push`.
 
 ## Structure
 
