@@ -468,26 +468,8 @@ struct ComposeView: View {
         }
         .onDisappear {
             Task { await dictation.finishListening() }
-            let completedSend = didCompleteSend || sent
             trackAbandonIfNeeded()
-            guard ownsUnsentDraft, !completedSend else { return }
-            let keptRecipient = recipient
-            let keptMessage = message
-            Task {
-                let effect = await ComposeDraftStore.leave(
-                    recipient: keptRecipient,
-                    message: keptMessage
-                )
-                if effect.saved {
-                    Analytics.captureDraftEvent("draft_saved", hasRecipient: effect.hasRecipient)
-                }
-                if effect.scheduled {
-                    Analytics.captureDraftEvent(
-                        "draft_reminder_scheduled",
-                        hasRecipient: effect.hasRecipient
-                    )
-                }
-            }
+            persistUnsentDraftIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -495,6 +477,8 @@ struct ComposeView: View {
                 dictation.handleAppDidBecomeActive()
             case .background:
                 dictation.handleAppWillResignActive()
+                // Survive force-quit after backgrounding with the sheet still open.
+                persistUnsentDraftIfNeeded()
             default:
                 break
             }
@@ -2001,20 +1985,24 @@ struct ComposeView: View {
         }
         if ownsUnsentDraft, let draft = ComposeDraftStore.restore() {
             // Two-step write hides To — only restore the message; recipient is chosen on deliver.
-            if !usesTwoStepFlow {
+            // Profile thank already has a linked chip — keep it; only restore the note.
+            if !usesTwoStepFlow, linkedRecipient == nil, !guestRecipientConfirmed {
                 recipient = draft.recipient
             }
-            message = String(draft.message.prefix(maxLength))
+            if !draft.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                message = String(draft.message.prefix(maxLength))
+            }
             Analytics.captureDraftEvent(
                 "draft_restored",
                 hasRecipient: !usesTwoStepFlow
-                    && !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && (linkedRecipient != nil
+                        || !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             )
         }
         autofocusMessageIfNeeded()
     }
 
-    /// Heart-tab and other blank sends. November, Watch, and explicit prefills stay put.
+    /// Heart-tab blank send + profile “Thank …” (recipient prefilled). Campaign / Watch / edit stay put.
     private var ownsUnsentDraft: Bool {
         ComposeDraftStore.ownsDraft(ComposeDraftStore.FormContext(
             isEditing: editingTarget != nil,
@@ -2026,6 +2014,38 @@ struct ComposeView: View {
             hasInspiredBy: inspiredByGratitudeId != nil,
             hasCampaign: !isBlank(campaignId) || !isBlank(campaignHint)
         ))
+    }
+
+    /// Name for draft reminder / restore — prefer the linked profile chip over an empty field.
+    private var draftRecipientLabel: String {
+        if let linked = linkedRecipient {
+            let full = linked.fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !full.isEmpty { return full }
+            return linked.displayName
+        }
+        return recipient
+    }
+
+    private func persistUnsentDraftIfNeeded() {
+        let completedSend = didCompleteSend || sent
+        guard ownsUnsentDraft, !completedSend else { return }
+        let keptRecipient = draftRecipientLabel
+        let keptMessage = message
+        Task {
+            let effect = await ComposeDraftStore.leave(
+                recipient: keptRecipient,
+                message: keptMessage
+            )
+            if effect.saved {
+                Analytics.captureDraftEvent("draft_saved", hasRecipient: effect.hasRecipient)
+            }
+            if effect.scheduled {
+                Analytics.captureDraftEvent(
+                    "draft_reminder_scheduled",
+                    hasRecipient: effect.hasRecipient
+                )
+            }
+        }
     }
 
     /// Auto-opening compose after login shouldn't steal the first Cancel tap
