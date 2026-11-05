@@ -22,6 +22,8 @@ struct CompetitionConfig: Codable, Equatable, Sendable {
     var body: String? = nil
     /// Metric title. Omitted keys stay nil; the stats panel falls back to "Your streak".
     var progressLabel: String? = nil
+    /// Home campaign button label. Omitted keys stay nil — the card does not invent one.
+    var cta: String? = nil
 
     static let disabled = CompetitionConfig(
         enabled: false,

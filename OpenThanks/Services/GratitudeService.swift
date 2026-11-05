@@ -509,6 +509,7 @@ enum GratitudeService {
 
             if accept {
                 await MainActor.run {
+                    PermissionPromptScheduler.shared.noteAcceptedThisSession()
                     NotificationCenter.default.post(name: .gratitudeAccepted, object: updated)
                 }
                 // Don't hold the accept UI on notification insert.
@@ -528,6 +529,7 @@ enum GratitudeService {
             let current = try await gratitude(id: gratitudeId)
             if accept, current.status == .accepted {
                 await MainActor.run {
+                    PermissionPromptScheduler.shared.noteAcceptedThisSession()
                     NotificationCenter.default.post(name: .gratitudeAccepted, object: current)
                 }
                 return current

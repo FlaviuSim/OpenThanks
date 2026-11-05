@@ -28,6 +28,8 @@ struct FeedView: View {
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
+    /// `app_config.competition.cta`. Nil until the remote row is read.
+    @State private var campaignConfigCTA: String?
     @State private var showCalendarConnect = false
     @State private var scope: Scope = .personal
     /// Per-scope lists so My ↔ World can page without flashing the wrong feed.
@@ -411,15 +413,19 @@ struct FeedView: View {
                     .padding(.bottom, 4)
                     .readableWidth()
             }
-            if let prompt = campaign.todayPrompt {
-                CampaignPromptCard(
-                    day: prompt.day,
-                    theme: prompt.theme,
-                    prompt: prompt.prompt,
-                    daysSent: campaign.daysSent,
-                    totalDays: campaign.progressTotal,
-                    onThank: { thankFromCampaign(prompt) }
-                )
+            if let prompt = campaign.todayPrompt,
+               let content = CampaignPromptCardModel.content(
+                   feedTitle: campaign.feed?.title,
+                   day: prompt.day,
+                   theme: prompt.theme,
+                   prompt: prompt.prompt,
+                   promptCTA: prompt.cta,
+                   feedCTA: campaign.feed?.cta,
+                   configCTA: campaignConfigCTA,
+                   daysSent: campaign.daysSent,
+                   totalDays: campaign.progressTotal
+               ) {
+                CampaignPromptCard(content: content, onSend: { thankFromCampaign(prompt) })
                 .padding(.horizontal, 16)
                 .padding(.top, (shouldShowCalendarBanner || pendingSentCount > 0) ? 4 : 10)
                 .padding(.bottom, 4)
@@ -475,7 +481,10 @@ struct FeedView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
         .onAppear { calendarReminder.refresh() }
-        .task { await campaign.refresh() }
+        .task {
+            await campaign.refresh()
+            campaignConfigCTA = await CompetitionConfigService.refresh().cta
+        }
         .onChange(of: isSelected) { _, selected in
             if selected { calendarReminder.refresh() }
         }
@@ -491,7 +500,8 @@ struct FeedView: View {
                         calendarReminder.refresh()
                     },
                     analyticsSource: "home_banner",
-                    marksLaunchGateCompleteOnSkip: true
+                    marksLaunchGateCompleteOnSkip: true,
+                    countsTowardAutomaticCap: false
                 )
             }
             .syncAppAppearance()
