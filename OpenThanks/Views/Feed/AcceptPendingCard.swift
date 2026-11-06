@@ -140,7 +140,7 @@ struct AcceptPendingCard: View {
         showPrivateConfirm = false
 
         // Remove the card immediately so a slow network (or a feed refresh race)
-        // can't leave the UI stuck on "Accepting…" / bring the card back mid-flight.
+        // can't leave the UI stuck on "Accepting…" / "Declining…" mid-flight.
         if accept {
             var optimistic = gratitude
             optimistic.status = .accepted
@@ -162,6 +162,7 @@ struct AcceptPendingCard: View {
                 gratitudeId: gratitude.id,
                 senderId: gratitude.authorId
             )
+            onDeclined(gratitude.id)
         }
 
         do {
@@ -183,6 +184,7 @@ struct AcceptPendingCard: View {
             if accept {
                 onAccepted(updated)
             }
+            // Decline already removed the card optimistically; nothing else to apply.
             acting = nil
         } catch is CancellationError {
             // Unstructured Task can cancel after the card is removed — don't resurrect it.

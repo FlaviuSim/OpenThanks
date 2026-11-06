@@ -43,13 +43,16 @@ enum ComposeDraftStore {
     static var defaults: UserDefaults = .standard
     static var scheduler: Scheduling = SystemScheduler()
 
-    /// Blank send form (heart tab, draft reminder). Campaign, Watch, and
-    /// explicit prefills keep their own launch and do not touch this draft.
+    /// Heart-tab and profile “Thank …” forms own the local draft.
+    /// Campaign, Watch, edit, pay-it-forward, and media/message prefills do not.
     static func ownsDraft(_ form: FormContext) -> Bool {
         if form.isEditing || form.analyticsSource == "watch" { return false }
         if form.analyticsSource.hasPrefix("campaign") { return false }
-        if form.hasInitialRecipient || form.hasInitialProfile || form.hasInitialMessage { return false }
-        if form.hasInitialImage || form.hasInspiredBy || form.hasCampaign { return false }
+        // Profile / name-prefilled thank-you still saves the message if they leave.
+        // Campaign prompts, inspired-by, and attached media keep a dedicated launch.
+        if form.hasInitialMessage || form.hasInitialImage || form.hasInspiredBy || form.hasCampaign {
+            return false
+        }
         return true
     }
 

@@ -41,6 +41,7 @@ enum GratitudeOpportunityRanker {
     static func pickNudge(
         for day: Date = Date(),
         authorId: UUID?,
+        selfIdentity: CalendarSelfIdentity = .empty,
         selfEmails: Set<String> = [],
         now: Date = Date()
     ) async -> GratitudeNudge? {
@@ -61,18 +62,21 @@ enum GratitudeOpportunityRanker {
                 && meeting.end <= now
         }
 
+        var identity = selfIdentity
+        for email in selfEmails {
+            identity.insert(email: email)
+        }
+        // Learn every address EventKit / Google marked as "me" on today’s events
+        // (work inbox, alias, etc.) so alternate emails never become thank targets.
+        identity.formUnion(harvestedSelfIdentity(from: relevant))
+        CalendarSelfIdentity.remember(emails: identity.emails)
+
         let recent = await recentlyThankedKeys(authorId: authorId, now: now)
-        let normalizedSelf = Set(selfEmails.map { $0.lowercased() })
 
         var candidates: [Candidate] = []
         for meeting in relevant {
             guard passesNoiseFilter(meeting) else { continue }
-            let others = meeting.otherAttendees.filter { attendee in
-                if let email = attendee.email?.lowercased(), normalizedSelf.contains(email) {
-                    return false
-                }
-                return true
-            }
+            let others = meeting.attendees.filter { !identity.matches(attendee: $0) }
             guard !others.isEmpty else { continue }
             guard others.count <= maxLargeMeetingAttendees || others.count == 1 else { continue }
 
@@ -96,7 +100,10 @@ enum GratitudeOpportunityRanker {
         // Highest heuristic score first; AI may re-pick among the top set.
         let sorted = candidates.sorted { $0.score > $1.score }
         let top = Array(sorted.prefix(8))
-        let chosen = await selectWithAI(from: top) ?? top[0]
+        let chosen = await selectWithAI(from: top, selfIdentity: identity) ?? top[0]
+
+        // Final guard — never nudge yourself even if AI mis-picks an index.
+        guard !identity.matches(attendee: chosen.attendee) else { return nil }
 
         var nudge = GratitudeNudge(
             personName: chosen.attendee.displayName,
@@ -109,8 +116,20 @@ enum GratitudeOpportunityRanker {
             messageDraft: nil
         )
 
-        nudge.messageDraft = await makeDraft(for: nudge)
+        nudge.messageDraft = await makeDraft(for: nudge, selfIdentity: identity)
         return nudge
+    }
+
+    /// Collects emails/names marked as the current user across meetings.
+    static func harvestedSelfIdentity(from meetings: [CalendarMeeting]) -> CalendarSelfIdentity {
+        var identity = CalendarSelfIdentity.empty
+        for meeting in meetings {
+            for attendee in meeting.attendees where attendee.isCurrentUser {
+                identity.insert(email: attendee.email)
+                identity.insert(fullName: attendee.name)
+            }
+        }
+        return identity
     }
 
     // MARK: Filters & scoring
@@ -223,7 +242,10 @@ enum GratitudeOpportunityRanker {
 
     // MARK: AI selection & draft
 
-    private static func selectWithAI(from candidates: [Candidate]) async -> Candidate? {
+    private static func selectWithAI(
+        from candidates: [Candidate],
+        selfIdentity: CalendarSelfIdentity
+    ) async -> Candidate? {
         guard candidates.count > 1, AppreciationAI.isAvailable else { return nil }
 
         #if canImport(FoundationModels)
@@ -233,9 +255,14 @@ enum GratitudeOpportunityRanker {
                 return "\(index). \(c.attendee.displayName) <\(email)> — \(c.meeting.title) (score \(String(format: "%.1f", c.score)))"
             }.joined(separator: "\n")
 
+            let selfEmails = selfIdentity.emails.sorted().joined(separator: ", ")
+            let selfNames = selfIdentity.fullNames.sorted().joined(separator: ", ")
             let prompt = """
             Pick the single best person to thank today after these meetings.
             Prefer genuine 1:1 or small meaningful conversations over large recurring standups.
+            Never pick the author themselves — skip any person whose email or full name matches the author.
+            Author emails: \(selfEmails.isEmpty ? "(unknown)" : selfEmails)
+            Author names: \(selfNames.isEmpty ? "(unknown)" : selfNames)
             Reply with ONLY the index number (0-\(candidates.count - 1)).
 
             \(lines)
@@ -244,7 +271,7 @@ enum GratitudeOpportunityRanker {
                 let session = LanguageModelSession(
                     instructions: """
                     You help OpenThanks choose one gratitude opportunity from a calendar day.
-                    Reply with a single integer index only — no words, no punctuation.
+                    Never choose the author / self. Reply with a single integer index only — no words, no punctuation.
                     """
                 )
                 let response = try await session.respond(to: prompt)
@@ -252,7 +279,11 @@ enum GratitudeOpportunityRanker {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 if let value = Int(raw.filter(\.isNumber).prefix(2)),
                    candidates.indices.contains(value) {
-                    return candidates[value]
+                    let pick = candidates[value]
+                    if selfIdentity.matches(attendee: pick.attendee) {
+                        return nil
+                    }
+                    return pick
                 }
             } catch {
                 return nil
@@ -262,16 +293,24 @@ enum GratitudeOpportunityRanker {
         return nil
     }
 
-    private static func makeDraft(for nudge: GratitudeNudge) async -> String {
-        let title = nudge.meetingTitle
+    private static func makeDraft(
+        for nudge: GratitudeNudge,
+        selfIdentity: CalendarSelfIdentity
+    ) async -> String {
+        let topic = selfIdentity.sanitizedMeetingTopic(nudge.meetingTitle)
         let base: String
-        if title.count <= 48, !title.lowercased().hasPrefix("meeting") {
-            base = "Thank you for \(title) today — I appreciated our conversation."
+        if let topic, topic.count <= 48, !topic.lowercased().hasPrefix("meeting") {
+            base = "Thank you for \(topic) today — I appreciated our conversation."
         } else {
             base = "Thank you for our conversation earlier today. I appreciated your time and perspective."
         }
 
         guard AppreciationAI.isAvailable else { return base }
-        return (try? await AppreciationAI.rewrite(base, style: .warmer)) ?? base
+        let forbidden = Array(selfIdentity.fullNames).sorted()
+        return (try? await AppreciationAI.rewriteCalendarNudge(
+            base,
+            recipientName: nudge.personName,
+            forbiddenAuthorNames: forbidden
+        )) ?? base
     }
 }

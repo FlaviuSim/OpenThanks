@@ -33,6 +33,9 @@ struct MessageEditor: UIViewRepresentable {
     var onInsertEmoji: ((String) -> Void)? = nil
     /// Fired when the UITextView becomes / resigns first responder (drives SwiftUI focus chrome).
     var onFocusChange: ((Bool) -> Void)? = nil
+    /// When true, become first responder once (SwiftUI `@FocusState` can't drive UITextView).
+    var wantsFocus: Bool = false
+    var onFocusRequestConsumed: (() -> Void)? = nil
     /// When set, insert at the caret (replacing any selection), move the cursor
     /// after the inserted text, then call `onPendingInsertConsumed`.
     var pendingInsert: PendingInsert? = nil
@@ -103,6 +106,10 @@ struct MessageEditor: UIViewRepresentable {
             uiView.textContainer.lineFragmentPadding = 0
         }
 
+        if wantsFocus {
+            context.coordinator.requestFocusIfNeeded(in: uiView)
+        }
+
         context.coordinator.syncAccessoryIfNeeded()
     }
 
@@ -133,9 +140,33 @@ struct MessageEditor: UIViewRepresentable {
         private var lastVoiceEnabled: Bool?
         private var lastQuickEmojis: [String] = []
         private var lastHandledInsertID: UUID?
+        private var focusRequestInFlight = false
 
         init(_ parent: MessageEditor) {
             self.parent = parent
+        }
+
+        func requestFocusIfNeeded(in textView: IntrinsicTextView) {
+            guard parent.wantsFocus, textView.isEditable else { return }
+            guard !textView.isFirstResponder, !focusRequestInFlight else {
+                if textView.isFirstResponder {
+                    parent.onFocusRequestConsumed?()
+                }
+                return
+            }
+            focusRequestInFlight = true
+            DispatchQueue.main.async { [weak self, weak textView] in
+                guard let self, let textView else { return }
+                defer { self.focusRequestInFlight = false }
+                guard self.parent.wantsFocus, textView.isEditable else {
+                    self.parent.onFocusRequestConsumed?()
+                    return
+                }
+                if !textView.isFirstResponder {
+                    textView.becomeFirstResponder()
+                }
+                self.parent.onFocusRequestConsumed?()
+            }
         }
 
         func applyPendingInsert(_ pending: PendingInsert, in textView: IntrinsicTextView) {

@@ -124,6 +124,40 @@ def make_icon(bg: tuple[int, int, int], *, white: bool = False) -> Image.Image:
     return base
 
 
+def make_watch_icon() -> Image.Image:
+    """Match the iPhone logo (coral heart on dark) with a light outer rim.
+
+    Pure-black / near-black Watch icons fail App Review Guideline 4 because the
+    circular mask blends into the Watch face. A cream rim keeps the silhouette
+    readable while the interior matches the brand logo users expect in
+    notifications.
+    """
+    size = 1024
+    brand = make_icon((24, 15, 12))
+    canvas = Image.new("RGB", (size, size), CREAM)
+    # Soft cream→warm lift under the brand disk so the rim isn't a hard doughnut.
+    px = canvas.load()
+    cx = cy = size / 2
+    for y in range(size):
+        for x in range(size):
+            d = min(math.hypot(x - cx, y - cy) / (size * 0.52), 1.0)
+            lift = int(10 * (1 - d))
+            px[x, y] = (
+                min(255, CREAM[0] + lift),
+                min(255, CREAM[1] + lift),
+                min(255, CREAM[2] + max(0, lift - 2)),
+            )
+
+    mask = Image.new("L", (size, size), 0)
+    draw = ImageDraw.Draw(mask)
+    # ~9% cream rim after watchOS circular crop — enough edge, mostly brand.
+    inset = int(size * 0.045)
+    draw.ellipse([inset, inset, size - inset, size - inset], fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(6))
+    canvas.paste(brand, (0, 0), mask)
+    return canvas
+
+
 def make_heart_layer(size: int) -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     grad = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -331,9 +365,8 @@ def main() -> None:
     icon_light = make_icon((24, 15, 12))
     icon_dark = make_icon((0, 0, 0))
     icon_tinted = make_icon((0, 0, 0), white=True)
-    # watchOS: light background so the circular mask is visible on a black Watch face
-    # (Guideline 4 — black icon backgrounds blend into the Watch UI).
-    icon_watch = make_icon(CREAM)
+    # watchOS: brand-dark heart + cream rim (Guideline 4 circular silhouette).
+    icon_watch = make_watch_icon()
 
     icon_light.save(ICON_DIR / "AppIcon.png", "PNG")
     icon_dark.save(ICON_DIR / "AppIcon-Dark.png", "PNG")
@@ -343,7 +376,7 @@ def main() -> None:
     WATCH_ICON_DIR.mkdir(parents=True, exist_ok=True)
     icon_watch.save(WATCH_ICON_DIR / "AppIcon.png", "PNG")
     icon_watch.save(STORE / "Icons/Watch-AppIcon-1024.png", "PNG")
-    print("icons OK (opaque RGB 1024; Watch uses light cream background)")
+    print("icons OK (opaque RGB 1024; Watch = brand dark + cream rim)")
 
     write_screenshots()
     print("done → see AppStore/README.md")

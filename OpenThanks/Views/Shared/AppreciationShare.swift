@@ -57,26 +57,21 @@ struct AppreciationShareContent {
 
     var quoteSnippet: String { quoteSnippet(maxLength: 140) }
 
+    private var shareLanguage: PendingShareInviteCopy.Language {
+        PendingShareInviteCopy.Language.detect(from: message)
+    }
+
     private var leadIn: String {
-        switch voice {
-        case .author:
-            return "I'm so grateful for \(recipientName)"
-        case .recipient:
-            return "So kind of \(authorName) to send me a gratitude on OpenThanks"
-        case .viewer:
-            return "\(authorName) thanked \(recipientName) on OpenThanks:"
-        }
+        PendingShareInviteCopy.socialLeadIn(
+            voice: voice,
+            authorName: authorName,
+            recipientName: recipientName,
+            language: shareLanguage
+        )
     }
 
     private var closer: String {
-        switch voice {
-        case .author:
-            return "The full note is on OpenThanks."
-        case .recipient:
-            return "Read the full appreciation."
-        case .viewer:
-            return "Read it on OpenThanks."
-        }
+        PendingShareInviteCopy.socialCloser(voice: voice, language: shareLanguage)
     }
 
     /// Helper-framed caption without URL — LinkedIn paste, X `text`, system share text.

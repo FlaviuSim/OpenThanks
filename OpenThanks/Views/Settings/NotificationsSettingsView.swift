@@ -322,14 +322,6 @@ struct NotificationsSettingsView: View {
 
     // MARK: - Actions
 
-    private var selfEmails: Set<String> {
-        var emails = Set<String>()
-        if let email = auth.currentProfile?.email?.lowercased() {
-            emails.insert(email)
-        }
-        return emails
-    }
-
     private func setFridayReminderEnabled(_ enabled: Bool) {
         fridayToggleTask?.cancel()
         fridayToggleEpoch += 1
@@ -369,9 +361,10 @@ struct NotificationsSettingsView: View {
 
         calendarToggleTask = Task {
             if enabled {
+                let identity = await CalendarSelfIdentity.collect(from: auth)
                 let failure = await NotificationService.enableCalendarGratitudeNudge(
                     authorId: auth.userId,
-                    selfEmails: selfEmails,
+                    selfIdentity: identity,
                     analyticsSource: "settings"
                 )
                 guard !Task.isCancelled, epoch == calendarToggleEpoch else { return }
@@ -464,10 +457,11 @@ struct NotificationsSettingsView: View {
     }
 
     private func refreshCalendarNudge() async {
+        let identity = await CalendarSelfIdentity.collect(from: auth)
         await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
             calendarNudgeEnabled,
             authorId: auth.userId,
-            selfEmails: selfEmails
+            selfIdentity: identity
         )
         if calendarNudgeEnabled {
             CalendarGratitudeBackgroundRefresh.schedule()

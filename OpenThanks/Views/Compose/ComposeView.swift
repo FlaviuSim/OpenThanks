@@ -121,6 +121,8 @@ struct ComposeView: View {
     @State private var messageBeforeAI: String?
     /// Queued chip insert for `MessageEditor` (places caret after the emoji).
     @State private var pendingMessageInsert: MessageEditor.PendingInsert?
+    /// Drives UITextView first-responder (SwiftUI FocusState alone can't).
+    @State private var messageWantsFocus = false
     @StateObject private var dictation = AppreciationDictation()
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
@@ -317,15 +319,13 @@ struct ComposeView: View {
     }
 
     /// New identity after edit/save so the share screen can't keep the pre-edit note.
+    /// Recipient fields are omitted — changing Send-to must not remount Deliver.
     private func shareScreenIdentity(_ gratitude: Gratitude) -> String {
-        [
-            gratitude.id.uuidString,
-            gratitude.message,
-            gratitude.recipientDisplayName,
-            gratitude.recipientEmail ?? "",
-            gratitude.recipientPhone ?? "",
-            gratitude.mediaUrl ?? "",
-        ].joined(separator: "|")
+        ShareScreenIdentity.make(
+            id: gratitude.id,
+            message: gratitude.message,
+            mediaUrl: gratitude.mediaUrl
+        )
     }
 
     private var form: some View {
@@ -469,26 +469,8 @@ struct ComposeView: View {
         }
         .onDisappear {
             Task { await dictation.finishListening() }
-            let completedSend = didCompleteSend || sent
             trackAbandonIfNeeded()
-            guard ownsUnsentDraft, !completedSend else { return }
-            let keptRecipient = recipient
-            let keptMessage = message
-            Task {
-                let effect = await ComposeDraftStore.leave(
-                    recipient: keptRecipient,
-                    message: keptMessage
-                )
-                if effect.saved {
-                    Analytics.captureDraftEvent("draft_saved", hasRecipient: effect.hasRecipient)
-                }
-                if effect.scheduled {
-                    Analytics.captureDraftEvent(
-                        "draft_reminder_scheduled",
-                        hasRecipient: effect.hasRecipient
-                    )
-                }
-            }
+            persistUnsentDraftIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -496,6 +478,8 @@ struct ComposeView: View {
                 dictation.handleAppDidBecomeActive()
             case .background:
                 dictation.handleAppWillResignActive()
+                // Survive force-quit after backgrounding with the sheet still open.
+                persistUnsentDraftIfNeeded()
             default:
                 break
             }
@@ -1088,6 +1072,10 @@ struct ComposeView: View {
                         onFocusChange: { focused in
                             messageFocused = focused
                             if focused { recipientFocused = false }
+                        },
+                        wantsFocus: messageWantsFocus,
+                        onFocusRequestConsumed: {
+                            messageWantsFocus = false
                         },
                         pendingInsert: pendingMessageInsert,
                         onPendingInsertConsumed: { id in
@@ -1998,20 +1986,24 @@ struct ComposeView: View {
         }
         if ownsUnsentDraft, let draft = ComposeDraftStore.restore() {
             // Two-step write hides To — only restore the message; recipient is chosen on deliver.
-            if !usesTwoStepFlow {
+            // Profile thank already has a linked chip — keep it; only restore the note.
+            if !usesTwoStepFlow, linkedRecipient == nil, !guestRecipientConfirmed {
                 recipient = draft.recipient
             }
-            message = String(draft.message.prefix(maxLength))
+            if !draft.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                message = String(draft.message.prefix(maxLength))
+            }
             Analytics.captureDraftEvent(
                 "draft_restored",
                 hasRecipient: !usesTwoStepFlow
-                    && !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    && (linkedRecipient != nil
+                        || !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             )
         }
         autofocusMessageIfNeeded()
     }
 
-    /// Heart-tab and other blank sends. November, Watch, and explicit prefills stay put.
+    /// Heart-tab blank send + profile “Thank …” (recipient prefilled). Campaign / Watch / edit stay put.
     private var ownsUnsentDraft: Bool {
         ComposeDraftStore.ownsDraft(ComposeDraftStore.FormContext(
             isEditing: editingTarget != nil,
@@ -2025,17 +2017,53 @@ struct ComposeView: View {
         ))
     }
 
+    /// Name for draft reminder / restore — prefer the linked profile chip over an empty field.
+    private var draftRecipientLabel: String {
+        if let linked = linkedRecipient {
+            let full = linked.fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !full.isEmpty { return full }
+            return linked.displayName
+        }
+        return recipient
+    }
+
+    private func persistUnsentDraftIfNeeded() {
+        let completedSend = didCompleteSend || sent
+        guard ownsUnsentDraft, !completedSend else { return }
+        let keptRecipient = draftRecipientLabel
+        let keptMessage = message
+        Task {
+            let effect = await ComposeDraftStore.leave(
+                recipient: keptRecipient,
+                message: keptMessage
+            )
+            if effect.saved {
+                Analytics.captureDraftEvent("draft_saved", hasRecipient: effect.hasRecipient)
+            }
+            if effect.scheduled {
+                Analytics.captureDraftEvent(
+                    "draft_reminder_scheduled",
+                    hasRecipient: effect.hasRecipient
+                )
+            }
+        }
+    }
+
     /// Auto-opening compose after login shouldn't steal the first Cancel tap
-    /// to the keyboard.
+    /// to the keyboard. Two-step blank compose always focuses the note.
     private var shouldAutofocusMessage: Bool {
-        analyticsSource != "app_open" && analyticsSource != "post_login"
+        if usesTwoStepFlow, !isEditing { return true }
+        return analyticsSource != "app_open" && analyticsSource != "post_login"
     }
 
     private func autofocusMessageIfNeeded() {
         guard shouldAutofocusMessage else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+        // Wait for the sheet / cover to finish presenting so becomeFirstResponder sticks.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             guard shouldAutofocusMessage else { return }
+            recipientFocused = false
             messageFocused = true
+            messageWantsFocus = true
         }
     }
 
@@ -2167,7 +2195,18 @@ struct ComposeView: View {
         let hasDelivery = updated.recipientId != nil || !isBlank(updated.recipientEmail)
         guard !hadDelivery, hasDelivery else { return }
         let author = authorId
-        Task { await GratitudeService.deliverPendingAppreciation(updated, authorId: author) }
+        Task {
+            do {
+                try await GratitudeService.deliverPendingAppreciation(updated, authorId: author)
+            } catch {
+                // Watch / edit path — recipient is saved; claim email can be resent from Pending.
+                Analytics.capture("appreciation_deliver_email_failed", [
+                    "gratitude_id": updated.id.uuidString,
+                    "source": "compose_edit",
+                    "message": String(error.localizedDescription.prefix(120)),
+                ])
+            }
+        }
     }
 
     // MARK: Send

@@ -482,10 +482,6 @@ struct PendingAppreciationsView: View {
                             Text("Add who to thank")
                                 .font(Theme.body(14, weight: .semibold))
                                 .foregroundStyle(Theme.coral)
-                            Text("Tap to choose a recipient and share the link — or edit your note first.")
-                                .font(Theme.body(12))
-                                .foregroundStyle(Theme.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
                         } else {
                             Text("To: \(g.recipientDisplayName)")
                                 .font(Theme.body(14, weight: .semibold))

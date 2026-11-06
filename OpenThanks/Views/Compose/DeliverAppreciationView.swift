@@ -30,6 +30,7 @@ struct DeliverAppreciationView: View {
     @State private var showEnjoymentPrompt = false
     @State private var systemSharePayload: SystemSharePayload?
     @State private var didPrefillRecipient = false
+    @State private var isGuessingRecipientName = false
 
     @FocusState private var recipientFocused: Bool
 
@@ -120,6 +121,9 @@ struct DeliverAppreciationView: View {
         .onAppear {
             prefillIfNeeded()
         }
+        .task(id: gratitude.id) {
+            await guessRecipientNameIfNeeded()
+        }
         .onChange(of: offerEnjoymentPrompt) { _, offer in
             guard !offer, showEnjoymentPrompt else { return }
             EnjoymentPrompt.ignoreNextSheetDismiss = true
@@ -163,13 +167,15 @@ struct DeliverAppreciationView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 8)
 
-                Text(gratitude.message)
-                    .font(Theme.body(15))
-                    .foregroundStyle(Theme.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 4)
+                LinkifiedText(
+                    text: gratitude.message,
+                    font: Theme.body(15),
+                    foreground: Theme.textPrimary
+                )
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
             }
             .softNoteReveal(delay: 0.08)
         }
@@ -197,6 +203,15 @@ struct DeliverAppreciationView: View {
             .animation(.easeInOut(duration: 0.18), value: showRecipientSuggestions)
             .animation(.easeInOut(duration: 0.18), value: linkedRecipient?.id)
             .animation(.easeInOut(duration: 0.18), value: guestRecipientConfirmed)
+
+            if let guidance = deliveryGuidanceLine {
+                Text(guidance)
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 4)
+                    .padding(.top, 2)
+            }
 
             if savingRecipient {
                 HStack(spacing: 8) {
@@ -262,7 +277,7 @@ struct DeliverAppreciationView: View {
                 ShareActionRow(
                     title: "Email",
                     systemImage: "envelope.fill",
-                    subtitle: "Opens Email with the link"
+                    subtitle: emailShareSubtitle
                 ) {
                     noteShared(channel: "email")
                     openMail()
@@ -355,20 +370,27 @@ struct DeliverAppreciationView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Name or Email", text: $recipient)
-                    .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
-                    .autocorrectionDisabled()
-                    .keyboardType(recipient.contains("@") ? .emailAddress : .default)
-                    .textContentType(recipient.contains("@") ? .emailAddress : .name)
-                    .focused($recipientFocused)
-                    .padding(14)
-                    .foregroundStyle(Theme.textPrimary)
-                    .submitLabel(.done)
-                    .onSubmit {
-                        if shouldShowAddGuestRow {
-                            confirmGuestRecipient()
+                HStack(spacing: 8) {
+                    TextField("Name or Email", text: $recipient)
+                        .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
+                        .autocorrectionDisabled()
+                        .keyboardType(recipient.contains("@") ? .emailAddress : .default)
+                        .textContentType(recipient.contains("@") ? .emailAddress : .name)
+                        .focused($recipientFocused)
+                        .foregroundStyle(Theme.textPrimary)
+                        .submitLabel(.done)
+                        .onSubmit {
+                            if shouldShowAddGuestRow {
+                                confirmGuestRecipient()
+                            }
                         }
+                    if isGuessingRecipientName {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("Guessing name from your note")
                     }
+                }
+                .padding(14)
             }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -522,10 +544,14 @@ struct DeliverAppreciationView: View {
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                    Text("We’ll notify them when you share the link")
+                    Text(DeliverRecipientGuidance.line(
+                        for: isEmail
+                            ? .guestEmail
+                            : .nameOnly(query)
+                    ))
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textTertiary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "plus.circle.fill")
@@ -580,6 +606,34 @@ struct DeliverAppreciationView: View {
         }
     }
 
+    /// When name + email are both empty, guess who it’s for from the note text.
+    private func guessRecipientNameIfNeeded() async {
+        guard linkedRecipient == nil,
+              !guestRecipientConfirmed,
+              recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              isBlank(gratitude.recipientName),
+              isBlank(gratitude.recipientEmail),
+              gratitude.recipientId == nil
+        else { return }
+
+        let message = gratitude.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty else { return }
+
+        isGuessingRecipientName = true
+        defer { isGuessingRecipientName = false }
+
+        guard let guess = await AppreciationAI.guessThankedPersonName(from: message) else { return }
+        // User may have started typing while AI ran — don’t overwrite.
+        guard linkedRecipient == nil,
+              !guestRecipientConfirmed,
+              recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+
+        recipient = guess
+        // Leave unconfirmed so they can edit; focus so it’s obvious.
+        recipientFocused = true
+    }
+
     private func finishAndDismiss() {
         recipientFocused = false
         Task {
@@ -623,15 +677,21 @@ struct DeliverAppreciationView: View {
     }
 
     private func confirmGuestRecipient() {
+        Task { await confirmGuestRecipientAndPersist() }
+    }
+
+    @discardableResult
+    private func confirmGuestRecipientAndPersist() async -> Bool {
         let trimmed = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return false }
         guestRecipientConfirmed = true
         recipient = trimmed
         recipientResults = []
         recipientSearching = false
         recipientSearchFinished = false
         recipientFocused = false
-        Task { await persistRecipient() }
+        await persistRecipient()
+        return error == nil
     }
 
     private func clearLinkedRecipient() {
@@ -657,6 +717,11 @@ struct DeliverAppreciationView: View {
         defer { savingRecipient = false }
 
         await resolveRecipientBeforeSave()
+        // Members from search often lack email on the list row — backfill before update
+        // so resend-email / mailto have an address without another round trip.
+        if let linked = linkedRecipient, isBlank(linkedRecipientEmail) {
+            await loadLinkedRecipientContact(profileId: linked.id)
+        }
 
         let previous = gratitude
         let linked = linkedRecipient
@@ -761,7 +826,18 @@ struct DeliverAppreciationView: View {
         let hadDelivery = previous.recipientId != nil || !isBlank(previous.recipientEmail)
         let hasDelivery = updated.recipientId != nil || !isBlank(updated.recipientEmail)
         guard !hadDelivery, hasDelivery else { return }
-        Task { await GratitudeService.deliverPendingAppreciation(updated, authorId: authorId) }
+        Task {
+            do {
+                try await GratitudeService.deliverPendingAppreciation(updated, authorId: authorId)
+            } catch {
+                await MainActor.run {
+                    // Recipient is saved; surface email failure so the author can retry via Email.
+                    if self.error == nil {
+                        self.error = error.localizedDescription
+                    }
+                }
+            }
+        }
     }
 
     private func resolveRecipientBeforeSave() async {
@@ -907,18 +983,81 @@ struct DeliverAppreciationView: View {
     }
 
     private func openMail() {
-        var components = URLComponents()
-        components.scheme = "mailto"
-        if let email = gratitude.shareMailtoEmail {
-            components.path = email
+        Task {
+            await ensureRecipientPersistedForMail()
+            let to = DeliverMailto.toAddress(
+                confirmed: gratitude.shareMailtoEmail,
+                draft: draftEmailIfPresent,
+                profileEmail: linkedRecipientEmail
+            )
+            var components = URLComponents()
+            components.scheme = "mailto"
+            if let to {
+                components.path = to
+            }
+            components.queryItems = [
+                URLQueryItem(name: "subject", value: gratitude.pendingShareEmailSubject),
+                URLQueryItem(name: "body", value: shareMessage),
+            ]
+            if let url = components.url {
+                await MainActor.run { openURL(url) }
+            }
         }
-        components.queryItems = [
-            URLQueryItem(name: "subject", value: gratitude.pendingShareEmailSubject),
-            URLQueryItem(name: "body", value: shareMessage),
-        ]
-        if let url = components.url {
-            openURL(url)
+    }
+
+    /// Persist a typed email (or backfill a member email) before opening Mail / delivering.
+    private func ensureRecipientPersistedForMail() async {
+        let draft = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+        if linkedRecipient == nil, !guestRecipientConfirmed, looksLikeEmail(draft) {
+            _ = await confirmGuestRecipientAndPersist()
+            return
         }
+        if let linked = linkedRecipient, isBlank(gratitude.recipientEmail) {
+            await loadLinkedRecipientContact(profileId: linked.id)
+            await persistRecipient()
+        }
+    }
+
+    private var draftEmailIfPresent: String? {
+        let trimmed = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard looksLikeEmail(trimmed) else { return nil }
+        return AuthService.normalizedEmail(trimmed)
+    }
+
+    private var emailShareSubtitle: String {
+        if let to = DeliverMailto.toAddress(
+            confirmed: gratitude.shareMailtoEmail,
+            draft: draftEmailIfPresent,
+            profileEmail: linkedRecipientEmail
+        ) {
+            return "To \(to)"
+        }
+        return "Opens Email with the link"
+    }
+
+    private var deliveryGuidanceLine: String? {
+        guard let kind = deliveryGuidanceKind else { return nil }
+        return DeliverRecipientGuidance.line(for: kind)
+    }
+
+    private var deliveryGuidanceKind: DeliverRecipientGuidance.Kind? {
+        if linkedRecipient != nil {
+            return .member
+        }
+        if guestRecipientConfirmed {
+            let trimmed = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+            if looksLikeEmail(trimmed) || !isBlank(gratitude.recipientEmail) {
+                return .guestEmail
+            }
+            let name = trimmed.isEmpty
+                ? (gratitude.recipientName ?? "them")
+                : trimmed
+            return .nameOnly(name)
+        }
+        let draft = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard draft.count >= 2, recipientFocused else { return nil }
+        if looksLikeEmail(draft) { return .guestEmail }
+        return .nameOnly(draft)
     }
 
     private func openWhatsApp() {

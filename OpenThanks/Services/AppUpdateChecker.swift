@@ -2,9 +2,8 @@ import Foundation
 import UIKit
 
 /// App Store update check — never blocks the app.
-/// Looks up the live marketing version at most once per day.
-/// The shell banner shows on every tab while this install is behind the store,
-/// including on top of the first-send tip. Later hides it until the next day.
+/// Hits Apple once per **cold launch** (new process). Warm resumes only refresh
+/// the banner from the last cached store version. “Later” hides it for a day.
 @MainActor
 @Observable
 final class AppUpdateChecker {
@@ -16,9 +15,11 @@ final class AppUpdateChecker {
     private static let snoozeVersionKey = "appUpdate.snoozeVersion.v1"
     private static let lastShownVersionKey = "appUpdate.lastShownVersion.v1"
 
-    private static let checkInterval: TimeInterval = 24 * 60 * 60
     /// Later is a pause, not a dismissal of the update.
     private static let snoozeInterval: TimeInterval = 24 * 60 * 60
+
+    /// One itunes lookup per process — reset automatically on next cold launch.
+    private static var didLookupThisProcess = false
 
     /// Latest App Store marketing version from the last successful lookup.
     private(set) var storeVersion: String? {
@@ -40,18 +41,19 @@ final class AppUpdateChecker {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
     }
 
-    /// Call on launch and whenever the app becomes active. Skips the network when a check already succeeded today.
-    func checkIfNeeded() {
+    /// Call on launch and whenever the app becomes active.
+    /// Network runs at most once per cold launch unless `force` is set.
+    func checkIfNeeded(force: Bool = false) {
         if storeVersion == nil {
             storeVersion = UserDefaults.standard.string(forKey: Self.storeVersionKey)
         }
         refreshEligibility()
-        if let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? TimeInterval,
-           storeVersion != nil,
-           Date().timeIntervalSince1970 - last < Self.checkInterval {
+        if !Self.shouldLookup(force: force, alreadyLookedUpThisProcess: Self.didLookupThisProcess) {
+            // Warm resume / second caller this process — keep using cached store version.
             return
         }
         guard checkTask == nil else { return }
+        Self.didLookupThisProcess = true
         checkTask = Task {
             defer { checkTask = nil }
             if await lookupStoreVersion() { return }
@@ -60,6 +62,11 @@ final class AppUpdateChecker {
             guard !Task.isCancelled else { return }
             _ = await lookupStoreVersion()
         }
+    }
+
+    /// Network once per cold launch (new process), or whenever `force` is set.
+    nonisolated static func shouldLookup(force: Bool, alreadyLookedUpThisProcess: Bool) -> Bool {
+        force || !alreadyLookedUpThisProcess
     }
 
     func snooze() {
@@ -163,7 +170,7 @@ final class AppUpdateChecker {
     }
 
     /// Semver-ish numeric compare: `1.2` < `1.2.1` < `1.3` < `2.0`.
-    static func isVersion(_ lhs: String, lessThan rhs: String) -> Bool {
+    nonisolated static func isVersion(_ lhs: String, lessThan rhs: String) -> Bool {
         let left = lhs.split(separator: ".").map { Int($0) ?? 0 }
         let right = rhs.split(separator: ".").map { Int($0) ?? 0 }
         let count = max(left.count, right.count)

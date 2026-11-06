@@ -52,17 +52,11 @@ enum CalendarGratitudeBackgroundRefresh {
             enabled = UserDefaults.standard.bool(forKey: "calendarGratitudeNudgeEnabled")
         }
         let work = Task {
-            var emails = Set<String>()
-            if let data = UserDefaults.standard.data(forKey: "cachedProfile.v1"),
-               let profile = try? JSONDecoder().decode(Profile.self, from: data) {
-                if let email = profile.email?.lowercased() {
-                    emails.insert(email)
-                }
-            }
+            let identity = CalendarSelfIdentity.collectFromCache()
             await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
                 enabled,
                 authorId: nil,
-                selfEmails: emails
+                selfIdentity: identity
             )
         }
 

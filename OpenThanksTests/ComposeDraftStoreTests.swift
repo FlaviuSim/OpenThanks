@@ -78,18 +78,26 @@ final class ComposeDraftStoreTests: XCTestCase {
 
     func testHeartNovemberAndPrefillDoNotStealTheDraft() {
         XCTAssertTrue(ComposeDraftStore.ownsDraft(.init(analyticsSource: "tab_compose")))
+        XCTAssertTrue(ComposeDraftStore.ownsDraft(.init(
+            analyticsSource: "profile",
+            hasInitialRecipient: true
+        )))
+        XCTAssertTrue(ComposeDraftStore.ownsDraft(.init(
+            analyticsSource: "profile",
+            hasInitialProfile: true
+        )))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(analyticsSource: "campaign_universal_link")))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(analyticsSource: "campaign_deeplink")))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(
             analyticsSource: "campaign_home",
             hasCampaign: true
         )))
-        XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(
-            analyticsSource: "profile",
-            hasInitialRecipient: true
-        )))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(isEditing: true)))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(analyticsSource: "watch")))
+        XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(
+            analyticsSource: "detail",
+            hasInspiredBy: true
+        )))
     }
 }
 

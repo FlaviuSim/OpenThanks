@@ -35,6 +35,7 @@ struct WelcomeView: View {
                 Text("Welcome back")
                     .font(Theme.display(32, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
+                    .accessibilityIdentifier("welcome.title")
                 Text("Sign in to continue sharing appreciation.")
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
@@ -70,6 +71,7 @@ struct WelcomeView: View {
                             .disabled(!ageConfirmed || oauthBusy != nil)
                             .opacity(ageConfirmed ? 1 : 0.45)
                             .accessibilityLabel("Continue with Apple")
+                            .accessibilityIdentifier("welcome.apple")
                         }
 
                         if !ageConfirmed {
@@ -251,6 +253,17 @@ struct WelcomeView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(authAccessibilityID(for: label))
+    }
+
+    private func authAccessibilityID(for label: String) -> String {
+        let lower = label.lowercased()
+        if lower.contains("google") { return "welcome.google" }
+        if lower.contains("linkedin") { return "welcome.linkedin" }
+        if lower.contains("email") { return "welcome.email" }
+        if lower.contains("phone") { return "welcome.phone" }
+        if lower.contains("passkey") { return "welcome.passkey" }
+        return "welcome.auth"
     }
 
     private func signInWithOAuth(_ provider: OAuthBusy) async {
@@ -381,17 +394,23 @@ struct AgeConfirmationToggle: View {
                         Text("Required by our Terms of Service")
                             .font(Theme.body(13))
                             .foregroundStyle(Theme.textSecondary)
-                        Link("Read Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
-                            .font(Theme.body(13, weight: .medium))
-                            .foregroundStyle(Theme.coral)
                     }
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel("I confirm I am 18 or older")
+            .accessibilityIdentifier("welcome.ageConfirm")
+            .accessibilityAddTraits(.isButton)
             .accessibilityAddTraits(isConfirmed ? [.isSelected] : [])
+
+            // Keep outside the toggle button so UI tests / VoiceOver don't open Safari mid-tap.
+            Link("Read Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
+                .font(Theme.body(13, weight: .medium))
+                .foregroundStyle(Theme.coral)
+                .accessibilityIdentifier("welcome.termsLink")
 
             if showHint && !isConfirmed {
                 Text("Confirm you are 18 or older to continue.")
@@ -494,6 +513,7 @@ struct OTPSheet: View {
                             .padding(16)
                             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
                             .foregroundStyle(Theme.textPrimary)
+                            .accessibilityIdentifier(mode == .email ? "otp.emailField" : "otp.phoneField")
                     }
 
                     if let error = auth.errorMessage {
@@ -519,6 +539,7 @@ struct OTPSheet: View {
                     .opacity(canSubmit || busy ? 1 : 0.45)
                     .animation(.easeInOut(duration: 0.15), value: busy)
                     .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: busy)
+                    .accessibilityIdentifier("otp.submit")
 
                     Spacer(minLength: 24)
                 }
