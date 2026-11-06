@@ -25,12 +25,20 @@ let package = Package(
             path: "Sources/PostAcceptPrompt"
         ),
         .target(
+            name: "CampaignPrompt",
+            path: "Sources/CampaignPrompt"
+        ),
+        .target(
+            name: "CalendarPrompt",
+            path: "Sources/CalendarPrompt"
+        ),
+        .target(
             name: "StreakMath",
             path: "Sources/StreakMath"
         ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
@@ -40,6 +48,8 @@ let package = Package(
                 "CampaignPushPermissionTests.swift",
                 "PostAcceptPromptTests.swift",
                 "CompetitionConfigTests.swift",
+                "CampaignPromptCardTests.swift",
+                "CalendarPromptCapTests.swift",
             ]
         ),
     ]

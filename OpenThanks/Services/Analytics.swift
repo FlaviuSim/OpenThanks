@@ -405,7 +405,7 @@ enum Analytics {
     }
 
     static func campaignPromptTapped(campaign: String, day: Int) {
-        capture("campaign_prompt_tapped", ["campaign": campaign, "day": day])
+        capture(CampaignPromptCardModel.tapEvent, ["campaign": campaign, "day": day])
     }
 
     // MARK: - Compose funnel (aligned with web PostHog events)

@@ -85,6 +85,7 @@ final class CompetitionConfigTests: XCTestCase {
         XCTAssertNil(config.endsAt)
         XCTAssertNil(config.body)
         XCTAssertNil(config.progressLabel)
+        XCTAssertNil(config.cta)
         XCTAssertEqual(config.rulesSummary, ["Send one thank-you every day"])
         XCTAssertTrue(config.isActive(at: date(month: 11, day: 2)))
     }
@@ -107,13 +108,15 @@ final class CompetitionConfigTests: XCTestCase {
           "requireAccepted": false,
           "requireOtherRecipient": true,
           "body": "Send every day in November.",
-          "progressLabel": "November days with a thanks"
+          "progressLabel": "November days with a thanks",
+          "cta": "Send today's note"
         }
         """.data(using: .utf8)!
 
         let config = try competitionDecoder().decode(CompetitionConfig.self, from: json)
         XCTAssertEqual(config.body, "Send every day in November.")
         XCTAssertEqual(config.progressLabel, "November days with a thanks")
+        XCTAssertEqual(config.cta, "Send today's note")
         XCTAssertEqual(config.startsAt, date(month: 11, day: 1, hour: 0, minute: 0))
         XCTAssertEqual(config.endsAt, date(month: 12, day: 1, hour: 0, minute: 0))
     }
@@ -129,12 +132,14 @@ final class CompetitionConfigTests: XCTestCase {
             config.winnerNotifyBody,
             config.body ?? "",
             config.progressLabel ?? "",
+            config.cta ?? "",
             config.rulesSummary.joined(separator: "\n"),
         ].joined(separator: "\n")
 
         XCTAssertEqual(config.winnerNotifyBody, "")
         XCTAssertNil(config.body)
         XCTAssertNil(config.progressLabel)
+        XCTAssertNil(config.cta)
         XCTAssertFalse(config.enabled)
         XCTAssertFalse(config.isActive())
         XCTAssertFalse(blob.localizedCaseInsensitiveContains("november"))

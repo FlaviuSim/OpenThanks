@@ -393,7 +393,8 @@ struct RootView: View {
                     homeGate = gateAfterCalendarOrReady()
                 },
                 analyticsSource: "deferred_open",
-                marksLaunchGateCompleteOnSkip: true
+                marksLaunchGateCompleteOnSkip: true,
+                countsTowardAutomaticCap: true
             )
         case .needsSiriTip:
             SiriIntroView {

@@ -248,7 +248,8 @@ struct MainTabView: View {
                             CalendarConnectReminder.shared.refresh()
                         },
                         analyticsSource: source,
-                        marksLaunchGateCompleteOnSkip: false
+                        marksLaunchGateCompleteOnSkip: false,
+                        countsTowardAutomaticCap: true
                     )
                 case .none:
                     Color.clear
