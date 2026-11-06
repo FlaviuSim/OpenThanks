@@ -448,17 +448,24 @@ final class AuthService {
         await signInWithOAuth(provider: .linkedinOIDC, method: "linkedin")
     }
 
+    /// Keeps `onOpenURL` from exchanging the PKCE code that `signInWithOAuth`
+    /// is already exchanging. See `OAuthCallbackGate`.
+    private static let oauthCallbackGate = OAuthCallbackGate()
+
     /// Shared OAuth path: HTTPS lander (`/auth/mobile`) as Supabase `redirect_to`,
     /// then complete when iOS receives `openthanks://…` (or the HTTPS URL on iOS 17.4+).
+    /// The gate stays up through the token exchange, not only the browser sheet.
     @discardableResult
     private func signInWithOAuth(provider: Provider, method: String) async -> Bool {
         errorMessage = nil
         do {
-            _ = try await supabase.auth.signInWithOAuth(
-                provider: provider,
-                redirectTo: AppConfig.oauthRedirectURL
-            ) { @MainActor url in
-                try await Self.presentOAuthSession(url: url)
+            _ = try await Self.oauthCallbackGate.owningAuthCallback {
+                try await supabase.auth.signInWithOAuth(
+                    provider: provider,
+                    redirectTo: AppConfig.oauthRedirectURL
+                ) { @MainActor url in
+                    try await Self.presentOAuthSession(url: url)
+                }
             }
             await handleAuthSuccess(method: method)
             return true
@@ -1062,6 +1069,8 @@ extension AuthService {
     }
 
     func handleDeepLink(_ url: URL) {
+        // Skip the callback the in-flight Google/LinkedIn session already owns.
+        guard Self.oauthCallbackGate.shouldForward(url) else { return }
         supabase.auth.handle(url)
     }
 

@@ -13,6 +13,10 @@ let package = Package(
             path: "Sources/PasskeySignIn"
         ),
         .target(
+            name: "OAuthCallbackGate",
+            path: "Sources/OAuthCallbackGate"
+        ),
+        .target(
             name: "ReviewPrompt",
             path: "Sources/ReviewPrompt"
         ),
@@ -38,12 +42,13 @@ let package = Package(
         ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
                 "ComposeDraftStoreTests.swift",
                 "PasskeySignInTests.swift",
+                "OAuthCallbackGateTests.swift",
                 "AppStoreReviewPromptTests.swift",
                 "CampaignPushPermissionTests.swift",
                 "PostAcceptPromptTests.swift",
