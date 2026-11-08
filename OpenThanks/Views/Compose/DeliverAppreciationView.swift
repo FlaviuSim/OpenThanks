@@ -104,6 +104,21 @@ struct DeliverAppreciationView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .topTrailing) {
+            Button(action: finishAndDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 32, height: 32)
+                    .background(Theme.surfaceRaised, in: Circle())
+                    .overlay(Circle().strokeBorder(Theme.hairline, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 12)
+            .padding(.trailing, 16)
+            .accessibilityLabel("Done")
+            .accessibilityHint("Closes this screen. Your note stays in Pending Appreciations.")
+        }
         .sheet(item: $systemSharePayload) { payload in
             ActivityShareView(items: payload.items) { activityType in
                 noteShared(channel: SocialShare.analyticsChannel(for: activityType))
