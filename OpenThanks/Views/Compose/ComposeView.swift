@@ -2542,6 +2542,7 @@ struct SuccessView: View {
     @Environment(AuthService.self) private var auth
     @Environment(\.openURL) private var openURL
     @State private var copied = false
+    @State private var hasShared = false
     @State private var showEnjoymentPrompt = false
     @State private var systemSharePayload: SystemSharePayload?
 
@@ -2631,6 +2632,7 @@ struct SuccessView: View {
                                 systemImage: "square.and.arrow.up",
                                 subtitle: "Messages, Mail, and more"
                             ) {
+                                revealCloseAfterShare()
                                 systemSharePayload = SystemSharePayload(
                                     items: SocialShare.pendingSystemShareItems(
                                         caption: gratitude.pendingShareInviteCaption,
@@ -2673,20 +2675,24 @@ struct SuccessView: View {
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .topTrailing) {
-            Button(action: onDone) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(width: 32, height: 32)
-                    .background(Theme.surfaceRaised, in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.hairline, lineWidth: 1))
+            if hasShared {
+                Button(action: onDone) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.surfaceRaised, in: Circle())
+                        .overlay(Circle().strokeBorder(Theme.hairline, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 12)
+                .padding(.trailing, 16)
+                .accessibilityLabel("Done")
+                .accessibilityHint("Closes this screen")
+                .transition(.opacity.combined(with: .scale(scale: 0.85)))
             }
-            .buttonStyle(.plain)
-            .padding(.top, 12)
-            .padding(.trailing, 16)
-            .accessibilityLabel("Done")
-            .accessibilityHint("Closes this screen")
         }
+        .animation(.easeInOut(duration: 0.2), value: hasShared)
         .sheet(item: $systemSharePayload) { payload in
             ActivityShareView(items: payload.items) { activityType in
                 trackShare(channel: SocialShare.analyticsChannel(for: activityType))
@@ -2763,6 +2769,7 @@ struct SuccessView: View {
     }
 
     private func trackShare(channel: String) {
+        revealCloseAfterShare()
         let voice = AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
         let content = AppreciationShareContent(gratitude: gratitude, voice: voice)
         Analytics.appreciationShared(
@@ -2772,6 +2779,11 @@ struct SuccessView: View {
             hasCard: false,
             hasPhoto: content.sharePhotoURL != nil
         )
+    }
+
+    private func revealCloseAfterShare() {
+        guard !hasShared else { return }
+        hasShared = true
     }
 
     private func openSMS() {
