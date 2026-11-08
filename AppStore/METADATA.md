@@ -75,7 +75,7 @@ Do **not** mention age gates, 18+, adult content, unrestricted media, or Apple W
 ```
 When you write a thank-you in another language, the Text and Email share invite now matches that language.
 
-Drafts also save when you thank someone from their profile and leave mid-note. If you forget to add who it’s for, we can suggest a name from the first words of your message.
+Drafts also save when you thank someone from their profile and leave mid-note.
 ```
 
 

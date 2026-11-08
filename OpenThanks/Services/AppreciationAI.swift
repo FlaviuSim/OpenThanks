@@ -100,44 +100,6 @@ enum AppreciationAI {
         throw AIError.unavailable
     }
 
-    /// Guess who the thank-you is for when recipient name + email are empty.
-    /// Prefers Apple Intelligence; falls back to a first-words heuristic.
-    static func guessThankedPersonName(from message: String) async -> String? {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, *), SystemLanguageModel.default.isAvailable {
-            do {
-                let session = LanguageModelSession(instructions: """
-                    You extract the person being thanked from a short thank-you note.
-                    The name is usually in the first few words (e.g. "Thank you, Sarah" → Sarah).
-                    Reply with ONLY that person's name — no greeting, punctuation, or explanation.
-                    If no clear person name appears, reply with exactly NONE.
-                    Never invent a name that is not in the message.
-                    """)
-                let prompt = """
-                Who is being thanked in this note? Name only, or NONE.
-
-                \"\"\"
-                \(trimmed)
-                \"\"\"
-                """
-                let response = try await session.respond(
-                    to: prompt,
-                    options: GenerationOptions(temperature: 0.2)
-                )
-                if let name = ThankedPersonNameGuess.sanitizeAIName(String(response.content)) {
-                    return name
-                }
-            } catch {
-                // Fall through to heuristic.
-            }
-        }
-        #endif
-        return ThankedPersonNameGuess.heuristic(from: trimmed)
-    }
-
     /// Warm calendar-nudge draft written as the sender (first person only).
     static func rewriteCalendarNudge(
         _ text: String,
@@ -907,76 +869,6 @@ final class AppreciationDictation: ObservableObject {
             return "Speech recognition needs a network connection on this device."
         }
         return "Couldn’t finish listening. Try again."
-    }
-}
-
-/// Pull a likely thanked-person name from the opening of a thank-you note.
-enum ThankedPersonNameGuess {
-    /// Cheap parse when Apple Intelligence is unavailable.
-    static func heuristic(from message: String) -> String? {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-
-        let patterns = [
-            #"(?i)^thanks?,?\s+(?:so\s+much\s+)?(?:to\s+)?([A-Z][\p{L}'’-]+(?:\s+[A-Z][\p{L}'’-]+){0,2})\b"#,
-            #"(?i)^thank\s+you,?\s+(?:so\s+much\s+)?(?:to\s+)?([A-Z][\p{L}'’-]+(?:\s+[A-Z][\p{L}'’-]+){0,2})\b"#,
-            #"(?i)^dear\s+([A-Z][\p{L}'’-]+(?:\s+[A-Z][\p{L}'’-]+){0,2})\b"#,
-            #"(?i)^hi\s+([A-Z][\p{L}'’-]+)\b"#,
-            #"(?i)^hey\s+([A-Z][\p{L}'’-]+)\b"#,
-        ]
-        for pattern in patterns {
-            guard let regex = try? NSRegularExpression(pattern: pattern),
-                  let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
-                  match.numberOfRanges > 1,
-                  let range = Range(match.range(at: 1), in: trimmed)
-            else { continue }
-            let candidate = String(trimmed[range])
-            if let cleaned = sanitizeGuessedName(candidate) {
-                return cleaned
-            }
-        }
-        return nil
-    }
-
-    static func sanitizeAIName(_ raw: String) -> String? {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Strip common model wrappers.
-        let wrappers: [(Character, Character)] = [
-            ("\"", "\""), ("'", "'"), ("\u{201c}", "\u{201d}"), ("\u{2018}", "\u{2019}"),
-        ]
-        for (open, close) in wrappers {
-            if text.count >= 2, text.first == open, text.last == close {
-                text = String(text.dropFirst().dropLast())
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-        if text.uppercased() == "NONE" || text.uppercased() == "N/A" {
-            return nil
-        }
-        // Model sometimes returns "Name: Sarah".
-        if let colon = text.firstIndex(of: ":") {
-            text = String(text[text.index(after: colon)...])
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return sanitizeGuessedName(text)
-    }
-
-    private static func sanitizeGuessedName(_ raw: String) -> String? {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        text = text.trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”‘’.,!?:;"))
-        text = text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-        guard !text.isEmpty, text.count <= 48 else { return nil }
-        let lower = text.lowercased()
-        // Block pronouns / placeholders — keep Mom/Dad as usable guest labels.
-        let hardBlocked: Set<String> = [
-            "you", "your", "someone", "everyone", "anybody", "nobody",
-            "friend", "friends", "team", "all", "none", "unknown", "n/a",
-        ]
-        if hardBlocked.contains(lower) { return nil }
-        let parts = text.split(separator: " ")
-        guard (1...3).contains(parts.count) else { return nil }
-        if text.contains(where: { ".!?".contains($0) }) { return nil }
-        return text
     }
 }
 

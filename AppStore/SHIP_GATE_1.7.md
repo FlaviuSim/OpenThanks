@@ -5,7 +5,6 @@
 - [x] Marketing version **1.7**, build **1** (`project.yml` → all app/extension targets)
 - [x] Share invite copy matches appreciation language (incl. Romanian)
 - [x] Profile Thank Someone drafts save/restore like blank compose
-- [x] Guess deliver recipient from note when name/email empty
 - [x] What’s New + Review notes updated for 1.7
 
 ## Before upload (human / Mac)
