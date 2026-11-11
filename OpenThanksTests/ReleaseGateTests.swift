@@ -154,6 +154,13 @@ final class PendingShareInviteCopyTests: XCTestCase {
     func testRomanianSubject() {
         let subject = PendingShareInviteCopy.emailSubject(isPrivate: true, language: .romanian)
         XCTAssertTrue(subject.localizedCaseInsensitiveContains("privată"))
+        XCTAssertEqual(subject, "O apreciere privată pentru tine")
+    }
+
+    func testEnglishEmailSubjectStaysShort() {
+        let subject = PendingShareInviteCopy.emailSubject(isPrivate: false, language: .english)
+        XCTAssertEqual(subject, "An appreciation for you")
+        XCTAssertLessThan(subject.count, 40)
     }
 }
 

@@ -36,40 +36,41 @@ enum PendingShareInviteCopy {
         }
     }
 
+    /// Short mailto subject — body carries the invite + link.
     static func emailSubject(isPrivate: Bool, language: Language) -> String {
         switch language {
         case .english:
             return isPrivate
-                ? "I wrote you a private appreciation on OpenThanks"
-                : "I wrote you an appreciation on OpenThanks"
+                ? "A private appreciation for you"
+                : "An appreciation for you"
         case .spanish:
             return isPrivate
-                ? "Te escribí un agradecimiento privado en OpenThanks"
-                : "Te escribí un agradecimiento en OpenThanks"
+                ? "Un agradecimiento privado para ti"
+                : "Un agradecimiento para ti"
         case .french:
             return isPrivate
-                ? "Je t’ai écrit une appréciation privée sur OpenThanks"
-                : "Je t’ai écrit une appréciation sur OpenThanks"
+                ? "Une appréciation privée pour toi"
+                : "Une appréciation pour toi"
         case .german:
             return isPrivate
-                ? "Ich habe dir eine private Wertschätzung auf OpenThanks geschrieben"
-                : "Ich habe dir eine Wertschätzung auf OpenThanks geschrieben"
+                ? "Eine private Wertschätzung für dich"
+                : "Eine Wertschätzung für dich"
         case .portuguese:
             return isPrivate
-                ? "Escrevi uma apreciação privada para você no OpenThanks"
-                : "Escrevi uma apreciação para você no OpenThanks"
+                ? "Uma apreciação privada para você"
+                : "Uma apreciação para você"
         case .italian:
             return isPrivate
-                ? "Ti ho scritto un apprezzamento privato su OpenThanks"
-                : "Ti ho scritto un apprezzamento su OpenThanks"
+                ? "Un apprezzamento privato per te"
+                : "Un apprezzamento per te"
         case .romanian:
             return isPrivate
-                ? "Ți-am scris o apreciere privată pe OpenThanks"
-                : "Ți-am scris o apreciere pe OpenThanks"
+                ? "O apreciere privată pentru tine"
+                : "O apreciere pentru tine"
         case .dutch:
             return isPrivate
-                ? "Ik schreef je een privé waardering op OpenThanks"
-                : "Ik schreef je een waardering op OpenThanks"
+                ? "Een privé waardering voor jou"
+                : "Een waardering voor jou"
         }
     }
 
