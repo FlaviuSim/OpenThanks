@@ -58,7 +58,10 @@ final class UITestBootstrapTests: XCTestCase {
         XCTAssertEqual(UITestBootstrap.uiTestingArgument, "-ui-testing")
         XCTAssertEqual(UITestBootstrap.signedOutArgument, "-ui-testing-signed-out")
         XCTAssertEqual(UITestBootstrap.demoLoginArgument, "-ui-testing-demo-login")
+        XCTAssertEqual(UITestBootstrap.searchOverflowArgument, "-ui-testing-search-overflow")
         XCTAssertEqual(UITestBootstrap.freshInstallArgument, "-ui-testing-fresh")
+        XCTAssertEqual(UITestBootstrap.searchOverflowProfiles().count, 24)
+        XCTAssertEqual(UITestBootstrap.searchOverflowProfiles().last?.username, "overflow24")
     }
 }
 
