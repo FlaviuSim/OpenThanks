@@ -83,6 +83,10 @@ struct FeedView: View {
     @State private var ignoreScrollUntil: Date = .distantPast
     /// Non-empty query keeps the bar visible even while scrolling.
     @State private var searchHasQuery = false
+    /// Keyboard overlap of the home column. Zero when the column already sits above the keyboard.
+    @State private var homeKeyboardCover: CGFloat = 0
+    /// Bumped to close people-search results (navigation, compose, drag on the feed).
+    @State private var searchDismissNonce = 0
 
     private var items: [Gratitude] { items(for: scope) }
     private var heartedIds: Set<UUID> { hearts(for: scope) }
@@ -188,13 +192,6 @@ struct FeedView: View {
     private var feedRoot: some View {
         feedChromeOrSplit
             .background(Theme.background)
-            // Only while searching — otherwise this fights scroll-direction hide/show.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 8).onChanged { _ in
-                    guard searchFocused else { return }
-                    dismissSearchKeyboard()
-                }
-            )
             .task(id: scope) {
                 let loadedOnce = scope == .personal ? personalLoadedOnce : worldLoadedOnce
                 if !loadedOnce {
@@ -242,7 +239,6 @@ struct FeedView: View {
                 .syncAppAppearance()
             }
             .onChange(of: searchFocused) { _, focused in
-                searchActive = focused
                 if focused { searchBarVisible = true }
             }
             .onChange(of: isEmpty) { _, empty in
@@ -375,8 +371,26 @@ struct FeedView: View {
     }
 
     private var feedChrome: some View {
+        GeometryReader { geo in
+            feedChromeStack(viewportHeight: geo.size.height)
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                .coordinateSpace(name: HomeSearchSpace.name)
+                .background {
+                    KeyboardCoverReader { cover in
+                        if abs(homeKeyboardCover - cover) > 0.5 {
+                            homeKeyboardCover = cover
+                        }
+                    }
+                }
+        }
+    }
+
+    private func feedChromeStack(viewportHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            header
+            VStack(spacing: 0) {
+                header
+            }
+            .simultaneousGesture(dismissSearchOnDrag)
             if shouldShowCalendarBanner {
                 CalendarConnectBanner(
                     onConnect: {
@@ -423,9 +437,16 @@ struct FeedView: View {
             }
             HomeProfileSearch(
                 focused: $searchFocused,
+                viewportHeight: viewportHeight,
+                keyboardCover: homeKeyboardCover,
+                dismissNonce: searchDismissNonce,
                 onQueryChange: { hasQuery in
                     searchHasQuery = hasQuery
                     if hasQuery { searchBarVisible = true }
+                },
+                onSessionChange: { active in
+                    searchActive = active
+                    if active { searchBarVisible = true }
                 },
                 onSelect: { profile in
                     Analytics.capture("home_search_profile_opened")
@@ -449,17 +470,21 @@ struct FeedView: View {
             .animation(.easeInOut(duration: 0.18), value: isSearchChromeVisible)
             .zIndex(2)
 
-            picker
-            // Page swipe between My Feed and World Feed (picker stays in sync).
-            TabView(selection: $scope) {
-                scopePage(for: .personal)
-                    .tag(Scope.personal)
-                scopePage(for: .world)
-                    .tag(Scope.world)
+            VStack(spacing: 0) {
+                picker
+                // Page swipe between My Feed and World Feed (picker stays in sync).
+                TabView(selection: $scope) {
+                    scopePage(for: .personal)
+                        .tag(Scope.personal)
+                    scopePage(for: .world)
+                        .tag(Scope.world)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .id(feedPagerEpoch)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .id(feedPagerEpoch)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .simultaneousGesture(dismissSearchOnDrag)
         }
         .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
         .onAppear { calendarReminder.refresh() }
@@ -487,7 +512,8 @@ struct FeedView: View {
             .interactiveDismissDisabled()
         }
         .onChange(of: scope) { _, next in
-            dismissSearchKeyboard()
+            // Picker taps and feed drags already end search. Dismissing here too
+            // hid results when the page TabView republished its selection during layout.
             searchBarVisible = true
             lastScrollOffset = 0
             if suppressNextScopeHaptic {
@@ -751,7 +777,17 @@ struct FeedView: View {
         }
     }
 
+    private var dismissSearchOnDrag: some Gesture {
+        DragGesture(minimumDistance: 8).onChanged { _ in
+            // Keep this off the results list — a parent drag was resigning search
+            // and swallowing the pan, so rows below the fold could not be reached.
+            guard searchFocused || searchActive else { return }
+            dismissSearchKeyboard()
+        }
+    }
+
     private func dismissSearchKeyboard() {
+        searchDismissNonce += 1
         if searchFocused { searchFocused = false }
         if searchActive { searchActive = false }
     }
@@ -1415,9 +1451,10 @@ struct AvatarView: View {
 /// on LazyVStack often never updates while scrolling).
 private struct FeedScrollOffsetReader: UIViewRepresentable {
     var onChange: (CGFloat) -> Void
+    var onScrollView: ((UIScrollView) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onChange: onChange)
+        Coordinator(onChange: onChange, onScrollView: onScrollView)
     }
 
     func makeUIView(context: Context) -> UIView {
@@ -1430,24 +1467,29 @@ private struct FeedScrollOffsetReader: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.onChange = onChange
+        context.coordinator.onScrollView = onScrollView
         context.coordinator.attach(from: uiView)
     }
 
     final class Coordinator {
         var onChange: (CGFloat) -> Void
+        var onScrollView: ((UIScrollView) -> Void)?
         private weak var scrollView: UIScrollView?
         private var observation: NSKeyValueObservation?
 
-        init(onChange: @escaping (CGFloat) -> Void) {
+        init(onChange: @escaping (CGFloat) -> Void, onScrollView: ((UIScrollView) -> Void)?) {
             self.onChange = onChange
+            self.onScrollView = onScrollView
         }
 
         func attach(from view: UIView) {
             DispatchQueue.main.async { [weak self, weak view] in
                 guard let self, let view else { return }
-                guard self.scrollView == nil else { return }
                 guard let scroll = view.enclosingScrollView() else { return }
+                if self.scrollView === scroll { return }
+                self.observation?.invalidate()
                 self.scrollView = scroll
+                self.onScrollView?(scroll)
                 self.observation = scroll.observe(\.contentOffset, options: [.new]) { [weak self] scrollView, _ in
                     self?.onChange(scrollView.contentOffset.y)
                 }
@@ -1474,12 +1516,47 @@ private extension UIView {
     }
 }
 
+private enum HomeSearchSpace {
+    static let name = "homeFeedChrome"
+}
+
+/// Tracks the results list's scroll view without publishing on every pixel.
+private final class HomeSearchScrollBox {
+    weak var scrollView: UIScrollView?
+    var keepVisible = false
+    var isInteracting: Bool {
+        if keepVisible { return true }
+        guard let scrollView else { return false }
+        return scrollView.isTracking || scrollView.isDragging || scrollView.isDecelerating
+    }
+}
+
+private struct HomeSearchFieldBottomKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        let next = nextValue()
+        if next > 0 { value = next }
+    }
+}
+
+private struct HomeSearchContentHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 /// Compact people search under the Home brand row — opens profiles or invites
 /// someone who isn't on OpenThanks yet (matches the web home search).
 private struct HomeProfileSearch: View {
     var focused: FocusState<Bool>.Binding
+    var viewportHeight: CGFloat = 0
+    var keyboardCover: CGFloat = 0
+    var dismissNonce: Int = 0
     /// Reports whether the field has a non-empty query (keeps the bar visible while typing).
     var onQueryChange: ((Bool) -> Void)? = nil
+    /// True while the field is focused or results are still on screen.
+    var onSessionChange: ((Bool) -> Void)? = nil
     var onSelect: (Profile) -> Void
     var onInvite: (String) -> Void
 
@@ -1488,13 +1565,30 @@ private struct HomeProfileSearch: View {
     @State private var results: [Profile] = []
     @State private var searching = false
     @State private var didSearch = false
+    /// Set when the user leaves search without scrolling the results (tap outside, Cancel).
+    @State private var resultsDismissed = false
+    @State private var fieldBottom: CGFloat = 0
+    @State private var scrollBox = HomeSearchScrollBox()
 
     private var trimmed: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var showResults: Bool {
-        focused.wrappedValue && trimmed.count >= 2
+        trimmed.count >= 2 && !resultsDismissed
+    }
+
+    private var searchSessionActive: Bool {
+        focused.wrappedValue || showResults
+    }
+
+    /// Space under the field, above the keyboard, so the list scrolls instead of
+    /// pushing the header off the top of the screen.
+    private var resultsMaxHeight: CGFloat {
+        let chrome = max(viewportHeight, 0)
+        let cover = min(max(keyboardCover, 0), chrome)
+        guard fieldBottom > 1 else { return max(0, chrome * 0.62 - cover) }
+        return max(0, chrome - fieldBottom - 8 - cover)
     }
 
     var body: some View {
@@ -1506,15 +1600,40 @@ private struct HomeProfileSearch: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .layoutPriority(showResults ? 1 : 0)
         .animation(.easeInOut(duration: 0.18), value: showResults)
         .animation(.easeInOut(duration: 0.18), value: results.map(\.id))
+        .onPreferenceChange(HomeSearchFieldBottomKey.self) { fieldBottom = $0 }
         .onChange(of: trimmed) { _, value in
             onQueryChange?(!value.isEmpty)
+            if value.count >= 2 && focused.wrappedValue {
+                resultsDismissed = false
+            }
+            if value.count < 2 {
+                scrollBox.keepVisible = false
+            }
         }
         .onChange(of: focused.wrappedValue) { _, isFocused in
             if isFocused {
+                resultsDismissed = false
+                scrollBox.keepVisible = false
                 onQueryChange?(!trimmed.isEmpty)
+                return
             }
+            // Scrolling the results resigns the field. Keep the list up so the
+            // rest of the people stay reachable after the keyboard drops.
+            if scrollBox.isInteracting {
+                scrollBox.keepVisible = true
+                return
+            }
+            resultsDismissed = true
+        }
+        .onChange(of: searchSessionActive) { _, active in
+            onSessionChange?(active)
+        }
+        .onChange(of: dismissNonce) { _, _ in
+            resultsDismissed = true
+            scrollBox.keepVisible = false
         }
         .task(id: trimmed) {
             await runSearch(for: trimmed)
@@ -1536,6 +1655,7 @@ private struct HomeProfileSearch: View {
                     .focused(focused)
                     .submitLabel(.search)
                     .accessibilityLabel("Search for someone to thank")
+                    .accessibilityIdentifier("home.search.field")
 
                 if !query.isEmpty {
                     Button {
@@ -1559,9 +1679,18 @@ private struct HomeProfileSearch: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(focused.wrappedValue ? Theme.coral.opacity(0.45) : Theme.hairline, lineWidth: 1)
             )
+            .background {
+                GeometryReader { proxy in
+                    Color.clear.preference(
+                        key: HomeSearchFieldBottomKey.self,
+                        value: proxy.frame(in: .named(HomeSearchSpace.name)).maxY
+                    )
+                }
+            }
 
             // Native search-bar Cancel — ends editing and restores the tab bar.
-            if focused.wrappedValue {
+            // Stays up after the keyboard drops so the results can still be dismissed.
+            if searchSessionActive {
                 Button("Cancel") {
                     clear()
                 }
@@ -1570,11 +1699,11 @@ private struct HomeProfileSearch: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: focused.wrappedValue)
+        .animation(.easeInOut(duration: 0.18), value: searchSessionActive)
     }
 
     private var resultsPanel: some View {
-        VStack(spacing: 0) {
+        Group {
             if searching && results.isEmpty {
                 HStack(spacing: 10) {
                     ProgressView().tint(Theme.coral).controlSize(.small)
@@ -1585,48 +1714,8 @@ private struct HomeProfileSearch: View {
                 }
                 .padding(14)
             } else if !results.isEmpty {
-                ForEach(Array(results.enumerated()), id: \.element.id) { index, profile in
-                    Button {
-                        focused.wrappedValue = false
-                        onSelect(profile)
-                        clear()
-                    } label: {
-                        HStack(spacing: 12) {
-                            AvatarView(profile: profile, size: 40)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(profile.displayName)
-                                    .font(Theme.body(15, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(1)
-                                if !profile.username.isEmpty {
-                                    Text("@\(profile.username)")
-                                        .font(Theme.body(13))
-                                        .foregroundStyle(Theme.textSecondary)
-                                        .lineLimit(1)
-                                } else if let headline = profile.headline, !headline.isEmpty {
-                                    Text(headline)
-                                        .font(Theme.body(13))
-                                        .foregroundStyle(Theme.textSecondary)
-                                        .lineLimit(1)
-                                }
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Theme.textTertiary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if index < results.count - 1 {
-                        Rectangle()
-                            .fill(Theme.hairline)
-                            .frame(height: 0.5)
-                            .padding(.leading, 66)
-                    }
+                HomeSearchResultsList(maxHeight: resultsMaxHeight, scrollBox: scrollBox) {
+                    resultRows
                 }
             } else if didSearch {
                 VStack(spacing: 12) {
@@ -1667,6 +1756,56 @@ private struct HomeProfileSearch: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(Theme.hairline)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var resultRows: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(results.enumerated()), id: \.element.id) { index, profile in
+                Button {
+                    focused.wrappedValue = false
+                    onSelect(profile)
+                    clear()
+                } label: {
+                    HStack(spacing: 12) {
+                        AvatarView(profile: profile, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(profile.displayName)
+                                .font(Theme.body(15, weight: .semibold))
+                                .foregroundStyle(Theme.textPrimary)
+                                .lineLimit(1)
+                            if !profile.username.isEmpty {
+                                Text("@\(profile.username)")
+                                    .font(Theme.body(13))
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .lineLimit(1)
+                            } else if let headline = profile.headline, !headline.isEmpty {
+                                Text(headline)
+                                    .font(Theme.body(13))
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.search.result.\(profile.username)")
+
+                if index < results.count - 1 {
+                    Rectangle()
+                        .fill(Theme.hairline)
+                        .frame(height: 0.5)
+                        .padding(.leading, 66)
+                }
+            }
+        }
     }
 
     private func clear() {
@@ -1674,6 +1813,8 @@ private struct HomeProfileSearch: View {
         results = []
         searching = false
         didSearch = false
+        resultsDismissed = true
+        scrollBox.keepVisible = false
         focused.wrappedValue = false
         onQueryChange?(false)
     }
@@ -1691,6 +1832,13 @@ private struct HomeProfileSearch: View {
         try? await Task.sleep(for: .milliseconds(180))
         guard !Task.isCancelled else { return }
 
+        if UITestBootstrap.wantsSearchOverflowFixture {
+            results = UITestBootstrap.searchOverflowProfiles()
+            didSearch = true
+            searching = false
+            return
+        }
+
         do {
             let found = try await GratitudeService.searchProfiles(query: current)
             guard !Task.isCancelled else { return }
@@ -1703,5 +1851,51 @@ private struct HomeProfileSearch: View {
             }
         }
         searching = false
+    }
+}
+
+/// Scrolls people-search rows inside the space under the field. Shorter lists
+/// stay content-sized so the feed still shows underneath.
+private struct HomeSearchResultsList<Content: View>: View {
+    var maxHeight: CGFloat
+    var scrollBox: HomeSearchScrollBox
+    @ViewBuilder var content: () -> Content
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        ScrollView {
+            content()
+                // Unbounded height so later rows stay in the content size instead of
+                // being compressed into the viewport (which makes the list unscrollable).
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: HomeSearchContentHeightKey.self, value: proxy.size.height)
+                    }
+                }
+                .background {
+                    FeedScrollOffsetReader { offset in
+                        if offset > 1 { scrollBox.keepVisible = true }
+                    } onScrollView: { scroll in
+                        scrollBox.scrollView = scroll
+                    }
+                }
+        }
+        .accessibilityIdentifier("home.search.results")
+        .scrollDismissesKeyboard(.immediately)
+        .scrollBounceBehavior(.basedOnSize)
+        .onPreferenceChange(HomeSearchContentHeightKey.self) { height in
+            if abs(height - contentHeight) > 0.5 {
+                contentHeight = height
+            }
+        }
+        .frame(height: resolvedHeight)
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private var resolvedHeight: CGFloat {
+        guard maxHeight > 1 else { return 0 }
+        guard contentHeight > 1 else { return maxHeight }
+        return min(contentHeight, maxHeight)
     }
 }

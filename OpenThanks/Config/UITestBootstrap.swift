@@ -8,6 +8,8 @@ enum UITestBootstrap {
     static let freshInstallArgument = "-ui-testing-fresh"
     static let signedOutArgument = "-ui-testing-signed-out"
     static let demoLoginArgument = "-ui-testing-demo-login"
+    /// With `-ui-testing`, returns a long local people list instead of the network search.
+    static let searchOverflowArgument = "-ui-testing-search-overflow"
 
     static var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains(uiTestingArgument)
@@ -28,10 +30,37 @@ enum UITestBootstrap {
         ProcessInfo.processInfo.arguments.contains(demoLoginArgument)
     }
 
+    /// Deterministic overflow list for Home people search. Production search is unchanged.
+    static var wantsSearchOverflowFixture: Bool {
+        isUITesting && ProcessInfo.processInfo.arguments.contains(searchOverflowArgument)
+    }
+
+    static let searchOverflowCount = 24
+
+    static func searchOverflowProfiles() -> [Profile] {
+        (1...searchOverflowCount).map { index in
+            let number = String(format: "%02d", index)
+            return Profile(
+                id: UUID(uuidString: String(format: "00000000-0000-4000-8000-%012d", index))!,
+                fullName: "Overflow Person \(number)",
+                headline: nil,
+                avatarUrl: nil,
+                email: nil,
+                username: "overflow\(number)",
+                phone: nil,
+                favoriteNonprofitEin: nil,
+                favoriteNonprofitName: nil,
+                favoriteNonprofitWebsite: nil,
+                favoriteNonprofitHeadline: nil
+            )
+        }
+    }
+
     /// Call as early as possible in `App.init` / `didFinishLaunching`.
     static func applyLaunchDefaults() {
         guard isUITesting else { return }
-        UIView.setAnimationsEnabled(false)
+        // The overflow search check needs normal keyboard and scroll animation.
+        UIView.setAnimationsEnabled(!wantsSearchOverflowFixture)
 
         let defaults = UserDefaults.standard
         if wantsFreshInstall {
