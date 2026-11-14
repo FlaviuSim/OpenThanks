@@ -287,6 +287,18 @@ struct InspiredParent: Codable, Identifiable, Hashable {
 
 struct CountHolder: Codable, Hashable { let count: Int }
 
+/// Heart count shown next to the heart control.
+///
+/// The feed embed (`hearts(count)`) can lag behind a just-written heart or be
+/// missing on some navigation paths, while `isHearted` and the hearters list
+/// load from live queries. Prefer the highest signal so the badge never says
+/// `0` while the heart is filled or an avatar is visible.
+enum HeartCountDisplay {
+    static func resolve(embedded: Int, live: Int = 0, viewerHasHearted: Bool = false) -> Int {
+        max(embedded, live, viewerHasHearted ? 1 : 0)
+    }
+}
+
 struct NewGratitude: Encodable {
     let authorId: UUID
     let message: String

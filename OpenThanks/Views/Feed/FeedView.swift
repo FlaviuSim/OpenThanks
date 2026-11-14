@@ -732,7 +732,14 @@ struct FeedView: View {
                                 onHeart: { toggleHeart(item, in: page) },
                                 onSelect: usesSplitDetail ? { selectPost(item) } : nil,
                                 isSelected: splitSelection?.wrappedValue?.id == item.id,
-                                onOpenProfile: { path.append($0) }
+                                onOpenProfile: { path.append($0) },
+                                onHeartCountResolved: { count in
+                                    mutateItems(for: page) { list in
+                                        guard let idx = list.firstIndex(where: { $0.id == item.id }),
+                                              list[idx].heartCount < count else { return }
+                                        list[idx].hearts = [CountHolder(count: count)]
+                                    }
+                                }
                             )
                             .onAppear {
                                 if index >= pageItems.count - 3 {
@@ -1144,9 +1151,12 @@ struct FeedView: View {
             "scope": page.rawValue.lowercased(),
         ])
         let delta = wasHearted ? -1 : 1
+        // Snapshot the pre-toggle count from the live list (may already be raised by hearters).
+        let previousCount = items(for: page).first(where: { $0.id == item.id })?.heartCount
+            ?? item.heartCount
         mutateItems(for: page) { list in
             if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                list[idx].hearts = [CountHolder(count: max(0, item.heartCount + delta))]
+                list[idx].hearts = [CountHolder(count: max(0, previousCount + delta))]
             }
         }
         // Keep the other scope's card in sync only when the same post is cached there.
@@ -1175,7 +1185,7 @@ struct FeedView: View {
                 }
                 mutateItems(for: page) { list in
                     if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                        list[idx].hearts = [CountHolder(count: max(0, item.heartCount))]
+                        list[idx].hearts = [CountHolder(count: max(0, previousCount))]
                     }
                 }
                 if items(for: other).contains(where: { $0.id == item.id }) {
@@ -1184,7 +1194,7 @@ struct FeedView: View {
                     }
                     mutateItems(for: other) { list in
                         if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                            list[idx].hearts = [CountHolder(count: max(0, item.heartCount))]
+                            list[idx].hearts = [CountHolder(count: max(0, previousCount))]
                         }
                     }
                 }
@@ -1202,11 +1212,22 @@ struct GratitudeCard: View {
     var isSelected: Bool = false
     /// Prefer programmatic profile open so avatars work inside multi-column shells.
     var onOpenProfile: ((Profile) -> Void)? = nil
+    /// Keep the parent list’s embedded count in sync when hearters load a higher value.
+    var onHeartCountResolved: ((Int) -> Void)? = nil
     @Environment(AuthService.self) private var auth
 
+    @State private var liveHeartCount = 0
     @State private var fullScreenImageURL: URL?
     @State private var preparingShare = false
     @State private var systemSharePayload: SystemSharePayload?
+
+    private var shownHeartCount: Int {
+        HeartCountDisplay.resolve(
+            embedded: gratitude.heartCount,
+            live: liveHeartCount,
+            viewerHasHearted: isHearted
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1272,7 +1293,7 @@ struct GratitudeCard: View {
                     HStack(spacing: 5) {
                         Image(systemName: isHearted ? "heart.fill" : "heart")
                             .foregroundStyle(isHearted ? Theme.coral : Theme.textSecondary)
-                        Text("\(gratitude.heartCount)")
+                        Text("\(shownHeartCount)")
                             .foregroundStyle(Theme.textSecondary)
                     }
                     .font(Theme.body(14, weight: .medium))
@@ -1281,8 +1302,12 @@ struct GratitudeCard: View {
 
                 HeartedByView(
                     gratitudeId: gratitude.id,
-                    heartCount: gratitude.heartCount,
-                    onOpenProfile: onOpenProfile
+                    heartCount: shownHeartCount,
+                    onOpenProfile: onOpenProfile,
+                    onCountResolved: { count in
+                        liveHeartCount = max(liveHeartCount, count)
+                        onHeartCountResolved?(count)
+                    }
                 )
 
                 Spacer(minLength: 0)
@@ -1338,6 +1363,12 @@ struct GratitudeCard: View {
                     hasPhoto: content.sharePhotoURL != nil
                 )
             }
+        }
+        .onChange(of: gratitude.id) { _, _ in
+            liveHeartCount = 0
+        }
+        .onChange(of: gratitude.heartCount) { _, newCount in
+            liveHeartCount = max(liveHeartCount, newCount)
         }
     }
 

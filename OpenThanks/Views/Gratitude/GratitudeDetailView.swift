@@ -17,6 +17,8 @@ struct GratitudeDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isHearted = false
+    /// Live hearters query can outpace the embedded `hearts(count)` on the route value.
+    @State private var liveHeartCount = 0
     @State private var fullScreenImageURL: URL?
     @State private var linkCopied = false
     @State private var shareHint: String?
@@ -48,6 +50,14 @@ struct GratitudeDetailView: View {
 
     private var shareContent: AppreciationShareContent {
         AppreciationShareContent(gratitude: gratitude, voice: shareVoice)
+    }
+
+    private var shownHeartCount: Int {
+        HeartCountDisplay.resolve(
+            embedded: gratitude.heartCount,
+            live: liveHeartCount,
+            viewerHasHearted: isHearted
+        )
     }
 
     private var rippleChipTitle: String {
@@ -226,7 +236,7 @@ struct GratitudeDetailView: View {
                     HStack(spacing: 5) {
                         Image(systemName: isHearted ? "heart.fill" : "heart")
                             .foregroundStyle(isHearted ? Theme.coral : Theme.textSecondary)
-                        Text("\(gratitude.heartCount)")
+                        Text("\(shownHeartCount)")
                             .foregroundStyle(Theme.textSecondary)
                     }
                     .font(Theme.body(15, weight: .medium))
@@ -235,8 +245,11 @@ struct GratitudeDetailView: View {
 
                 HeartedByView(
                     gratitudeId: gratitude.id,
-                    heartCount: gratitude.heartCount,
-                    onOpenProfile: onOpenProfile ?? { heartedProfile = HeartedProfileRoute(profile: $0) }
+                    heartCount: shownHeartCount,
+                    onOpenProfile: onOpenProfile ?? { heartedProfile = HeartedProfileRoute(profile: $0) },
+                    onCountResolved: { count in
+                        raiseHeartCount(to: count)
+                    }
                 )
 
                 Spacer(minLength: 0)
@@ -468,11 +481,31 @@ struct GratitudeDetailView: View {
         isHearted = hearted.contains(gratitude.id)
     }
 
+    /// Raise the displayed count when a live hearters query returns a higher value.
+    private func raiseHeartCount(to count: Int) {
+        let next = max(0, count)
+        liveHeartCount = max(liveHeartCount, next)
+        guard gratitude.heartCount < next else { return }
+        var updated = gratitude
+        updated.hearts = [CountHolder(count: next)]
+        gratitude = updated
+    }
+
+    /// Replace the count (toggle / rollback). Reassigns `@State` so SwiftUI refreshes.
+    private func setHeartCount(_ count: Int) {
+        let next = max(0, count)
+        liveHeartCount = next
+        var updated = gratitude
+        updated.hearts = [CountHolder(count: next)]
+        gratitude = updated
+    }
+
     private func toggleHeart() {
         guard let userId = auth.userId else { return }
         let wasHearted = isHearted
+        let previousCount = shownHeartCount
         isHearted.toggle()
-        gratitude.hearts = [CountHolder(count: max(0, gratitude.heartCount + (wasHearted ? -1 : 1)))]
+        setHeartCount(previousCount + (wasHearted ? -1 : 1))
         Task {
             do {
                 if wasHearted {
@@ -482,7 +515,7 @@ struct GratitudeDetailView: View {
                 }
             } catch {
                 isHearted = wasHearted
-                gratitude.hearts = [CountHolder(count: max(0, gratitude.heartCount + (wasHearted ? 1 : -1)))]
+                setHeartCount(previousCount)
             }
         }
     }

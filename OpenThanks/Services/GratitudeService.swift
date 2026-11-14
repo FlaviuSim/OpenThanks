@@ -1247,10 +1247,17 @@ enum GratitudeService {
     }
 
     static func heart(gratitudeId: UUID, userId: UUID, authorId: UUID) async throws {
-        try await supabase.from("hearts")
-            .insert(["gratitude_id": gratitudeId.uuidString,
-                     "user_id": userId.uuidString])
-            .execute()
+        do {
+            try await supabase.from("hearts")
+                .insert(["gratitude_id": gratitudeId.uuidString,
+                         "user_id": userId.uuidString])
+                .execute()
+        } catch {
+            // Unique (gratitude_id, user_id) — already hearted. Treat as success so
+            // optimistic UI is not rolled back to an empty count.
+            if isUniqueConstraintViolation(error) { return }
+            throw error
+        }
 
         // Notify the author (skip self-hearts).
         if authorId != userId {
@@ -1261,6 +1268,13 @@ enum GratitudeService {
                 fromUserId: userId
             )
         }
+    }
+
+    private static func isUniqueConstraintViolation(_ error: Error) -> Bool {
+        let text = error.localizedDescription.lowercased()
+        return text.contains("23505")
+            || text.contains("duplicate")
+            || text.contains("unique")
     }
 
     static func unheart(gratitudeId: UUID, userId: UUID) async throws {
