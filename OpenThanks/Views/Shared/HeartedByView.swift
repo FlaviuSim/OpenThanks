@@ -7,6 +7,8 @@ struct HeartedByView: View {
     var heartCount: Int
     /// Opens the profile on the host navigation stack (same as Home search).
     var onOpenProfile: ((Profile) -> Void)? = nil
+    /// Fired when the live hearters query returns a count (so the heart badge can catch up).
+    var onCountResolved: ((Int) -> Void)? = nil
 
     @Environment(\.openProfile) private var openProfileEnv
     @State private var hearters: [Profile] = []
@@ -234,6 +236,7 @@ struct HeartedByView: View {
             hearters = result.hearters
             resolvedCount = result.count
             loaded = true
+            onCountResolved?(result.count)
         } catch {
             if !error.isCancellation {
                 loaded = true

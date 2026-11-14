@@ -40,9 +40,13 @@ let package = Package(
             name: "StreakMath",
             path: "Sources/StreakMath"
         ),
+        .target(
+            name: "HeartCountDisplay",
+            path: "Sources/HeartCountDisplay"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "HeartCountDisplay"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
@@ -55,6 +59,7 @@ let package = Package(
                 "CompetitionConfigTests.swift",
                 "CampaignPromptCardTests.swift",
                 "CalendarPromptCapTests.swift",
+                "HeartCountDisplayTests.swift",
             ]
         ),
     ]
