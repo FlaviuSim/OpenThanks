@@ -13,6 +13,10 @@ let package = Package(
             path: "Sources/PasskeySignIn"
         ),
         .target(
+            name: "OAuthCallbackGate",
+            path: "Sources/OAuthCallbackGate"
+        ),
+        .target(
             name: "ReviewPrompt",
             path: "Sources/ReviewPrompt"
         ),
@@ -20,16 +24,42 @@ let package = Package(
             name: "CampaignPush",
             path: "Sources/CampaignPush"
         ),
+        .target(
+            name: "PostAcceptPrompt",
+            path: "Sources/PostAcceptPrompt"
+        ),
+        .target(
+            name: "CampaignPrompt",
+            path: "Sources/CampaignPrompt"
+        ),
+        .target(
+            name: "CalendarPrompt",
+            path: "Sources/CalendarPrompt"
+        ),
+        .target(
+            name: "StreakMath",
+            path: "Sources/StreakMath"
+        ),
+        .target(
+            name: "HeartCountDisplay",
+            path: "Sources/HeartCountDisplay"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "ReviewPrompt", "CampaignPush"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "HeartCountDisplay"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
                 "ComposeDraftStoreTests.swift",
                 "PasskeySignInTests.swift",
+                "OAuthCallbackGateTests.swift",
                 "AppStoreReviewPromptTests.swift",
                 "CampaignPushPermissionTests.swift",
+                "PostAcceptPromptTests.swift",
+                "CompetitionConfigTests.swift",
+                "CampaignPromptCardTests.swift",
+                "CalendarPromptCapTests.swift",
+                "HeartCountDisplayTests.swift",
             ]
         ),
     ]

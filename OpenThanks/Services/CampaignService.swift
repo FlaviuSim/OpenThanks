@@ -8,11 +8,13 @@ struct CampaignPrompt: Codable, Equatable, Sendable, Identifiable {
     var theme: String?
     var prompt: String
     var example: String?
+    /// Remote button label (`cta`). Nil when the feed omitted it.
+    var cta: String?
 
     var id: Int { day }
 }
 
-/// `{ id, title, start, end, timezone, prompts: [{ day, date, theme, prompt, example }] }`
+/// `{ id, title, start, end, timezone, cta, prompts: [{ day, date, theme, prompt, example, cta }] }`
 /// from `https://openthanks.com/campaigns/november-2026.json`.
 struct CampaignFeed: Codable, Equatable, Sendable {
     var id: String
@@ -21,6 +23,8 @@ struct CampaignFeed: Codable, Equatable, Sendable {
     var end: String
     var timezone: String
     var prompts: [CampaignPrompt]
+    /// Remote button label for every day that does not set its own `cta`.
+    var cta: String?
 
     static let november2026ID = "november-2026"
     static let cardTitle = "30 Days of Thanks"
@@ -106,25 +110,37 @@ struct CampaignFeed: Codable, Equatable, Sendable {
         return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour))
     }
 
-    init(id: String, title: String, start: String, end: String, timezone: String, prompts: [CampaignPrompt]) {
+    init(
+        id: String,
+        title: String,
+        start: String,
+        end: String,
+        timezone: String,
+        prompts: [CampaignPrompt],
+        cta: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.start = start
         self.end = end
         self.timezone = timezone
         self.prompts = prompts
+        self.cta = cta
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
-        title = try container.decodeIfPresent(String.self, forKey: .title) ?? Self.cardTitle
+        title = try container.decodeIfPresent(String.self, forKey: .title) ?? ""
         start = try container.decode(String.self, forKey: .start)
         end = try container.decode(String.self, forKey: .end)
         let zone = try container.decodeIfPresent(String.self, forKey: .timezone)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         timezone = (zone?.isEmpty == false) ? zone! : Self.fallbackTimeZoneID
         prompts = try container.decode([CampaignPrompt].self, forKey: .prompts)
+        cta = CampaignPromptCardModel.normalizeLabel(
+            try container.decodeIfPresent(String.self, forKey: .cta)
+        )
     }
 
     func encode(to encoder: Encoder) throws {
@@ -135,10 +151,11 @@ struct CampaignFeed: Codable, Equatable, Sendable {
         try container.encode(end, forKey: .end)
         try container.encode(timezone, forKey: .timezone)
         try container.encode(prompts, forKey: .prompts)
+        try container.encodeIfPresent(cta, forKey: .cta)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, start, end, timezone, prompts
+        case id, title, start, end, timezone, prompts, cta
     }
 }
 
@@ -391,6 +408,7 @@ final class CampaignService {
                 copy.prompt = prompt.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
                 copy.theme = prompt.theme?.trimmingCharacters(in: .whitespacesAndNewlines)
                 copy.date = CampaignFeed.normalizeYMD(prompt.date) ?? prompt.date
+                copy.cta = CampaignPromptCardModel.normalizeLabel(prompt.cta)
                 return copy
             }
             .filter { $0.day > 0 && !$0.prompt.isEmpty }
@@ -403,11 +421,12 @@ final class CampaignService {
         let title = feed.title.trimmingCharacters(in: .whitespacesAndNewlines)
         return CampaignFeed(
             id: id,
-            title: title.isEmpty ? CampaignFeed.cardTitle : title,
+            title: title,
             start: CampaignFeed.normalizeYMD(feed.start) ?? feed.start,
             end: CampaignFeed.normalizeYMD(feed.end) ?? feed.end,
             timezone: zone,
-            prompts: prompts
+            prompts: prompts,
+            cta: CampaignPromptCardModel.normalizeLabel(feed.cta)
         )
     }
 

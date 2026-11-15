@@ -3,7 +3,9 @@ import Foundation
 /// Soft post-send “Enjoying OpenThanks?” gate → App Store review or private feedback.
 /// Throttled so the first send stays about sharing, not ratings.
 enum EnjoymentPrompt {
-    private static let sendCountKey = "enjoymentPrompt.successfulSendCount.v1"
+    /// Device-local count of successful creates. The first-send tip reads this
+    /// so someone who already sent does not see the coachmark.
+    static let successfulSendCountKey = "enjoymentPrompt.successfulSendCount.v1"
     private static let completedKey = "enjoymentPrompt.completed.v1"
     private static let dismissedAtKey = "enjoymentPrompt.dismissedAt.v1"
     private static let receiveReviewAtKey = "appStoreReviewRequestedAfterReceiveAt.v1"
@@ -19,7 +21,7 @@ enum EnjoymentPrompt {
 
     /// Successful create (not edit) count on this device.
     static var successfulSendCount: Int {
-        UserDefaults.standard.integer(forKey: sendCountKey)
+        UserDefaults.standard.integer(forKey: successfulSendCountKey)
     }
 
     static var hasCompleted: Bool {
@@ -28,7 +30,7 @@ enum EnjoymentPrompt {
 
     static func recordSuccessfulSend() {
         let next = successfulSendCount + 1
-        UserDefaults.standard.set(next, forKey: sendCountKey)
+        UserDefaults.standard.set(next, forKey: successfulSendCountKey)
     }
 
     /// Call when the receive-side StoreKit prompt fires so we don’t double-ask.

@@ -32,7 +32,15 @@ final class PermissionPromptScheduler {
     /// When calendar was skipped/deferred during an appreciation sequence, offer it next.
     private var queuedCalendarSource: String?
 
+    /// Set for the rest of this process after an accept, so the calendar sheet
+    /// does not follow that accept or a later send in the same session.
+    private(set) var acceptedThisSession = false
+
     private init() {}
+
+    func noteAcceptedThisSession() {
+        acceptedThisSession = true
+    }
 
     // MARK: - Open count (Siri = 2nd open, calendar gate = 3rd)
 
@@ -67,11 +75,27 @@ final class PermissionPromptScheduler {
     }
 
     /// Full-screen calendar on 3rd+ open when still disconnected and gate not finished.
+    /// At most two automatic shows per person, and not in a session that already accepted.
     static var shouldShowDeferredCalendarGate: Bool {
         migrateOpenCountIfNeeded()
         guard !UserDefaults.standard.bool(forKey: completedCalendarKey) else { return false }
         guard !CalendarMeetingAggregator.hasAnyConnectedSource else { return false }
-        return defaultsOpenCount >= 3
+        guard defaultsOpenCount >= 3 else { return false }
+        return CalendarPromptCap.shouldShowAutomatic(
+            source: .deferredOpen,
+            shownCount: automaticCalendarShownCount(),
+            acceptedThisSession: shared.acceptedThisSession,
+            calendarConnected: false
+        )
+    }
+
+    static func automaticCalendarShownCount() -> Int {
+        CalendarPromptCap.load(from: .standard, mainAppOpenCount: mainAppOpenCount)
+    }
+
+    /// Call from the calendar sheet's first appearance. Persists the cap.
+    static func recordAutomaticCalendarPromptShown() {
+        CalendarPromptCap.record(in: .standard, mainAppOpenCount: mainAppOpenCount)
     }
 
     private static var defaultsOpenCount: Int {
@@ -82,14 +106,18 @@ final class PermissionPromptScheduler {
 
     /// After a successful send or accept (call once the prior sheet has settled).
     func scheduleAfterAppreciation(source: String) {
+        if source == "post_accept" {
+            noteAcceptedThisSession()
+        }
+        let offerCalendar = shouldOfferAutomaticCalendar(after: source)
         if shouldOfferNotificationAppreciationPrompt {
             pending = .notificationsAppreciation(source: source)
-            if shouldOfferCalendarAfterAppreciation {
+            if offerCalendar {
                 queuedCalendarSource = source
             }
             return
         }
-        if shouldOfferCalendarAfterAppreciation {
+        if offerCalendar {
             pending = .calendar(source: source)
         }
     }
@@ -122,7 +150,7 @@ final class PermissionPromptScheduler {
     func advanceAfterFinishing(_ finished: Prompt) {
         switch finished {
         case .notificationsAppreciation:
-            if let source = queuedCalendarSource, shouldOfferCalendarAfterAppreciation {
+            if let source = queuedCalendarSource, shouldOfferAutomaticCalendar(after: source) {
                 queuedCalendarSource = nil
                 // Swap in place so the sheet stays presented.
                 pending = .calendar(source: source)
@@ -159,13 +187,17 @@ final class PermissionPromptScheduler {
         !UserDefaults.standard.bool(forKey: Self.completedNotificationKey)
     }
 
-    var shouldOfferCalendarAfterAppreciation: Bool {
+    private func shouldOfferAutomaticCalendar(after source: String) -> Bool {
         guard !CalendarMeetingAggregator.hasAnyConnectedSource else { return false }
-        if let until = UserDefaults.standard.object(forKey: Self.appreciationCalendarCooldownKey) as? TimeInterval,
-           Date().timeIntervalSince1970 < until {
-            return false
-        }
-        return true
+        let promptSource: CalendarPromptSource = source == "post_accept" ? .postAccept : .postSend
+        let cooldown = UserDefaults.standard.object(forKey: Self.appreciationCalendarCooldownKey) as? TimeInterval
+        return CalendarPromptCap.shouldShowAutomatic(
+            source: promptSource,
+            shownCount: Self.automaticCalendarShownCount(),
+            acceptedThisSession: acceptedThisSession,
+            calendarConnected: false,
+            cooldownUntil: cooldown.map { Date(timeIntervalSince1970: $0) }
+        )
     }
 }
 

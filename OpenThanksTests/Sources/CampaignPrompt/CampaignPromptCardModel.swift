@@ -1,0 +1,1 @@
+../../../OpenThanks/Services/CampaignPromptCardModel.swift

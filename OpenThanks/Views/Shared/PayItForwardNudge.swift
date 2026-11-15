@@ -11,18 +11,13 @@ struct PayItForwardNudgeCard: View {
     var analyticsSource: String? = nil
     @State private var didCaptureShown = false
 
-    private var firstName: String {
-        guard let fromName, !fromName.isEmpty else { return "someone" }
-        return fromName.split(separator: " ").first.map(String.init) ?? fromName
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Image(systemName: "water.waves")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Theme.coral)
-                Text("Continue the ripple")
+                Text(PayItForwardPromptCopy.title(fromName: fromName))
                     .font(Theme.body(15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer(minLength: 0)
@@ -39,17 +34,13 @@ struct PayItForwardNudgeCard: View {
                 }
             }
 
-            Text("\(firstName) just thanked you. Send one note to someone who deserves it — keep their kindness moving.")
+            Text(PayItForwardPromptCopy.body)
                 .font(Theme.body(14))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Ripple started by \(firstName)")
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textTertiary)
-
             Button(action: onThankSomeone) {
-                Text("Thank someone next")
+                Text(PayItForwardPromptCopy.primaryButton)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(CTAButtonStyle())
@@ -115,7 +106,7 @@ struct PayItForwardSheet: View {
             )
             .padding(.horizontal, 20)
 
-            Button("Not now") {
+            Button(PayItForwardPromptCopy.notNow) {
                 dismiss()
             }
             .font(Theme.body(15, weight: .medium))

@@ -28,6 +28,8 @@ struct FeedView: View {
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
+    /// `app_config.competition.cta`. Nil until the remote row is read.
+    @State private var campaignConfigCTA: String?
     @State private var showCalendarConnect = false
     @State private var scope: Scope = .personal
     /// Per-scope lists so My ↔ World can page without flashing the wrong feed.
@@ -171,8 +173,15 @@ struct FeedView: View {
         }
         // Thank-someone opens compose — offer permissions after that send instead.
         let shouldOfferPermissions = wasShowing && !payItForwardDidThank
+        let didThank = payItForwardDidThank
         payItForwardDidThank = false
         payItForwardFromName = nil
+        // Mark the composer before the sheet flag drops so the tip does not
+        // appear in the gap between "Send a note" and the cover.
+        if didThank {
+            FirstSendTip.markComposerOpened()
+        }
+        postRippleSheetPresented(false)
         if shouldOfferPermissions {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_accept")
@@ -222,6 +231,7 @@ struct FeedView: View {
                     analyticsSource: "feed_accept",
                     onThankSomeone: {
                         payItForwardDidThank = true
+                        FirstSendTip.markComposerOpened()
                         composeRecipient = nil
                         composeInspiredById = payItForwardParentId
                         composeInspiredByName = payItForwardFromName
@@ -252,7 +262,10 @@ struct FeedView: View {
                 )
             }
             .onChange(of: showCompose) { _, open in
-                if open { dismissSearchKeyboard() }
+                if open {
+                    dismissSearchKeyboard()
+                    FirstSendTip.markComposerOpened()
+                }
                 if !open {
                     composeRecipient = nil
                     composeInspiredById = nil
@@ -285,6 +298,7 @@ struct FeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
                 payItForwardFromName = nil
                 payItForwardParentId = nil
+                postRippleSheetPresented(false)
             }
             .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
                 guard let gratitude = note.object as? Gratitude else { return }
@@ -413,15 +427,19 @@ struct FeedView: View {
                     .padding(.bottom, 4)
                     .readableWidth()
             }
-            if let prompt = campaign.todayPrompt {
-                CampaignPromptCard(
-                    day: prompt.day,
-                    theme: prompt.theme,
-                    prompt: prompt.prompt,
-                    daysSent: campaign.daysSent,
-                    totalDays: campaign.progressTotal,
-                    onThank: { thankFromCampaign(prompt) }
-                )
+            if let prompt = campaign.todayPrompt,
+               let content = CampaignPromptCardModel.content(
+                   feedTitle: campaign.feed?.title,
+                   day: prompt.day,
+                   theme: prompt.theme,
+                   prompt: prompt.prompt,
+                   promptCTA: prompt.cta,
+                   feedCTA: campaign.feed?.cta,
+                   configCTA: campaignConfigCTA,
+                   daysSent: campaign.daysSent,
+                   totalDays: campaign.progressTotal
+               ) {
+                CampaignPromptCard(content: content, onSend: { thankFromCampaign(prompt) })
                 .padding(.horizontal, 16)
                 .padding(.top, (shouldShowCalendarBanner || pendingSentCount > 0) ? 4 : 10)
                 .padding(.bottom, 4)
@@ -488,7 +506,10 @@ struct FeedView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
         .onAppear { calendarReminder.refresh() }
-        .task { await campaign.refresh() }
+        .task {
+            await campaign.refresh()
+            campaignConfigCTA = await CompetitionConfigService.refresh().cta
+        }
         .onChange(of: isSelected) { _, selected in
             if selected { calendarReminder.refresh() }
         }
@@ -504,7 +525,8 @@ struct FeedView: View {
                         calendarReminder.refresh()
                     },
                     analyticsSource: "home_banner",
-                    marksLaunchGateCompleteOnSkip: true
+                    marksLaunchGateCompleteOnSkip: true,
+                    countsTowardAutomaticCap: false
                 )
             }
             .syncAppAppearance()
@@ -736,7 +758,14 @@ struct FeedView: View {
                                 onHeart: { toggleHeart(item, in: page) },
                                 onSelect: usesSplitDetail ? { selectPost(item) } : nil,
                                 isSelected: splitSelection?.wrappedValue?.id == item.id,
-                                onOpenProfile: { path.append($0) }
+                                onOpenProfile: { path.append($0) },
+                                onHeartCountResolved: { count in
+                                    mutateItems(for: page) { list in
+                                        guard let idx = list.firstIndex(where: { $0.id == item.id }),
+                                              list[idx].heartCount < count else { return }
+                                        list[idx].hearts = [CountHolder(count: count)]
+                                    }
+                                }
                             )
                             .onAppear {
                                 if index >= pageItems.count - 3 {
@@ -924,12 +953,23 @@ struct FeedView: View {
         let name = gratitude.author?.fullName
             ?? gratitude.author?.displayName
             ?? gratitude.author?.username
+        // Hide the first-send tip for the settle delay, before the sheet exists.
+        postRippleSheetPresented(true)
         // Slight delay so the pending card dismiss animation settles first.
         // The impression fires from the card's onAppear, not from this delay.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             payItForwardParentId = gratitude.id
             payItForwardFromName = name ?? "someone"
+            postRippleSheetPresented(true)
         }
+    }
+
+    private func postRippleSheetPresented(_ presented: Bool) {
+        NotificationCenter.default.post(
+            name: .payItForwardSheetPresented,
+            object: nil,
+            userInfo: ["presented": presented]
+        )
     }
 
     private func applyPendingList(_ pending: [Gratitude]) {
@@ -1149,9 +1189,12 @@ struct FeedView: View {
             "scope": page.rawValue.lowercased(),
         ])
         let delta = wasHearted ? -1 : 1
+        // Snapshot the pre-toggle count from the live list (may already be raised by hearters).
+        let previousCount = items(for: page).first(where: { $0.id == item.id })?.heartCount
+            ?? item.heartCount
         mutateItems(for: page) { list in
             if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                list[idx].hearts = [CountHolder(count: max(0, item.heartCount + delta))]
+                list[idx].hearts = [CountHolder(count: max(0, previousCount + delta))]
             }
         }
         // Keep the other scope's card in sync only when the same post is cached there.
@@ -1180,7 +1223,7 @@ struct FeedView: View {
                 }
                 mutateItems(for: page) { list in
                     if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                        list[idx].hearts = [CountHolder(count: max(0, item.heartCount))]
+                        list[idx].hearts = [CountHolder(count: max(0, previousCount))]
                     }
                 }
                 if items(for: other).contains(where: { $0.id == item.id }) {
@@ -1189,7 +1232,7 @@ struct FeedView: View {
                     }
                     mutateItems(for: other) { list in
                         if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                            list[idx].hearts = [CountHolder(count: max(0, item.heartCount))]
+                            list[idx].hearts = [CountHolder(count: max(0, previousCount))]
                         }
                     }
                 }
@@ -1207,11 +1250,22 @@ struct GratitudeCard: View {
     var isSelected: Bool = false
     /// Prefer programmatic profile open so avatars work inside multi-column shells.
     var onOpenProfile: ((Profile) -> Void)? = nil
+    /// Keep the parent list’s embedded count in sync when hearters load a higher value.
+    var onHeartCountResolved: ((Int) -> Void)? = nil
     @Environment(AuthService.self) private var auth
 
+    @State private var liveHeartCount = 0
     @State private var fullScreenImageURL: URL?
     @State private var preparingShare = false
     @State private var systemSharePayload: SystemSharePayload?
+
+    private var shownHeartCount: Int {
+        HeartCountDisplay.resolve(
+            embedded: gratitude.heartCount,
+            live: liveHeartCount,
+            viewerHasHearted: isHearted
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1277,7 +1331,7 @@ struct GratitudeCard: View {
                     HStack(spacing: 5) {
                         Image(systemName: isHearted ? "heart.fill" : "heart")
                             .foregroundStyle(isHearted ? Theme.coral : Theme.textSecondary)
-                        Text("\(gratitude.heartCount)")
+                        Text("\(shownHeartCount)")
                             .foregroundStyle(Theme.textSecondary)
                     }
                     .font(Theme.body(14, weight: .medium))
@@ -1286,8 +1340,12 @@ struct GratitudeCard: View {
 
                 HeartedByView(
                     gratitudeId: gratitude.id,
-                    heartCount: gratitude.heartCount,
-                    onOpenProfile: onOpenProfile
+                    heartCount: shownHeartCount,
+                    onOpenProfile: onOpenProfile,
+                    onCountResolved: { count in
+                        liveHeartCount = max(liveHeartCount, count)
+                        onHeartCountResolved?(count)
+                    }
                 )
 
                 Spacer(minLength: 0)
@@ -1343,6 +1401,12 @@ struct GratitudeCard: View {
                     hasPhoto: content.sharePhotoURL != nil
                 )
             }
+        }
+        .onChange(of: gratitude.id) { _, _ in
+            liveHeartCount = 0
+        }
+        .onChange(of: gratitude.heartCount) { _, newCount in
+            liveHeartCount = max(liveHeartCount, newCount)
         }
     }
 

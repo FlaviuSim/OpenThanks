@@ -290,6 +290,18 @@ struct InspiredParent: Codable, Identifiable, Hashable {
 
 struct CountHolder: Codable, Hashable { let count: Int }
 
+/// Heart count shown next to the heart control.
+///
+/// The feed embed (`hearts(count)`) can lag behind a just-written heart or be
+/// missing on some navigation paths, while `isHearted` and the hearters list
+/// load from live queries. Prefer the highest signal so the badge never says
+/// `0` while the heart is filled or an avatar is visible.
+enum HeartCountDisplay {
+    static func resolve(embedded: Int, live: Int = 0, viewerHasHearted: Bool = false) -> Int {
+        max(embedded, live, viewerHasHearted ? 1 : 0)
+    }
+}
+
 struct NewGratitude: Encodable {
     let authorId: UUID
     let message: String
@@ -393,7 +405,7 @@ struct AppNotification: Codable, Identifiable, Hashable {
         case "reply":
             return "💬 replied to your appreciation"
         case "competition_winner":
-            return "🏆 You finished the challenge — unlock $30 to give away to a classroom."
+            return ""
         case "email_bounced":
             return "⚠️ Your appreciation email couldn't be delivered — the address may be invalid. Share the claim link instead."
         case "calendar_gratitude_nudge":
@@ -411,16 +423,23 @@ struct AppNotification: Codable, Identifiable, Hashable {
         }
     }
 
-    /// Prefer remote winner copy when available (Notifications UI).
+    /// Winner copy comes only from remote `winnerNotifyBody`. Empty remote copy
+    /// stays blank. Stale "$30" / classroom challenge text is still suppressed.
     var displayVerb: String {
         if type == "competition_winner" {
             let body = CompetitionConfigService.cached.winnerNotifyBody
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !body.isEmpty {
+            if !body.isEmpty, !Self.isRetiredChallengeCopy(body) {
                 return body.hasPrefix("🏆") ? body : "🏆 \(body)"
             }
+            return ""
         }
         return verb
+    }
+
+    private static func isRetiredChallengeCopy(_ text: String) -> Bool {
+        let folded = text.lowercased()
+        return folded.contains("$30") || folded.contains("classroom")
     }
 }
 

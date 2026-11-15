@@ -47,16 +47,26 @@ struct StatsView: View {
         StreakMath.acceptedDaysInCurrentStreak(posts: activity, calendar: calendar)
     }
 
-    private var competitionSentStreak: Int {
+    private var competitionProgress: Int {
         guard competition.enabled else { return 0 }
         return min(
-            StreakMath.competitionSentStreak(posts: activity, config: competition, calendar: calendar),
+            StreakMath.competitionProgressCount(posts: activity, config: competition, calendar: calendar),
             max(competition.targetDays, 1)
         )
     }
 
     private var showCompetition: Bool {
         competition.enabled
+    }
+
+    /// Hidden until a remote competition is enabled and inside its window.
+    private var showCompetitionPanel: Bool {
+        competition.isActive()
+    }
+
+    private var competitionProgressTitle: String {
+        let label = competition.progressLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return label.isEmpty ? "Your streak" : label
     }
 
     private var needsAcceptanceNudge: Bool {
@@ -98,7 +108,7 @@ struct StatsView: View {
                         .padding(.horizontal, 4)
                 } else {
                     streakHero
-                    if showCompetition {
+                    if showCompetitionPanel {
                         competitionPanel
                     }
                     calendarSection
@@ -381,7 +391,7 @@ struct StatsView: View {
             Text(
                 complete
                     ? "Every day in your streak has been accepted — beautiful."
-                    : "Your streak counts the days you send. Unlock the classroom gift when those appreciations are accepted."
+                    : "Your streak counts the days you send."
             )
             .font(Theme.body(13))
             .foregroundStyle(Theme.textSecondary)
@@ -435,7 +445,7 @@ struct StatsView: View {
 
     private var ringProgress: CGFloat {
         if showCompetition, competition.targetDays > 0 {
-            return CGFloat(competitionSentStreak) / CGFloat(competition.targetDays)
+            return CGFloat(competitionProgress) / CGFloat(competition.targetDays)
         }
         return min(CGFloat(currentStreak) / 14, 1)
     }
@@ -449,6 +459,7 @@ struct StatsView: View {
                     Text(competition.title)
                         .font(Theme.display(22, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(competition.subtitle)
                         .font(Theme.body(13))
                         .foregroundStyle(Theme.textSecondary)
@@ -458,27 +469,28 @@ struct StatsView: View {
                 Text(competition.prizeLabel)
                     .font(Theme.display(28, weight: .semibold))
                     .foregroundStyle(Theme.coral)
-            }
-
-            if !competition.isActive() {
-                Text("This challenge isn’t active right now.")
-                    .font(Theme.body(12, weight: .medium))
-                    .foregroundStyle(Theme.coral)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: 160, alignment: .trailing)
             }
 
             competitionMetricRow(
-                title: "Your streak",
-                value: "\(competitionSentStreak) of \(competition.targetDays)",
-                detail: "Days in a row you sent a thanks",
-                progress: Double(competitionSentStreak),
+                title: competitionProgressTitle,
+                value: "\(competitionProgress) of \(competition.targetDays)",
+                detail: "",
+                progress: Double(competitionProgress),
                 total: Double(max(competition.targetDays, 1)),
                 tint: Theme.coral
             )
 
-            Text("Send one thanks a day for \(competition.targetDays) days in a row. Finishers unlock $30 to give away to a classroom.")
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if let body = competition.body?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !body.isEmpty {
+                Text(body)
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if !competition.rulesSummary.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -540,20 +552,24 @@ struct StatsView: View {
         tint: Color
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 Text(title)
                     .font(Theme.body(12, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
-                Spacer()
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
                 Text(value)
                     .font(Theme.body(13, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
+                    .layoutPriority(1)
             }
             ProgressView(value: progress, total: total)
                 .tint(tint)
-            Text(detail)
-                .font(Theme.body(11))
-                .foregroundStyle(Theme.textTertiary)
+            if !detail.isEmpty {
+                Text(detail)
+                    .font(Theme.body(11))
+                    .foregroundStyle(Theme.textTertiary)
+            }
         }
     }
 

@@ -16,6 +16,8 @@ struct CalendarPermissionView: View {
     var analyticsSource: String = "deferred_open"
     /// When true, leaving without a calendar marks the launch gate complete (3rd-open full-screen).
     var marksLaunchGateCompleteOnSkip: Bool = true
+    /// Deferred gate and post-send sheet. Home banner and Settings do not count.
+    var countsTowardAutomaticCap: Bool = false
 
     @Environment(AuthService.self) private var auth
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
@@ -27,6 +29,7 @@ struct CalendarPermissionView: View {
     @State private var showPostDenialActions = false
     /// After connect without notification auth — show branded notif step.
     @State private var showNotificationFollowUp = false
+    @State private var didRecordAutomaticShow = false
 
     private var busy: Bool { busyApple || busyGoogle }
 
@@ -157,6 +160,10 @@ struct CalendarPermissionView: View {
         .animation(.easeOut(duration: 0.2), value: showPostDenialActions)
         .onAppear {
             Analytics.calendarPermissionPrompted(source: analyticsSource)
+            if countsTowardAutomaticCap, !didRecordAutomaticShow {
+                didRecordAutomaticShow = true
+                PermissionPromptScheduler.recordAutomaticCalendarPromptShown()
+            }
             withAnimation(.easeOut(duration: 0.45)) {
                 appeared = true
             }
