@@ -3,7 +3,7 @@
 Copy everything inside the box below into **App Review Information → Notes**.
 
 ```
-UNIVERSAL APP — iPhone + iPad (build 1.4). On iPad, Home uses a sidebar; Thank Someone is in the sidebar.
+UNIVERSAL APP — iPhone + iPad (build 1.7). On iPad, Home uses a sidebar; Thank Someone is in the sidebar. On iPhone, compose is the + button beside the floating tab bar.
 
 DEMO ACCOUNT (no OTP / no inbox needed)
 1. On welcome → Continue with Email
@@ -15,8 +15,8 @@ DEMO ACCOUNT (no OTP / no inbox needed)
 Confirm 18+ on the age checkbox if shown.
 
 CORE FLOW TO DEMO
-1. Home → compose (+) / Thank Someone → write a short appreciation → send (email / text / copy link).
-2. Accept: open a pending “waiting for you” card on Home, or open an openthanks.com claim link.
+1. Home → + (compose) / Thank Someone → write a short appreciation → send (email / text / copy link).
+2. Accept / Keep: open a pending “waiting for you” card on Home, or open an openthanks.com claim link → Keep this thank-you.
 3. Profile → Received to confirm it landed.
 
 SIGN-IN OPTIONS ALSO AVAILABLE
@@ -73,7 +73,7 @@ Do this **after** the Release build is uploaded and processed (email / Build app
 3. Fill / confirm: **iPhone + iPad** screenshots (skip age-gate welcome frames), description, keywords, support URL, marketing URL, privacy URL  
 4. **Age Rating** → questionnaire → **18+** (UGC / social / personal info) — do **not** market as adult content in Description  
 5. **App Privacy** → nutrition labels (see `METADATA.md`) → **Tracking = No**  
-6. **Build** → **+** → select processed **1.4 (5)** (universal iPhone + iPad) → Done  
+6. **Build** → **+** → select processed **1.7 (1)** (universal iPhone + iPad) → Done  
 
 ### C. App Review Information (this page)
 
