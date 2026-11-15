@@ -14,10 +14,19 @@ struct LoggingInView: View {
     @State private var errorMessage: String?
     @State private var successMessage: String?
 
+    // Email add / change (confirmation link, not OTP)
+    @State private var emailInput = ""
+    @State private var emailChangePending = false
+
     // Phone add / change / verify
     @State private var phoneInput = ""
     @State private var phoneCode = ""
     @State private var phoneCodeSent = false
+
+    private var emailChanged: Bool {
+        AuthService.normalizedEmail(emailInput) != (primaryEmail.map(AuthService.normalizedEmail) ?? "")
+            && AuthService.isValidAccountEmail(emailInput)
+    }
 
     private var phoneChanged: Bool {
         AuthService.normalizedPhone(phoneInput) != verifiedPhone
@@ -81,27 +90,91 @@ struct LoggingInView: View {
 
     // MARK: - Emails
 
+    @ViewBuilder
     private var emailsSection: some View {
         Section {
-            if emailIdentities.isEmpty, let primaryEmail, !primaryEmail.isEmpty {
-                identityRow(
-                    title: primaryEmail,
-                    subtitle: "Account email",
-                    systemImage: "envelope.fill",
-                    canDisconnect: false
+            if emailChangePending {
+                Text(AuthService.normalizedEmail(emailInput))
+                    .font(Theme.body(15, weight: .semibold))
+                Text("Open the confirmation link we emailed you, then tap below. You can confirm on this iPhone or any browser.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                if busy {
+                    ProgressView().tint(Theme.coral)
+                } else {
+                    Button("I've confirmed — refresh") {
+                        Task { await refreshAfterEmailChange() }
+                    }
+                    .font(Theme.body(15, weight: .semibold))
+                    .foregroundStyle(Theme.coral)
+                    Button("Cancel") { cancelEmailChange() }
+                        .font(Theme.body(14))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            } else if let primaryEmail, !primaryEmail.isEmpty {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(primaryEmail)
+                            .font(Theme.body(15, weight: .semibold))
+                        Text("Verified — you can sign in with this email")
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(Theme.coral)
+                }
+                TextField("New email address", text: $emailInput)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .autocorrectionDisabled()
+                Button {
+                    Task { await sendEmailChange() }
+                } label: {
+                    Text(busy ? "Sending…" : "Send confirmation email")
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                }
+                .disabled(busy || !emailChanged)
+            } else {
+                Text("Add an email so you can also sign in with a one-time code.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                TextField("you@example.com", text: $emailInput)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .autocorrectionDisabled()
+                Button {
+                    Task { await sendEmailChange() }
+                } label: {
+                    Text(busy ? "Sending…" : "Send confirmation email")
+                        .font(Theme.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                }
+                .disabled(
+                    busy
+                        || !AuthService.isValidAccountEmail(emailInput)
                 )
             }
 
+            // Linked email identities (usually the same as primary after confirm).
             ForEach(emailIdentities, id: \.identityId) { identity in
-                identityRow(
-                    title: AuthService.identityLabel(for: identity),
-                    subtitle: "Email · verified",
-                    systemImage: "envelope.fill",
-                    canDisconnect: false
-                )
+                let label = AuthService.identityLabel(for: identity)
+                if label.caseInsensitiveCompare(primaryEmail ?? "") != .orderedSame {
+                    identityRow(
+                        title: label,
+                        subtitle: "Email · verified",
+                        systemImage: "envelope.fill",
+                        canDisconnect: false
+                    )
+                }
             }
         } header: {
             Text("Email")
+        } footer: {
+            Text("We email a confirmation link to the new address. Your account email isn’t updated until you open that link.")
         }
         .listRowBackground(Theme.surface)
     }
@@ -318,10 +391,54 @@ struct LoggingInView: View {
         identities = await auth.fetchLinkedIdentities()
         primaryEmail = await auth.currentAccountEmail()
         verifiedPhone = await auth.currentConfirmedPhone()
+        if !emailChangePending {
+            emailInput = primaryEmail ?? ""
+        }
         if !phoneCodeSent {
             phoneInput = verifiedPhone ?? ""
         }
         passkeys = await auth.listPasskeys()
+    }
+
+    private func sendEmailChange() async {
+        clearBanners()
+        let normalized = AuthService.normalizedEmail(emailInput)
+        guard AuthService.isValidAccountEmail(normalized) else {
+            errorMessage = "Enter a valid email address."
+            return
+        }
+        busy = true
+        emailInput = normalized
+        let ok = await auth.sendEmailChangeConfirmation(to: normalized)
+        busy = false
+        if ok {
+            emailChangePending = true
+            successMessage = "We sent a confirmation link to \(normalized). Open it to finish."
+        } else {
+            errorMessage = auth.errorMessage
+        }
+    }
+
+    private func refreshAfterEmailChange() async {
+        clearBanners()
+        busy = true
+        let ok = await auth.refreshAfterEmailChangeConfirmation(expectedEmail: emailInput)
+        busy = false
+        if ok {
+            emailChangePending = false
+            primaryEmail = AuthService.normalizedEmail(emailInput)
+            successMessage = "Email updated."
+            await reload()
+        } else {
+            errorMessage = auth.errorMessage
+                ?? "That email isn’t confirmed yet. Open the link we sent, then try again."
+        }
+    }
+
+    private func cancelEmailChange() {
+        emailChangePending = false
+        clearBanners()
+        emailInput = primaryEmail ?? ""
     }
 
     private func addPasskey() async {
