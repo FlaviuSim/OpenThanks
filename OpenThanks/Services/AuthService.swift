@@ -1015,18 +1015,38 @@ extension AuthService {
         return message
     }
 
+    /// HTTPS lander after the user opens the change-email confirmation link
+    /// (same destination as openthanks.com Edit Profile).
+    static var emailChangeRedirectURL: URL {
+        URL(string: "https://openthanks.com/auth/confirm?next=/profile/edit")!
+    }
+
+    /// True when `input` looks like an email we can send a confirmation to.
+    static func isValidAccountEmail(_ input: String) -> Bool {
+        let email = normalizedEmail(input)
+        guard !email.isEmpty else { return false }
+        // Same shape as the web helper: local@domain.tld with no spaces.
+        return email.range(
+            of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
     /// Start adding/changing account email — Supabase emails a confirmation *link*
     /// (not a 6-digit OTP) to the new address.
     @discardableResult
     func sendEmailChangeConfirmation(to email: String) async -> Bool {
         errorMessage = nil
         let email = Self.normalizedEmail(email)
-        guard email.contains("@"), email.contains(".") else {
+        guard Self.isValidAccountEmail(email) else {
             errorMessage = "Enter a valid email address."
             return false
         }
         do {
-            _ = try await supabase.auth.update(user: UserAttributes(email: email))
+            _ = try await supabase.auth.update(
+                user: UserAttributes(email: email),
+                redirectTo: Self.emailChangeRedirectURL
+            )
             return true
         } catch {
             let message = error.localizedDescription
