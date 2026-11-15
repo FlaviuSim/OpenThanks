@@ -38,6 +38,7 @@ final class EmailChangeTests: XCTestCase {
         XCTAssertTrue(source.contains("sendEmailChangeConfirmation"))
         XCTAssertTrue(source.contains("refreshAfterEmailChangeConfirmation"))
         XCTAssertTrue(source.contains("emailChangePending"))
+        XCTAssertTrue(source.contains("both your current address and the new one"))
     }
 
     // MARK: - Source helpers (same pattern as PasskeySignInTests)

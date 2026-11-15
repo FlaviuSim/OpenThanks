@@ -96,7 +96,7 @@ struct LoggingInView: View {
             if emailChangePending {
                 Text(AuthService.normalizedEmail(emailInput))
                     .font(Theme.body(15, weight: .semibold))
-                Text("Open the confirmation link we emailed you, then tap below. You can confirm on this iPhone or any browser.")
+                Text("OpenThanks emails both your current address and the new one. Open each confirmation link (Safari is fine), then tap below.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                 if busy {
@@ -174,7 +174,7 @@ struct LoggingInView: View {
         } header: {
             Text("Email")
         } footer: {
-            Text("We email a confirmation link to the new address. Your account email isn’t updated until you open that link.")
+            Text("We email confirmation links to your current address and the new one. Your account email updates after you open both.")
         }
         .listRowBackground(Theme.surface)
     }
@@ -413,7 +413,7 @@ struct LoggingInView: View {
         busy = false
         if ok {
             emailChangePending = true
-            successMessage = "We sent a confirmation link to \(normalized). Open it to finish."
+            successMessage = "We emailed confirmation links to your current address and \(normalized). Open both to finish."
         } else {
             errorMessage = auth.errorMessage
         }

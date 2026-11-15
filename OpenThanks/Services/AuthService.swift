@@ -1015,8 +1015,8 @@ extension AuthService {
         return message
     }
 
-    /// HTTPS lander after the user opens the change-email confirmation link
-    /// (same destination as openthanks.com Edit Profile).
+    /// HTTPS lander after the user opens a change-email confirmation link.
+    /// Secure email change sends two links (current + new); both must be opened.
     static var emailChangeRedirectURL: URL {
         URL(string: "https://openthanks.com/auth/confirm?next=/profile/edit")!
     }
@@ -1032,8 +1032,8 @@ extension AuthService {
         ) != nil
     }
 
-    /// Start adding/changing account email — Supabase emails a confirmation *link*
-    /// (not a 6-digit OTP) to the new address.
+    /// Start adding/changing account email — Supabase emails confirmation *links*
+    /// (not a 6-digit OTP) to the current and new addresses when secure change is on.
     @discardableResult
     func sendEmailChangeConfirmation(to email: String) async -> Bool {
         errorMessage = nil
