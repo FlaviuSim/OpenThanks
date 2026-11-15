@@ -19,12 +19,12 @@ struct FeedView: View {
     var isSelected: Bool = true
     /// Mirrors search focus so the tab bar can hide during search (native search-mode).
     @Binding var searchActive: Bool
-    /// When set (iPad sidebar shell), card taps can fill a detail column instead of pushing.
-    /// Side-by-side detail is landscape-only — portrait keeps a full-width feed.
+    /// Scroll-hides the brand header / banners and the phone floating chrome.
+    @Binding var chromeCollapsed: Bool
+    /// When set (iPad sidebar shell), kept for selection reset on block — Home is full-width (no list↔detail).
     var splitSelection: Binding<Gratitude?>? = nil
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
@@ -139,13 +139,8 @@ struct FeedView: View {
             && payItForwardFromName == nil
             && isSelected
     }
-    /// iPad sidebar shell (portrait or landscape) — hides the duplicate Thank Someone CTA.
-    private var isSplitShell: Bool { splitSelection != nil }
-    /// List + detail columns: only when the shell is active and we're in landscape
-    /// (`verticalSizeClass == .compact` on iPad). Portrait stays sidebar + full feed.
-    private var usesSplitDetail: Bool {
-        isSplitShell && verticalSizeClass == .compact
-    }
+    /// Top brand + banners are tucked while scrolling down the feed.
+    private var isTopChromeVisible: Bool { !chromeCollapsed || shouldKeepSearchVisible }
     private var showPayItForward: Binding<Bool> {
         Binding(
             get: { payItForwardFromName != nil },
@@ -253,10 +248,16 @@ struct FeedView: View {
             }
             .onChange(of: searchFocused) { _, focused in
                 searchActive = focused
-                if focused { searchBarVisible = true }
+                if focused {
+                    searchBarVisible = true
+                    chromeCollapsed = false
+                }
             }
             .onChange(of: isEmpty) { _, empty in
-                if empty { searchBarVisible = true }
+                if empty {
+                    searchBarVisible = true
+                    chromeCollapsed = false
+                }
             }
             .onChange(of: pendingToAccept.count) { _, count in
                 NotificationCenter.default.post(
@@ -283,12 +284,6 @@ struct FeedView: View {
                 } else {
                     Task { await refreshPendingAccept(reason: "home_selected") }
                 }
-            }
-            .onChange(of: usesSplitDetail) { _, enabled in
-                // Rotating to portrait: show the open post as a push, free the feed width.
-                guard !enabled, let gratitude = splitSelection?.wrappedValue else { return }
-                splitSelection?.wrappedValue = nil
-                path.append(gratitude)
             }
             .onChange(of: path.count) { _, _ in
                 dismissSearchKeyboard()
@@ -325,22 +320,7 @@ struct FeedView: View {
 
     @ViewBuilder
     private var feedChromeOrSplit: some View {
-        if usesSplitDetail {
-            GeometryReader { geo in
-                HStack(spacing: 0) {
-                    feedChrome
-                        .frame(width: listPaneWidth(for: geo.size.width))
-                    Rectangle()
-                        .fill(Theme.hairline)
-                        .frame(width: 0.5)
-                        .ignoresSafeArea()
-                    detailPane
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-        } else {
-            feedChrome
-        }
+        feedChrome
     }
 
     private func handleFocusReceivedThanks() {
@@ -368,82 +348,17 @@ struct FeedView: View {
         }
     }
 
-    private func listPaneWidth(for total: CGFloat) -> CGFloat {
-        min(420, max(320, total * 0.4))
-    }
-
-    @ViewBuilder
-    private var detailPane: some View {
-        if let gratitude = splitSelection?.wrappedValue {
-            GratitudeRouteView(
-                gratitude: gratitude,
-                onOpenProfile: { path.append($0) }
-            )
-        } else {
-            SplitDetailPlaceholder(
-                title: "Select an appreciation",
-                systemImage: "heart.fill",
-                message: "Choose a note from Home to read it here."
-            )
-        }
-    }
-
     private var feedChrome: some View {
         VStack(spacing: 0) {
-            header
-            if shouldShowCalendarBanner {
-                CalendarConnectBanner(
-                    onConnect: {
-                        calendarReminder.trackConnectTapped()
-                        showCalendarConnect = true
-                    },
-                    onLater: { calendarReminder.snooze() }
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-                .readableWidth()
-                .transition(.opacity.combined(with: .move(edge: .top)))
-                .onAppear { calendarReminder.trackBannerShown() }
-            }
-            if pendingSentCount > 0 {
-                PendingAppreciationsBanner(count: pendingSentCount)
-                    .padding(.horizontal, 16)
-                    .padding(.top, shouldShowCalendarBanner ? 4 : 10)
-                    .padding(.bottom, 4)
-                    .readableWidth()
-            }
-            if let prompt = campaign.todayPrompt,
-               let content = CampaignPromptCardModel.content(
-                   feedTitle: campaign.feed?.title,
-                   day: prompt.day,
-                   theme: prompt.theme,
-                   prompt: prompt.prompt,
-                   promptCTA: prompt.cta,
-                   feedCTA: campaign.feed?.cta,
-                   configCTA: campaignConfigCTA,
-                   daysSent: campaign.daysSent,
-                   totalDays: campaign.progressTotal
-               ) {
-                CampaignPromptCard(content: content, onSend: { thankFromCampaign(prompt) })
-                .padding(.horizontal, 16)
-                .padding(.top, (shouldShowCalendarBanner || pendingSentCount > 0) ? 4 : 10)
-                .padding(.bottom, 4)
-                .readableWidth()
-                .task(id: prompt.day) {
-                    guard let id = campaign.feed?.id else { return }
-                    Analytics.campaignPromptShown(campaign: id, day: prompt.day)
-                    await CampaignPushOffer.offer(moment: .openedScreen)
-                    if let userId = auth.userId {
-                        await campaign.refreshProgress(authorId: userId)
-                    }
-                }
-            }
+            topChrome
             HomeProfileSearch(
                 focused: $searchFocused,
                 onQueryChange: { hasQuery in
                     searchHasQuery = hasQuery
-                    if hasQuery { searchBarVisible = true }
+                    if hasQuery {
+                        searchBarVisible = true
+                        chromeCollapsed = false
+                    }
                 },
                 onSelect: { profile in
                     Analytics.capture("home_search_profile_opened")
@@ -511,6 +426,7 @@ struct FeedView: View {
         .onChange(of: scope) { _, next in
             dismissSearchKeyboard()
             searchBarVisible = true
+            chromeCollapsed = false
             lastScrollOffset = 0
             if suppressNextScopeHaptic {
                 suppressNextScopeHaptic = false
@@ -523,6 +439,64 @@ struct FeedView: View {
             // Prefetch the other scope once (generation-guarded; no-ops if already loaded).
             Task { await prefetchOpposite(of: next) }
         }
+        .animation(.easeInOut(duration: 0.2), value: isTopChromeVisible)
+    }
+
+    /// Brand header + optional home banners; collapses on scroll-down.
+    @ViewBuilder
+    private var topChrome: some View {
+        VStack(spacing: 0) {
+            header
+            if shouldShowCalendarBanner {
+                CalendarConnectBanner(
+                    onConnect: {
+                        calendarReminder.trackConnectTapped()
+                        showCalendarConnect = true
+                    },
+                    onLater: { calendarReminder.snooze() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .onAppear { calendarReminder.trackBannerShown() }
+            }
+            if pendingSentCount > 0 {
+                PendingAppreciationsBanner(count: pendingSentCount)
+                    .padding(.horizontal, 16)
+                    .padding(.top, shouldShowCalendarBanner ? 4 : 10)
+                    .padding(.bottom, 4)
+            }
+            if let prompt = campaign.todayPrompt,
+               let content = CampaignPromptCardModel.content(
+                   feedTitle: campaign.feed?.title,
+                   day: prompt.day,
+                   theme: prompt.theme,
+                   prompt: prompt.prompt,
+                   promptCTA: prompt.cta,
+                   feedCTA: campaign.feed?.cta,
+                   configCTA: campaignConfigCTA,
+                   daysSent: campaign.daysSent,
+                   totalDays: campaign.progressTotal
+               ) {
+                CampaignPromptCard(content: content, onSend: { thankFromCampaign(prompt) })
+                    .padding(.horizontal, 16)
+                    .padding(.top, (shouldShowCalendarBanner || pendingSentCount > 0) ? 4 : 10)
+                    .padding(.bottom, 4)
+                    .task(id: prompt.day) {
+                        guard let id = campaign.feed?.id else { return }
+                        Analytics.campaignPromptShown(campaign: id, day: prompt.day)
+                        await CampaignPushOffer.offer(moment: .openedScreen)
+                        if let userId = auth.userId {
+                            await campaign.refreshProgress(authorId: userId)
+                        }
+                    }
+            }
+        }
+        .frame(maxHeight: isTopChromeVisible ? nil : 0, alignment: .top)
+        .opacity(isTopChromeVisible ? 1 : 0)
+        .clipped()
+        .allowsHitTesting(isTopChromeVisible)
     }
 
     private var hasTopHomeBanner: Bool {
@@ -547,45 +521,19 @@ struct FeedView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Theme.heartGradient)
-                Text("OpenThanks")
-                    .font(Theme.display(20, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            // Sidebar already has Thank someone — avoid a second CTA on iPad.
-            if !isSplitShell {
-                Button {
-                    dismissSearchKeyboard()
-                    composeRecipient = nil
-                    composeAnalyticsSource = "home_thank_someone"
-                    showCompose = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("Thank Someone")
-                            .font(Theme.body(13, weight: .semibold))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(Color(hex: 0x2B1209))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(Theme.ctaGradient, in: Capsule())
-                    .shadow(color: Theme.coral.opacity(0.35), radius: 8, y: 2)
-                }
-                .accessibilityLabel("Thank Someone — share an appreciation")
-            }
+        HStack(spacing: 8) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(Theme.heartGradient)
+            Text("OpenThanks")
+                .font(Theme.display(20, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
+        .padding(.bottom, 2)
     }
 
     private var picker: some View {
@@ -730,8 +678,8 @@ struct FeedView: View {
                                 gratitude: item,
                                 isHearted: pageHearts.contains(item.id),
                                 onHeart: { toggleHeart(item, in: page) },
-                                onSelect: usesSplitDetail ? { selectPost(item) } : nil,
-                                isSelected: splitSelection?.wrappedValue?.id == item.id,
+                                onSelect: nil,
+                                isSelected: false,
                                 onOpenProfile: { path.append($0) },
                                 onHeartCountResolved: { count in
                                     mutateItems(for: page) { list in
@@ -755,9 +703,8 @@ struct FeedView: View {
                                 .padding(.vertical, 12)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 12)
                     .tabChromeBottomPadding()
-                    .readableWidth()
                     .opacity(pageLoading && !pageEmpty ? 0.78 : 1)
                     .animation(.easeInOut(duration: 0.28), value: pageLoading)
                     // UIScrollView KVO — PreferenceKey on LazyVStack often never moves on iOS 17.
@@ -785,18 +732,19 @@ struct FeedView: View {
         if searchActive { searchActive = false }
     }
 
-    /// Hide search while scrolling down; reveal on scroll up or at the top.
+    /// Hide search + top/bottom chrome while scrolling down; reveal on scroll up or at the top.
     private func handleFeedScroll(to newOffset: CGFloat) {
         // Empty / loading states don't use this ScrollView — still keep bar up if active.
         if shouldKeepSearchVisible {
             if !searchBarVisible { searchBarVisible = true }
+            if chromeCollapsed { chromeCollapsed = false }
             lastScrollOffset = newOffset
             return
         }
 
         // Near the top — always show.
         if newOffset <= 12 {
-            setSearchBarVisible(true, trackingOffset: newOffset)
+            setChromeExpanded(true, trackingOffset: newOffset)
             return
         }
 
@@ -812,23 +760,24 @@ struct FeedView: View {
         lastScrollOffset = newOffset
 
         if delta > 0 {
-            // Scrolling down (content moves up) — tuck search away.
-            setSearchBarVisible(false, trackingOffset: newOffset)
+            // Scrolling down (content moves up) — tuck chrome away.
+            setChromeExpanded(false, trackingOffset: newOffset)
         } else {
             // Scrolling up — bring it back.
-            setSearchBarVisible(true, trackingOffset: newOffset)
+            setChromeExpanded(true, trackingOffset: newOffset)
         }
     }
 
-    private func setSearchBarVisible(_ visible: Bool, trackingOffset: CGFloat) {
+    private func setChromeExpanded(_ expanded: Bool, trackingOffset: CGFloat) {
         lastScrollOffset = trackingOffset
-        guard searchBarVisible != visible else { return }
-        searchBarVisible = visible
+        let nextSearch = expanded
+        let nextCollapsed = !expanded
+        let searchChanged = searchBarVisible != nextSearch
+        let chromeChanged = chromeCollapsed != nextCollapsed
+        guard searchChanged || chromeChanged else { return }
+        searchBarVisible = nextSearch
+        chromeCollapsed = nextCollapsed
         ignoreScrollUntil = Date().addingTimeInterval(0.28)
-    }
-
-    private func selectPost(_ item: Gratitude) {
-        splitSelection?.wrappedValue = item
     }
 
     private var pendingHeader: some View {

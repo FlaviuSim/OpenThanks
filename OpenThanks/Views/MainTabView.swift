@@ -24,7 +24,7 @@ struct MainTabView: View {
         }
     }
 
-    /// Heart / sidebar “Thank Someone”. A new id every tap so the item cover presents again.
+    /// FAB / sidebar “Thank Someone”. A new id every tap so the item cover presents again.
     private static func tabComposeSheet() -> ComposeSheet {
         .launch(ComposeLaunchBridge.Request(analyticsSource: "tab_compose"))
     }
@@ -45,6 +45,8 @@ struct MainTabView: View {
     @State private var showProfileSettings = false
     /// Home people-search is focused — hide the tab bar (native search-mode UX).
     @State private var homeSearchActive = false
+    /// Feed scrolled down — tuck the floating pill / FAB (and FeedView header).
+    @State private var homeChromeCollapsed = false
     /// Selected post for iPad list↔detail on Home.
     @State private var feedDetail: Gratitude?
     /// Selected notification route for iPad list↔detail.
@@ -91,7 +93,7 @@ struct MainTabView: View {
             rippleSheetPresented: rippleSheetPresented,
             hasOpenedComposer: hasOpenedComposer,
             hasSentAppreciation: successfulSendCount > 0
-        )
+        ) && !homeChromeCollapsed
     }
 
     var body: some View {
@@ -171,6 +173,7 @@ struct MainTabView: View {
         .onChange(of: tab) { _, newTab in
             if newTab != .feed {
                 homeSearchActive = false
+                homeChromeCollapsed = false
                 resignKeyboard()
             }
             // Keep list↔detail selection when switching tabs so return feels continuous.
@@ -191,6 +194,7 @@ struct MainTabView: View {
         .onChange(of: composeSheet != nil) { _, open in
             if open {
                 homeSearchActive = false
+                homeChromeCollapsed = false
                 resignKeyboard()
                 if !hasSeenFirstSendTip {
                     hasSeenFirstSendTip = true
@@ -384,6 +388,7 @@ struct MainTabView: View {
                 path: $feedPath,
                 isSelected: tab == .feed,
                 searchActive: $homeSearchActive,
+                chromeCollapsed: $homeChromeCollapsed,
                 splitSelection: $feedDetail
             )
             .opacity(tab == .feed ? 1 : 0)
@@ -447,7 +452,8 @@ struct MainTabView: View {
             FeedView(
                 path: $feedPath,
                 isSelected: tab == .feed,
-                searchActive: $homeSearchActive
+                searchActive: $homeSearchActive,
+                chromeCollapsed: $homeChromeCollapsed
             )
             .opacity(tab == .feed ? 1 : 0)
             .allowsHitTesting(tab == .feed)
@@ -469,20 +475,20 @@ struct MainTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .bottom) {
-            if !homeSearchActive {
-                tabBar
-                    .transition(.opacity)
+            if showFloatingChrome {
+                floatingChrome
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .bottomTrailing) {
             if shouldShowFirstSendTip {
-                VStack(spacing: 0) {
+                VStack(alignment: .trailing, spacing: 0) {
                     firstSendTipOverlay
-                        .padding(.horizontal, 20)
-                    // Clearance under the card. Must not hit-test — this used to be
-                    // padding on the card, which swallowed taps on the heart.
+                        .padding(.leading, 20)
+                        .padding(.trailing, 16)
+                    // Clearance under the tip so it sits above the FAB.
                     Color.clear
-                        .frame(height: 88)
+                        .frame(height: 96)
                         .allowsHitTesting(false)
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -491,7 +497,13 @@ struct MainTabView: View {
         }
         .ignoresSafeArea(.keyboard)
         .animation(.easeInOut(duration: 0.2), value: homeSearchActive)
+        .animation(.easeInOut(duration: 0.2), value: homeChromeCollapsed)
         .animation(.easeInOut(duration: 0.22), value: shouldShowFirstSendTip)
+    }
+
+    /// Pill + FAB hide during search and when the feed chrome is scrolled away.
+    private var showFloatingChrome: Bool {
+        !homeSearchActive && !(tab == .feed && homeChromeCollapsed)
     }
 
     /// Ends editing app-wide — needed because Home stays mounted under other tabs.
@@ -556,6 +568,7 @@ struct MainTabView: View {
     private func presentCompose(_ sheet: ComposeSheet) {
         showProfileSettings = false
         homeSearchActive = false
+        homeChromeCollapsed = false
         resignKeyboard()
         NotificationCenter.default.post(name: .dismissTransientSheets, object: nil)
 
@@ -626,41 +639,61 @@ struct MainTabView: View {
         }
     }
 
-    private var tabBar: some View {
-        HStack(spacing: 0) {
-            tabItem(icon: "house.fill", label: "Home", value: .feed)
-                .frame(maxWidth: .infinity)
-
-            Button {
-                if !hasSeenFirstSendTip {
-                    Analytics.capture("first_send_tip_tapped", ["via": "heart_button"])
-                    hasSeenFirstSendTip = true
-                }
-                presentCompose(Self.tabComposeSheet())
-            } label: {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(Theme.ctaGradient, in: Circle())
-                    .shadow(color: Theme.coral.opacity(0.5), radius: 12, y: 4)
+    /// Floating liquid-glass pill (Home / Bell / Profile) + trailing compose FAB.
+    private var floatingChrome: some View {
+        ZStack(alignment: .bottom) {
+            HStack {
+                Spacer(minLength: 0)
+                tabPill
+                Spacer(minLength: 0)
             }
-            .accessibilityLabel("Send an appreciation")
-            .offset(y: -12)
-            .frame(width: 72)
-
-            tabItem(icon: "bell.fill", label: "Notifications", value: .notifications,
-                    badge: unreadCount)
-                .frame(maxWidth: .infinity)
-
-            tabItem(icon: "person.fill", label: "Profile", value: .profile)
-                .frame(maxWidth: .infinity)
+            HStack {
+                Spacer(minLength: 0)
+                composeFAB
+            }
+            .padding(.horizontal, 18)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.hairline).frame(height: 0.5) }
+        .padding(.bottom, 10)
+    }
+
+    private var tabPill: some View {
+        HStack(spacing: 4) {
+            tabItem(icon: "house.fill", label: "Home", value: .feed, iconOnly: true)
+            tabItem(
+                icon: "bell.fill",
+                label: "Notifications",
+                value: .notifications,
+                badge: unreadCount,
+                iconOnly: true
+            )
+            tabItem(icon: "person.fill", label: "Profile", value: .profile, iconOnly: true)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(Theme.hairline.opacity(0.9), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.22), radius: 16, y: 6)
+    }
+
+    private var composeFAB: some View {
+        Button {
+            if !hasSeenFirstSendTip {
+                Analytics.capture("first_send_tip_tapped", ["via": "compose_fab"])
+                hasSeenFirstSendTip = true
+            }
+            presentCompose(Self.tabComposeSheet())
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Theme.ctaGradient, in: Circle())
+                .shadow(color: Theme.coral.opacity(0.5), radius: 12, y: 4)
+        }
+        .accessibilityLabel("Send an appreciation")
     }
 
     private var firstSendTipOverlay: some View {
@@ -716,27 +749,49 @@ struct MainTabView: View {
         .accessibilityLabel(FirstSendTip.title)
     }
 
-    private func tabItem(icon: String, label: String, value: Tab, badge: Int = 0) -> some View {
+    private func tabItem(
+        icon: String,
+        label: String,
+        value: Tab,
+        badge: Int = 0,
+        iconOnly: Bool = false
+    ) -> some View {
         Button {
             selectTab(value)
         } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .overlay(alignment: .topTrailing) {
-                        if badge > 0 {
-                            Circle().fill(Theme.coral).frame(width: 8, height: 8)
-                                .offset(x: 4, y: -2)
+            Group {
+                if iconOnly {
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .frame(width: 48, height: 40)
+                        .overlay(alignment: .topTrailing) {
+                            if badge > 0 {
+                                Circle().fill(Theme.coral).frame(width: 8, height: 8)
+                                    .offset(x: -6, y: 4)
+                            }
                         }
+                } else {
+                    VStack(spacing: 3) {
+                        Image(systemName: icon)
+                            .font(.system(size: 20))
+                            .overlay(alignment: .topTrailing) {
+                                if badge > 0 {
+                                    Circle().fill(Theme.coral).frame(width: 8, height: 8)
+                                        .offset(x: 4, y: -2)
+                                }
+                            }
+                        Text(label)
+                            .font(Theme.body(10, weight: .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     }
-                Text(label)
-                    .font(Theme.body(10, weight: .medium))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity)
+                }
             }
             .foregroundStyle(tab == value ? Theme.coral : Theme.textTertiary)
-            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
+        .accessibilityLabel(label)
     }
 
     /// Same as system tabs: tap another section to switch; re-tap the current
@@ -744,6 +799,7 @@ struct MainTabView: View {
     private func selectTab(_ value: Tab) {
         resignKeyboard()
         homeSearchActive = false
+        homeChromeCollapsed = false
         if tab == value {
             popToRoot(value)
             return

@@ -117,8 +117,8 @@ enum Theme {
     /// Centered reading column on iPad / regular width — keeps notes note-sized.
     static let readableMaxWidth: CGFloat = 600
 
-    /// Bottom clearance for the floating iPhone tab bar; unused when sidebar is shown.
-    static let phoneTabBarClearance: CGFloat = 96
+    /// Bottom clearance for the floating iPhone pill + FAB; unused when sidebar is shown.
+    static let phoneTabBarClearance: CGFloat = 88
 }
 
 extension Color {
