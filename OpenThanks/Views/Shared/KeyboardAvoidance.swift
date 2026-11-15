@@ -70,3 +70,78 @@ extension View {
         modifier(KeyboardBottomPaddingModifier())
     }
 }
+
+/// Reports how much of this view the keyboard currently covers.
+/// A parent that already shrunk above the keyboard reports 0.
+struct KeyboardCoverReader: UIViewRepresentable {
+    var onChange: (CGFloat) -> Void
+
+    func makeUIView(context: Context) -> Probe {
+        let view = Probe()
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        view.onChange = onChange
+        return view
+    }
+
+    func updateUIView(_ uiView: Probe, context: Context) {
+        uiView.onChange = onChange
+    }
+
+    final class Probe: UIView {
+        var onChange: (CGFloat) -> Void = { _ in }
+        private var observers: [NSObjectProtocol] = []
+        private var keyboardFrame: CGRect?
+        private var lastReported: CGFloat = -1
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            let center = NotificationCenter.default
+            observers = [
+                center.addObserver(
+                    forName: UIResponder.keyboardWillChangeFrameNotification,
+                    object: nil,
+                    queue: .main
+                ) { [weak self] note in
+                    self?.keyboardFrame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
+                    self?.report()
+                },
+                center.addObserver(
+                    forName: UIResponder.keyboardWillHideNotification,
+                    object: nil,
+                    queue: .main
+                ) { [weak self] _ in
+                    self?.keyboardFrame = nil
+                    self?.report(forced: 0)
+                },
+            ]
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            report()
+        }
+
+        deinit {
+            observers.forEach { NotificationCenter.default.removeObserver($0) }
+        }
+
+        private func report(forced: CGFloat? = nil) {
+            let overlap: CGFloat
+            if let forced {
+                overlap = forced
+            } else if let keyboardFrame, let window {
+                let keyboard = window.convert(keyboardFrame, from: nil)
+                let mine = convert(bounds, to: window)
+                overlap = max(0, mine.maxY - keyboard.minY)
+            } else {
+                overlap = 0
+            }
+            guard abs(overlap - lastReported) > 0.5 else { return }
+            lastReported = overlap
+            onChange(overlap)
+        }
+    }
+}
