@@ -114,11 +114,11 @@ struct PendingAppreciationReviewView: View {
                     .font(Theme.display(26, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
 
-                Text("Review and accept this appreciation shared for you.")
+                Text("Keep this thank-you when you’re ready.")
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
 
-                Text("OpenThanks is for real thank-yous — not ads or spam. Nothing posts publicly until you accept.")
+                Text("OpenThanks is for real thank-yous — not ads or spam.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -161,26 +161,15 @@ struct PendingAppreciationReviewView: View {
                         .foregroundStyle(.red)
                 }
 
-                VStack(spacing: 8) {
-                    HStack(spacing: 12) {
-                        Button {
-                            Task { await respond(.decline) }
-                        } label: {
-                            Text(acting == .decline ? "Declining…" : "Decline")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(SecondaryCapsuleButtonStyle())
-                        .disabled(acting != nil)
-
-                        Button {
-                            Task { await respond(.accept) }
-                        } label: {
-                            Text(acting == .accept ? "Accepting…" : "Accept")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(CTAButtonStyle())
-                        .disabled(acting != nil)
+                VStack(spacing: 10) {
+                    Button {
+                        Task { await respond(.accept) }
+                    } label: {
+                        Text(acting == .accept ? "Keeping…" : "Keep this thank-you")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(CTAButtonStyle())
+                    .disabled(acting != nil)
 
                     if gratitude.senderMarkedPublic {
                         AcceptPrivatelyLink(isEnabled: acting == nil) {
@@ -188,6 +177,18 @@ struct PendingAppreciationReviewView: View {
                             showPrivateConfirm = true
                         }
                     }
+
+                    Button {
+                        Task { await respond(.decline) }
+                    } label: {
+                        Text(acting == .decline ? "Working…" : "This isn’t for me")
+                            .font(Theme.body(14, weight: .medium))
+                            .foregroundStyle(Theme.textTertiary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(acting != nil)
                 }
             }
             .padding(20)

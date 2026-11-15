@@ -155,7 +155,7 @@ struct DeliverAppreciationView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(hasDeliverableRecipient
-                     ? "Share the link so they can open and accept your appreciation."
+                     ? "We may have emailed or notified them — many people still miss those. Sharing the link yourself usually works better."
                      : "Add who it’s for, or share the link now — you can finish later from Pending.")
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
