@@ -2532,12 +2532,12 @@ struct SuccessView: View {
 
     private var subtitle: String {
         if hasDeliverableRecipient {
-            return "We've notified the recipient but it would help if you share a personalized note with the link so they can accept it."
+            return "We may have emailed or notified them — many people still miss those. Sharing the link yourself usually works better."
         }
         if gratitude.hasNoRecipient {
             return "Add who it’s for with Edit, then share the link — or Done and finish later from Pending Appreciations."
         }
-        return "Share the link so they can open and accept your appreciation."
+        return "Share the link so they can open and keep your thank-you."
     }
 
     var body: some View {

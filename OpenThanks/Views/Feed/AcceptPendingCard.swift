@@ -73,26 +73,15 @@ struct AcceptPendingCard: View {
                     .foregroundStyle(.red)
             }
 
-            VStack(spacing: 8) {
-                HStack(spacing: 10) {
-                    Button {
-                        Task { await respond(accept: false) }
-                    } label: {
-                        Text(acting == .decline ? "Declining…" : "Decline")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(SecondaryCapsuleButtonStyle())
-                    .disabled(acting != nil || didSubmit)
-
-                    Button {
-                        Task { await respond(accept: true) }
-                    } label: {
-                        Text(acting == .accept ? "Accepting…" : "Accept")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(CTAButtonStyle())
-                    .disabled(acting != nil || didSubmit)
+            VStack(spacing: 10) {
+                Button {
+                    Task { await respond(accept: true) }
+                } label: {
+                    Text(acting == .accept ? "Keeping…" : "Keep this thank-you")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(CTAButtonStyle())
+                .disabled(acting != nil || didSubmit)
 
                 if gratitude.senderMarkedPublic {
                     AcceptPrivatelyLink(isEnabled: acting == nil && !didSubmit) {
@@ -100,6 +89,18 @@ struct AcceptPendingCard: View {
                         showPrivateConfirm = true
                     }
                 }
+
+                Button {
+                    Task { await respond(accept: false) }
+                } label: {
+                    Text(acting == .decline ? "Working…" : "This isn’t for me")
+                        .font(Theme.body(14, weight: .medium))
+                        .foregroundStyle(Theme.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                .disabled(acting != nil || didSubmit)
             }
         }
         .padding(16)
