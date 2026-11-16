@@ -158,6 +158,8 @@ struct ComposeView: View {
     @State private var aiAvailable = false
     /// Name required before save so feed cards never show a blank author.
     @State private var showDisplayNameSheet = false
+    /// Guest tapped Save — present sign-in and resume compose after login.
+    @State private var showGuestSignIn = false
 
     private let maxLength = 1500
 
@@ -195,6 +197,8 @@ struct ComposeView: View {
     private var usesTwoStepFlow: Bool { allowsEmptyRecipient }
 
     private var toolbarSaveTitle: String {
+        // Guests always continue into sign-in; copy matches the web form.
+        if auth.userId == nil { return "Continue" }
         if usesTwoStepFlow {
             return isEditing ? "Continue" : "Continue"
         }
@@ -206,6 +210,9 @@ struct ComposeView: View {
     }
 
     private var primarySaveTitle: String {
+        if auth.userId == nil {
+            return usesTwoStepFlow ? "Continue" : "Continue to save"
+        }
         if usesTwoStepFlow {
             return "Continue"
         }
@@ -384,6 +391,14 @@ struct ComposeView: View {
                         .padding(.horizontal, 4)
                 }
                 sendBar
+                if auth.userId == nil, !sending {
+                    Text("You’ll sign in to save it — your draft is kept.")
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 4)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -401,6 +416,23 @@ struct ComposeView: View {
             DisplayNameSheet(formSessionId: formSessionId)
                 .presentationDetents([.medium])
                 .syncAppAppearance()
+        }
+        .sheet(isPresented: $showGuestSignIn, onDismiss: {
+            // Still signed out → drop the resume queue so a later Sign in from
+            // the guest chrome FAB doesn't reopen this draft by surprise.
+            // The on-screen form (and ComposeDraftStore) still hold the text.
+            if auth.userId == nil,
+               ComposeLaunchBridge.shared.pending?.analyticsSource == "guest_resume" {
+                _ = ComposeLaunchBridge.shared.consume()
+            }
+        }) {
+            WelcomeView(
+                headline: GuestSignInReason.send.headline,
+                message: GuestSignInReason.send.message,
+                showsCloseButton: true
+            )
+            .syncAppAppearance()
+            .presentationDetents([.large])
         }
         .background(Theme.background)
         .navigationTitle(isEditing ? "Edit Appreciation" : "New Appreciation")
@@ -1533,9 +1565,7 @@ struct ComposeView: View {
                     ProgressView()
                         .tint(Color(hex: 0x2B1209))
                 } else {
-                    Image(systemName: needsDisplayName
-                          ? "person.crop.circle.badge.plus"
-                          : (usesTwoStepFlow ? "arrow.right" : "heart.fill"))
+                    Image(systemName: sendBarIcon)
                         .font(.system(size: 14, weight: .bold))
                 }
                 Text(sending ? "Saving…" : (needsDisplayName ? "Add your name to send" : primarySaveTitle))
@@ -1550,9 +1580,17 @@ struct ComposeView: View {
         .accessibilityHint(needsDisplayName
             ? "Opens a short form to add your name"
             : (saveBlockedReason
-               ?? (usesTwoStepFlow
-                   ? "Saves your note, then lets you choose a recipient"
-                   : "Saves this appreciation")))
+               ?? (auth.userId == nil
+                   ? "Signs you in to save this appreciation"
+                   : (usesTwoStepFlow
+                      ? "Saves your note, then lets you choose a recipient"
+                      : "Saves this appreciation"))))
+    }
+
+    private var sendBarIcon: String {
+        if needsDisplayName { return "person.crop.circle.badge.plus" }
+        if auth.userId == nil { return "lock.fill" }
+        return usesTwoStepFlow ? "arrow.right" : "heart.fill"
     }
 
     // MARK: Message tools
@@ -2172,15 +2210,47 @@ struct ComposeView: View {
 
     // MARK: Send
 
+    /// Persist draft + queue compose resume, then present the guest sign-in sheet.
+    private func promptGuestSignInToSave() async {
+        let recipientText: String = {
+            if let linked = linkedRecipient {
+                return linked.displayName
+            }
+            return recipient
+        }()
+        let messageText = message
+        _ = await ComposeDraftStore.leave(recipient: recipientText, message: messageText)
+        ComposeLaunchBridge.shared.queue(
+            recipientName: linkedRecipient == nil ? recipientText : nil,
+            message: messageText,
+            profile: linkedRecipient,
+            inspiredByGratitudeId: inspiredByGratitudeId,
+            inspiredByAuthorName: inspiredByAuthorName,
+            campaignHint: campaignHint,
+            campaignId: campaignId,
+            campaignDay: campaignDay,
+            analyticsSource: "guest_resume",
+            allowsEmptyRecipient: usesTwoStepFlow && linkedRecipient == nil
+                && recipientText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        )
+        showGuestSignIn = true
+        Analytics.capture("guest_sign_in_prompted", ["reason": GuestSignInReason.send.rawValue])
+    }
+
     private func send() async {
         // Set before any await so a second tap cannot start another request.
         guard !sending else { return }
-        guard let userId = auth.userId else { return }
         if needsDisplayName {
             showDisplayNameSheet = true
             return
         }
         guard canSend else { return }
+        // Guest: keep the draft, queue resume after login, then show sign-in.
+        // Never silently no-op — every visible Save must do something.
+        guard let userId = auth.userId else {
+            await promptGuestSignInToSave()
+            return
+        }
         sending = true
         error = nil
         sendFailed = false
