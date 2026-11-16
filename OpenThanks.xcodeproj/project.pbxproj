@@ -24,6 +24,7 @@
 		1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */; };
 		12F593A4E12C4F62B8F5305E /* DisplayNameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52B5D6606D0E8E470963C67 /* DisplayNameSheet.swift */; };
 		13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */; };
+		15198462EA9B6C0A7577FB9C /* OAuthAvatarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A396963CD7480AAE591A2D5 /* OAuthAvatarTests.swift */; };
 		19BCDD4D9F51778CCF379DE9 /* AppIcon-Night@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = FBC593DA46378D66511E5B0E /* AppIcon-Night@3x.png */; };
 		1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */; };
 		21977B9A924DA0B6F4BDA725 /* StatsShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA02D07C225359BD53E5EEBB /* StatsShareCardView.swift */; };
@@ -355,6 +356,7 @@
 		96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarAuth.swift; sourceTree = "<group>"; };
 		96F3FD90C322331B012FD48F /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
 		98564619904D3EFBA8214A72 /* AppIcon-Default-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Default-Preview.png"; sourceTree = "<group>"; };
+		9A396963CD7480AAE591A2D5 /* OAuthAvatarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthAvatarTests.swift; sourceTree = "<group>"; };
 		9B5053D28C64C35B1B67733F /* NotificationsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsView.swift; sourceTree = "<group>"; };
 		9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlexiblePostImage.swift; sourceTree = "<group>"; };
 		9E451C434563DD8702080E34 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
@@ -698,6 +700,7 @@
 				7E7556A42F95EE2513A1B11D /* CompetitionConfigTests.swift */,
 				7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */,
 				CB2323790E26BC7529E4040D /* HeartCountDisplayTests.swift */,
+				9A396963CD7480AAE591A2D5 /* OAuthAvatarTests.swift */,
 				BEEA06D1DC2FB8B01CE2E845 /* OAuthCallbackGateTests.swift */,
 				BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */,
 				2C1E958AFF6A036F7ADEB9A1 /* PostAcceptPromptTests.swift */,
@@ -1184,6 +1187,7 @@
 				AB9F44A3F52D39F2FFA45322 /* CompetitionConfigTests.swift in Sources */,
 				49B68B3ADB996D214C4C61FB /* ComposeDraftStoreTests.swift in Sources */,
 				DC58895F967AFEDC420F39DF /* HeartCountDisplayTests.swift in Sources */,
+				15198462EA9B6C0A7577FB9C /* OAuthAvatarTests.swift in Sources */,
 				68C98F6E00F22D8739031A34 /* OAuthCallbackGateTests.swift in Sources */,
 				C2FB81DB552C1863D3809608 /* PasskeySignInTests.swift in Sources */,
 				A562497C39B8474C73DC9146 /* PostAcceptPromptTests.swift in Sources */,

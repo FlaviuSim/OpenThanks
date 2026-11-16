@@ -213,13 +213,16 @@ final class AuthService {
             ]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first { !$0.isEmpty }
+            let providerAvatar = Self.metadataString(metadata, keys: ["avatar_url", "picture"])
             let row = NewProfileRow(
                 id: userId.uuidString,
                 email: resolvedEmail,
                 phone: phone,
                 username: username,
                 fullName: resolvedName,
-                avatarUrl: Self.metadataString(metadata, keys: ["avatar_url", "picture"])
+                // Skip Google letter / stock placeholders — leave null so the
+                // UI shows initials instead of baking in a fake photo.
+                avatarUrl: Self.isProviderPlaceholderAvatar(providerAvatar) ? nil : providerAvatar
             )
             let inserted: Profile = try await supabase
                 .from("profiles")
@@ -246,6 +249,26 @@ final class AuthService {
             }
         }
         return nil
+    }
+
+    /// Google letter-on-color / default silhouette URLs — not a real photo.
+    /// Keep in sync with web `lib/oauth-avatar.ts`.
+    static func isProviderPlaceholderAvatar(_ url: String?) -> Bool {
+        guard let raw = url?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty
+        else { return true }
+        let lower = raw.lowercased()
+        if lower.contains("default-user") { return true }
+        if lower.contains("/aaaaaaaaaaa/") { return true }
+        if lower.contains("-xduiqdmkcwa/") { return true }
+        // Letter avatars: googleusercontent.com/a/<id> (no hyphen). Real: /a-/…
+        if lower.range(of: #"googleusercontent\.com/a/(?!-)"#, options: .regularExpression) != nil {
+            return true
+        }
+        if (lower.contains("licdn.com") || lower.contains("linkedin.com")),
+           lower.contains("ghost") || lower.contains("default") || lower.contains("placeholder") {
+            return true
+        }
+        return false
     }
 
     private struct NewProfileRow: Encodable {
