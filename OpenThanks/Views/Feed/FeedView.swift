@@ -536,7 +536,7 @@ struct FeedView: View {
                     }
             }
             if isGuestMode {
-                Text("Browse real thank-yous. Sign in when you’re ready to send or keep one.")
+                Text("Browsing free. Sign in when you’re ready to send or keep one.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, 20)

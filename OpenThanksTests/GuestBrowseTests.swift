@@ -11,6 +11,7 @@ final class GuestBrowseTests: XCTestCase {
     func testOnboardingCtaInvitesExplore() throws {
         let source = try readSource("OpenThanks/Views/Auth/OnboardingView.swift")
         XCTAssertTrue(source.contains("See what’s shared"))
+        XCTAssertTrue(source.contains("No account needed to look around."))
     }
 
     func testFeedSupportsGuestWorldBrowse() throws {
@@ -18,7 +19,16 @@ final class GuestBrowseTests: XCTestCase {
         XCTAssertTrue(source.contains("isGuestMode"))
         XCTAssertTrue(source.contains("onRequestSignIn"))
         XCTAssertTrue(source.contains("GratitudeService.worldFeed()"))
-        XCTAssertTrue(source.contains("Browse real thank-yous"))
+        XCTAssertTrue(source.contains("Browsing free."))
+    }
+
+    func testSignInSheetOffersKeepBrowsing() throws {
+        let source = try readSource("OpenThanks/Views/Auth/WelcomeView.swift")
+        XCTAssertTrue(source.contains("Keep browsing"))
+        XCTAssertFalse(
+            source.contains("Button(\"Close\")"),
+            "Guest sign-in sheets should dismiss with Keep browsing, not Close"
+        )
     }
 
     func testClaimPromptsSignInSheet() throws {

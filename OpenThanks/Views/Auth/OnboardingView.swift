@@ -45,7 +45,15 @@ struct OnboardingView: View {
             .padding(.horizontal, 24)
             .contentShape(Rectangle())
             .accessibilityLabel("See what’s shared")
-            .padding(.bottom, 8)
+
+            Text("No account needed to look around.")
+                .font(Theme.body(13))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+                .accessibilityLabel("No account needed to look around")
         }
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

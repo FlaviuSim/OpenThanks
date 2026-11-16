@@ -29,9 +29,11 @@ struct WelcomeView: View {
                 if showsCloseButton {
                     HStack {
                         Spacer(minLength: 0)
-                        Button("Close") { dismiss() }
+                        Button("Keep browsing") { dismiss() }
                             .font(Theme.body(15, weight: .medium))
                             .foregroundStyle(Theme.textSecondary)
+                            .accessibilityLabel("Keep browsing")
+                            .accessibilityHint("Dismiss sign in and keep browsing without an account")
                     }
                     .padding(.top, 8)
                     .padding(.bottom, 4)
