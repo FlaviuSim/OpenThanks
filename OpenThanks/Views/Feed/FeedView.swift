@@ -23,6 +23,9 @@ struct FeedView: View {
     @Binding var chromeCollapsed: Bool
     /// When set (iPad sidebar shell), kept for selection reset on block — Home is full-width (no list↔detail).
     var splitSelection: Binding<Gratitude?>? = nil
+    /// Signed-out browse: World feed + search only; send/heart/My Feed prompt sign-in.
+    var isGuestMode: Bool = false
+    var onRequestSignIn: ((GuestSignInReason) -> Void)? = nil
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
@@ -136,7 +139,8 @@ struct FeedView: View {
     private var shouldKeepSearchVisible: Bool { searchFocused || searchHasQuery }
     /// Soft calendar reconnect — skip while the first-send tip, compose, or pay-it-forward is up.
     private var shouldShowCalendarBanner: Bool {
-        calendarReminder.shouldShowBanner
+        !isGuestMode
+            && calendarReminder.shouldShowBanner
             && hasSeenFirstSendTip
             && !showCompose
             && !showCalendarConnect
@@ -196,7 +200,12 @@ struct FeedView: View {
     private var feedRoot: some View {
         feedChromeOrSplit
             .background(Theme.background)
-            .task(id: scope) {
+            .task(id: "\(isGuestMode)-\(scope.rawValue)") {
+                if isGuestMode, scope != .world {
+                    suppressNextScopeHaptic = true
+                    scope = .world
+                    return
+                }
                 let loadedOnce = scope == .personal ? personalLoadedOnce : worldLoadedOnce
                 if !loadedOnce {
                     await load(for: scope)
@@ -406,16 +415,22 @@ struct FeedView: View {
 
             VStack(spacing: 0) {
                 picker
-                // Page swipe between My Feed and World Feed (picker stays in sync).
-                TabView(selection: $scope) {
-                    scopePage(for: .personal)
-                        .tag(Scope.personal)
+                if isGuestMode {
+                    // Guests only get World — no My Feed swipe target.
                     scopePage(for: .world)
-                        .tag(Scope.world)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    // Page swipe between My Feed and World Feed (picker stays in sync).
+                    TabView(selection: $scope) {
+                        scopePage(for: .personal)
+                            .tag(Scope.personal)
+                        scopePage(for: .world)
+                            .tag(Scope.world)
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .id(feedPagerEpoch)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .id(feedPagerEpoch)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .simultaneousGesture(dismissSearchOnDrag)
@@ -494,7 +509,8 @@ struct FeedView: View {
                     .padding(.top, shouldShowCalendarBanner ? 4 : 10)
                     .padding(.bottom, 4)
             }
-            if let prompt = campaign.todayPrompt,
+            if !isGuestMode,
+               let prompt = campaign.todayPrompt,
                let content = CampaignPromptCardModel.content(
                    feedTitle: campaign.feed?.title,
                    day: prompt.day,
@@ -518,6 +534,15 @@ struct FeedView: View {
                             await campaign.refreshProgress(authorId: userId)
                         }
                     }
+            }
+            if isGuestMode {
+                Text("Browse real thank-yous. Sign in when you’re ready to send or keep one.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(maxHeight: isTopChromeVisible ? nil : 0, alignment: .top)
@@ -557,46 +582,71 @@ struct FeedView: View {
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
             Spacer(minLength: 0)
+            if isGuestMode {
+                Button("Sign in") {
+                    onRequestSignIn?(.browse)
+                }
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+                .accessibilityLabel("Sign in")
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .padding(.bottom, 2)
     }
 
+    @ViewBuilder
     private var picker: some View {
-        HStack(spacing: 8) {
-            ForEach(Scope.allCases, id: \.self) { s in
-                Button {
-                    selectScope(s)
-                } label: {
-                    Text(s.title)
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(scope == s ? Theme.textPrimary : Theme.textSecondary)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 9)
-                        .background {
-                            if scope == s {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Theme.surfaceRaised)
-                                    .matchedGeometryEffect(id: "feedScopePill", in: scopePickerNamespace)
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(scope == s ? .isSelected : [])
+        if isGuestMode {
+            HStack {
+                Text("World Feed")
+                    .font(Theme.body(15, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Spacer()
             }
-            Spacer()
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+        } else {
+            HStack(spacing: 8) {
+                ForEach(Scope.allCases, id: \.self) { s in
+                    Button {
+                        selectScope(s)
+                    } label: {
+                        Text(s.title)
+                            .font(Theme.body(15, weight: .semibold))
+                            .foregroundStyle(scope == s ? Theme.textPrimary : Theme.textSecondary)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 9)
+                            .background {
+                                if scope == s {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Theme.surfaceRaised)
+                                        .matchedGeometryEffect(id: "feedScopePill", in: scopePickerNamespace)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(scope == s ? .isSelected : [])
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .animation(Self.scopeSwitchAnimation, value: scope)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
-        .animation(Self.scopeSwitchAnimation, value: scope)
     }
 
     private static let scopeSwitchAnimation = Animation.spring(response: 0.42, dampingFraction: 0.86)
 
     private func selectScope(_ next: Scope) {
         guard next != scope else { return }
+        if isGuestMode, next == .personal {
+            onRequestSignIn?(.myFeed)
+            return
+        }
         dismissSearchKeyboard()
         withAnimation(Self.scopeSwitchAnimation) {
             scope = next
@@ -640,7 +690,9 @@ struct FeedView: View {
                     HeartMark(size: 48)
                     Text(page == .personal
                          ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
-                         : "Nothing public yet — be the first.")
+                         : (isGuestMode
+                            ? "No public thank-yous yet — sign in to send the first one."
+                            : "Nothing public yet — be the first."))
                         .font(Theme.body(15))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
@@ -660,6 +712,20 @@ struct FeedView: View {
                         .buttonStyle(.plain)
                         .padding(.horizontal, 40)
                         .accessibilityLabel("Send your first appreciation")
+                    } else if isGuestMode {
+                        Button {
+                            onRequestSignIn?(.send)
+                        } label: {
+                            Text("Sign in to thank someone")
+                                .font(Theme.body(15, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Theme.ctaGradient, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 40)
+                        .accessibilityLabel("Sign in to thank someone")
                     }
                 }
                 Spacer()
@@ -987,28 +1053,47 @@ struct FeedView: View {
     }
 
     private func load(for target: Scope) async {
-        guard let userId = auth.userId else { return }
+        if isGuestMode {
+            guard target == .world else {
+                onRequestSignIn?(.myFeed)
+                setLoading(false, for: target)
+                return
+            }
+        } else {
+            guard auth.userId != nil else { return }
+        }
+        let userId = auth.userId
         let generation = nextLoadGeneration(for: target)
         setLoading(true, for: target)
         setError(nil, for: target)
         do {
-            async let feedTask = target == .personal
-                ? GratitudeService.personalFeed(userId: userId)
-                : GratitudeService.worldFeed()
+            let pageResult: GratitudeService.GratitudePage
+            if target == .personal, let userId {
+                pageResult = try await GratitudeService.personalFeed(userId: userId)
+            } else {
+                pageResult = try await GratitudeService.worldFeed()
+            }
 
-            // World refresh still reloads pending-to-accept so receive isn’t Personal-only.
-            let pageResult = try await feedTask
             let result = userBlocks.filterGratitudes(pageResult.items)
-            let pendingBundle = await loadPendingAcceptBundle(userId: userId)
-            let pending = pendingBundle.pending
-            let pendingSent = pendingBundle.pendingSent
+            let pending: [Gratitude]
+            let pendingSent: Int
+            if let userId {
+                let pendingBundle = await loadPendingAcceptBundle(userId: userId)
+                pending = pendingBundle.pending
+                pendingSent = pendingBundle.pendingSent
+            } else {
+                pending = []
+                pendingSent = 0
+            }
 
             guard generation == currentLoadGeneration(for: target) else { return }
 
             // Attach recipient + pending notification as soon as we see them —
             // don't wait until accept/decline (which used to create the notice).
-            for item in pending where !resolvedPendingIds.contains(item.id) {
-                await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
+            if let userId {
+                for item in pending where !resolvedPendingIds.contains(item.id) {
+                    await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
+                }
             }
 
             guard generation == currentLoadGeneration(for: target) else { return }
@@ -1017,7 +1102,7 @@ struct FeedView: View {
             // (especially on iPad, where the page TabView can ignore a bare
             // selection flip). Keep My Feed when there are pending accepts —
             // those only render on Personal.
-            if target == .personal, result.isEmpty, pending.isEmpty, !didAutoSwitchToWorld {
+            if !isGuestMode, target == .personal, result.isEmpty, pending.isEmpty, !didAutoSwitchToWorld {
                 didAutoSwitchToWorld = true
                 applyPendingList(pending)
                 pendingSentCount = pendingSent
@@ -1038,14 +1123,21 @@ struct FeedView: View {
                 return
             }
 
-            async let heartsTask = GratitudeService.myHearts(userId: userId, among: result.map(\.id))
-            let hearts = (try? await heartsTask) ?? hearts(for: target)
+            let heartIds: Set<UUID>
+            if let userId {
+                heartIds = (try? await GratitudeService.myHearts(
+                    userId: userId,
+                    among: result.map(\.id)
+                )) ?? hearts(for: target)
+            } else {
+                heartIds = []
+            }
 
             guard generation == currentLoadGeneration(for: target) else { return }
 
             withAnimation(.easeInOut(duration: 0.28)) {
                 setItems(result, for: target)
-                setHearts(hearts, for: target)
+                setHearts(heartIds, for: target)
                 if target == .personal {
                     personalHasMore = pageResult.hasMore
                     personalLoadedOnce = true
@@ -1071,7 +1163,12 @@ struct FeedView: View {
 
     /// Append older feed items when the user scrolls near the end of the list.
     private func loadMore(for target: Scope) async {
-        guard let userId = auth.userId else { return }
+        if isGuestMode {
+            guard target == .world else { return }
+        } else {
+            guard auth.userId != nil else { return }
+        }
+        let userId = auth.userId
         let hasMore = target == .personal ? personalHasMore : worldHasMore
         let loadingMore = target == .personal ? personalLoadingMore : worldLoadingMore
         guard hasMore, !loadingMore, !isLoading(for: target) else { return }
@@ -1084,11 +1181,12 @@ struct FeedView: View {
         }
 
         do {
-            let pageResult = try await (
-                target == .personal
-                    ? GratitudeService.personalFeed(userId: userId, before: before)
-                    : GratitudeService.worldFeed(before: before)
-            )
+            let pageResult: GratitudeService.GratitudePage
+            if target == .personal, let userId {
+                pageResult = try await GratitudeService.personalFeed(userId: userId, before: before)
+            } else {
+                pageResult = try await GratitudeService.worldFeed(before: before)
+            }
             let fresh = userBlocks.filterGratitudes(pageResult.items)
             var existing = Set(current.map(\.id))
             let appended = fresh.filter { existing.insert($0.id).inserted }
@@ -1097,10 +1195,15 @@ struct FeedView: View {
                 if target == .personal { personalHasMore = false } else { worldHasMore = false }
                 return
             }
-            let newHearts = (try? await GratitudeService.myHearts(
-                userId: userId,
-                among: appended.map(\.id)
-            )) ?? []
+            let newHearts: Set<UUID>
+            if let userId {
+                newHearts = (try? await GratitudeService.myHearts(
+                    userId: userId,
+                    among: appended.map(\.id)
+                )) ?? []
+            } else {
+                newHearts = []
+            }
             mutateItems(for: target) { $0.append(contentsOf: appended) }
             mutateHearts(for: target) { $0.formUnion(newHearts) }
             if target == .personal {
@@ -1127,7 +1230,10 @@ struct FeedView: View {
     }
 
     private func toggleHeart(_ item: Gratitude, in page: Scope) {
-        guard let userId = auth.userId else { return }
+        guard let userId = auth.userId else {
+            onRequestSignIn?(.heart)
+            return
+        }
         let wasHearted = hearts(for: page).contains(item.id)
         // Optimistic update
         mutateHearts(for: page) { set in

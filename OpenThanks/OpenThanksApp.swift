@@ -344,10 +344,11 @@ struct RootView: View {
                 HeartMark(size: 64)
                     .transition(.opacity)
             case .signedOut:
-                // One-page promise → sign-in only. Never ask for notifications/calendar here.
+                // One-page promise → guest Home (World feed + search). Sign-in
+                // is a sheet at send / heart / claim — never a hard wall.
                 Group {
                     if hasSeenOnboarding {
-                        WelcomeView()
+                        GuestBrowseShell()
                     } else {
                         OnboardingView {
                             hasSeenOnboarding = true

@@ -35,16 +35,16 @@ struct OnboardingView: View {
             }
             .scrollIndicators(.hidden)
 
-            Button("Get Started") {
+            Button("See what’s shared") {
                 WarmHaptics.selection()
-                // Existing funnel event for Get Started. Name kept for current insights.
+                // Existing funnel event name kept for current insights.
                 Analytics.capture("prelogin_onboarding_completed")
                 onFinish()
             }
             .buttonStyle(CTAButtonStyle())
             .padding(.horizontal, 24)
             .contentShape(Rectangle())
-            .accessibilityLabel("Get Started")
+            .accessibilityLabel("See what’s shared")
             .padding(.bottom, 8)
         }
         .padding(.vertical, 12)
