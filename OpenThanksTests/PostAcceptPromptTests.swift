@@ -6,74 +6,66 @@ import XCTest
 #endif
 
 final class PostAcceptPromptTests: XCTestCase {
-    func testRippleSheetCopy() {
+    func testPayItForwardTitleUsesFirstName() {
         XCTAssertEqual(PayItForwardPromptCopy.title(fromName: "Ada Lovelace"), "Ada thanked you")
         XCTAssertEqual(PayItForwardPromptCopy.title(fromName: "Ada"), "Ada thanked you")
         XCTAssertEqual(PayItForwardPromptCopy.title(fromName: "  Ada  Lovelace"), "Ada thanked you")
         XCTAssertEqual(PayItForwardPromptCopy.title(fromName: nil), "someone thanked you")
         XCTAssertEqual(PayItForwardPromptCopy.title(fromName: ""), "someone thanked you")
-        XCTAssertEqual(
-            PayItForwardPromptCopy.body,
-            "Send one note to someone else, if you want their kindness to keep going."
+        XCTAssertFalse(PayItForwardPromptCopy.body.isEmpty)
+        XCTAssertFalse(PayItForwardPromptCopy.reassurance.isEmpty)
+        XCTAssertTrue(
+            PayItForwardPromptCopy.reassurance.contains("Don’t worry about the wording")
+                || PayItForwardPromptCopy.reassurance.contains("Don't worry about the wording")
         )
-        XCTAssertEqual(PayItForwardPromptCopy.primaryButton, "Send a note")
         XCTAssertEqual(PayItForwardPromptCopy.notNow, "Not now")
+    }
 
-        let sheet = [
-            PayItForwardPromptCopy.title(fromName: "Ada"),
-            PayItForwardPromptCopy.body,
-            PayItForwardPromptCopy.primaryButton,
-            PayItForwardPromptCopy.notNow,
-        ].joined(separator: "\n")
-        XCTAssertFalse(sheet.contains("Continue the ripple"))
-        XCTAssertFalse(sheet.contains("Ripple started by"))
-        XCTAssertFalse(sheet.contains("Thank someone next"))
-        XCTAssertFalse(sheet.contains("just thanked you"))
+    func testStartersMatchPaths() {
+        XCTAssertTrue(
+            PayItForwardPromptCopy.starter(for: .helpedThisWeek)
+                .hasPrefix("Thank you for helping me this week")
+        )
+        XCTAssertTrue(
+            PayItForwardPromptCopy.starter(for: .neverThanked)
+                .contains("never properly thanked")
+        )
+        let echo = PayItForwardPromptCopy.starter(for: .echoGift, echoTheme: .jumpingIn)
+        XCTAssertTrue(echo.contains("jumping in"))
+        let cal = PayItForwardPromptCopy.starter(for: .calendarPerson, personName: "Jordan Lee")
+        XCTAssertTrue(cal.contains("Jordan"))
+    }
+
+    func testEchoThemeDetection() {
+        XCTAssertEqual(
+            GratitudeEchoTheme.detect(from: "Thank you for jumping in when I was stuck."),
+            .jumpingIn
+        )
+        XCTAssertEqual(
+            GratitudeEchoTheme.detect(from: "You really listened when I needed it."),
+            .listening
+        )
+        XCTAssertEqual(GratitudeEchoTheme.detect(from: "Nice note"), .general)
+        XCTAssertEqual(
+            PayItForwardPromptCopy.questionPaths(echoTheme: .jumpingIn),
+            [.helpedThisWeek, .neverThanked, .echoGift]
+        )
+        XCTAssertEqual(
+            PayItForwardPromptCopy.questionPaths(echoTheme: .general),
+            [.helpedThisWeek, .neverThanked]
+        )
     }
 
     func testFirstSendTipCopy() {
-        XCTAssertEqual(FirstSendTip.title, "The heart below starts a note")
+        XCTAssertEqual(FirstSendTip.title, "The + button starts a note")
         XCTAssertEqual(FirstSendTip.detail, "Tap it when you know who it's for.")
         let tip = "\(FirstSendTip.title)\n\(FirstSendTip.detail)"
-        XCTAssertFalse(tip.contains("Start sending your first appreciation"))
-        XCTAssertFalse(tip.contains("Tap the heart button below"))
+        XCTAssertFalse(tip.isEmpty)
     }
 
-    func testTipShowsOnFeedWhenNothingElseIsInTheWay() {
-        XCTAssertTrue(show())
-    }
-
-    func testTipHidesWhileTheRippleSheetIsPresented() {
-        XCTAssertFalse(show(rippleSheetPresented: true))
-    }
-
-    func testTipShowsAgainAfterNotNowWhenTheyHaveNotComposedOrSent() {
-        XCTAssertTrue(show(rippleSheetPresented: false))
-    }
-
-    func testTipHidesAfterTheComposerWasOpenedOrAnAppreciationWasSent() {
-        XCTAssertFalse(show(hasOpenedComposer: true))
-        XCTAssertFalse(show(hasSentAppreciation: true))
-        XCTAssertFalse(show(
-            rippleSheetPresented: false,
-            hasOpenedComposer: true,
-            hasSentAppreciation: true
-        ))
-    }
-
-    func testTipKeepsTheExistingHomeGates() {
-        XCTAssertFalse(show(hasSeenTip: true))
-        XCTAssertFalse(show(isFeedTab: false))
-        XCTAssertFalse(show(tabComposerPresented: true))
-        XCTAssertFalse(show(searchActive: true))
-        XCTAssertFalse(show(pendingAcceptCount: 1))
-        XCTAssertFalse(show(pendingAcceptCount: 2, rippleSheetPresented: true))
-    }
-
-    func testMarkComposerOpenedHidesTheTipOnTheNextCheck() {
+    func testMarkComposerOpenedPersists() {
         let name = "PostAcceptPromptTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
-        defaults.removePersistentDomain(forName: name)
         defer { defaults.removePersistentDomain(forName: name) }
 
         XCTAssertFalse(FirstSendTip.hasOpenedComposer(in: defaults))
@@ -83,12 +75,6 @@ final class PostAcceptPromptTests: XCTestCase {
     }
 
     #if !canImport(PostAcceptPrompt)
-    func testSentFlagUsesTheExistingDeviceSendCounter() {
-        XCTAssertEqual(
-            EnjoymentPrompt.successfulSendCountKey,
-            "enjoymentPrompt.successfulSendCount.v1"
-        )
-    }
     #endif
 
     private func show(

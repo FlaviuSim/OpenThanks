@@ -16,10 +16,38 @@ struct GratitudeNudge: Equatable, Sendable {
     var messageDraft: String?
 }
 
+/// Compact calendar face for the post-accept chooser (no AI draft).
+struct CalendarThankFace: Identifiable, Equatable, Sendable {
+    let personName: String
+    let email: String?
+    let meetingTitle: String
+    let eventId: String
+    let score: Double
+
+    var id: String { "\(eventId)|\(personName.lowercased())|\(email?.lowercased() ?? "")" }
+
+    var subtitle: String {
+        let title = meetingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if title.isEmpty { return "Today’s meeting" }
+        if title.count <= 42 { return title }
+        return String(title.prefix(41)).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+    }
+
+    var starterMessage: String {
+        let first = PayItForwardPromptCopy.firstName(from: personName)
+        if meetingTitle.count <= 40, !meetingTitle.lowercased().hasPrefix("meeting") {
+            return "Thank you for \(meetingTitle) today, \(first) — "
+        }
+        return PayItForwardPromptCopy.starter(for: .calendarPerson, personName: personName)
+    }
+}
+
 /// Filters today’s meetings and picks one high-signal gratitude opportunity.
 enum GratitudeOpportunityRanker {
     /// Below this score we send no evening notification.
     static let minimumScore: Double = 4.0
+    /// Softer floor for the post-accept chooser (show a few faces mid-day).
+    static let postAcceptMinimumScore: Double = 2.0
     private static let recentThankWindowDays = 14
     private static let maxLargeMeetingAttendees = 8
 
@@ -111,6 +139,73 @@ enum GratitudeOpportunityRanker {
 
         nudge.messageDraft = await makeDraft(for: nudge)
         return nudge
+    }
+
+    /// Up to `limit` people from today’s meetings for the post-accept sheet.
+    /// Includes meetings that already ended (or started) today — not weekend-gated.
+    static func topPeople(
+        limit: Int = 3,
+        for day: Date = Date(),
+        authorId: UUID? = nil,
+        selfEmails: Set<String> = [],
+        now: Date = Date()
+    ) async -> [CalendarThankFace] {
+        guard limit > 0, CalendarMeetingAggregator.hasAnyConnectedSource else { return [] }
+
+        let cal = Calendar.current
+        let meetings = await CalendarMeetingAggregator.meetings(on: day)
+        let relevant = meetings.filter { meeting in
+            !meeting.isAllDay
+                && !meeting.isCancelled
+                && (meeting.end <= now || cal.isDate(meeting.start, inSameDayAs: day))
+        }
+
+        let recent = await recentlyThankedKeys(authorId: authorId, now: now)
+        let normalizedSelf = Set(selfEmails.map { $0.lowercased() })
+
+        var bestByKey: [String: Candidate] = [:]
+        for meeting in relevant {
+            guard passesNoiseFilter(meeting) else { continue }
+            let others = meeting.otherAttendees.filter { attendee in
+                if let email = attendee.email?.lowercased(), normalizedSelf.contains(email) {
+                    return false
+                }
+                return true
+            }
+            guard !others.isEmpty else { continue }
+            guard others.count <= maxLargeMeetingAttendees || others.count == 1 else { continue }
+
+            for attendee in others {
+                if isRecentlyThanked(attendee, keys: recent) { continue }
+                let scored = score(meeting: meeting, attendee: attendee, otherCount: others.count)
+                guard scored.score >= postAcceptMinimumScore else { continue }
+                let key = (attendee.email?.lowercased())
+                    ?? attendee.displayName.lowercased()
+                let candidate = Candidate(
+                    meeting: meeting,
+                    attendee: attendee,
+                    score: scored.score,
+                    reason: scored.reason
+                )
+                if let existing = bestByKey[key], existing.score >= candidate.score {
+                    continue
+                }
+                bestByKey[key] = candidate
+            }
+        }
+
+        return bestByKey.values
+            .sorted { $0.score > $1.score }
+            .prefix(limit)
+            .map { c in
+                CalendarThankFace(
+                    personName: c.attendee.displayName,
+                    email: c.attendee.email,
+                    meetingTitle: c.meeting.title,
+                    eventId: c.meeting.id,
+                    score: c.score
+                )
+            }
     }
 
     // MARK: Filters & scoring

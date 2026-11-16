@@ -246,6 +246,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             await MainActor.run {
                 ComposeLaunchBridge.shared.queue(analyticsSource: "draft_reminder")
             }
+        case NotificationService.postAcceptRemindTypeValue:
+            let message = info[NotificationService.postAcceptRemindMessageKey] as? String
+            let parentId = (info[NotificationService.postAcceptRemindParentIdKey] as? String)
+                .flatMap(UUID.init)
+            let parentName = (info[NotificationService.postAcceptRemindParentNameKey] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            await MainActor.run {
+                ComposeLaunchBridge.shared.queue(
+                    message: message,
+                    inspiredByGratitudeId: parentId,
+                    inspiredByAuthorName: (parentName?.isEmpty == false) ? parentName : nil,
+                    analyticsSource: "post_accept_remind"
+                )
+            }
         case NotificationService.calendarNudgeTypeValue:
             NotificationService.recordDeliveredCalendarNudge(userInfo: info)
             let name = (info[NotificationService.calendarNudgeNameKey] as? String)?

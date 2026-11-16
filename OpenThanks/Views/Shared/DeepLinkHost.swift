@@ -28,6 +28,7 @@ struct DeepLinkHostModifier: ViewModifier {
                 let shouldOfferPermissions = wasShowing && !payItForwardDidThank
                 payItForwardDidThank = false
                 deepLinks.payItForwardFromName = nil
+                deepLinks.payItForwardAcceptedMessage = nil
                 if shouldOfferPermissions {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                         PermissionPromptScheduler.shared.scheduleAfterAppreciation(source: "post_accept")
@@ -48,27 +49,43 @@ struct DeepLinkHostModifier: ViewModifier {
                     .sheet(isPresented: showPayItForward) {
                         PayItForwardSheet(
                             fromName: deepLinks.payItForwardFromName,
+                            acceptedMessage: deepLinks.payItForwardAcceptedMessage,
                             parentGratitudeId: deepLinks.payItForwardParentId,
                             analyticsSurface: "claim",
                             analyticsSource: "claim_accept",
-                            onThankSomeone: {
+                            onChoose: { choice in
                                 payItForwardDidThank = true
                                 if let parentId = deepLinks.payItForwardParentId {
                                     Analytics.payItForwardTapped(
                                         parentGratitudeId: parentId,
                                         surface: "claim",
-                                        source: "claim_accept"
+                                        source: "claim_accept",
+                                        path: choice.path.rawValue
                                     )
                                 }
                                 let parentId = deepLinks.payItForwardParentId
                                 let fromName = deepLinks.payItForwardFromName
                                 deepLinks.payItForwardFromName = nil
                                 deepLinks.payItForwardParentId = nil
+                                deepLinks.payItForwardAcceptedMessage = nil
                                 deepLinks.clear()
+                                guard choice.path != .remindTonight, choice.path != .calendarConnect else {
+                                    return
+                                }
+                                let toField: String?
+                                if let email = choice.recipientEmail, !email.isEmpty {
+                                    toField = email
+                                } else if let name = choice.recipientName, !name.isEmpty {
+                                    toField = name
+                                } else {
+                                    toField = nil
+                                }
                                 ComposeLaunchBridge.shared.queue(
+                                    recipientName: toField,
+                                    message: choice.message,
                                     inspiredByGratitudeId: parentId,
                                     inspiredByAuthorName: fromName,
-                                    analyticsSource: "post_accept_pay_it_forward"
+                                    analyticsSource: "post_accept_\(choice.path.rawValue)"
                                 )
                             }
                         )

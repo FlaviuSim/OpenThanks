@@ -568,16 +568,18 @@ enum Analytics {
     static func payItForwardTapped(
         parentGratitudeId: UUID,
         surface: String,
-        source: String
+        source: String,
+        path: String? = nil
     ) {
-        capture(
-            "pay_it_forward_tapped",
-            payItForwardProperties(
-                parentGratitudeId: parentGratitudeId,
-                surface: surface,
-                source: source
-            )
+        var props = payItForwardProperties(
+            parentGratitudeId: parentGratitudeId,
+            surface: surface,
+            source: source
         )
+        if let path, !path.isEmpty {
+            props["path"] = path
+        }
+        capture("pay_it_forward_tapped", props)
     }
 
     static func appreciationDeclined(

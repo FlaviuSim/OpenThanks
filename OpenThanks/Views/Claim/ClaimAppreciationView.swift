@@ -28,6 +28,7 @@ struct PendingAppreciationReviewView: View {
 
     @State private var showCompose = false
     @State private var showPayItForward = false
+    @State private var composeChoice: PostAcceptChoice?
     /// One `appreciation_viewed` per time this accept screen is created.
     @State private var didCaptureAppreciationView = false
 
@@ -45,12 +46,22 @@ struct PendingAppreciationReviewView: View {
                         PayItForwardNudgeCard(
                             fromName: authorProfile?.fullName
                                 ?? authorProfile?.displayName,
-                            onThankSomeone: {
+                            acceptedMessage: gratitude.message,
+                            onChoose: { choice in
                                 Analytics.payItForwardTapped(
                                     parentGratitudeId: gratitude.id,
                                     surface: "claim",
-                                    source: "claim_accept"
+                                    source: "claim_accept",
+                                    path: choice.path.rawValue
                                 )
+                                guard choice.path != .remindTonight,
+                                      choice.path != .calendarConnect else {
+                                    withAnimation(Motion.note) {
+                                        showPayItForward = false
+                                    }
+                                    return
+                                }
+                                composeChoice = choice
                                 showCompose = true
                             },
                             onDismiss: {
@@ -85,11 +96,20 @@ struct PendingAppreciationReviewView: View {
         .navigationTitle(outcomeTitle)
         .navigationBarTitleDisplayMode(.inline)
         .composeCover(isPresented: $showCompose) {
+            let choice = composeChoice
+            let toField: String? = {
+                if let email = choice?.recipientEmail, !email.isEmpty { return email }
+                if let name = choice?.recipientName, !name.isEmpty { return name }
+                return nil
+            }()
             ComposeView(
+                initialRecipient: toField,
+                initialMessage: choice?.message,
                 inspiredByGratitudeId: gratitude.id,
                 inspiredByAuthorName: authorProfile?.fullName ?? authorProfile?.displayName,
-                analyticsSource: "post_accept_pay_it_forward",
-                allowsEmptyRecipient: true
+                analyticsSource: choice.map { "post_accept_\($0.path.rawValue)" }
+                    ?? "post_accept_pay_it_forward",
+                allowsEmptyRecipient: toField == nil
             )
         }
         .task {
