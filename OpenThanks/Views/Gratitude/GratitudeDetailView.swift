@@ -15,6 +15,7 @@ struct GratitudeDetailView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.requestGuestSignIn) private var requestGuestSignIn
 
     @State private var isHearted = false
     /// Live hearters query can outpace the embedded `hearts(count)` on the route value.
@@ -34,6 +35,8 @@ struct GratitudeDetailView: View {
     @State private var heartedProfile: HeartedProfileRoute?
     /// One `appreciation_viewed` per time this detail screen is created.
     @State private var didCaptureAppreciationView = false
+    /// Fallback when no guest-browse host injected `requestGuestSignIn`.
+    @State private var showGuestSignIn = false
 
     private var shareVoice: AppreciationShareVoice {
         AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
@@ -117,6 +120,15 @@ struct GratitudeDetailView: View {
                 target: .gratitude(gratitude.id),
                 title: "Report this appreciation if it violates our community standards."
             )
+        }
+        .sheet(isPresented: $showGuestSignIn) {
+            WelcomeView(
+                headline: GuestSignInReason.heart.headline,
+                message: GuestSignInReason.heart.message,
+                showsCloseButton: true
+            )
+            .syncAppAppearance()
+            .presentationDetents([.large])
         }
         .alert("Block \(authorDisplayName)?", isPresented: $confirmBlock) {
             Button("Cancel", role: .cancel) {}
@@ -240,8 +252,16 @@ struct GratitudeDetailView: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
                     .font(Theme.body(15, weight: .medium))
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 4)
+                    .contentShape(Rectangle())
                 }
-                .accessibilityLabel(isHearted ? "Remove heart" : "Heart")
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    isHearted
+                        ? "Remove heart"
+                        : (auth.userId == nil ? "Sign in to heart" : "Heart")
+                )
 
                 HeartedByView(
                     gratitudeId: gratitude.id,
@@ -501,7 +521,16 @@ struct GratitudeDetailView: View {
     }
 
     private func toggleHeart() {
-        guard let userId = auth.userId else { return }
+        guard let userId = auth.userId else {
+            // Never silently no-op — open the same guest sign-in path as Home.
+            if let requestGuestSignIn {
+                requestGuestSignIn(.heart)
+            } else {
+                showGuestSignIn = true
+                Analytics.capture("guest_sign_in_prompted", ["reason": GuestSignInReason.heart.rawValue])
+            }
+            return
+        }
         let wasHearted = isHearted
         let previousCount = shownHeartCount
         isHearted.toggle()

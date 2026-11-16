@@ -31,6 +31,13 @@ final class GuestBrowseTests: XCTestCase {
         )
     }
 
+    func testPostDetailHeartPromptsGuestSignIn() throws {
+        let source = try readSource("OpenThanks/Views/Gratitude/GratitudeDetailView.swift")
+        XCTAssertTrue(source.contains("requestGuestSignIn"))
+        XCTAssertTrue(source.contains("showGuestSignIn"))
+        XCTAssertTrue(source.contains("GuestSignInReason.heart"))
+    }
+
     func testClaimPromptsSignInSheet() throws {
         let source = try readSource("OpenThanks/Views/Claim/ClaimAppreciationView.swift")
         XCTAssertTrue(source.contains("Sign in to keep"))

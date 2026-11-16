@@ -28,6 +28,7 @@ struct FeedView: View {
     var onRequestSignIn: ((GuestSignInReason) -> Void)? = nil
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
+    @Environment(\.requestGuestSignIn) private var requestGuestSignIn
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
@@ -92,6 +93,9 @@ struct FeedView: View {
     @State private var homeKeyboardCover: CGFloat = 0
     /// Bumped to close people-search results (navigation, compose, drag on the feed).
     @State private var searchDismissNonce = 0
+    /// Local guest sign-in sheet when no host callback/environment is wired.
+    @State private var showGuestSignIn = false
+    @State private var guestSignInReason: GuestSignInReason = .heart
 
     private var items: [Gratitude] { items(for: scope) }
     private var heartedIds: Set<UUID> { hearts(for: scope) }
@@ -251,6 +255,15 @@ struct FeedView: View {
                     }
                 )
                 .syncAppAppearance()
+            }
+            .sheet(isPresented: $showGuestSignIn) {
+                WelcomeView(
+                    headline: guestSignInReason.headline,
+                    message: guestSignInReason.message,
+                    showsCloseButton: true
+                )
+                .syncAppAppearance()
+                .presentationDetents([.large])
             }
             .onChange(of: searchFocused) { _, focused in
                 if focused {
@@ -584,7 +597,7 @@ struct FeedView: View {
             Spacer(minLength: 0)
             if isGuestMode {
                 Button("Sign in") {
-                    onRequestSignIn?(.browse)
+                    promptGuestSignIn(.browse)
                 }
                 .font(Theme.body(14, weight: .semibold))
                 .foregroundStyle(Theme.coral)
@@ -644,7 +657,7 @@ struct FeedView: View {
     private func selectScope(_ next: Scope) {
         guard next != scope else { return }
         if isGuestMode, next == .personal {
-            onRequestSignIn?(.myFeed)
+            promptGuestSignIn(.myFeed)
             return
         }
         dismissSearchKeyboard()
@@ -714,7 +727,7 @@ struct FeedView: View {
                         .accessibilityLabel("Send your first appreciation")
                     } else if isGuestMode {
                         Button {
-                            onRequestSignIn?(.send)
+                            promptGuestSignIn(.send)
                         } label: {
                             Text("Sign in to thank someone")
                                 .font(Theme.body(15, weight: .semibold))
@@ -1055,7 +1068,7 @@ struct FeedView: View {
     private func load(for target: Scope) async {
         if isGuestMode {
             guard target == .world else {
-                onRequestSignIn?(.myFeed)
+                promptGuestSignIn(.myFeed)
                 setLoading(false, for: target)
                 return
             }
@@ -1229,9 +1242,23 @@ struct FeedView: View {
         )
     }
 
+    private func promptGuestSignIn(_ reason: GuestSignInReason) {
+        if let onRequestSignIn {
+            onRequestSignIn(reason)
+            return
+        }
+        if let requestGuestSignIn {
+            requestGuestSignIn(reason)
+            return
+        }
+        guestSignInReason = reason
+        showGuestSignIn = true
+        Analytics.capture("guest_sign_in_prompted", ["reason": reason.rawValue])
+    }
+
     private func toggleHeart(_ item: Gratitude, in page: Scope) {
         guard let userId = auth.userId else {
-            onRequestSignIn?(.heart)
+            promptGuestSignIn(.heart)
             return
         }
         let wasHearted = hearts(for: page).contains(item.id)
@@ -1389,8 +1416,16 @@ struct GratitudeCard: View {
                             .foregroundStyle(Theme.textSecondary)
                     }
                     .font(Theme.body(14, weight: .medium))
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 4)
+                    .contentShape(Rectangle())
                 }
-                .accessibilityLabel(isHearted ? "Remove heart" : "Heart")
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    isHearted
+                        ? "Remove heart"
+                        : (auth.userId == nil ? "Sign in to heart" : "Heart")
+                )
 
                 HeartedByView(
                     gratitudeId: gratitude.id,

@@ -30,6 +30,19 @@ enum GuestSignInReason: String {
     }
 }
 
+/// Lets pushed screens (post detail, etc.) request the same guest sign-in sheet
+/// as Home, without each view inventing its own host.
+private struct GuestSignInRequestKey: EnvironmentKey {
+    static let defaultValue: ((GuestSignInReason) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var requestGuestSignIn: ((GuestSignInReason) -> Void)? {
+        get { self[GuestSignInRequestKey.self] }
+        set { self[GuestSignInRequestKey.self] = newValue }
+    }
+}
+
 /// Signed-out Home: browse the public World feed and search people.
 /// Sign-in is only required to send, heart, claim/accept, or open My Feed.
 struct GuestBrowseShell: View {
@@ -51,6 +64,9 @@ struct GuestBrowseShell: View {
                     presentSignIn(reason: reason)
                 }
             )
+            .environment(\.requestGuestSignIn) { reason in
+                presentSignIn(reason: reason)
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if !searchActive && !chromeCollapsed {
