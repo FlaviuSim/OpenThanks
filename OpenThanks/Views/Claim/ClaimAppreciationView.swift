@@ -395,6 +395,7 @@ struct ClaimAppreciationView: View {
     /// One `appreciation_viewed` when the claim link resolves to an already
     /// accepted or declined note (the review screen is not shown).
     @State private var didCaptureClaimView = false
+    @State private var showSignIn = false
 
     private enum Phase {
         case loading
@@ -422,8 +423,18 @@ struct ClaimAppreciationView: View {
         .task { await load() }
         .onChange(of: auth.userId) { _, userId in
             if userId != nil, case .needsSignIn = phase {
+                showSignIn = false
                 Task { await load() }
             }
+        }
+        .sheet(isPresented: $showSignIn) {
+            WelcomeView(
+                headline: GuestSignInReason.claim.headline,
+                message: GuestSignInReason.claim.message,
+                showsCloseButton: true
+            )
+            .syncAppAppearance()
+            .presentationDetents([.large])
         }
         .syncAppAppearance()
     }
@@ -436,11 +447,30 @@ struct ClaimAppreciationView: View {
                     ProgressView().tint(Theme.coral)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .needsSignIn:
-                    messageState(
-                        title: "Sign in to claim",
-                        body: "Open this link again after you sign in to accept the appreciation.",
-                        systemImage: "person.crop.circle.badge.questionmark"
-                    )
+                    VStack(spacing: 14) {
+                        Image(systemName: "person.crop.circle.badge.questionmark")
+                            .font(.system(size: 36))
+                            .foregroundStyle(Theme.coral)
+                        Text("Sign in to keep this thank-you")
+                            .font(Theme.display(22, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .multilineTextAlignment(.center)
+                        Text("You can browse OpenThanks without an account. Sign in here to accept or decline — we’ll bring you right back.")
+                            .font(Theme.body(15))
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                        Button("Sign in to keep") {
+                            showSignIn = true
+                            Analytics.capture("guest_sign_in_prompted", ["reason": "claim"])
+                        }
+                        .buttonStyle(CTAButtonStyle())
+                        .padding(.top, 8)
+                        Button("Not now") { dismiss() }
+                            .font(Theme.body(15, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(28)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .missing:
                     messageState(
                         title: "Appreciation not found",

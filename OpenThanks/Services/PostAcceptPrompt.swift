@@ -17,9 +17,9 @@ enum PayItForwardPromptCopy {
     }
 }
 
-/// Home coachmark above the heart button.
+/// Home coachmark above the compose FAB.
 enum FirstSendTip {
-    static let title = "The heart below starts a note"
+    static let title = "The + button starts a note"
     static let detail = "Tap it when you know who it's for."
 
     /// Set when any composer is opened. Separate from `hasSeenFirstSendTip`,

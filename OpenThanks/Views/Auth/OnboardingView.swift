@@ -35,17 +35,25 @@ struct OnboardingView: View {
             }
             .scrollIndicators(.hidden)
 
-            Button("Get Started") {
+            Button("See what’s shared") {
                 WarmHaptics.selection()
-                // Existing funnel event for Get Started. Name kept for current insights.
+                // Existing funnel event name kept for current insights.
                 Analytics.capture("prelogin_onboarding_completed")
                 onFinish()
             }
             .buttonStyle(CTAButtonStyle())
             .padding(.horizontal, 24)
             .contentShape(Rectangle())
-            .accessibilityLabel("Get Started")
-            .padding(.bottom, 8)
+            .accessibilityLabel("See what’s shared")
+
+            Text("No account needed to look around.")
+                .font(Theme.body(13))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+                .accessibilityLabel("No account needed to look around")
         }
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -7,9 +7,15 @@ struct WelcomeView: View {
         case google, linkedin, apple, passkey
     }
 
+    /// Action-aware title when presented as a sheet from guest browse.
+    var headline: String = "Welcome back"
+    var message: String = "Sign in to continue sharing appreciation."
+    var showsCloseButton: Bool = false
+
     @Environment(AuthService.self) private var auth
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dismiss) private var dismiss
     @State private var showEmailSheet = false
     @State private var showPhoneSheet = false
     @State private var oauthBusy: OAuthBusy?
@@ -20,6 +26,19 @@ struct WelcomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
+                if showsCloseButton {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Button("Keep browsing") { dismiss() }
+                            .font(Theme.body(15, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                            .accessibilityLabel("Keep browsing")
+                            .accessibilityHint("Dismiss sign in and keep browsing without an account")
+                    }
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                }
+
                 Spacer(minLength: sizeClass == .regular ? 48 : 24)
 
                 HStack(spacing: 10) {
@@ -32,10 +51,11 @@ struct WelcomeView: View {
                 }
                 .padding(.bottom, 28)
 
-                Text("Welcome back")
+                Text(headline)
                     .font(Theme.display(32, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Sign in to continue sharing appreciation.")
+                    .multilineTextAlignment(.center)
+                Text(message)
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)

@@ -14,7 +14,7 @@ struct CampaignPromptCardContent: Equatable, Sendable {
     var progress: String?
 
     var accessibilityLabel: String {
-        [ask, buttonTitle].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
+        [ask, buttonTitle, progress].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 }
 

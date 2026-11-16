@@ -228,11 +228,16 @@ struct UserProfileView: View {
         showCompose = true
     }
 
-    /// Blank send form, same cover as the tab heart: a new launch id through
-    /// `presentCompose`, not the profile’s boolean cover and not a weak
-    /// `app_open`. `ComposeView` enqueues `appreciation_form_started` with
-    /// `source=ripple_tab` when the form appears. Nothing is fetched first.
+    /// Blank send form. Signed-in: queue through MainTabView’s compose cover.
+    /// Guest: open the profile’s own cover — ComposeLaunchBridge has no host
+    /// while GuestBrowseShell is showing, and Save then prompts sign-in.
     private func startOwnRipple() {
+        if auth.userId == nil {
+            composeUsesProfileRecipient = false
+            composeAnalyticsSource = "ripple_tab"
+            showCompose = true
+            return
+        }
         ComposeLaunchBridge.shared.queue(analyticsSource: "ripple_tab")
     }
 
