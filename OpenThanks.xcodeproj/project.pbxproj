@@ -24,6 +24,7 @@
 		1270F1BD0C045C14DAA390AE /* GratitudeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3492D63FD0502A5AC53E13 /* GratitudeDetailView.swift */; };
 		12F593A4E12C4F62B8F5305E /* DisplayNameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52B5D6606D0E8E470963C67 /* DisplayNameSheet.swift */; };
 		13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */; };
+		15198462EA9B6C0A7577FB9C /* OAuthAvatarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A396963CD7480AAE591A2D5 /* OAuthAvatarTests.swift */; };
 		19BCDD4D9F51778CCF379DE9 /* AppIcon-Night@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = FBC593DA46378D66511E5B0E /* AppIcon-Night@3x.png */; };
 		1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */; };
 		21977B9A924DA0B6F4BDA725 /* StatsShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA02D07C225359BD53E5EEBB /* StatsShareCardView.swift */; };
@@ -121,6 +122,7 @@
 		A919A1EE243E7020EEC394DC /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		AA3D05FC6443E9926841DDB1 /* AppIcon-Dawn@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 2792E4F9223E315B237FEE3E /* AppIcon-Dawn@2x.png */; };
 		AB9F44A3F52D39F2FFA45322 /* CompetitionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7556A42F95EE2513A1B11D /* CompetitionConfigTests.swift */; };
+		AD5B0EEA90826EBB435369FC /* EmailChangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F45C47E89F67B4F30A9E44AB /* EmailChangeTests.swift */; };
 		AF088828E1B25331AD362C85 /* NotificationPermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A007648B028C626C69ADFB /* NotificationPermissionView.swift */; };
 		B0DAC52F046E4E83AEF1BEAE /* NotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7100E64F1ACD16964F60A63 /* NotificationsView.swift */; };
 		B204B08BE7FDCD15946839D6 /* CampaignPushPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4EBB7F23532CCFBA7BCA3E /* CampaignPushPermission.swift */; };
@@ -139,7 +141,6 @@
 		C1613A2F9762244F93A26E92 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */; };
 		C1EBE991BF70111269A7BD87 /* GoogleCalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */; };
 		C2FB81DB552C1863D3809608 /* PasskeySignInTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */; };
-		E1A2B3C4D5E6F708192A3B4C /* EmailChangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E1D2C3B4A5968778695A4B /* EmailChangeTests.swift */; };
 		C3D72B15B5AD7623BA50758F /* PayItForwardNudge.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */; };
 		C6687434983E53879007E179 /* AppIcon-Ember-Preview.png in Resources */ = {isa = PBXBuildFile; fileRef = 577A7DCBD2C1FAA8BC48AD61 /* AppIcon-Ember-Preview.png */; };
 		C7431EDF0E163E8BFF5F9407 /* AcceptPendingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C5038208573746C9F0E519 /* AcceptPendingCard.swift */; };
@@ -356,6 +357,7 @@
 		96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarAuth.swift; sourceTree = "<group>"; };
 		96F3FD90C322331B012FD48F /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
 		98564619904D3EFBA8214A72 /* AppIcon-Default-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Default-Preview.png"; sourceTree = "<group>"; };
+		9A396963CD7480AAE591A2D5 /* OAuthAvatarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthAvatarTests.swift; sourceTree = "<group>"; };
 		9B5053D28C64C35B1B67733F /* NotificationsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsView.swift; sourceTree = "<group>"; };
 		9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlexiblePostImage.swift; sourceTree = "<group>"; };
 		9E451C434563DD8702080E34 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
@@ -375,7 +377,6 @@
 		B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksApp.swift; sourceTree = "<group>"; };
 		B863B534795C67594B79C1DC /* TabLaunchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabLaunchBridge.swift; sourceTree = "<group>"; };
 		BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasskeySignInTests.swift; sourceTree = "<group>"; };
-		F0E1D2C3B4A5968778695A4B /* EmailChangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailChangeTests.swift; sourceTree = "<group>"; };
 		BB6414A3C798499A155142DF /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
 		BBEBB652FA46260CBEA94500 /* AppIcon-Night@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night@2x~ipad.png"; sourceTree = "<group>"; };
 		BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkHost.swift; sourceTree = "<group>"; };
@@ -416,6 +417,7 @@
 		F2F9C5D2E49314B2E04B5E8A /* AppIcon-Dawn@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dawn@2x~ipad.png"; sourceTree = "<group>"; };
 		F3F96BC2DE837FAC91410810 /* WatchRelay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRelay.swift; sourceTree = "<group>"; };
 		F41CEF2962FB940913427807 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		F45C47E89F67B4F30A9E44AB /* EmailChangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailChangeTests.swift; sourceTree = "<group>"; };
 		F51E3E6F8FD7D72F4E4E0935 /* CalendarConnectReminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarConnectReminder.swift; sourceTree = "<group>"; };
 		F52B5D6606D0E8E470963C67 /* DisplayNameSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayNameSheet.swift; sourceTree = "<group>"; };
 		F79E082FBBF7CC0ED472B50D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -699,8 +701,9 @@
 				A818F29D7A06C0AF313D9B60 /* CampaignPushPermissionTests.swift */,
 				7E7556A42F95EE2513A1B11D /* CompetitionConfigTests.swift */,
 				7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */,
+				F45C47E89F67B4F30A9E44AB /* EmailChangeTests.swift */,
 				CB2323790E26BC7529E4040D /* HeartCountDisplayTests.swift */,
-				F0E1D2C3B4A5968778695A4B /* EmailChangeTests.swift */,
+				9A396963CD7480AAE591A2D5 /* OAuthAvatarTests.swift */,
 				BEEA06D1DC2FB8B01CE2E845 /* OAuthCallbackGateTests.swift */,
 				BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */,
 				2C1E958AFF6A036F7ADEB9A1 /* PostAcceptPromptTests.swift */,
@@ -1186,8 +1189,9 @@
 				B63683EAE6649342A6B4F3EF /* CampaignPushPermissionTests.swift in Sources */,
 				AB9F44A3F52D39F2FFA45322 /* CompetitionConfigTests.swift in Sources */,
 				49B68B3ADB996D214C4C61FB /* ComposeDraftStoreTests.swift in Sources */,
+				AD5B0EEA90826EBB435369FC /* EmailChangeTests.swift in Sources */,
 				DC58895F967AFEDC420F39DF /* HeartCountDisplayTests.swift in Sources */,
-				E1A2B3C4D5E6F708192A3B4C /* EmailChangeTests.swift in Sources */,
+				15198462EA9B6C0A7577FB9C /* OAuthAvatarTests.swift in Sources */,
 				68C98F6E00F22D8739031A34 /* OAuthCallbackGateTests.swift in Sources */,
 				C2FB81DB552C1863D3809608 /* PasskeySignInTests.swift in Sources */,
 				A562497C39B8474C73DC9146 /* PostAcceptPromptTests.swift in Sources */,
