@@ -174,7 +174,42 @@ struct ComposeView: View {
         return trimmed
     }
 
+    /// Sticky A/B pack for blank / campaign / notification opens (nil when editing).
+    /// Computed (not `@State`) so form_started can read it in the same `onAppear`.
+    private var openCopyPack: ComposeOpenCopy.Pack? {
+        let hasCampaign = !isBlank(campaignId) || !isBlank(campaignHint)
+        guard let family = ComposeOpenCopy.family(
+            source: analyticsSource,
+            hasCampaign: hasCampaign,
+            isEditing: editingTarget != nil
+        ) else { return nil }
+        let distinctId = auth.userId?.uuidString.lowercased()
+        let variant = ComposeOpenCopy.assignedVariant(distinctId: distinctId)
+        let customPlaceholder: String? = {
+            if hasCampaign { return "Thank you for..." }
+            let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let custom, !custom.isEmpty { return custom }
+            if inspiredByGratitudeId != nil {
+                let raw = inspiredByAuthorName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let first = (raw?.isEmpty == false)
+                    ? (raw!.split(separator: " ").first.map(String.init) ?? raw!)
+                    : "someone"
+                return "Thank someone who deserves it — inspired by \(first)’s appreciation for you."
+            }
+            return nil
+        }()
+        return ComposeOpenCopy.pack(
+            family: family,
+            variant: variant,
+            campaignHint: campaignHint,
+            customPlaceholder: customPlaceholder
+        )
+    }
+
     private var messagePlaceholderText: String {
+        if let pack = openCopyPack {
+            return pack.placeholder
+        }
         if campaignHintText != nil { return "Thank you for..." }
         let custom = initialMessagePlaceholder?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let custom, !custom.isEmpty { return custom }
@@ -186,6 +221,11 @@ struct ComposeView: View {
             return "Thank someone who deserves it — inspired by \(first)’s appreciation for you."
         }
         return "Thank you for..."
+    }
+
+    private var promptExperimentProps: (experiment: String?, variant: String?) {
+        guard let pack = openCopyPack else { return (nil, nil) }
+        return (pack.experiment, pack.variant.rawValue)
     }
 
     private var editingTarget: Gratitude? { activeEditing ?? editing }
@@ -575,7 +615,13 @@ struct ComposeView: View {
     private func trackFormStartIfNeeded() {
         guard !didTrackFormStart else { return }
         didTrackFormStart = true
-        Analytics.appreciationFormStarted(source: analyticsSource, formSessionId: formSessionId)
+        let prompt = promptExperimentProps
+        Analytics.appreciationFormStarted(
+            source: analyticsSource,
+            formSessionId: formSessionId,
+            promptExperiment: prompt.experiment,
+            promptVariant: prompt.variant
+        )
     }
 
     private func trackAbandonIfNeeded() {
@@ -587,6 +633,7 @@ struct ComposeView: View {
         didCompleteSend = true // prevent double-fire from Cancel + onDisappear
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         let recipientKind = recipientTypeForAnalytics()
+        let prompt = promptExperimentProps
         Analytics.appreciationFormAbandoned(
             source: analyticsSource,
             messageLength: trimmed.count,
@@ -598,7 +645,9 @@ struct ComposeView: View {
             secondsOpen: formSecondsOpen,
             priorErrorCount: priorErrorCount,
             autopresented: formWasAutopresented,
-            formSessionId: formSessionId
+            formSessionId: formSessionId,
+            promptExperiment: prompt.experiment,
+            promptVariant: prompt.variant
         )
         // Watch: dismiss = keep Pending on server, stop auto-opening compose.
         if analyticsSource == "watch" {
@@ -678,19 +727,30 @@ struct ComposeView: View {
     }
 
     private var twoStepWriteBanner: some View {
-        HStack(alignment: .top, spacing: 10) {
+        let title = openCopyPack?.bannerTitle ?? "Write your appreciation"
+        let body = openCopyPack?.bannerBody
+            ?? "Add your message and an optional photo. Next you’ll choose who to send it to."
+        let reassurance = openCopyPack?.reassurance
+        return HStack(alignment: .top, spacing: 10) {
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.coral)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Write your appreciation")
+                Text(title)
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Add your message and an optional photo. Next you’ll choose who to send it to.")
+                Text(body)
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let reassurance, !reassurance.isEmpty {
+                    Text(reassurance)
+                        .font(Theme.body(12))
+                        .foregroundStyle(Theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -1076,6 +1136,13 @@ struct ComposeView: View {
                         .font(Theme.body(15))
                         .foregroundStyle(Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let reassurance = openCopyPack?.reassurance, !reassurance.isEmpty {
+                        Text(reassurance)
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 2)
+                    }
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1084,6 +1151,15 @@ struct ComposeView: View {
                         .fill(Theme.coral.opacity(0.10))
                 )
                 .accessibilityElement(children: .combine)
+            } else if let reassurance = openCopyPack?.reassurance,
+                      !reassurance.isEmpty,
+                      !(usesTwoStepFlow && !isEditing) {
+                // Classic one-screen form: show reassurance without the two-step banner.
+                Text(reassurance)
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 2)
             }
             messageField
         }
@@ -1183,11 +1259,9 @@ struct ComposeView: View {
                 Divider().overlay(Theme.hairline)
 
                 VStack(alignment: .leading, spacing: 12) {
-                    // When the message field is focused, emojis live on the opaque
-                    // keyboard accessory (so they aren’t trapped under a translucent bar).
-                    if !messageFocused {
-                        emojiShortcuts
-                    }
+                    // Stay in the form (not the keyboard accessory) so accessory
+                    // Done remains visible. Tap Done, then these if the keyboard covered them.
+                    emojiShortcuts
 
                     if aiAvailable {
                         aiChips
@@ -2046,7 +2120,17 @@ struct ComposeView: View {
                     && !draft.recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             )
         }
+        applySoftStarterIfNeeded()
         autofocusMessageIfNeeded()
+    }
+
+    /// Soft-start variant only — never overwrite a restored draft or explicit prefill.
+    private func applySoftStarterIfNeeded() {
+        guard editingTarget == nil else { return }
+        guard let starter = openCopyPack?.softStarter,
+              !starter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        message = String(starter.prefix(maxLength))
     }
 
     /// Heart-tab and other blank sends. November, Watch, and explicit prefills stay put.
@@ -2337,6 +2421,7 @@ struct ComposeView: View {
                     WatchVoiceDraftStore.clear()
                 }
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
+                let prompt = promptExperimentProps
                 Analytics.appreciationSubmitted(
                     gratitudeId: updated.id,
                     senderId: updated.authorId,
@@ -2349,7 +2434,9 @@ struct ComposeView: View {
                     source: analyticsSource,
                     campaign: campaignId,
                     campaignDay: campaignDay,
-                    formSessionId: formSessionId
+                    formSessionId: formSessionId,
+                    promptExperiment: prompt.experiment,
+                    promptVariant: prompt.variant
                 )
                 onSaved?(updated)
                 deliverIfFirstRecipient(previous: editing, updated: updated, authorId: userId)
@@ -2406,6 +2493,7 @@ struct ComposeView: View {
                 )
                 offerEnjoymentPrompt = EnjoymentPrompt.shouldPresent(for: result)
                 let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
+                let prompt = promptExperimentProps
                 Analytics.appreciationSubmitted(
                     gratitudeId: result.id,
                     senderId: result.authorId,
@@ -2418,7 +2506,9 @@ struct ComposeView: View {
                     source: analyticsSource,
                     campaign: campaignId,
                     campaignDay: campaignDay,
-                    formSessionId: formSessionId
+                    formSessionId: formSessionId,
+                    promptExperiment: prompt.experiment,
+                    promptVariant: prompt.variant
                 )
                 if let parentId = inspiredByGratitudeId {
                     Analytics.capture("ripple_created", [

@@ -381,50 +381,53 @@ struct FeedView: View {
         }
     }
 
+    /// Match the floating pill: slide + fade, not a hard height collapse.
+    private static let chromeHideAnimation = Animation.smooth(duration: 0.28)
+
     private func feedChromeStack(viewportHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            topChrome
-                .simultaneousGesture(dismissSearchOnDrag)
-            HomeProfileSearch(
-                focused: $searchFocused,
-                viewportHeight: viewportHeight,
-                keyboardCover: homeKeyboardCover,
-                dismissNonce: searchDismissNonce,
-                onQueryChange: { hasQuery in
-                    searchHasQuery = hasQuery
-                    if hasQuery {
-                        searchBarVisible = true
-                        chromeCollapsed = false
+            if isTopChromeVisible {
+                topChrome
+                    .simultaneousGesture(dismissSearchOnDrag)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            if isSearchChromeVisible {
+                HomeProfileSearch(
+                    focused: $searchFocused,
+                    viewportHeight: viewportHeight,
+                    keyboardCover: homeKeyboardCover,
+                    dismissNonce: searchDismissNonce,
+                    onQueryChange: { hasQuery in
+                        searchHasQuery = hasQuery
+                        if hasQuery {
+                            searchBarVisible = true
+                            chromeCollapsed = false
+                        }
+                    },
+                    onSessionChange: { active in
+                        searchActive = active
+                        if active {
+                            searchBarVisible = true
+                            chromeCollapsed = false
+                        }
+                    },
+                    onSelect: { profile in
+                        Analytics.capture("home_search_profile_opened")
+                        path.append(profile)
+                    },
+                    onInvite: { name in
+                        Analytics.capture("home_search_invite_compose", ["query_length": name.count])
+                        composeRecipient = name
+                        composeAnalyticsSource = "home_search_invite"
+                        showCompose = true
                     }
-                },
-                onSessionChange: { active in
-                    searchActive = active
-                    if active {
-                        searchBarVisible = true
-                        chromeCollapsed = false
-                    }
-                },
-                onSelect: { profile in
-                    Analytics.capture("home_search_profile_opened")
-                    path.append(profile)
-                },
-                onInvite: { name in
-                    Analytics.capture("home_search_invite_compose", ["query_length": name.count])
-                    composeRecipient = name
-                    composeAnalyticsSource = "home_search_invite"
-                    showCompose = true
-                }
-            )
-            .padding(.horizontal, 20)
-            .padding(.top, isSearchChromeVisible ? (hasTopHomeBanner ? 6 : 10) : 0)
-            .padding(.bottom, isSearchChromeVisible ? 2 : 0)
-            .frame(maxHeight: isSearchChromeVisible ? nil : 0, alignment: .top)
-            .opacity(isSearchChromeVisible ? 1 : 0)
-            .clipped()
-            .allowsHitTesting(isSearchChromeVisible)
-            // No spring here — animating height fights UIScrollView offset tracking.
-            .animation(.easeInOut(duration: 0.18), value: isSearchChromeVisible)
-            .zIndex(2)
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, hasTopHomeBanner ? 6 : 10)
+                .padding(.bottom, 2)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .zIndex(2)
+            }
 
             VStack(spacing: 0) {
                 picker
@@ -448,6 +451,8 @@ struct FeedView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .simultaneousGesture(dismissSearchOnDrag)
         }
+        .animation(Self.chromeHideAnimation, value: isTopChromeVisible)
+        .animation(Self.chromeHideAnimation, value: isSearchChromeVisible)
         .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
         .onAppear { calendarReminder.refresh() }
         .task {
@@ -494,10 +499,9 @@ struct FeedView: View {
             // Prefetch the other scope once (generation-guarded; no-ops if already loaded).
             Task { await prefetchOpposite(of: next) }
         }
-        .animation(.easeInOut(duration: 0.2), value: isTopChromeVisible)
     }
 
-    /// Brand header + optional home banners; collapses on scroll-down.
+    /// Brand header + optional home banners; slides away on scroll-down (like the floating pill).
     @ViewBuilder
     private var topChrome: some View {
         VStack(spacing: 0) {
@@ -558,10 +562,6 @@ struct FeedView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(maxHeight: isTopChromeVisible ? nil : 0, alignment: .top)
-        .opacity(isTopChromeVisible ? 1 : 0)
-        .clipped()
-        .allowsHitTesting(isTopChromeVisible)
     }
 
     private var hasTopHomeBanner: Bool {
@@ -893,7 +893,8 @@ struct FeedView: View {
         guard searchChanged || chromeChanged else { return }
         searchBarVisible = nextSearch
         chromeCollapsed = nextCollapsed
-        ignoreScrollUntil = Date().addingTimeInterval(0.28)
+        // Cover the slide animation so the ScrollView resize doesn’t flip direction.
+        ignoreScrollUntil = Date().addingTimeInterval(0.34)
     }
 
     private var pendingHeader: some View {

@@ -496,8 +496,8 @@ struct MainTabView: View {
             }
         }
         .ignoresSafeArea(.keyboard)
-        .animation(.easeInOut(duration: 0.2), value: homeSearchActive)
-        .animation(.easeInOut(duration: 0.2), value: homeChromeCollapsed)
+        .animation(.smooth(duration: 0.28), value: homeSearchActive)
+        .animation(.smooth(duration: 0.28), value: homeChromeCollapsed)
         .animation(.easeInOut(duration: 0.22), value: shouldShowFirstSendTip)
     }
 

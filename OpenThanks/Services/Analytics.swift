@@ -410,8 +410,15 @@ enum Analytics {
 
     // MARK: - Compose funnel (aligned with web PostHog events)
 
-    static func appreciationFormStarted(source: String, formSessionId: String? = nil) {
-        capture("appreciation_form_started", formProps(["source": source], formSessionId: formSessionId))
+    static func appreciationFormStarted(
+        source: String,
+        formSessionId: String? = nil,
+        promptExperiment: String? = nil,
+        promptVariant: String? = nil
+    ) {
+        var props: [String: Any] = ["source": source]
+        mergePromptExperiment(&props, experiment: promptExperiment, variant: promptVariant)
+        capture("appreciation_form_started", formProps(props, formSessionId: formSessionId))
     }
 
     static func appreciationAIRewrite(tone: String = "warmer", formSessionId: String? = nil) {
@@ -450,7 +457,9 @@ enum Analytics {
         source: String?,
         campaign: String? = nil,
         campaignDay: Int? = nil,
-        formSessionId: String? = nil
+        formSessionId: String? = nil,
+        promptExperiment: String? = nil,
+        promptVariant: String? = nil
     ) {
         var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
         props["has_media"] = hasMedia
@@ -466,6 +475,7 @@ enum Analytics {
                 props["campaign_day"] = campaignDay
             }
         }
+        mergePromptExperiment(&props, experiment: promptExperiment, variant: promptVariant)
         capture("appreciation_submitted", formProps(props, formSessionId: formSessionId))
     }
 
@@ -725,7 +735,9 @@ enum Analytics {
         secondsOpen: Int,
         priorErrorCount: Int,
         autopresented: Bool,
-        formSessionId: String? = nil
+        formSessionId: String? = nil,
+        promptExperiment: String? = nil,
+        promptVariant: String? = nil
     ) {
         var props: [String: Any] = [
             "message_length": messageLength,
@@ -740,6 +752,7 @@ enum Analytics {
             "autopresented": autopresented,
         ]
         if let source { props["source"] = source }
+        mergePromptExperiment(&props, experiment: promptExperiment, variant: promptVariant)
         capture("appreciation_form_abandoned", formProps(props, formSessionId: formSessionId))
     }
 
@@ -756,5 +769,19 @@ enum Analytics {
         var props = props
         props["form_session_id"] = formSessionId
         return props
+    }
+
+    /// Attach sticky compose-open A/B ids. Never include message text.
+    private static func mergePromptExperiment(
+        _ props: inout [String: Any],
+        experiment: String?,
+        variant: String?
+    ) {
+        if let experiment, !experiment.isEmpty {
+            props["prompt_experiment"] = experiment
+        }
+        if let variant, !variant.isEmpty {
+            props["prompt_variant"] = variant
+        }
     }
 }
