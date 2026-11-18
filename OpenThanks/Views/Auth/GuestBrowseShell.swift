@@ -9,7 +9,7 @@ enum GuestSignInReason: String {
         case .send: "Sign in to send"
         case .heart: "Sign in to heart"
         case .myFeed: "Sign in for My Feed"
-        case .claim: "Sign in to keep this"
+        case .claim: "Sign in to accept this"
         case .browse: "Sign in"
         }
     }
@@ -23,9 +23,9 @@ enum GuestSignInReason: String {
         case .myFeed:
             "My Feed is your circle — sign in to see it. World Feed stays open."
         case .claim:
-            "Sign in to keep or decline this thank-you."
+            "Sign in to accept or decline this thank-you."
         case .browse:
-            "Sign in when you’re ready to send or keep a thank-you."
+            "Sign in when you’re ready to send or accept a thank-you."
         }
     }
 }

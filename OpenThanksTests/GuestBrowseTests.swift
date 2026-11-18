@@ -40,7 +40,7 @@ final class GuestBrowseTests: XCTestCase {
 
     func testClaimPromptsSignInSheet() throws {
         let source = try readSource("OpenThanks/Views/Claim/ClaimAppreciationView.swift")
-        XCTAssertTrue(source.contains("Sign in to keep"))
+        XCTAssertTrue(source.contains("Sign in to accept"))
         XCTAssertTrue(source.contains("GuestSignInReason.claim"))
     }
 

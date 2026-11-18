@@ -549,7 +549,7 @@ struct FeedView: View {
                     }
             }
             if isGuestMode {
-                Text("Browsing free. Sign in when you’re ready to send or keep one.")
+                Text("Browsing free. Sign in when you’re ready to send or accept one.")
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.horizontal, 20)

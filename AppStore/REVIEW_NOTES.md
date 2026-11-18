@@ -16,7 +16,7 @@ Confirm 18+ on the age checkbox if shown.
 
 CORE FLOW TO DEMO
 1. Home → + (compose) / Thank Someone → write a short appreciation → send (email / text / copy link).
-2. Accept / Keep: open a pending “waiting for you” card on Home, or open an openthanks.com claim link → Keep this thank-you.
+2. Accept: open a pending “waiting for you” card on Home, or open an openthanks.com claim link → Accept this thank-you.
 3. Profile → Received to confirm it landed.
 
 SIGN-IN OPTIONS ALSO AVAILABLE

@@ -77,7 +77,7 @@ struct AcceptPendingCard: View {
                 Button {
                     Task { await respond(accept: true) }
                 } label: {
-                    Text(acting == .accept ? "Keeping…" : "Keep this thank-you")
+                    Text(acting == .accept ? "Accepting…" : "Accept this thank-you")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CTAButtonStyle())
@@ -121,7 +121,7 @@ struct AcceptPendingCard: View {
                 senderName: authorProfile?.fullName ?? authorProfile?.displayName,
                 isWorking: acting != nil,
                 errorMessage: errorMessage,
-                onKeepPrivate: { Task { await respond(accept: true, visibility: "private") } },
+                onAcceptPrivate: { Task { await respond(accept: true, visibility: "private") } },
                 onAcceptPublicly: { Task { await respond(accept: true) } }
             )
         }
