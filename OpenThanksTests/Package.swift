@@ -44,9 +44,13 @@ let package = Package(
             name: "HeartCountDisplay",
             path: "Sources/HeartCountDisplay"
         ),
+        .target(
+            name: "AppreciationSubmit",
+            path: "Sources/AppreciationSubmit"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "HeartCountDisplay"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "HeartCountDisplay", "AppreciationSubmit"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
@@ -60,6 +64,7 @@ let package = Package(
                 "CampaignPromptCardTests.swift",
                 "CalendarPromptCapTests.swift",
                 "HeartCountDisplayTests.swift",
+                "AppreciationSubmitTrackingTests.swift",
             ]
         ),
     ]

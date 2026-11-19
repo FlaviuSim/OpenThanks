@@ -2238,23 +2238,24 @@ struct ComposeView: View {
     }
 
     private func send() async {
-        // Set before any await so a second tap cannot start another request.
         guard !sending else { return }
         if needsDisplayName {
             showDisplayNameSheet = true
             return
         }
         guard canSend else { return }
+        // Before any await, including the guest sign-in prompt, so a second tap
+        // cannot start another save.
+        sending = true
+        error = nil
+        sendFailed = false
+        defer { sending = false }
         // Guest: keep the draft, queue resume after login, then show sign-in.
         // Never silently no-op — every visible Save must do something.
         guard let userId = auth.userId else {
             await promptGuestSignInToSave()
             return
         }
-        sending = true
-        error = nil
-        sendFailed = false
-        defer { sending = false }
         do {
             await resolveRecipientBeforeSend()
 
@@ -2336,19 +2337,12 @@ struct ComposeView: View {
                 if analyticsSource == "watch" {
                     WatchVoiceDraftStore.clear()
                 }
-                let recipientKind = linked != nil ? "member" : recipientTypeForAnalytics()
-                Analytics.appreciationSubmitted(
+                // Existing row: pending edit, watch review, or a later re-save.
+                // The insert already counted. Do not count this save again.
+                Analytics.appreciationEdited(
                     gratitudeId: updated.id,
                     senderId: updated.authorId,
-                    hasMedia: mediaUrl != nil,
-                    messageLength: message.trimmingCharacters(in: .whitespacesAndNewlines).count,
-                    hasRecipient: recipientKind != "none",
-                    toMember: recipientKind == "member",
-                    recipientType: recipientKind,
-                    visibility: visibility.rawValue,
                     source: analyticsSource,
-                    campaign: campaignId,
-                    campaignDay: campaignDay,
                     formSessionId: formSessionId
                 )
                 onSaved?(updated)
