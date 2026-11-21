@@ -13,6 +13,8 @@ extension Notification.Name {
     static let payItForwardSheetPresented = Notification.Name("openthanks.payItForwardSheetPresented")
     /// Reload My Feed pending cards (push arrived, Home selected, World refresh).
     static let pendingThanksShouldRefresh = Notification.Name("openthanks.pendingThanksShouldRefresh")
+    /// Inbox / bell badge should refetch (accept, accept-privately, decline).
+    static let notificationsShouldRefresh = Notification.Name("openthanks.notificationsShouldRefresh")
 }
 
 /// Queues a compose sheet from Siri / App Intents / widgets / Share Extension.

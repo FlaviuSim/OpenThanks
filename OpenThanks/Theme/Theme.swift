@@ -520,7 +520,7 @@ struct PendingAppreciationsBanner: View {
                          : "\(count) appreciations still pending")
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("No one has accepted it yet")
+                    Text("Share a link with them")
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.leading)

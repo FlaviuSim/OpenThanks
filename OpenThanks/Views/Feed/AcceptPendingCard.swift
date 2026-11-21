@@ -77,7 +77,7 @@ struct AcceptPendingCard: View {
                 Button {
                     Task { await respond(accept: true) }
                 } label: {
-                    Text(acting == .accept ? "Keeping…" : "Keep this thank-you")
+                    Text(acting == .accept ? "Accepting…" : "Accept this thank-you")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(CTAButtonStyle())
@@ -89,18 +89,6 @@ struct AcceptPendingCard: View {
                         showPrivateConfirm = true
                     }
                 }
-
-                Button {
-                    Task { await respond(accept: false) }
-                } label: {
-                    Text(acting == .decline ? "Working…" : "This isn’t for me")
-                        .font(Theme.body(14, weight: .medium))
-                        .foregroundStyle(Theme.textTertiary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-                .disabled(acting != nil || didSubmit)
             }
         }
         .padding(16)
@@ -163,6 +151,17 @@ struct AcceptPendingCard: View {
                 gratitudeId: gratitude.id,
                 senderId: gratitude.authorId
             )
+        }
+
+        // Drop the unread pending inbox row + badge without waiting on the claim update.
+        Task {
+            await GratitudeService.markPendingNotificationsRead(
+                gratitudeId: gratitude.id,
+                userId: userId
+            )
+            await MainActor.run {
+                NotificationCenter.default.post(name: .notificationsShouldRefresh, object: nil)
+            }
         }
 
         do {

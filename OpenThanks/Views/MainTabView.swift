@@ -127,6 +127,12 @@ struct MainTabView: View {
             AppUpdateChecker.shared.checkIfNeeded()
             CalendarConnectReminder.shared.refresh()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .notificationsShouldRefresh)) { _ in
+            Task { await refreshUnread() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { _ in
+            Task { await refreshUnread() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .composeLaunchQueued)) { _ in
             presentPendingComposeIfNeeded()
         }
@@ -496,8 +502,8 @@ struct MainTabView: View {
             }
         }
         .ignoresSafeArea(.keyboard)
-        .animation(.easeInOut(duration: 0.2), value: homeSearchActive)
-        .animation(.easeInOut(duration: 0.2), value: homeChromeCollapsed)
+        .animation(.smooth(duration: 0.28), value: homeSearchActive)
+        .animation(.smooth(duration: 0.28), value: homeChromeCollapsed)
         .animation(.easeInOut(duration: 0.22), value: shouldShowFirstSendTip)
     }
 
@@ -579,6 +585,8 @@ struct MainTabView: View {
             return
         }
 
+        // Only wait when replacing an open cover — FAB / 30 Days taps should feel instant.
+        let replacingOpenCover = composeSheet != nil
         if let current = composeSheet {
             // Calendar / notification prefills must replace blank app_open compose.
             guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else { return }
@@ -590,9 +598,10 @@ struct MainTabView: View {
         composePresentGeneration += 1
         let generation = composePresentGeneration
         Task { @MainActor in
-            // Let share sheets / OAuth teardown finish before covering Home.
-            // Compose no longer pins a footer above the keyboard (scroll CTA + nav Save).
-            try? await Task.sleep(for: .milliseconds(350))
+            if replacingOpenCover {
+                // Let the previous cover finish dismissing before covering Home again.
+                try? await Task.sleep(for: .milliseconds(350))
+            }
             guard generation == composePresentGeneration else { return }
             if let current = composeSheet {
                 guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else {
@@ -693,6 +702,8 @@ struct MainTabView: View {
                 .background(Theme.ctaGradient, in: Circle())
                 .shadow(color: Theme.coral.opacity(0.5), radius: 12, y: 4)
         }
+        // Default ButtonStyle fades the whole control ~60% — too ghostly for a FAB.
+        .buttonStyle(ComposeFABButtonStyle())
         .accessibilityLabel("Send an appreciation")
     }
 
@@ -825,5 +836,19 @@ struct MainTabView: View {
         guard let userId = auth.userId else { return }
         let remote = (try? await GratitudeService.unreadNotificationCount(userId: userId)) ?? 0
         unreadCount = remote + CalendarThankSuggestionStore.unreadCount()
+    }
+}
+
+/// Soft press for the compose FAB — keep coral solid; nudge scale instead of fading out.
+private struct ComposeFABButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                if configuration.isPressed {
+                    Circle().fill(Color.black.opacity(0.12))
+                }
+            }
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

@@ -507,10 +507,14 @@ enum GratitudeService {
                 .single()
                 .execute().value
 
+            // Clear the recipient's pending inbox row so the bell badge drops now.
+            await markPendingNotificationsRead(gratitudeId: gratitudeId, userId: recipientId)
+
             if accept {
                 await MainActor.run {
                     PermissionPromptScheduler.shared.noteAcceptedThisSession()
                     NotificationCenter.default.post(name: .gratitudeAccepted, object: updated)
+                    NotificationCenter.default.post(name: .notificationsShouldRefresh, object: nil)
                 }
                 // Don't hold the accept UI on notification insert.
                 Task {
@@ -521,6 +525,10 @@ enum GratitudeService {
                         fromUserId: recipientId
                     )
                 }
+            } else {
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .notificationsShouldRefresh, object: nil)
+                }
             }
 
             return updated
@@ -528,13 +536,19 @@ enum GratitudeService {
             // Concurrent accept/decline already landed — return the current row.
             let current = try await gratitude(id: gratitudeId)
             if accept, current.status == .accepted {
+                await markPendingNotificationsRead(gratitudeId: gratitudeId, userId: recipientId)
                 await MainActor.run {
                     PermissionPromptScheduler.shared.noteAcceptedThisSession()
                     NotificationCenter.default.post(name: .gratitudeAccepted, object: current)
+                    NotificationCenter.default.post(name: .notificationsShouldRefresh, object: nil)
                 }
                 return current
             }
             if !accept, current.status == .rejected {
+                await markPendingNotificationsRead(gratitudeId: gratitudeId, userId: recipientId)
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .notificationsShouldRefresh, object: nil)
+                }
                 return current
             }
             throw error
@@ -1381,6 +1395,18 @@ enum GratitudeService {
         try await supabase.from("notifications")
             .update(["read": true])
             .eq("user_id", value: userId)
+            .eq("read", value: false)
+            .execute()
+    }
+
+    /// After accept / accept-privately / decline — clear unread `gratitude_pending`
+    /// rows for this note so the Notifications badge updates immediately.
+    static func markPendingNotificationsRead(gratitudeId: UUID, userId: UUID) async {
+        _ = try? await supabase.from("notifications")
+            .update(["read": true])
+            .eq("user_id", value: userId)
+            .eq("gratitude_id", value: gratitudeId)
+            .eq("type", value: "gratitude_pending")
             .eq("read", value: false)
             .execute()
     }

@@ -67,6 +67,12 @@ struct NotificationsView: View {
             .onChange(of: isSelected) { _, selected in
                 if selected { Task { await load() } }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .notificationsShouldRefresh)) { _ in
+                Task { await load() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { _ in
+                Task { await load() }
+            }
             .onChange(of: usesSplitDetail) { _, enabled in
                 guard !enabled, let route = splitSelection?.wrappedValue else { return }
                 splitSelection?.wrappedValue = nil

@@ -28,7 +28,8 @@ struct MessageEditor: UIViewRepresentable {
     var voiceBusy: Bool = false
     var voiceEnabled: Bool = false
     var onToggleVoice: (() -> Void)?
-    /// Quick emoji chips on the keyboard accessory (tappable — not under a translucent gap).
+    /// Kept for API compatibility. Emoji chips stay in ComposeView so the
+    /// accessory can keep a visible trailing Done (Jonny / keyboard-dismiss).
     var quickEmojis: [String] = []
     var onInsertEmoji: ((String) -> Void)? = nil
     /// Fired when the UITextView becomes / resigns first responder (drives SwiftUI focus chrome).
@@ -131,7 +132,6 @@ struct MessageEditor: UIViewRepresentable {
         private var lastVoiceListening: Bool?
         private var lastVoiceBusy: Bool?
         private var lastVoiceEnabled: Bool?
-        private var lastQuickEmojis: [String] = []
         private var lastHandledInsertID: UUID?
 
         init(_ parent: MessageEditor) {
@@ -218,7 +218,6 @@ struct MessageEditor: UIViewRepresentable {
                 || lastVoiceListening != parent.voiceListening
                 || lastVoiceBusy != parent.voiceBusy
                 || lastVoiceEnabled != parent.voiceEnabled
-                || lastQuickEmojis != parent.quickEmojis
             else { return }
             rebuildAccessory()
         }
@@ -232,8 +231,9 @@ struct MessageEditor: UIViewRepresentable {
             lastVoiceListening = parent.voiceListening
             lastVoiceBusy = parent.voiceBusy
             lastVoiceEnabled = parent.voiceEnabled
-            lastQuickEmojis = parent.quickEmojis
 
+            // Keep this bar short so trailing Done never collapses into “…”.
+            // Emojis live in ComposeView; AI chips stay in the form when available.
             var items: [UIBarButtonItem] = [
                 UIBarButtonItem(
                     title: "Add link",
@@ -265,25 +265,7 @@ struct MessageEditor: UIViewRepresentable {
                 items.append(mic)
             }
 
-            if !parent.quickEmojis.isEmpty, parent.onInsertEmoji != nil {
-                items.append(UIBarButtonItem(customView: makeEmojiStrip(parent.quickEmojis)))
-            }
-
             items.append(UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil))
-
-            if parent.showAI {
-                let actions = AppreciationAI.Style.allCases.map { style in
-                    UIAction(title: style.buttonTitle) { [weak self] _ in
-                        self?.parent.onAI?(style)
-                    }
-                }
-                let ai = UIBarButtonItem(
-                    title: parent.aiBusy ? "AI…" : "AI",
-                    menu: UIMenu(title: "Let AI help", children: actions)
-                )
-                ai.isEnabled = parent.aiEnabled
-                items.append(ai)
-            }
 
             let done = UIBarButtonItem(
                 title: "Done",
@@ -291,38 +273,11 @@ struct MessageEditor: UIViewRepresentable {
                 target: self,
                 action: #selector(doneTapped)
             )
+            done.accessibilityLabel = "Dismiss keyboard"
             items.append(done)
 
             bar.items = items
             bar.applyOpaqueChrome()
-        }
-
-        private func makeEmojiStrip(_ emojis: [String]) -> UIView {
-            let stack = UIStackView()
-            stack.axis = .horizontal
-            stack.spacing = 2
-            stack.alignment = .center
-            for (index, emoji) in emojis.prefix(6).enumerated() {
-                let button = UIButton(type: .system)
-                button.setTitle(emoji, for: .normal)
-                button.titleLabel?.font = .systemFont(ofSize: 20)
-                button.tag = index
-                button.addTarget(self, action: #selector(emojiTapped(_:)), for: .touchUpInside)
-                button.accessibilityLabel = "Insert \(emoji)"
-                button.setContentCompressionResistancePriority(.required, for: .horizontal)
-                stack.addArrangedSubview(button)
-            }
-            stack.translatesAutoresizingMaskIntoConstraints = false
-            let host = UIView()
-            host.addSubview(stack)
-            NSLayoutConstraint.activate([
-                stack.leadingAnchor.constraint(equalTo: host.leadingAnchor),
-                stack.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-                stack.topAnchor.constraint(equalTo: host.topAnchor),
-                stack.bottomAnchor.constraint(equalTo: host.bottomAnchor),
-                host.heightAnchor.constraint(equalToConstant: 36),
-            ])
-            return host
         }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -354,14 +309,9 @@ struct MessageEditor: UIViewRepresentable {
             parent.onToggleVoice?()
         }
 
-        @objc private func emojiTapped(_ sender: UIButton) {
-            let emojis = parent.quickEmojis
-            guard sender.tag >= 0, sender.tag < emojis.count else { return }
-            parent.onInsertEmoji?(emojis[sender.tag])
-        }
-
         @objc private func doneTapped() {
             textView?.resignFirstResponder()
+            parent.onFocusChange?(false)
         }
     }
 }

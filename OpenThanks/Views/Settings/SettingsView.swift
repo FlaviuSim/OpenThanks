@@ -504,7 +504,7 @@ struct PendingAppreciationsView: View {
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
                         if !noRecipient {
-                            Text("No one has accepted it yet")
+                            Text("Share a link with them")
                                 .font(Theme.body(12, weight: .semibold))
                                 .foregroundStyle(Theme.coral)
                         }

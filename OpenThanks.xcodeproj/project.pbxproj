@@ -31,6 +31,7 @@
 		1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */; };
 		21977B9A924DA0B6F4BDA725 /* StatsShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA02D07C225359BD53E5EEBB /* StatsShareCardView.swift */; };
 		22E46CBDD7477F6890F10C44 /* PasskeySignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEF727241F360830DC973475 /* PasskeySignIn.swift */; };
+		463461052773116DAF58A9B0 /* PendingShareInviteCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83397D22249C676D58A002BF /* PendingShareInviteCopy.swift */; };
 		25E669420F46DD1D94EA265F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C167FB354536416CA8B7FD1B /* Assets.xcassets */; };
 		26A488DAA41E84652B3F4D22 /* DeliverAppreciationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65CA62FBC43AC03AF299C265 /* DeliverAppreciationView.swift */; };
 		28D7DF15FF9851D231434B2C /* WidgetDeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1AFB46289403C1927196AF /* WidgetDeepLink.swift */; };
@@ -100,6 +101,7 @@
 		7C8BDE7EE5E824A6B45F6327 /* AppStoreReviewPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316D5B8B505ED7C2CF3E6BD2 /* AppStoreReviewPromptTests.swift */; };
 		7E2EFE12321E2ECFE1CC661A /* CalendarPermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BBB847CC3698D40E17D709A /* CalendarPermissionView.swift */; };
 		7F438A0E84BBD471B3AEFFB7 /* PostAcceptPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D117211852B1668A6DD43B0 /* PostAcceptPrompt.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* ComposeOpenCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* ComposeOpenCopy.swift */; };
 		815D16B613D154A9092DA748 /* AppearanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 610609351AABD36808642608 /* AppearanceView.swift */; };
 		829E4CC2390F305B93310571 /* WatchPhoneSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1492832F51480664FA868B1F /* WatchPhoneSession.swift */; };
 		82FB4F880196C38DE2ED853D /* GuestBrowseShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB1C06943CF9C337231E8A2D /* GuestBrowseShell.swift */; };
@@ -294,6 +296,7 @@
 		2C8F8EDF422921FBD3566DE8 /* OAuthCallbackGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthCallbackGate.swift; sourceTree = "<group>"; };
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
 		2D117211852B1668A6DD43B0 /* PostAcceptPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostAcceptPrompt.swift; sourceTree = "<group>"; };
+		B2C3D4E5F60718293A4B5C6D /* ComposeOpenCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeOpenCopy.swift; sourceTree = "<group>"; };
 		2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarThankSuggestionStore.swift; sourceTree = "<group>"; };
 		2D8AB9EDF3214B68425763D3 /* UnsentDraftReminderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsentDraftReminderStore.swift; sourceTree = "<group>"; };
 		306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionConfigService.swift; sourceTree = "<group>"; };
@@ -387,6 +390,7 @@
 		BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlCenterHandoff.swift; sourceTree = "<group>"; };
 		BEEA06D1DC2FB8B01CE2E845 /* OAuthCallbackGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthCallbackGateTests.swift; sourceTree = "<group>"; };
 		BEF727241F360830DC973475 /* PasskeySignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasskeySignIn.swift; sourceTree = "<group>"; };
+		83397D22249C676D58A002BF /* PendingShareInviteCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingShareInviteCopy.swift; sourceTree = "<group>"; };
 		C167FB354536416CA8B7FD1B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C1A1612FD16ABCA6168C5A99 /* OpenThanksWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenThanksWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C3E8479B2CFAA40A2312F23E /* ThankSomeoneControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThankSomeoneControl.swift; sourceTree = "<group>"; };
@@ -502,6 +506,7 @@
 				306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */,
 				FA25F3F122BE0ABDACB69D0B /* ComposeDraftStore.swift */,
 				D66AE23BAF71ABDD6B660279 /* ComposeLaunchBridge.swift */,
+				B2C3D4E5F60718293A4B5C6D /* ComposeOpenCopy.swift */,
 				AC9FAD73EB466DF611E67814 /* ComposeShareHandoff.swift */,
 				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
@@ -515,6 +520,7 @@
 				2C8F8EDF422921FBD3566DE8 /* OAuthCallbackGate.swift */,
 				87D35F1595E5C9D099E70181 /* OpenThanksIntents.swift */,
 				BEF727241F360830DC973475 /* PasskeySignIn.swift */,
+				83397D22249C676D58A002BF /* PendingShareInviteCopy.swift */,
 				E6F2FFF1EE721FF698FF5BE9 /* PermissionPromptScheduler.swift */,
 				2D117211852B1668A6DD43B0 /* PostAcceptPrompt.swift */,
 				6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */,
@@ -1116,6 +1122,7 @@
 				7BEC6CB3C084D4D7F0627D17 /* ClaimAppreciationView.swift in Sources */,
 				4B3FA8F7415E1F60674139C6 /* CompetitionConfigService.swift in Sources */,
 				8A54DF9A1FBD61A881B5D86C /* ComposeDraftStore.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* ComposeOpenCopy.swift in Sources */,
 				C82E635C148DC155BF643B04 /* ComposeLaunchBridge.swift in Sources */,
 				FC5D87844E40AD1924EA09A7 /* ComposeShareHandoff.swift in Sources */,
 				77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */,
@@ -1158,6 +1165,7 @@
 				56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */,
 				5D45AEF3E7D214963A0E7CBB /* OpenThanksIntents.swift in Sources */,
 				22E46CBDD7477F6890F10C44 /* PasskeySignIn.swift in Sources */,
+				463461052773116DAF58A9B0 /* PendingShareInviteCopy.swift in Sources */,
 				C3D72B15B5AD7623BA50758F /* PayItForwardNudge.swift in Sources */,
 				5D6F0A9B3DDAA47A5140B983 /* PendingShareSheet.swift in Sources */,
 				F0BBB7DDA001702A0076A2F0 /* PermissionPromptScheduler.swift in Sources */,
