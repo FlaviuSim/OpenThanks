@@ -1313,7 +1313,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1396,7 +1396,7 @@
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1415,7 +1415,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch.widgets;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1436,7 +1436,7 @@
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
@@ -1455,7 +1455,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1474,7 +1474,7 @@
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1493,7 +1493,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch.widgets;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1512,7 +1512,7 @@
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1535,7 +1535,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1553,7 +1553,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1574,7 +1574,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1595,7 +1595,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7;
+				MARKETING_VERSION = 1.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";

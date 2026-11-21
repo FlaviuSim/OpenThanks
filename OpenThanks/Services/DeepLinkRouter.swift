@@ -61,6 +61,8 @@ final class DeepLinkRouter {
     var payItForwardFromName: String?
     /// Parent appreciation id for ripple attribution when the nudge opens compose.
     var payItForwardParentId: UUID?
+    /// Accepted note text — drives the echo-gift chip on the post-accept sheet.
+    var payItForwardAcceptedMessage: String?
 
     static func isUniversalLink(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(),
@@ -107,6 +109,7 @@ final class DeepLinkRouter {
         destination = nil
         payItForwardFromName = nil
         payItForwardParentId = nil
+        payItForwardAcceptedMessage = nil
     }
 
     /// Replace the current deep link (e.g. `/claim/{token}`) with the public
@@ -118,6 +121,7 @@ final class DeepLinkRouter {
         // Swap the cover first; defer the nudge so it presents on the new page.
         self.payItForwardFromName = nil
         self.payItForwardParentId = nil
+        self.payItForwardAcceptedMessage = nil
         if let slug = gratitude.slug?.trimmingCharacters(in: .whitespacesAndNewlines),
            !slug.isEmpty {
             destination = .slug(slug)
@@ -127,15 +131,18 @@ final class DeepLinkRouter {
         guard let name = payItForwardFromName else { return }
         let openedId = gratitude.id
         let openedSlug = gratitude.slug
+        let message = gratitude.message
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(450))
             switch destination {
             case .gratitude(let id) where id == openedId:
                 self.payItForwardParentId = openedId
                 self.payItForwardFromName = name
+                self.payItForwardAcceptedMessage = message
             case .slug(let slug) where slug == openedSlug:
                 self.payItForwardParentId = openedId
                 self.payItForwardFromName = name
+                self.payItForwardAcceptedMessage = message
             default:
                 break
             }

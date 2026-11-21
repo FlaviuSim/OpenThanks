@@ -65,11 +65,14 @@ struct FeedView: View {
     /// After accepting, gently invite the recipient to thank someone else.
     @State private var payItForwardFromName: String?
     @State private var payItForwardParentId: UUID?
+    @State private var payItForwardAcceptedMessage: String?
     @State private var payItForwardPresentedIds: Set<UUID> = []
     /// Set before the sheet dismisses on "Thank someone", so that dismiss is not a dismissal.
     @State private var payItForwardDidThank = false
     @State private var composeInspiredById: UUID?
     @State private var composeInspiredByName: String?
+    @State private var composeInitialMessage: String?
+    @State private var showPostAcceptCalendarConnect = false
     /// Once per session: if Personal has nothing, land on World instead.
     @State private var didAutoSwitchToWorld = false
     /// Bumped when auto-switching so the page `TabView` resyncs (iPad often
@@ -182,6 +185,7 @@ struct FeedView: View {
         let didThank = payItForwardDidThank
         payItForwardDidThank = false
         payItForwardFromName = nil
+        payItForwardAcceptedMessage = nil
         // Mark the composer before the sheet flag drops so the tip does not
         // appear in the gap between "Send a note" and the cover.
         if didThank {
@@ -226,6 +230,7 @@ struct FeedView: View {
             .composeCover(isPresented: $showCompose) {
                 ComposeView(
                     initialRecipient: composeRecipient,
+                    initialMessage: composeInitialMessage,
                     inspiredByGratitudeId: composeInspiredById,
                     inspiredByAuthorName: composeInspiredByName,
                     analyticsSource: composeAnalyticsSource,
@@ -237,24 +242,16 @@ struct FeedView: View {
             .sheet(isPresented: showPayItForward) {
                 PayItForwardSheet(
                     fromName: payItForwardFromName,
+                    acceptedMessage: payItForwardAcceptedMessage,
                     parentGratitudeId: payItForwardParentId,
                     analyticsSurface: "feed",
                     analyticsSource: "feed_accept",
-                    onThankSomeone: {
+                    onChoose: { choice in
+                        handlePostAcceptChoice(choice)
+                    },
+                    onRequestCalendarConnect: {
                         payItForwardDidThank = true
-                        FirstSendTip.markComposerOpened()
-                        composeRecipient = nil
-                        composeInspiredById = payItForwardParentId
-                        composeInspiredByName = payItForwardFromName
-                        composeAnalyticsSource = "post_accept_pay_it_forward"
-                        if let parentId = payItForwardParentId {
-                            Analytics.payItForwardTapped(
-                                parentGratitudeId: parentId,
-                                surface: "feed",
-                                source: "feed_accept"
-                            )
-                        }
-                        showCompose = true
+                        showPostAcceptCalendarConnect = true
                     }
                 )
                 .syncAppAppearance()
@@ -267,6 +264,15 @@ struct FeedView: View {
                 )
                 .syncAppAppearance()
                 .presentationDetents([.large])
+            }
+            .sheet(isPresented: $showPostAcceptCalendarConnect) {
+                CalendarPermissionView(
+                    onFinished: { showPostAcceptCalendarConnect = false },
+                    analyticsSource: "post_accept",
+                    marksLaunchGateCompleteOnSkip: false,
+                    countsTowardAutomaticCap: false
+                )
+                .syncAppAppearance()
             }
             .onChange(of: searchFocused) { _, focused in
                 if focused {
@@ -294,6 +300,7 @@ struct FeedView: View {
                 }
                 if !open {
                     composeRecipient = nil
+                    composeInitialMessage = nil
                     composeInspiredById = nil
                     composeInspiredByName = nil
                     composeAnalyticsSource = "home_thank_someone"
@@ -318,6 +325,7 @@ struct FeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
                 payItForwardFromName = nil
                 payItForwardParentId = nil
+                payItForwardAcceptedMessage = nil
                 postRippleSheetPresented(false)
             }
             .onReceive(NotificationCenter.default.publisher(for: .gratitudeAccepted)) { note in
@@ -1035,8 +1043,39 @@ struct FeedView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             payItForwardParentId = gratitude.id
             payItForwardFromName = name ?? "someone"
+            payItForwardAcceptedMessage = gratitude.message
             postRippleSheetPresented(true)
         }
+    }
+
+    private func handlePostAcceptChoice(_ choice: PostAcceptChoice) {
+        payItForwardDidThank = true
+        if let parentId = payItForwardParentId {
+            Analytics.payItForwardTapped(
+                parentGratitudeId: parentId,
+                surface: "feed",
+                source: "feed_accept",
+                path: choice.path.rawValue
+            )
+        }
+        // Remind-tonight already scheduled the local notification inside the card.
+        guard choice.path != .remindTonight, choice.path != .calendarConnect else { return }
+
+        FirstSendTip.markComposerOpened()
+        let toField: String?
+        if let email = choice.recipientEmail, !email.isEmpty {
+            toField = email
+        } else if let name = choice.recipientName, !name.isEmpty {
+            toField = name
+        } else {
+            toField = nil
+        }
+        composeRecipient = toField
+        composeInitialMessage = choice.message
+        composeInspiredById = payItForwardParentId
+        composeInspiredByName = payItForwardFromName
+        composeAnalyticsSource = "post_accept_\(choice.path.rawValue)"
+        showCompose = true
     }
 
     private func postRippleSheetPresented(_ presented: Bool) {

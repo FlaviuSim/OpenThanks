@@ -204,6 +204,116 @@ enum NotificationService {
             .removePendingNotificationRequests(withIdentifiers: [fridayReminderId])
     }
 
+    // MARK: Post-accept “Remind me tonight”
+
+    private static let postAcceptRemindId = "post-accept-remind"
+    static let postAcceptRemindTypeValue = "post_accept_remind"
+    static let postAcceptRemindMessageKey = "messageDraft"
+    static let postAcceptRemindParentIdKey = "inspiredByGratitudeId"
+    static let postAcceptRemindParentNameKey = "inspiredByAuthorName"
+
+    /// Fire tonight at 8pm local when that’s still ≥45 minutes away; otherwise ~2 hours from now.
+    static func postAcceptRemindFireDate(
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date {
+        var cal = calendar
+        cal.timeZone = .current
+        if let eight = cal.date(bySettingHour: 20, minute: 0, second: 0, of: now),
+           eight.timeIntervalSince(now) >= 45 * 60 {
+            return eight
+        }
+        return now.addingTimeInterval(2 * 60 * 60)
+    }
+
+    /// One-shot local reminder after accepting — opens compose with a starter draft.
+    /// Returns false when notification permission is denied.
+    @discardableResult
+    static func schedulePostAcceptRemind(
+        messageDraft: String,
+        inspiredByGratitudeId: UUID?,
+        inspiredByAuthorName: String?,
+        analyticsSource: String = "post_accept_remind"
+    ) async -> Bool {
+        guard await requestAuthorizationAndRegisterForPushes(analyticsSource: analyticsSource) else {
+            return false
+        }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [postAcceptRemindId])
+
+        let fire = postAcceptRemindFireDate()
+        guard let trigger = localCalendarTrigger(at: fire) else {
+            // Fall back to a time-interval trigger if the calendar trigger is rejected.
+            let delay = max(fire.timeIntervalSinceNow, 60)
+            let content = postAcceptRemindContent(
+                messageDraft: messageDraft,
+                inspiredByGratitudeId: inspiredByGratitudeId,
+                inspiredByAuthorName: inspiredByAuthorName
+            )
+            let request = UNNotificationRequest(
+                identifier: postAcceptRemindId,
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+            )
+            do {
+                try await center.add(request)
+                Analytics.capture("post_accept_remind_scheduled", [
+                    "fire_mode": "interval",
+                    "delay_seconds": Int(delay),
+                ])
+                return true
+            } catch {
+                return false
+            }
+        }
+
+        let content = postAcceptRemindContent(
+            messageDraft: messageDraft,
+            inspiredByGratitudeId: inspiredByGratitudeId,
+            inspiredByAuthorName: inspiredByAuthorName
+        )
+        let request = UNNotificationRequest(
+            identifier: postAcceptRemindId,
+            content: content,
+            trigger: trigger
+        )
+        do {
+            try await center.add(request)
+            Analytics.capture("post_accept_remind_scheduled", [
+                "fire_mode": "calendar",
+            ])
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private static func postAcceptRemindContent(
+        messageDraft: String,
+        inspiredByGratitudeId: UUID?,
+        inspiredByAuthorName: String?
+    ) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = "Pass the warmth on?"
+        content.body = "A short thank-you is enough — don’t worry about the wording."
+        content.sound = .default
+        applyComposeCategory(content)
+        var info: [String: Any] = [
+            fridayReminderTypeKey: postAcceptRemindTypeValue,
+            postAcceptRemindMessageKey: messageDraft,
+        ]
+        if let inspiredByGratitudeId {
+            info[postAcceptRemindParentIdKey] = inspiredByGratitudeId.uuidString
+        }
+        if let name = inspiredByAuthorName?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            info[postAcceptRemindParentNameKey] = name
+        }
+        content.userInfo = info
+        return content
+    }
+
     // MARK: Calendar evening gratitude nudge
 
     private static let calendarNudgeId = "calendar-gratitude-nudge"
