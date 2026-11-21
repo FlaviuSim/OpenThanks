@@ -29,7 +29,7 @@ struct PayItForwardNudgeCard: View {
             HStack(spacing: 10) {
                 Image(systemName: "water.waves")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                 Text(PayItForwardPromptCopy.title(fromName: fromName))
                     .font(Theme.body(15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
@@ -104,7 +104,7 @@ struct PayItForwardNudgeCard: View {
             if !facesLoaded {
                 ProgressView()
                     .controlSize(.small)
-                    .tint(Theme.coral)
+                    .tint(Theme.primary)
             } else if calendarConnected, !faces.isEmpty {
                 FlowFaceChips(faces: faces) { face in
                     choose(
@@ -168,7 +168,7 @@ struct PayItForwardNudgeCard: View {
             HStack(spacing: 10) {
                 Image(systemName: systemImage)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .frame(width: 22)
                 Text(title)
                     .font(Theme.body(14, weight: .medium))
@@ -255,7 +255,7 @@ private struct FlowFaceChips: View {
                     HStack(spacing: 10) {
                         Image(systemName: "calendar")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                             .frame(width: 22)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(face.personName)

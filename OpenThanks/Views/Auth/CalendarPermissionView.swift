@@ -131,7 +131,7 @@ struct CalendarPermissionView: View {
                     } label: {
                         Text("Open Settings")
                             .font(Theme.body(16, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                     }
@@ -295,11 +295,11 @@ private struct CalendarSourceChoice: View {
                     if isBusy {
                         ProgressView()
                             .controlSize(.regular)
-                            .tint(Theme.coral)
+                            .tint(Theme.primary)
                     } else {
                         Image(systemName: systemImage)
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                             .symbolRenderingMode(.monochrome)
                     }
                 }

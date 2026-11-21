@@ -25,10 +25,10 @@ struct AcceptPendingCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.circle.fill")
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                 Text("Needs your acceptance")
                     .font(Theme.body(13, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                 Spacer()
             }
 

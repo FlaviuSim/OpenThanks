@@ -148,7 +148,7 @@ struct GratitudePromptView: View {
                     if entry.prompt != .monthlyCount {
                         Text(monthlyCountLine)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(WidgetPalette.coral)
+                            .foregroundStyle(WidgetPalette.primary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                     }
@@ -188,13 +188,13 @@ struct GratitudePromptView: View {
                     HStack(spacing: 8) {
                         Text(monthlyCountLine)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(WidgetPalette.coral)
+                            .foregroundStyle(WidgetPalette.primary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                         Spacer(minLength: 0)
                         Text(entry.prompt.deepLink == WidgetDeepLink.received ? "Read →" : "Thank someone →")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(WidgetPalette.coral)
+                            .foregroundStyle(WidgetPalette.primary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -220,7 +220,7 @@ struct GratitudePromptView: View {
                             .textCase(.uppercase)
                         Spacer(minLength: 0)
                     }
-                    .foregroundStyle(WidgetPalette.coral)
+                    .foregroundStyle(WidgetPalette.primary)
 
                     Text("From \(teaser.fromName)")
                         .font(.system(size: 14, weight: .semibold))
@@ -236,7 +236,7 @@ struct GratitudePromptView: View {
 
                     Text(teaser.isPending ? "Tap to accept →" : "Tap to read →")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(WidgetPalette.coral)
+                        .foregroundStyle(WidgetPalette.primary)
 
                 case .reflection(let headline, let subtitle):
                     HStack(spacing: 6) {
@@ -247,7 +247,7 @@ struct GratitudePromptView: View {
                             .textCase(.uppercase)
                         Spacer(minLength: 0)
                     }
-                    .foregroundStyle(WidgetPalette.coral)
+                    .foregroundStyle(WidgetPalette.primary)
 
                     Text(headline)
                         .font(.system(size: 17, weight: .semibold, design: .serif))
@@ -262,18 +262,18 @@ struct GratitudePromptView: View {
 
                     Text("Tap to write →")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(WidgetPalette.coral)
+                        .foregroundStyle(WidgetPalette.primary)
                 }
             }
             .padding(14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(WidgetPalette.coral.opacity(0.10))
+                    .fill(WidgetPalette.brandSoft.opacity(0.28))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(WidgetPalette.coral.opacity(0.22), lineWidth: 1)
+                    .strokeBorder(WidgetPalette.brandSoft.opacity(0.7), lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
@@ -286,12 +286,14 @@ struct GratitudePromptView: View {
 
     private var brandRow: some View {
         HStack(spacing: 5) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: isLarge ? 13 : 11, weight: .semibold))
-                .foregroundStyle(WidgetPalette.coral)
+            Image("BrandMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: isLarge ? 16 : 13, height: isLarge ? 16 : 13)
+                .accessibilityHidden(true)
             Text("OpenThanks")
                 .font(.system(size: isCompact ? 11 : (isLarge ? 14 : 12), weight: .semibold, design: .rounded))
-                .foregroundStyle(WidgetPalette.coral)
+                .foregroundStyle(WidgetPalette.brand)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .allowsTightening(true)

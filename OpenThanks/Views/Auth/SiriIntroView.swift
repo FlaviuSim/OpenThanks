@@ -28,8 +28,8 @@ struct SiriIntroView: View {
         .init(
             id: "watch",
             icon: "applewatch",
-            title: "On Apple Watch",
-            body: "Dictate a quick appreciation from your wrist."
+            title: "From your wrist",
+            body: "Dictate a quick appreciation, then finish it on iPhone."
         ),
         .init(
             id: "siri",
@@ -121,7 +121,7 @@ struct SiriIntroView: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: way.icon)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .frame(width: 40, height: 40)
                 .background(Theme.coral.opacity(0.14), in: Circle())
 

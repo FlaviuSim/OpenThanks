@@ -296,7 +296,7 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }.foregroundStyle(Theme.coral)
+                    Button("Done") { dismiss() }.foregroundStyle(Theme.primary)
                 }
             }
             .sheet(isPresented: $showEditProfile) {
@@ -481,7 +481,7 @@ struct PendingAppreciationsView: View {
                         if noRecipient {
                             Text("Add who to thank")
                                 .font(Theme.body(14, weight: .semibold))
-                                .foregroundStyle(Theme.coral)
+                                .foregroundStyle(Theme.primary)
                             Text("Tap to choose a recipient and share the link — or edit your note first.")
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
@@ -506,7 +506,7 @@ struct PendingAppreciationsView: View {
                         if !noRecipient {
                             Text("Share a link with them")
                                 .font(Theme.body(12, weight: .semibold))
-                                .foregroundStyle(Theme.coral)
+                                .foregroundStyle(Theme.primary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -535,7 +535,7 @@ struct PendingAppreciationsView: View {
                 }
                 if busyId == g.id {
                     ProgressView()
-                        .tint(Theme.coral)
+                        .tint(Theme.primary)
                         .padding(.leading, 4)
                 }
             }

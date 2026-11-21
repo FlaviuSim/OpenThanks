@@ -9,7 +9,7 @@ final class ShareViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(red: 0.97, green: 0.96, blue: 0.95, alpha: 1)
+        view.backgroundColor = UIColor(red: 255 / 255, green: 245 / 255, blue: 238 / 255, alpha: 1)
 
         let root = ShareComposeRoot(
             extensionItems: extensionContext?.inputItems as? [NSExtensionItem] ?? [],
@@ -215,17 +215,7 @@ struct ShareComposeRoot: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .foregroundStyle(.white)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.98, green: 0.71, blue: 0.60),
-                            Color(red: 0.93, green: 0.48, blue: 0.36),
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    in: Capsule()
-                )
+                .background(SharePalette.button, in: Capsule())
             }
             .disabled(opening)
             .padding(.bottom, 12)
@@ -298,8 +288,9 @@ struct ShareComposeRoot: View {
 }
 
 private enum SharePalette {
-    static let coral = Color(red: 224 / 255, green: 122 / 255, blue: 95 / 255)
-    static let background = Color(red: 247 / 255, green: 245 / 255, blue: 242 / 255)
-    static let textPrimary = Color(red: 26 / 255, green: 26 / 255, blue: 27 / 255)
-    static let textSecondary = Color(red: 92 / 255, green: 92 / 255, blue: 98 / 255)
+    static let coral = Color(red: 246 / 255, green: 86 / 255, blue: 1 / 255)
+    static let button = Color(red: 204 / 255, green: 71 / 255, blue: 1 / 255)
+    static let background = Color(red: 255 / 255, green: 245 / 255, blue: 238 / 255)
+    static let textPrimary = Color(red: 44 / 255, green: 15 / 255, blue: 0 / 255)
+    static let textSecondary = Color(red: 107 / 255, green: 84 / 255, blue: 72 / 255)
 }

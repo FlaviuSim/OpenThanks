@@ -68,6 +68,10 @@ struct OnboardingView: View {
 
     private var slideContent: some View {
         VStack(alignment: .leading, spacing: 24) {
+            BrandMark(size: 44)
+                .padding(.top, 4)
+                .softNoteReveal(delay: 0)
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Being thanked")
                     .font(Theme.display(36, weight: .semibold))
@@ -147,7 +151,7 @@ private struct ReceiveMomentPreview: View {
                 HStack(spacing: 10) {
                     Label("Accept", systemImage: "checkmark")
                         .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0x2B1209))
+                        .foregroundStyle(Theme.onPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(Theme.ctaGradient, in: Capsule())
