@@ -114,7 +114,7 @@ struct PendingAppreciationReviewView: View {
                     .font(Theme.display(26, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
 
-                Text("Keep this thank-you when you’re ready.")
+                Text("Accept this thank-you when you’re ready.")
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
 
@@ -165,7 +165,7 @@ struct PendingAppreciationReviewView: View {
                     Button {
                         Task { await respond(.accept) }
                     } label: {
-                        Text(acting == .accept ? "Keeping…" : "Keep this thank-you")
+                        Text(acting == .accept ? "Accepting…" : "Accept this thank-you")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(CTAButtonStyle())
@@ -201,7 +201,7 @@ struct PendingAppreciationReviewView: View {
                 senderName: authorProfile?.fullName ?? authorProfile?.displayName,
                 isWorking: acting == .accept || acting == .acceptPrivate,
                 errorMessage: errorMessage,
-                onKeepPrivate: { Task { await respond(.acceptPrivate) } },
+                onAcceptPrivate: { Task { await respond(.acceptPrivate) } },
                 onAcceptPublicly: { Task { await respond(.accept) } }
             )
         }
@@ -451,7 +451,7 @@ struct ClaimAppreciationView: View {
                         Image(systemName: "person.crop.circle.badge.questionmark")
                             .font(.system(size: 36))
                             .foregroundStyle(Theme.coral)
-                        Text("Sign in to keep this thank-you")
+                        Text("Sign in to accept this thank-you")
                             .font(Theme.display(22, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                             .multilineTextAlignment(.center)
@@ -459,7 +459,7 @@ struct ClaimAppreciationView: View {
                             .font(Theme.body(15))
                             .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
-                        Button("Sign in to keep") {
+                        Button("Sign in to accept") {
                             showSignIn = true
                             Analytics.capture("guest_sign_in_prompted", ["reason": "claim"])
                         }
@@ -622,7 +622,7 @@ struct AcceptPrivatelyLink: View {
         .buttonStyle(.plain)
         .disabled(!isEnabled)
         .opacity(isEnabled ? 1 : 0.45)
-        .accessibilityHint("Keeps this thank-you between you and the sender")
+        .accessibilityHint("Accepts this thank-you between you and the sender")
     }
 }
 
@@ -631,7 +631,7 @@ struct AcceptPrivatelySheet: View {
     let senderName: String?
     var isWorking: Bool
     var errorMessage: String?
-    let onKeepPrivate: () -> Void
+    let onAcceptPrivate: () -> Void
     let onAcceptPublicly: () -> Void
 
     private var firstName: String {
@@ -643,12 +643,12 @@ struct AcceptPrivatelySheet: View {
     }
 
     private var explanation: String {
-        "\(firstName) wanted to share this thank-you publicly so others can see it. You can keep it just between the two of you instead. It'll still be yours, it just won't appear in the public feed."
+        "\(firstName) wanted to share this thank-you publicly so others can see it. You can accept it just between the two of you instead. It'll still be yours, it just won't appear in the public feed."
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Keep this one just between you?")
+            Text("Accept this one just between you?")
                 .font(Theme.display(24, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -666,8 +666,8 @@ struct AcceptPrivatelySheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Button(action: onKeepPrivate) {
-                Text(isWorking ? "Keeping it private…" : "Keep it private")
+            Button(action: onAcceptPrivate) {
+                Text(isWorking ? "Accepting privately…" : "Accept privately")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(CTAButtonStyle(isLoading: isWorking, isEnabled: !isWorking))
