@@ -438,6 +438,9 @@ enum Analytics {
         ]
     }
 
+    /// Once per gratitude id. Call only after a row is inserted.
+    /// Re-saving that row uses `appreciationEdited`. A second create call
+    /// that returns the same id (watch queue replay, retry) is dropped.
     static func appreciationSubmitted(
         gratitudeId: UUID,
         senderId: UUID,
@@ -452,6 +455,7 @@ enum Analytics {
         campaignDay: Int? = nil,
         formSessionId: String? = nil
     ) {
+        guard AppreciationSubmitTracking.claimCreated(gratitudeId) else { return }
         var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
         props["has_media"] = hasMedia
         props["message_length"] = messageLength
@@ -467,6 +471,20 @@ enum Analytics {
             }
         }
         capture("appreciation_submitted", formProps(props, formSessionId: formSessionId))
+    }
+
+    /// A save of a thank-you that already existed. Not a send, so it does not
+    /// touch the submit ledger. `source` is the compose entry (`edit_pending`,
+    /// `edit_own`, `watch`, …). No message text, names, or emails.
+    static func appreciationEdited(
+        gratitudeId: UUID,
+        senderId: UUID,
+        source: String?,
+        formSessionId: String? = nil
+    ) {
+        var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
+        if let source { props["source"] = source }
+        capture("appreciation_edited", formProps(props, formSessionId: formSessionId))
     }
 
     /// `acceptedAsPrivate` is sent only when true (accept-as-private). A
