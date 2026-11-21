@@ -30,6 +30,9 @@ struct FeedView: View {
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.requestGuestSignIn) private var requestGuestSignIn
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
+    @AppStorage(ThanksgivingThemeOverride.defaultsKey) private var thanksgivingOverride = ThanksgivingThemeOverride.automatic.rawValue
+    @AppStorage(ThanksgivingIconStore.dismissedYearKey) private var thanksgivingIconDismissedYear = 0
+    @State private var thanksgivingIconRevision = 0
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
     /// `app_config.competition.cta`. Nil until the remote row is read.
@@ -159,6 +162,23 @@ struct FeedView: View {
     }
     /// Top brand + banners are tucked while scrolling down the feed.
     private var isTopChromeVisible: Bool { !chromeCollapsed || shouldKeepSearchVisible }
+    private var thanksgivingActive: Bool {
+        ThanksgivingTheme.isActive(overrideRaw: thanksgivingOverride)
+    }
+    private var thanksgivingSeasonYear: Int {
+        ThanksgivingWindow.gregorian(timeZone: .current).component(.year, from: Date())
+    }
+    private var shouldOfferThanksgivingIcon: Bool {
+        ThanksgivingIconPolicy.shouldOffer(
+            themeActive: thanksgivingActive,
+            supportsAlternateIcons: UIApplication.shared.supportsAlternateIcons,
+            dismissedYear: thanksgivingIconDismissedYear == 0 ? nil : thanksgivingIconDismissedYear,
+            seasonYear: thanksgivingSeasonYear,
+            // Revision is read so SwiftUI hides the offer as soon as the icon changes.
+            alreadyUsingSeasonal: thanksgivingIconRevision >= 0
+                && UIApplication.shared.alternateIconName == ThanksgivingIconPolicy.seasonalAlternateIconName
+        )
+    }
     private var showPayItForward: Binding<Bool> {
         Binding(
             get: { payItForwardFromName != nil },
@@ -466,6 +486,9 @@ struct FeedView: View {
         .animation(Self.chromeHideAnimation, value: isSearchChromeVisible)
         .animation(.easeInOut(duration: 0.2), value: shouldShowCalendarBanner)
         .onAppear { calendarReminder.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: ThanksgivingIconCoordinator.didChange)) { _ in
+            thanksgivingIconRevision += 1
+        }
         .task {
             await campaign.refresh()
             campaignConfigCTA = await CompetitionConfigService.refresh().cta
@@ -517,6 +540,13 @@ struct FeedView: View {
     @ViewBuilder
     private var topChrome: some View {
         VStack(spacing: 0) {
+            if shouldOfferThanksgivingIcon {
+                ThanksgivingIconOfferBanner(seasonYear: thanksgivingSeasonYear)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
             if shouldShowCalendarBanner {
                 CalendarConnectBanner(
                     onConnect: {
@@ -576,7 +606,7 @@ struct FeedView: View {
     }
 
     private var hasTopHomeBanner: Bool {
-        shouldShowCalendarBanner || pendingSentCount > 0 || campaign.todayPrompt != nil
+        shouldOfferThanksgivingIcon || shouldShowCalendarBanner || pendingSentCount > 0 || campaign.todayPrompt != nil
     }
 
     private func thankFromCampaign(_ prompt: CampaignPrompt) {
@@ -606,6 +636,10 @@ struct FeedView: View {
                     .font(Theme.body(17, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer(minLength: 8)
+                if thanksgivingActive {
+                    ThanksgivingDecal(asset: ThanksgivingArtwork.turkey, size: 36)
+                        .accessibilityHidden(true)
+                }
                 Button("Sign in") {
                     promptGuestSignIn(.browse)
                 }
@@ -639,6 +673,10 @@ struct FeedView: View {
                     .accessibilityAddTraits(scope == s ? .isSelected : [])
                 }
                 Spacer()
+                if thanksgivingActive {
+                    ThanksgivingDecal(asset: ThanksgivingArtwork.turkey, size: 36)
+                        .accessibilityHidden(true)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
@@ -728,7 +766,11 @@ struct FeedView: View {
             VStack {
                 Spacer()
                 VStack(spacing: 16) {
-                    HeartMark(size: 48)
+                    if thanksgivingActive {
+                        ThanksgivingDecal(asset: ThanksgivingArtwork.turkey, size: 72)
+                    } else {
+                        HeartMark(size: 48)
+                    }
                     Text(page == .personal
                          ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
                          : (isGuestMode

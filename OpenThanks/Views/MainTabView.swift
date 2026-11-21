@@ -63,6 +63,7 @@ struct MainTabView: View {
     @State private var hasOpenedComposer = FirstSendTip.hasOpenedComposer()
     /// Successful creates on this device (`EnjoymentPrompt.successfulSendCountKey`).
     @AppStorage(EnjoymentPrompt.successfulSendCountKey) private var successfulSendCount = 0
+    @AppStorage(ThanksgivingThemeOverride.defaultsKey) private var thanksgivingOverride = ThanksgivingThemeOverride.automatic.rawValue
     /// True while the post-accept ripple sheet is pending or visible.
     @State private var rippleSheetPresented = false
     @State private var pendingAcceptCount = 0
@@ -72,6 +73,9 @@ struct MainTabView: View {
     @State private var updateChecker = AppUpdateChecker.shared
 
     private var usesSidebar: Bool { sizeClass == .regular }
+    private var thanksgivingActive: Bool {
+        ThanksgivingTheme.isActive(overrideRaw: thanksgivingOverride)
+    }
 
     private var showPermissionPrompt: Binding<Bool> {
         Binding(
@@ -334,8 +338,17 @@ struct MainTabView: View {
                     Button {
                         presentCompose(Self.tabComposeSheet())
                     } label: {
-                        Label("Thank Someone", systemImage: "heart.fill")
+                        if thanksgivingActive {
+                            Label {
+                                Text("Thank Someone")
+                            } icon: {
+                                ThanksgivingDecal(asset: ThanksgivingArtwork.leaf, size: 18)
+                            }
                             .foregroundStyle(Theme.primary)
+                        } else {
+                            Label("Thank Someone", systemImage: "heart.fill")
+                                .foregroundStyle(Theme.primary)
+                        }
                     }
                 }
 
@@ -659,6 +672,12 @@ struct MainTabView: View {
             HStack {
                 Spacer(minLength: 0)
                 composeFAB
+                    .overlay(alignment: .topTrailing) {
+                        if thanksgivingActive {
+                            ThanksgivingDecal(asset: ThanksgivingArtwork.leaf, size: 22)
+                                .offset(x: 6, y: -8)
+                        }
+                    }
             }
             .padding(.horizontal, 18)
         }

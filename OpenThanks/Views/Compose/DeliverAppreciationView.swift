@@ -14,6 +14,7 @@ struct DeliverAppreciationView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.openURL) private var openURL
+    @AppStorage(ThanksgivingThemeOverride.defaultsKey) private var thanksgivingOverride = ThanksgivingThemeOverride.automatic.rawValue
 
     @State private var recipient = ""
     @State private var linkedRecipient: Profile?
@@ -35,6 +36,10 @@ struct DeliverAppreciationView: View {
 
     private var shareURL: URL {
         gratitude.claimURL ?? gratitude.webURL
+    }
+
+    private var thanksgivingActive: Bool {
+        ThanksgivingTheme.isActive(overrideRaw: thanksgivingOverride)
     }
 
     private var shareMessage: String {
@@ -142,8 +147,13 @@ struct DeliverAppreciationView: View {
 
     private var hero: some View {
         VStack(spacing: 18) {
-            AppreciationMoment(size: 84)
-                .padding(.top, 20)
+            ZStack {
+                if thanksgivingActive {
+                    ThanksgivingDecal(asset: ThanksgivingArtwork.success, size: 168)
+                }
+                AppreciationMoment(size: 84)
+            }
+            .padding(.top, 20)
 
             VStack(spacing: 10) {
                 Text(hasDeliverableRecipient

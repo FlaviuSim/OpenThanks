@@ -5,6 +5,7 @@ import UIKit
 struct AppearanceView: View {
     @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
     @AppStorage("appIconName") private var storedIconName = AppIconOption.default.storageValue
+    @AppStorage(ThanksgivingThemeOverride.defaultsKey) private var thanksgivingOverride = ThanksgivingThemeOverride.automatic.rawValue
     @State private var iconError: String?
 
     private var selectedAppearance: AppAppearance {
@@ -15,11 +16,26 @@ struct AppearanceView: View {
         AppIconOption(storageValue: storedIconName)
     }
 
+    private var thanksgivingActive: Bool {
+        ThanksgivingTheme.isActive(overrideRaw: thanksgivingOverride)
+    }
+
+    private var showsThanksgivingControls: Bool {
+        #if DEBUG
+        true
+        #else
+        thanksgivingActive || thanksgivingOverride != ThanksgivingThemeOverride.automatic.rawValue
+        #endif
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 themeSection
                 iconSection
+                if showsThanksgivingControls {
+                    thanksgivingSection
+                }
                 if let iconError {
                     Text(iconError)
                         .font(Theme.body(13))
@@ -38,6 +54,7 @@ struct AppearanceView: View {
         .onAppear {
             // Keep storage aligned with whatever icon is actually active.
             storedIconName = AppIconOption.current.storageValue
+            ThanksgivingIconCoordinator.sync(overrideRaw: thanksgivingOverride)
         }
     }
 
@@ -109,11 +126,18 @@ struct AppearanceView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if thanksgivingActive {
+                Text("Thanksgiving is available this week. iOS asks before it changes your icon.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             LazyVGrid(
                 columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4),
                 spacing: 16
             ) {
-                ForEach(AppIconOption.allCases) { option in
+                ForEach(AppIconOption.pickerOptions(includingSeasonal: thanksgivingActive)) { option in
                     iconCard(option)
                 }
             }
@@ -158,7 +182,7 @@ struct AppearanceView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(option.title) app icon")
+        .accessibilityLabel(option == .thanksgiving ? "Thanksgiving app icon" : "\(option.title) app icon")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -184,6 +208,17 @@ struct AppearanceView: View {
             return
         }
         iconError = nil
+        if option == .thanksgiving {
+            ThanksgivingIconCoordinator.useSeasonalIcon { message in
+                if let message {
+                    iconError = message
+                } else {
+                    storedIconName = option.storageValue
+                }
+            }
+            return
+        }
+        ThanksgivingIconCoordinator.noteManualSelection(alternateIconName: option.alternateIconName)
         let name = option.alternateIconName
         // Avoid no-op calls that can flash the system alert.
         if UIApplication.shared.alternateIconName == name {
@@ -196,13 +231,81 @@ struct AppearanceView: View {
                     iconError = error.localizedDescription
                 } else {
                     storedIconName = option.storageValue
+                    ThanksgivingIconCoordinator.noteChange()
                 }
             }
         }
     }
-}
 
-// MARK: - Theme preview chips
+    // MARK: Thanksgiving preview
+
+    private var thanksgivingSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Thanksgiving")
+                .font(Theme.display(20, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+
+            Text(thanksgivingCaption)
+                .font(Theme.body(13))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                ForEach(ThanksgivingThemeOverride.allCases, id: \.rawValue) { option in
+                    let selected = (ThanksgivingThemeOverride(rawValue: thanksgivingOverride) ?? .automatic) == option
+                    Button {
+                        thanksgivingOverride = option.rawValue
+                        ThanksgivingIconCoordinator.sync(overrideRaw: option.rawValue)
+                    } label: {
+                        Text(thanksgivingOverrideTitle(option))
+                            .font(Theme.body(13, weight: .semibold))
+                            .foregroundStyle(selected ? Theme.onPrimary : Theme.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background {
+                                Capsule().fill(selected ? Theme.primary : Theme.surfaceRaised)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Theme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Theme.hairline, lineWidth: 1)
+        )
+    }
+
+    private var thanksgivingCaption: String {
+        let range = ThanksgivingTheme.spanLabel() ?? "the Monday before Thanksgiving through the Sunday after"
+        switch ThanksgivingThemeOverride(rawValue: thanksgivingOverride) ?? .automatic {
+        case .automatic:
+            return thanksgivingActive
+                ? "Seasonal artwork is on this week (\(range)). Automatic follows that window in your time zone."
+                : "Seasonal artwork follows Thanksgiving week (\(range)) in your time zone. Turn it on to preview."
+        case .on:
+            return "Preview is on, including outside Thanksgiving week (\(range))."
+        case .off:
+            return "Seasonal artwork is hidden, including during Thanksgiving week (\(range))."
+        }
+    }
+
+    private func thanksgivingOverrideTitle(_ option: ThanksgivingThemeOverride) -> String {
+        switch option {
+        case .automatic: "Automatic"
+        case .on: "On"
+        case .off: "Off"
+        }
+    }
+
+    // MARK: - Theme preview chips
 
 private struct ThemePreviewChip: View {
     let style: AppAppearance
@@ -295,10 +398,25 @@ enum AppIconOption: String, CaseIterable, Identifiable {
     case ember = "Ember"
     case dawn = "Dawn"
     case night = "Night"
+    case thanksgiving = "Thanksgiving"
 
     var id: String { rawValue }
-    var title: String { rawValue }
+    var title: String {
+        switch self {
+        case .thanksgiving: "Thanks"
+        default: rawValue
+        }
+    }
     var storageValue: String { rawValue }
+
+    /// Icons shown in Appearance. The seasonal icon is omitted outside Thanksgiving week.
+    static func pickerOptions(includingSeasonal: Bool) -> [AppIconOption] {
+        var options: [AppIconOption] = [.default, .ember, .dawn, .night]
+        if includingSeasonal {
+            options.append(.thanksgiving)
+        }
+        return options
+    }
 
     /// `nil` restores the primary App Store icon.
     var alternateIconName: String? {
@@ -307,6 +425,7 @@ enum AppIconOption: String, CaseIterable, Identifiable {
         case .ember: "AppIcon-Ember"
         case .dawn: "AppIcon-Dawn"
         case .night: "AppIcon-Night"
+        case .thanksgiving: ThanksgivingIconPolicy.seasonalAlternateIconName
         }
     }
 

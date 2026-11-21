@@ -190,6 +190,15 @@
 		FDD318014FDE724E16267431 /* WatchConnectivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7FAB9C8F9A4A9AC32C91E6 /* WatchConnectivityService.swift */; };
 		FEB2414FA2688F0D2F142C26 /* OpenThanksWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C41B032022447488A7BF2766 /* OpenThanksWidgetBundle.swift */; };
 		FF60DD89D5A059CB7194C72C /* CalendarMeetingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0C687187C9E52B24848367 /* CalendarMeetingService.swift */; };
+		A7A100000000000000000002 /* ThanksgivingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000001 /* ThanksgivingWindow.swift */; };
+		A7A100000000000000000004 /* ThanksgivingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000003 /* ThanksgivingTheme.swift */; };
+		A7A100000000000000000006 /* ThanksgivingWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000005 /* ThanksgivingWindowTests.swift */; };
+		A7A100000000000000000021 /* AppIcon-Thanksgiving-Preview.png in Resources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000011 /* AppIcon-Thanksgiving-Preview.png */; };
+		A7A100000000000000000022 /* AppIcon-Thanksgiving.png in Resources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000012 /* AppIcon-Thanksgiving.png */; };
+		A7A100000000000000000023 /* AppIcon-Thanksgiving@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000013 /* AppIcon-Thanksgiving@2x.png */; };
+		A7A100000000000000000024 /* AppIcon-Thanksgiving@2x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000014 /* AppIcon-Thanksgiving@2x~ipad.png */; };
+		A7A100000000000000000025 /* AppIcon-Thanksgiving@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000015 /* AppIcon-Thanksgiving@3x.png */; };
+		A7A100000000000000000026 /* AppIcon-Thanksgiving@3x~ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = A7A100000000000000000016 /* AppIcon-Thanksgiving@3x~ipad.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -440,6 +449,15 @@
 		FDCF02D5DBBDC8B993DFEE74 /* LoggingInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingInView.swift; sourceTree = "<group>"; };
 		FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnjoyingOpenThanksSheet.swift; sourceTree = "<group>"; };
 		FFE6E37DA52892BA318427CC /* CampaignPromptCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignPromptCardTests.swift; sourceTree = "<group>"; };
+		A7A100000000000000000001 /* ThanksgivingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThanksgivingWindow.swift; sourceTree = "<group>"; };
+		A7A100000000000000000003 /* ThanksgivingTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThanksgivingTheme.swift; sourceTree = "<group>"; };
+		A7A100000000000000000005 /* ThanksgivingWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThanksgivingWindowTests.swift; sourceTree = "<group>"; };
+		A7A100000000000000000011 /* AppIcon-Thanksgiving-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Thanksgiving-Preview.png"; sourceTree = "<group>"; };
+		A7A100000000000000000012 /* AppIcon-Thanksgiving.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Thanksgiving.png"; sourceTree = "<group>"; };
+		A7A100000000000000000013 /* AppIcon-Thanksgiving@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Thanksgiving@2x.png"; sourceTree = "<group>"; };
+		A7A100000000000000000014 /* AppIcon-Thanksgiving@2x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Thanksgiving@2x~ipad.png"; sourceTree = "<group>"; };
+		A7A100000000000000000015 /* AppIcon-Thanksgiving@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Thanksgiving@3x.png"; sourceTree = "<group>"; };
+		A7A100000000000000000016 /* AppIcon-Thanksgiving@3x~ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Thanksgiving@3x~ipad.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -718,6 +736,7 @@
 				7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */,
 				F45C47E89F67B4F30A9E44AB /* EmailChangeTests.swift */,
 				515C4F13165EB2767AD27F51 /* GuestBrowseTests.swift */,
+				A7A100000000000000000005 /* ThanksgivingWindowTests.swift */,
 				CB2323790E26BC7529E4040D /* HeartCountDisplayTests.swift */,
 				BEEA06D1DC2FB8B01CE2E845 /* OAuthCallbackGateTests.swift */,
 				BA12ED668C02996FE59B8FD0 /* PasskeySignInTests.swift */,
@@ -731,6 +750,8 @@
 			children = (
 				91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */,
 				097424F66444F25FE6651FE0 /* Motion.swift */,
+				A7A100000000000000000001 /* ThanksgivingWindow.swift */,
+				A7A100000000000000000003 /* ThanksgivingTheme.swift */,
 				9116D291352DD94BE647DB15 /* Theme.swift */,
 			);
 			path = Theme;
@@ -787,6 +808,12 @@
 				CF9AE33FF10C535611242226 /* AppIcon-Ember@2x~ipad.png */,
 				ACE734EF8985A181EF2C08D5 /* AppIcon-Ember@3x.png */,
 				7B6E5282F0A7CB141F3A77D8 /* AppIcon-Ember@3x~ipad.png */,
+				A7A100000000000000000011 /* AppIcon-Thanksgiving-Preview.png */,
+				A7A100000000000000000012 /* AppIcon-Thanksgiving.png */,
+				A7A100000000000000000013 /* AppIcon-Thanksgiving@2x.png */,
+				A7A100000000000000000014 /* AppIcon-Thanksgiving@2x~ipad.png */,
+				A7A100000000000000000015 /* AppIcon-Thanksgiving@3x.png */,
+				A7A100000000000000000016 /* AppIcon-Thanksgiving@3x~ipad.png */,
 				C876538C4A1AB43A22C08A49 /* AppIcon-Night-Preview.png */,
 				5A409B4B4AA8804F251FDAE3 /* AppIcon-Night.png */,
 				F2AE333A7E42E07D09F3D05E /* AppIcon-Night@2x.png */,
@@ -1054,6 +1081,12 @@
 				97160E3FCE100F6C9EA664AB /* AppIcon-Ember@2x~ipad.png in Resources */,
 				D53447D17D5B6C753839B3D2 /* AppIcon-Ember@3x.png in Resources */,
 				715B11638F19E998ACE9EBED /* AppIcon-Ember@3x~ipad.png in Resources */,
+				A7A100000000000000000021 /* AppIcon-Thanksgiving-Preview.png in Resources */,
+				A7A100000000000000000022 /* AppIcon-Thanksgiving.png in Resources */,
+				A7A100000000000000000023 /* AppIcon-Thanksgiving@2x.png in Resources */,
+				A7A100000000000000000024 /* AppIcon-Thanksgiving@2x~ipad.png in Resources */,
+				A7A100000000000000000025 /* AppIcon-Thanksgiving@3x.png in Resources */,
+				A7A100000000000000000026 /* AppIcon-Thanksgiving@3x~ipad.png in Resources */,
 				5D96E57F357F06A1E3655D6E /* AppIcon-Night-Preview.png in Resources */,
 				6D287362ECF3888ED82B3C5F /* AppIcon-Night.png in Resources */,
 				03ACE0F6325591D8F322DD3A /* AppIcon-Night@2x.png in Resources */,
@@ -1183,6 +1216,8 @@
 				96975EF9542C62C03AC0FBBE /* SupportFeedbackService.swift in Sources */,
 				856FD160EBE5DB4C7B41535B /* TabLaunchBridge.swift in Sources */,
 				51AD9FD3314DFF645DF01D96 /* ThankSomeoneControl.swift in Sources */,
+				A7A100000000000000000002 /* ThanksgivingWindow.swift in Sources */,
+				A7A100000000000000000004 /* ThanksgivingTheme.swift in Sources */,
 				00A5BEDC14A350BDE2B2067A /* Theme.swift in Sources */,
 				68BBA2AD766A47CD7E2E3C51 /* TrustIntroView.swift in Sources */,
 				3FCCEFC3FA1D1F45ED4452A1 /* UnsentDraftReminderStore.swift in Sources */,
@@ -1211,6 +1246,7 @@
 				49B68B3ADB996D214C4C61FB /* ComposeDraftStoreTests.swift in Sources */,
 				AD5B0EEA90826EBB435369FC /* EmailChangeTests.swift in Sources */,
 				0C049E5FFC0A097BBE0E6AA7 /* GuestBrowseTests.swift in Sources */,
+				A7A100000000000000000006 /* ThanksgivingWindowTests.swift in Sources */,
 				DC58895F967AFEDC420F39DF /* HeartCountDisplayTests.swift in Sources */,
 				68C98F6E00F22D8739031A34 /* OAuthCallbackGateTests.swift in Sources */,
 				C2FB81DB552C1863D3809608 /* PasskeySignInTests.swift in Sources */,

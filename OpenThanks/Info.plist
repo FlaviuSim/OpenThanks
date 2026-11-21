@@ -43,6 +43,15 @@
 				<key>UIPrerenderedIcon</key>
 				<false/>
 			</dict>
+			<key>AppIcon-Thanksgiving</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Thanksgiving</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
 		</dict>
 		<key>CFBundlePrimaryIcon</key>
 		<dict>
@@ -81,6 +90,15 @@
 				<key>CFBundleIconFiles</key>
 				<array>
 					<string>AppIcon-Night</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>AppIcon-Thanksgiving</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>AppIcon-Thanksgiving</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>

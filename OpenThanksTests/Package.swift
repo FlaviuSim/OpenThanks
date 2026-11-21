@@ -56,9 +56,13 @@ let package = Package(
             name: "PendingShareInviteCopy",
             path: "Sources/PendingShareInviteCopy"
         ),
+        .target(
+            name: "ThanksgivingWindow",
+            path: "Sources/ThanksgivingWindow"
+        ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "HeartCountDisplay", "AppreciationSubmit", "ComposeOpenCopy", "PendingShareInviteCopy"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "HeartCountDisplay", "AppreciationSubmit", "ComposeOpenCopy", "PendingShareInviteCopy", "ThanksgivingWindow"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
@@ -75,6 +79,7 @@ let package = Package(
                 "AppreciationSubmitTrackingTests.swift",
                 "ComposeOpenCopyTests.swift",
                 "PendingShareInviteCopyTests.swift",
+                "ThanksgivingWindowTests.swift",
             ]
         ),
     ]

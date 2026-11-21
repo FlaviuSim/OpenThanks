@@ -5,6 +5,7 @@ import UserNotifications
 @main
 struct OpenThanksApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
     @State private var auth = AuthService()
     @State private var deepLinks = DeepLinkRouter()
     @State private var userBlocks = UserBlockService()
@@ -36,6 +37,13 @@ struct OpenThanksApp: App {
                 .environment(userBlocks)
                 .syncAppAppearance()
                 .tint(Theme.primary)
+                .onAppear {
+                    ThanksgivingIconCoordinator.sync()
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active else { return }
+                    ThanksgivingIconCoordinator.sync()
+                }
                 .onOpenURL { url in
                     handleIncomingURL(url)
                 }

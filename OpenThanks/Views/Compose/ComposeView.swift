@@ -7,6 +7,7 @@ struct ComposeView: View {
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(ThanksgivingThemeOverride.defaultsKey) private var thanksgivingOverride = ThanksgivingThemeOverride.automatic.rawValue
 
     /// When set, the form edits this pending appreciation instead of creating one.
     var editing: Gratitude? = nil
@@ -167,6 +168,10 @@ struct ComposeView: View {
         auth.currentProfile?.needsDisplayName == true
     }
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
+
+    private var thanksgivingActive: Bool {
+        ThanksgivingTheme.isActive(overrideRaw: thanksgivingOverride)
+    }
 
     private var campaignHintText: String? {
         let trimmed = campaignHint?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1191,7 +1196,9 @@ struct ComposeView: View {
                         voiceBusy: dictation.isTransitioning,
                         voiceEnabled: voiceControlsEnabled,
                         onToggleVoice: { Task { await toggleVoiceDictation() } },
-                        quickEmojis: quickEmojis,
+                        quickEmojis: thanksgivingActive
+                            ? ThanksgivingAppreciation.shortcuts.map(\.emoji)
+                            : quickEmojis,
                         onInsertEmoji: { insertEmoji($0) },
                         onFocusChange: { focused in
                             messageFocused = focused
@@ -1638,6 +1645,10 @@ struct ComposeView: View {
                 if sending {
                     ProgressView()
                         .tint(Theme.onPrimary)
+                } else if thanksgivingActive {
+                    ThanksgivingDecal(asset: ThanksgivingArtwork.leaf, size: 18)
+                    Image(systemName: sendBarIcon)
+                        .font(.system(size: 14, weight: .bold))
                 } else {
                     Image(systemName: sendBarIcon)
                         .font(.system(size: 14, weight: .bold))
@@ -1673,17 +1684,31 @@ struct ComposeView: View {
         HStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(quickEmojis, id: \.self) { emoji in
-                        Button {
-                            insertEmoji(emoji)
-                        } label: {
-                            Text(emoji)
-                                .font(.system(size: 22))
-                                .frame(width: 40, height: 40)
-                                .background(Theme.coralPale.opacity(0.5), in: Circle())
+                    if thanksgivingActive {
+                        ForEach(ThanksgivingAppreciation.shortcuts) { shortcut in
+                            Button {
+                                insertEmoji(shortcut.emoji)
+                            } label: {
+                                ThanksgivingDecal(asset: shortcut.asset, size: 26, interactive: true)
+                                    .frame(width: 40, height: 40)
+                                    .background(Theme.coralPale.opacity(0.5), in: Circle())
+                            }
+                            .buttonStyle(ScalePressButtonStyle())
+                            .accessibilityLabel(shortcut.accessibilityLabel)
                         }
-                        .buttonStyle(ScalePressButtonStyle())
-                        .accessibilityLabel("Insert \(emoji)")
+                    } else {
+                        ForEach(quickEmojis, id: \.self) { emoji in
+                            Button {
+                                insertEmoji(emoji)
+                            } label: {
+                                Text(emoji)
+                                    .font(.system(size: 22))
+                                    .frame(width: 40, height: 40)
+                                    .background(Theme.coralPale.opacity(0.5), in: Circle())
+                            }
+                            .buttonStyle(ScalePressButtonStyle())
+                            .accessibilityLabel("Insert \(emoji)")
+                        }
                     }
                 }
             }
