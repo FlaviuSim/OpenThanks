@@ -114,7 +114,7 @@ struct PendingAppreciationReviewView: View {
                     .font(Theme.display(26, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
 
-                Text("Keep this thank-you when you’re ready.")
+                Text("Accept this thank-you when you’re ready.")
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
 
@@ -165,7 +165,7 @@ struct PendingAppreciationReviewView: View {
                     Button {
                         Task { await respond(.accept) }
                     } label: {
-                        Text(acting == .accept ? "Keeping…" : "Keep this thank-you")
+                        Text(acting == .accept ? "Accepting…" : "Accept this thank-you")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(CTAButtonStyle())
@@ -177,18 +177,6 @@ struct PendingAppreciationReviewView: View {
                             showPrivateConfirm = true
                         }
                     }
-
-                    Button {
-                        Task { await respond(.decline) }
-                    } label: {
-                        Text(acting == .decline ? "Working…" : "This isn’t for me")
-                            .font(Theme.body(14, weight: .medium))
-                            .foregroundStyle(Theme.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(acting != nil)
                 }
             }
             .padding(20)
@@ -307,6 +295,16 @@ struct PendingAppreciationReviewView: View {
             let visibility: String? = (action == .acceptPrivate && gratitude.senderMarkedPublic)
                 ? "private"
                 : nil
+            // Clear pending inbox + badge as soon as they tap Accept / Accept privately.
+            Task {
+                await GratitudeService.markPendingNotificationsRead(
+                    gratitudeId: gratitude.id,
+                    userId: userId
+                )
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .notificationsShouldRefresh, object: nil)
+                }
+            }
             let updated = try await GratitudeService.respondToClaim(
                 gratitudeId: gratitude.id,
                 recipientId: userId,

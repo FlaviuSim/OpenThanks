@@ -85,6 +85,9 @@ struct FeedView: View {
     /// Collapses when scrolling down the feed; reveals on scroll up (Messages/Safari-style).
     @State private var searchBarVisible = true
     @State private var lastScrollOffset: CGFloat = 0
+    /// Remember each pager page’s offset so My ↔ World doesn’t flash chrome open.
+    @State private var personalScrollOffset: CGFloat = 0
+    @State private var worldScrollOffset: CGFloat = 0
     /// Skip direction changes caused by the bar itself collapsing/expanding.
     @State private var ignoreScrollUntil: Date = .distantPast
     /// Non-empty query keeps the bar visible even while scrolling.
@@ -485,9 +488,9 @@ struct FeedView: View {
         .onChange(of: scope) { _, next in
             // Picker taps and feed drags already end search. Dismissing here too
             // hid results when the page TabView republished its selection during layout.
-            searchBarVisible = true
-            chromeCollapsed = false
-            lastScrollOffset = 0
+            // Keep chrome tucked if the destination page is already scrolled down —
+            // forcing it open made My ↔ World flash the menus for a beat.
+            syncChromeToScope(next)
             if suppressNextScopeHaptic {
                 suppressNextScopeHaptic = false
             } else {
@@ -574,9 +577,11 @@ struct FeedView: View {
             Analytics.campaignPromptTapped(campaign: id, day: prompt.day)
         }
         CampaignPushOffer.interfaceReady = true
+        // Open compose first — awaiting CampaignPushOffer.joined used to wait on
+        // the permission sheet and made Send feel lagged.
+        campaign.openCompose(prompt: prompt, analyticsSource: "campaign_home")
         Task {
             await CampaignPushOffer.offer(moment: .joined)
-            campaign.openCompose(prompt: prompt, analyticsSource: "campaign_home")
         }
     }
 
@@ -663,8 +668,41 @@ struct FeedView: View {
         dismissSearchKeyboard()
         withAnimation(Self.scopeSwitchAnimation) {
             scope = next
+        }
+    }
+
+    private func storedScrollOffset(for page: Scope) -> CGFloat {
+        page == .personal ? personalScrollOffset : worldScrollOffset
+    }
+
+    private func recordScrollOffset(_ offset: CGFloat, for page: Scope? = nil) {
+        let target = page ?? scope
+        lastScrollOffset = offset
+        if target == .personal {
+            personalScrollOffset = offset
+        } else {
+            worldScrollOffset = offset
+        }
+    }
+
+    /// Match top/bottom chrome to the page we’re landing on — no open flash.
+    private func syncChromeToScope(_ page: Scope) {
+        let offset = storedScrollOffset(for: page)
+        lastScrollOffset = offset
+        ignoreScrollUntil = Date().addingTimeInterval(0.34)
+
+        if shouldKeepSearchVisible {
             searchBarVisible = true
-            lastScrollOffset = 0
+            chromeCollapsed = false
+            return
+        }
+
+        let expanded = offset <= 12
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            searchBarVisible = expanded
+            chromeCollapsed = !expanded
         }
     }
 
@@ -789,9 +827,13 @@ struct FeedView: View {
                                 onOpenProfile: { path.append($0) },
                                 onHeartCountResolved: { count in
                                     mutateItems(for: page) { list in
-                                        guard let idx = list.firstIndex(where: { $0.id == item.id }),
-                                              list[idx].heartCount < count else { return }
-                                        list[idx].hearts = [CountHolder(count: count)]
+                                        guard let idx = list.firstIndex(where: { $0.id == item.id }) else { return }
+                                        let next = max(0, count)
+                                        let hearted = pageHearts.contains(item.id)
+                                        // Don't let a raced empty hearters query undo an optimistic heart.
+                                        if hearted, next < max(1, list[idx].heartCount) { return }
+                                        guard list[idx].heartCount != next else { return }
+                                        list[idx].hearts = [CountHolder(count: next)]
                                     }
                                 }
                             )
@@ -854,7 +896,7 @@ struct FeedView: View {
         if shouldKeepSearchVisible {
             if !searchBarVisible { searchBarVisible = true }
             if chromeCollapsed { chromeCollapsed = false }
-            lastScrollOffset = newOffset
+            recordScrollOffset(newOffset)
             return
         }
 
@@ -866,14 +908,17 @@ struct FeedView: View {
 
         // Collapsing the chrome resizes the ScrollView and can fake a direction change.
         if Date() < ignoreScrollUntil {
-            lastScrollOffset = newOffset
+            recordScrollOffset(newOffset)
             return
         }
 
         let delta = newOffset - lastScrollOffset
         // Ignore tiny jitter / rubber-band.
-        guard abs(delta) >= 8 else { return }
-        lastScrollOffset = newOffset
+        guard abs(delta) >= 8 else {
+            recordScrollOffset(newOffset)
+            return
+        }
+        recordScrollOffset(newOffset)
 
         if delta > 0 {
             // Scrolling down (content moves up) — tuck chrome away.
@@ -885,7 +930,7 @@ struct FeedView: View {
     }
 
     private func setChromeExpanded(_ expanded: Bool, trackingOffset: CGFloat) {
-        lastScrollOffset = trackingOffset
+        recordScrollOffset(trackingOffset)
         let nextSearch = expanded
         let nextCollapsed = !expanded
         let searchChanged = searchBarVisible != nextSearch
@@ -1272,8 +1317,10 @@ struct FeedView: View {
         ])
         let delta = wasHearted ? -1 : 1
         // Snapshot the pre-toggle count from the live list (may already be raised by hearters).
-        let previousCount = items(for: page).first(where: { $0.id == item.id })?.heartCount
+        // Floor at 1 when removing our own heart so a stale embed of 0 doesn’t no-op the drop.
+        let storedCount = items(for: page).first(where: { $0.id == item.id })?.heartCount
             ?? item.heartCount
+        let previousCount = max(storedCount, wasHearted ? 1 : 0)
         mutateItems(for: page) { list in
             if let idx = list.firstIndex(where: { $0.id == item.id }) {
                 list[idx].hearts = [CountHolder(count: max(0, previousCount + delta))]
@@ -1433,7 +1480,16 @@ struct GratitudeCard: View {
                     heartCount: shownHeartCount,
                     onOpenProfile: onOpenProfile,
                     onCountResolved: { count in
-                        liveHeartCount = max(liveHeartCount, count)
+                        // Ignore stale under-counts while our heart is still on
+                        // (hearters query can race the insert).
+                        if isHearted, count < max(1, gratitude.heartCount, liveHeartCount) {
+                            return
+                        }
+                        if count < liveHeartCount {
+                            liveHeartCount = count
+                        } else {
+                            liveHeartCount = max(liveHeartCount, count)
+                        }
                         onHeartCountResolved?(count)
                     }
                 )
@@ -1496,7 +1552,17 @@ struct GratitudeCard: View {
             liveHeartCount = 0
         }
         .onChange(of: gratitude.heartCount) { _, newCount in
-            liveHeartCount = max(liveHeartCount, newCount)
+            // Must follow unheart down — a one-way max left the name row stuck on.
+            if newCount < liveHeartCount {
+                liveHeartCount = newCount
+            } else {
+                liveHeartCount = max(liveHeartCount, newCount)
+            }
+        }
+        .onChange(of: isHearted) { _, hearted in
+            if !hearted, liveHeartCount > gratitude.heartCount {
+                liveHeartCount = gratitude.heartCount
+            }
         }
     }
 

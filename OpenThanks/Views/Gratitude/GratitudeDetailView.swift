@@ -501,11 +501,27 @@ struct GratitudeDetailView: View {
         isHearted = hearted.contains(gratitude.id)
     }
 
-    /// Raise the displayed count when a live hearters query returns a higher value.
+    /// Sync the displayed count when a live hearters query returns.
+    /// Follows unhearts down; only rewrites the embed when the live list is ahead.
     private func raiseHeartCount(to count: Int) {
         let next = max(0, count)
-        liveHeartCount = max(liveHeartCount, next)
-        guard gratitude.heartCount < next else { return }
+        // Stale empty hearters can arrive before the heart insert commits.
+        if isHearted, next < max(1, gratitude.heartCount, liveHeartCount) {
+            return
+        }
+        if next < liveHeartCount {
+            liveHeartCount = next
+        } else {
+            liveHeartCount = max(liveHeartCount, next)
+        }
+        guard gratitude.heartCount < next else {
+            if next < gratitude.heartCount {
+                var updated = gratitude
+                updated.hearts = [CountHolder(count: next)]
+                gratitude = updated
+            }
+            return
+        }
         var updated = gratitude
         updated.hearts = [CountHolder(count: next)]
         gratitude = updated

@@ -363,15 +363,15 @@ struct ComposeView: View {
         }
     }
 
-    /// New identity after edit/save so the share screen can't keep the pre-edit note.
+    /// Remount deliver/success only when the note itself changes (Edit → save).
+    /// Recipient / visibility updates must not remount — that flashed the whole
+    /// “Send to” screen when picking someone from suggestions.
     private func shareScreenIdentity(_ gratitude: Gratitude) -> String {
         [
             gratitude.id.uuidString,
             gratitude.message,
-            gratitude.recipientDisplayName,
-            gratitude.recipientEmail ?? "",
-            gratitude.recipientPhone ?? "",
             gratitude.mediaUrl ?? "",
+            gratitude.mediaType ?? "",
         ].joined(separator: "|")
     }
 

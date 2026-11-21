@@ -10,6 +10,7 @@ struct HeartedByView: View {
     /// Fired when the live hearters query returns a count (so the heart badge can catch up).
     var onCountResolved: ((Int) -> Void)? = nil
 
+    @Environment(AuthService.self) private var auth
     @Environment(\.openProfile) private var openProfileEnv
     @State private var hearters: [Profile] = []
     @State private var resolvedCount = 0
@@ -19,7 +20,12 @@ struct HeartedByView: View {
     @State private var hostedOpenProfile: ((Profile) -> Void)?
     @State private var sheetDetent: PresentationDetent = .medium
 
-    private var displayCount: Int { max(heartCount, resolvedCount) }
+    /// Parent `heartCount` wins when it drops (optimistic unheart). `resolvedCount`
+    /// may only raise a stale-low embed — never keep a removed heart on screen.
+    private var displayCount: Int {
+        if heartCount == 0 { return 0 }
+        return max(heartCount, resolvedCount)
+    }
 
     var body: some View {
         // VStack, not Group: Group forwards `.sheet` onto its child. When that
@@ -50,12 +56,42 @@ struct HeartedByView: View {
                 .accessibilityLabel(accessibilityLabel)
             }
         }
+        .onChange(of: heartCount) { oldCount, newCount in
+            if newCount < oldCount {
+                applyHeartCountDrop(newCount)
+            } else if newCount > oldCount {
+                // Show the viewer’s name immediately — the hearts insert may lag.
+                insertOptimisticViewerIfNeeded()
+                resolvedCount = max(resolvedCount, newCount)
+            }
+        }
         .task(id: "\(gratitudeId.uuidString)-\(heartCount)") {
             await load()
         }
         .sheet(isPresented: $showList) {
             heartersSheet
         }
+    }
+
+    /// Drop stale avatars/names immediately when the parent count falls (unheart).
+    private func applyHeartCountDrop(_ newCount: Int) {
+        if newCount == 0 {
+            resolvedCount = 0
+            hearters = []
+            return
+        }
+        guard newCount < resolvedCount else { return }
+        resolvedCount = newCount
+        if hearters.count > newCount {
+            hearters = Array(hearters.prefix(newCount))
+        }
+    }
+
+    /// Prefers `auth.currentProfile` so a just-hearted note shows a name before the query catches up.
+    private func insertOptimisticViewerIfNeeded() {
+        guard let me = auth.currentProfile else { return }
+        if hearters.contains(where: { $0.id == me.id }) { return }
+        hearters.insert(me, at: 0)
     }
 
     // MARK: Inline
@@ -231,8 +267,31 @@ struct HeartedByView: View {
             return
         }
         do {
-            let result = try await GratitudeService.hearters(for: gratitudeId)
+            var result = try await GratitudeService.hearters(for: gratitudeId)
             guard !Task.isCancelled else { return }
+
+            // Optimistic heart often beats the write — a stale empty list used to
+            // wipe the name until pull-to-refresh. Retry once, then keep the floor.
+            if result.count < heartCount {
+                if heartCount > 0 { insertOptimisticViewerIfNeeded() }
+                try? await Task.sleep(for: .milliseconds(450))
+                guard !Task.isCancelled else { return }
+                let retry = try await GratitudeService.hearters(for: gratitudeId)
+                if retry.count >= result.count {
+                    result = retry
+                }
+            }
+
+            if result.count < heartCount {
+                // Still lagging — keep optimistic avatars / parent count.
+                if heartCount > 0 { insertOptimisticViewerIfNeeded() }
+                resolvedCount = max(resolvedCount, heartCount, result.count)
+                loaded = true
+                // Never publish a lower count back to the parent (that undid the heart).
+                onCountResolved?(max(heartCount, result.count))
+                return
+            }
+
             hearters = result.hearters
             resolvedCount = result.count
             loaded = true

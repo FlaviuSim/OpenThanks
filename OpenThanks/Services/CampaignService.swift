@@ -301,15 +301,18 @@ final class CampaignService {
     /// (the cover never appeared, so `appreciation_form_started` never fired).
     /// Campaign props are attached only when a prompt is already resolved.
     func openCompose(link: CampaignComposeLink, analyticsSource: String) async {
-        await CampaignPushOffer.offer(moment: .joined)
         let match = feed == nil ? nil : resolvedPrompt(for: link)
         let hint = match?.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Queue compose before the push offer so cold-start links feel immediate.
         ComposeLaunchBridge.shared.queue(
             campaignHint: (hint?.isEmpty == false) ? hint : nil,
             campaignId: match == nil ? nil : link.id,
             campaignDay: match?.day,
             analyticsSource: analyticsSource
         )
+        Task {
+            await CampaignPushOffer.offer(moment: .joined)
+        }
         if feed == nil {
             await refresh()
         }
