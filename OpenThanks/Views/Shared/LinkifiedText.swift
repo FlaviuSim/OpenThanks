@@ -6,7 +6,7 @@ struct LinkifiedText: View {
     let text: String
     var font: Font = Theme.body(15)
     var foreground: Color = Theme.textPrimary
-    var linkColor: Color = Theme.coral
+    var linkColor: Color = Theme.primary
 
     var body: some View {
         Text(Self.attributed(text, linkColor: linkColor))
@@ -16,7 +16,7 @@ struct LinkifiedText: View {
             .textSelection(.enabled)
     }
 
-    static func attributed(_ text: String, linkColor: Color = Theme.coral) -> AttributedString {
+    static func attributed(_ text: String, linkColor: Color = Theme.primary) -> AttributedString {
         var result = AttributedString()
         guard !text.isEmpty else { return result }
 

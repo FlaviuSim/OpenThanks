@@ -181,7 +181,7 @@ struct GratitudeSlugLoaderView: View {
             } else if failed {
                 unavailable
             } else {
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }
@@ -226,7 +226,7 @@ struct ProfileUsernameLoaderView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.background)
             } else {
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }
@@ -260,7 +260,7 @@ struct ProfileIdLoaderView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.background)
             } else {
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }

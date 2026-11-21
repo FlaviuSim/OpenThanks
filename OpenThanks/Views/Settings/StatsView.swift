@@ -98,7 +98,7 @@ struct StatsView: View {
             VStack(alignment: .leading, spacing: 28) {
                 if loading {
                     ProgressView()
-                        .tint(Theme.coral)
+                        .tint(Theme.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 40)
                 } else if let loadError {
@@ -164,7 +164,7 @@ struct StatsView: View {
         return VStack(alignment: .leading, spacing: 18) {
             Text("OpenThanks")
                 .font(Theme.body(13, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
 
             HStack(alignment: .center, spacing: 18) {
                 ZStack {
@@ -204,7 +204,7 @@ struct StatsView: View {
                     if longestStreak > currentStreak {
                         Text("Best streak: \(longestStreak) days")
                             .font(Theme.body(12, weight: .medium))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -220,7 +220,7 @@ struct StatsView: View {
                         if preparingShare {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(.white)
+                                .tint(Theme.onPrimary)
                         } else {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 13, weight: .semibold))
@@ -228,7 +228,7 @@ struct StatsView: View {
                         Text("Share my streak")
                             .font(Theme.body(14, weight: .semibold))
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Theme.ctaGradient, in: Capsule())
@@ -329,7 +329,7 @@ struct StatsView: View {
                 } label: {
                     Text(emphasizesUrgency || streakKeep.needsPostToday ? "Share a thanks now" : "Share a thanks")
                         .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(Theme.ctaGradient, in: Capsule())
@@ -367,7 +367,7 @@ struct StatsView: View {
                 Spacer(minLength: 0)
                 if complete {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                         .font(.system(size: 20, weight: .semibold))
                 }
             }
@@ -420,7 +420,7 @@ struct StatsView: View {
                             .font(.system(size: 12, weight: .semibold))
                             .opacity(0.7)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(
@@ -468,7 +468,7 @@ struct StatsView: View {
                 Spacer(minLength: 8)
                 Text(competition.prizeLabel)
                     .font(Theme.display(28, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .multilineTextAlignment(.trailing)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -497,7 +497,7 @@ struct StatsView: View {
                     ForEach(Array(competition.rulesSummary.enumerated()), id: \.offset) { _, rule in
                         HStack(alignment: .top, spacing: 8) {
                             Text("·")
-                                .foregroundStyle(Theme.coral)
+                                .foregroundStyle(Theme.primary)
                             Text(rule)
                                 .font(Theme.body(12))
                                 .foregroundStyle(Theme.textSecondary)
@@ -512,7 +512,7 @@ struct StatsView: View {
                 if let url = competition.termsURL {
                     Link("Full terms", destination: url)
                         .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 Spacer()
                 Button {
@@ -521,10 +521,10 @@ struct StatsView: View {
                 } label: {
                     Text("Share a thanks")
                         .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Theme.coral, in: Capsule())
+                        .background(Theme.primary, in: Capsule())
                 }
                 .buttonStyle(.plain)
             }

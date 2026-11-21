@@ -122,7 +122,7 @@ struct AppreciationShareCardView: View {
     var photo: UIImage? = nil
 
     private var hasPhoto: Bool { photo != nil }
-    private let coral = Color(hex: 0xE07A5F)
+    private let coral = Color(hex: 0xF65601)
 
     var body: some View {
         ZStack {
@@ -173,9 +173,9 @@ struct AppreciationShareCardView: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.10, green: 0.08, blue: 0.08),
-                    Color(red: 0.16, green: 0.11, blue: 0.10),
-                    Color(red: 0.22, green: 0.12, blue: 0.10),
+                    Color(hex: 0x1A0C06),
+                    Color(hex: 0x2A140C),
+                    Color(hex: 0x3A1C10),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -275,13 +275,13 @@ struct AppreciationShareLinkBar: View {
         HStack(spacing: 14) {
             Image(systemName: "link")
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(Color(hex: 0xE07A5F))
+                .foregroundStyle(Color(hex: 0xF65601))
                 .frame(width: 44, height: 44)
                 .background(.white, in: Circle())
 
             Text(displayLink)
                 .font(.system(size: 24, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(red: 0.15, green: 0.12, blue: 0.11))
+                .foregroundStyle(Color(hex: 0x2C0F00))
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
 
@@ -289,7 +289,7 @@ struct AppreciationShareLinkBar: View {
 
             Image(systemName: "arrow.up.right")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(Color(hex: 0xE07A5F))
+                .foregroundStyle(Color(hex: 0xF65601))
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
@@ -603,8 +603,8 @@ enum SocialShare {
                 "com.instagram.sharedSticker.contentURL": content.url.absoluteString,
                 "com.instagram.sharedSticker.linkURL": content.url.absoluteString,
                 "com.instagram.sharedSticker.linkText": "OpenThanks",
-                "com.instagram.sharedSticker.backgroundTopColor": "#1F1614",
-                "com.instagram.sharedSticker.backgroundBottomColor": "#E07A5F",
+                "com.instagram.sharedSticker.backgroundTopColor": "#1A0C06",
+                "com.instagram.sharedSticker.backgroundBottomColor": "#F65601",
             ]
             if let stickerPNG = linkSticker?.pngData() {
                 payload["com.instagram.sharedSticker.stickerImage"] = stickerPNG

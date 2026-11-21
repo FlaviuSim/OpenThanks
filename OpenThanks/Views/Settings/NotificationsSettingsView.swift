@@ -155,7 +155,7 @@ struct NotificationsSettingsView: View {
                     .font(Theme.body(17, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
             }
-            .tint(Theme.coral)
+            .tint(Theme.primary)
 
             HStack(alignment: .top, spacing: 8) {
                 Circle()
@@ -312,7 +312,7 @@ struct NotificationsSettingsView: View {
                     }
                 }
                 .font(Theme.body(14, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
             }
         }
         .padding(14)

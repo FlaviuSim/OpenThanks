@@ -70,7 +70,7 @@ struct WatchComplicationView: View {
     @Environment(\.widgetFamily) private var family
     var entry: WatchGratitudeEntry
 
-    private let coral = Color(red: 224 / 255, green: 122 / 255, blue: 95 / 255)
+    private let coral = Color(red: 246 / 255, green: 86 / 255, blue: 1 / 255)
 
     var body: some View {
         Group {

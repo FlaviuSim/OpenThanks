@@ -35,7 +35,7 @@ struct OpenThanksApp: App {
                 .environment(deepLinks)
                 .environment(userBlocks)
                 .syncAppAppearance()
-                .tint(Theme.coral)
+                .tint(Theme.primary)
                 .onOpenURL { url in
                     handleIncomingURL(url)
                 }

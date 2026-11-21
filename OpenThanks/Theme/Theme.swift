@@ -54,26 +54,45 @@ enum Theme {
         })
     }
 
-    // MARK: Palette — adaptive light/dark (dark is the default design)
-    static var background: Color { adaptive(light: 0xF7F5F2, dark: 0x0A0A0B) }
-    static var surface: Color { adaptive(light: 0xFFFFFF, dark: 0x161618) }
-    static var surfaceRaised: Color { adaptive(light: 0xF0EDE8, dark: 0x1E1E21) }
-    static var hairline: Color { adaptive(light: 0x000000, dark: 0xFFFFFF, opacity: 0.08) }
-    static var textPrimary: Color { adaptive(light: 0x1A1A1B, dark: 0xF5F3F0) }
-    static var textSecondary: Color { adaptive(light: 0x5C5C62, dark: 0x9B9B9F) }
-    static var textTertiary: Color { adaptive(light: 0x8E8E93, dark: 0x6C6C70) }
-    static let coral = Color(hex: 0xE07A5F)          // brand terracotta
-    static let coralLight = Color(hex: 0xF4977F)
-    static let coralPale = Color(hex: 0xF9C3A9)
+    // MARK: Palette — Jonny #05
+    // Same tokens as openthanks.com (`app/globals.css`). Asset-catalog
+    // color sets (Brand, BrandButton, BrandSoft, BrandTint, Ink,
+    // SecondaryText, AccentColor, LaunchBackground) mirror these hexes.
+    static var background: Color { adaptive(light: 0xFFF5EE, dark: 0x1A0C06) }
+    static var surface: Color { adaptive(light: 0xFFFFFF, dark: 0x2A140C) }
+    static var surfaceRaised: Color { adaptive(light: 0xFEE4D6, dark: 0x3A1C10) }
+    static var hairline: Color { adaptive(light: 0xF0D0BE, dark: 0x4A2A1C) }
+    static var textPrimary: Color { adaptive(light: 0x2C0F00, dark: 0xFFF5EE) }
+    static var textSecondary: Color { adaptive(light: 0x6B5448, dark: 0xE7C8B6) }
+    static var textTertiary: Color { adaptive(light: 0x8A6E62, dark: 0xC4A394) }
+
+    /// Logo, hearts, and large display accents. #F65601
+    static var brand: Color { Color(hex: 0xF65601) }
+    /// Rings and soft highlights. #FAA273
+    static var brandSoft: Color { Color(hex: 0xFAA273) }
+    /// Chips and soft fills. #FEE4D6 on light, #3A1C10 on dark.
+    static var brandTint: Color { adaptive(light: 0xFEE4D6, dark: 0x3A1C10) }
+    /// Buttons, links, and small text. #CC4701 on light, #FF8A4A on dark.
+    static var primary: Color { adaptive(light: 0xCC4701, dark: 0xFF8A4A) }
+    /// Label on ``primary`` fills. White on the deep button, ink on the lighter dark button.
+    static var onPrimary: Color { adaptive(light: 0xFFFFFF, dark: 0x2C0F00) }
+
+    /// Large brand mark. Prefer ``primary`` for links and small labels.
+    static var coral: Color { brand }
+    static var coralLight: Color { brandSoft }
+    static var coralPale: Color { brandTint }
 
     static var heartGradient: LinearGradient {
-        LinearGradient(colors: [coralPale, coralLight, coral],
-                       startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(
+            colors: [Color(hex: 0xFF7A33), brand, Color(hex: 0xE24E00)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
+    /// Flat brand button. Kept as a gradient so existing fills stay one call.
     static var ctaGradient: LinearGradient {
-        LinearGradient(colors: [Color(hex: 0xF9B49A), Color(hex: 0xED7B5B)],
-                       startPoint: .leading, endPoint: .trailing)
+        LinearGradient(colors: [primary, primary], startPoint: .leading, endPoint: .trailing)
     }
 
     // MARK: Type
@@ -129,6 +148,16 @@ extension Color {
                   blue: Double(hex & 0xFF) / 255)
     }
 
+    /// Jonny #05 mark. Large accents and the logo.
+    static var brand: Color { Theme.brand }
+    /// #FAA273 rings and soft highlights.
+    static var brandSoft: Color { Theme.brandSoft }
+    /// #FEE4D6 chips, with a warm dark fill.
+    static var brandTint: Color { Theme.brandTint }
+    /// Accessible button and link orange (#CC4701 / #FF8A4A).
+    static var brandButton: Color { Theme.primary }
+    /// Foreground that sits on ``brandButton``.
+    static var onBrandButton: Color { Theme.onPrimary }
 }
 
 // MARK: Appearance propagation
@@ -341,7 +370,7 @@ struct CTAButtonStyle: ButtonStyle {
         let pressed = configuration.isPressed && !isLoading && isEnabled
         configuration.label
             .font(Theme.body(17, weight: .semibold))
-            .foregroundStyle(Color(hex: 0x2B1209))
+            .foregroundStyle(Theme.onPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(Theme.ctaGradient, in: Capsule())
@@ -373,7 +402,33 @@ struct HeartMark: View {
         Image(systemName: "heart.fill")
             .font(.system(size: size))
             .foregroundStyle(Theme.heartGradient)
-            .shadow(color: Theme.coral.opacity(0.45), radius: size / 4)
+            .shadow(color: Theme.brand.opacity(0.45), radius: size / 4)
+    }
+}
+
+/// Stacked OPENTHANKS wordmark (Jonny #05). Orange on transparent.
+struct BrandWordmark: View {
+    var height: CGFloat = 64
+
+    var body: some View {
+        Image("BrandWordmark")
+            .resizable()
+            .scaledToFit()
+            .frame(height: height)
+            .accessibilityLabel("OpenThanks")
+    }
+}
+
+/// Heart-inside-O mark. Orange on transparent, so it sits on cream or warm dark.
+struct BrandMark: View {
+    var size: CGFloat = 36
+
+    var body: some View {
+        Image("BrandMark")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }
 
@@ -440,7 +495,7 @@ struct ShareActionRow: View {
                 Spacer(minLength: 8)
 
                 if showSpinner {
-                    ProgressView().tint(Theme.coral)
+                    ProgressView().tint(Theme.primary)
                 } else {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 13, weight: .semibold))
@@ -474,7 +529,7 @@ struct AppreciationVisibilityNote: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: isPrivate ? "lock.fill" : "globe")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .frame(width: 28, height: 28)
                 .background(Theme.coral.opacity(0.12), in: Circle())
 
@@ -530,7 +585,7 @@ struct PendingAppreciationsBanner: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
             }
             .padding(14)
             .background(

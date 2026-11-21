@@ -14,7 +14,7 @@ struct CampaignPromptCard: View {
                     if let eyebrow = content.eyebrow {
                         Text(eyebrow)
                             .font(Theme.body(12, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                             .lineLimit(1)
                     }
 
@@ -30,7 +30,7 @@ struct CampaignPromptCard: View {
                 if let buttonTitle = content.buttonTitle {
                     Text(buttonTitle)
                         .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0x2B1209))
+                        .foregroundStyle(Theme.onPrimary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(Theme.ctaGradient, in: Capsule())

@@ -301,7 +301,7 @@ struct DeliverAppreciationView: View {
                     } else {
                         Image(systemName: visibility == .public ? "globe" : "lock.fill")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                     }
                 }
 
@@ -321,7 +321,7 @@ struct DeliverAppreciationView: View {
 
                 Text("Switch")
                     .font(Theme.body(13, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
             }
             .padding(14)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -422,7 +422,7 @@ struct DeliverAppreciationView: View {
         return HStack(spacing: 8) {
             Image(systemName: isEmail ? "envelope.fill" : "person.crop.circle.fill")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .frame(width: 28, height: 28)
             Text(label)
                 .font(Theme.body(14, weight: .semibold))
@@ -448,7 +448,7 @@ struct DeliverAppreciationView: View {
         VStack(spacing: 0) {
             if recipientSearching && recipientResults.isEmpty {
                 HStack(spacing: 10) {
-                    ProgressView().tint(Theme.coral).controlSize(.small)
+                    ProgressView().tint(Theme.primary).controlSize(.small)
                     Text("Searching…")
                         .font(Theme.body(14))
                         .foregroundStyle(Theme.textSecondary)
@@ -477,7 +477,7 @@ struct DeliverAppreciationView: View {
                             Spacer(minLength: 0)
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(Theme.coral)
+                                .foregroundStyle(Theme.primary)
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
@@ -530,7 +530,7 @@ struct DeliverAppreciationView: View {
                 Spacer(minLength: 0)
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)

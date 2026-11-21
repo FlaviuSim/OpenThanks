@@ -14,7 +14,7 @@ struct FlexiblePostImage: View {
                 .frame(maxWidth: .infinity)
                 .frame(maxHeight: maxHeight)
         } placeholder: {
-            ProgressView().tint(Theme.coral)
+            ProgressView().tint(Theme.primary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 180)
                 .background(Theme.surfaceRaised)

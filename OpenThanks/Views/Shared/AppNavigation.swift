@@ -236,7 +236,7 @@ struct GratitudeLoaderView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Theme.background)
             } else {
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Theme.background)
             }

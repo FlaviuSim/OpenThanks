@@ -1,7 +1,10 @@
 import SwiftUI
 import WatchKit
 
-private let watchCoral = Color(red: 224 / 255, green: 122 / 255, blue: 95 / 255)
+/// Jonny #05 mark. Hearts and status stay on the bright logo orange.
+private let watchCoral = Color(red: 246 / 255, green: 86 / 255, blue: 1 / 255)
+/// Record button. Deep orange so white label text stays readable.
+private let watchButton = Color(red: 204 / 255, green: 71 / 255, blue: 1 / 255)
 
 struct WatchRootView: View {
     @Environment(WatchPhoneSession.self) private var session
@@ -145,7 +148,7 @@ struct WatchRecordView: View {
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background(watchCoral, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(watchButton, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var savingContent: some View {

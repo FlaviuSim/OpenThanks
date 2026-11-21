@@ -42,7 +42,7 @@ struct ReportContentSheet: View {
                                     Spacer()
                                     if reason == option {
                                         Image(systemName: "checkmark")
-                                            .foregroundStyle(Theme.coral)
+                                            .foregroundStyle(Theme.primary)
                                     }
                                 }
                             }
@@ -76,7 +76,7 @@ struct ReportContentSheet: View {
                         if didSubmit { onFinished?() }
                         dismiss()
                     }
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                 }
                 if !didSubmit {
                     ToolbarItem(placement: .confirmationAction) {
@@ -84,7 +84,7 @@ struct ReportContentSheet: View {
                             Task { await submit() }
                         }
                         .font(Theme.body(16, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                         .disabled(submitting)
                     }
                 }

@@ -233,7 +233,7 @@ struct GratitudeDetailView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Theme.textTertiary)
                     }
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
                     .background(Theme.coral.opacity(0.12), in: Capsule())
@@ -281,7 +281,7 @@ struct GratitudeDetailView: View {
                         if preparingShare && systemSharePayload == nil {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(Theme.coral)
+                                .tint(Theme.primary)
                         } else {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 16, weight: .semibold))
@@ -325,7 +325,7 @@ struct GratitudeDetailView: View {
                             if preparingShare && systemSharePayload == nil {
                                 ProgressView()
                                     .controlSize(.small)
-                                    .tint(.white)
+                                    .tint(Theme.onPrimary)
                             } else {
                                 Image(systemName: "square.and.arrow.up")
                                     .font(.system(size: 14, weight: .semibold))
@@ -333,7 +333,7 @@ struct GratitudeDetailView: View {
                             Text("Share")
                                 .font(Theme.body(15, weight: .semibold))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(Theme.ctaGradient, in: Capsule())
@@ -367,7 +367,7 @@ struct GratitudeDetailView: View {
             if let shareHint {
                 Text(shareHint)
                     .font(Theme.body(12))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .fixedSize(horizontal: false, vertical: true)
                     .transition(.opacity)
             }
@@ -395,7 +395,7 @@ struct GratitudeDetailView: View {
                     .aspectRatio(contentMode: .fill)
             } else if preparingPreview {
                 ProgressView()
-                    .tint(Theme.coral)
+                    .tint(Theme.primary)
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: 18, weight: .medium))
