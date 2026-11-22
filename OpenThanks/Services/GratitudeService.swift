@@ -293,6 +293,15 @@ enum GratitudeService {
         try await pendingToAccept(userId: userId, email: email, phone: phone).count
     }
 
+    /// Any thank-you this user authored, including ones still pending.
+    /// Used to hide the first-thanks card when the send happened on another device.
+    static func authoredCount(authorId: UUID) async throws -> Int {
+        try await supabase.from("gratitudes")
+            .select("id", head: true, count: .exact)
+            .eq("author_id", value: authorId)
+            .execute().count ?? 0
+    }
+
     /// How many appreciations this user authored since the start of the calendar month.
     static func sentThisMonth(authorId: UUID) async throws -> Int {
         let start = Calendar.current.date(

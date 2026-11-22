@@ -89,7 +89,7 @@ struct NotificationPermissionView: View {
                         if busy {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(Color(hex: 0x2B1209))
+                                .tint(Theme.onPrimary)
                         }
                         Text(primaryTitle)
                     }

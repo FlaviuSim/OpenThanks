@@ -112,7 +112,7 @@ struct TrustIntroView: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: point.icon)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .frame(width: 40, height: 40)
                 .background(Theme.coral.opacity(0.14), in: Circle())
 

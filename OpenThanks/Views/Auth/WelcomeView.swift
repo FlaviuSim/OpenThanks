@@ -41,15 +41,9 @@ struct WelcomeView: View {
 
                 Spacer(minLength: sizeClass == .regular ? 48 : 24)
 
-                HStack(spacing: 10) {
-                    Image(systemName: "heart.fill")
-                        .foregroundStyle(Theme.heartGradient)
-                        .font(.system(size: 24))
-                    Text("OpenThanks")
-                        .font(Theme.display(24, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                }
-                .padding(.bottom, 28)
+                BrandWordmark(height: sizeClass == .regular ? 88 : 68)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 28)
 
                 Text(headline)
                     .font(Theme.display(32, weight: .semibold))
@@ -403,7 +397,7 @@ struct AgeConfirmationToggle: View {
                             .foregroundStyle(Theme.textSecondary)
                         Link("Read Terms of Service", destination: URL(string: "https://openthanks.com/terms")!)
                             .font(Theme.body(13, weight: .medium))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                     }
                     Spacer(minLength: 0)
                 }
@@ -416,7 +410,7 @@ struct AgeConfirmationToggle: View {
             if showHint && !isConfirmed {
                 Text("Confirm you are 18 or older to continue.")
                     .font(Theme.body(13, weight: .medium))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -527,7 +521,7 @@ struct OTPSheet: View {
                             if busy {
                                 ProgressView()
                                     .controlSize(.small)
-                                    .tint(Color(hex: 0x2B1209))
+                                    .tint(Theme.onPrimary)
                             }
                             Text(submitLabel)
                         }

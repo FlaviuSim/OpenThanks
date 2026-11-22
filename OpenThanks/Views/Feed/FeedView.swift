@@ -29,6 +29,7 @@ struct FeedView: View {
     @Environment(AuthService.self) private var auth
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.requestGuestSignIn) private var requestGuestSignIn
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
@@ -61,7 +62,16 @@ struct FeedView: View {
     @State private var pendingSentCount = 0
     @State private var showCompose = false
     @State private var composeRecipient: String?
+    @State private var composeRecipientProfile: Profile?
     @State private var composeAnalyticsSource = "home_thank_someone"
+    @State private var appVisits = AppVisitCenter.shared
+    @AppStorage(FirstThanksSent.sentKey) private var firstThanksSentFlag = false
+    @AppStorage(EnjoymentPrompt.successfulSendCountKey) private var successfulSendCount = 0
+    @State private var firstThanksDismissedVisit: Int? = FirstThanksCardRule.dismissedVisit(in: .standard)
+    @State private var firstThanksSuggestions = FirstThanksSuggestions.resolve([])
+    @State private var firstThanksProfiles: [String: Profile] = [:]
+    /// True after the app actually left, so a notification shade doesn't count as a new Home view.
+    @State private var homeWasBackgrounded = false
     /// After accepting, gently invite the recipient to thank someone else.
     @State private var payItForwardFromName: String?
     @State private var payItForwardParentId: UUID?
@@ -230,6 +240,7 @@ struct FeedView: View {
             .composeCover(isPresented: $showCompose) {
                 ComposeView(
                     initialRecipient: composeRecipient,
+                    initialRecipientProfile: composeRecipientProfile,
                     initialMessage: composeInitialMessage,
                     inspiredByGratitudeId: composeInspiredById,
                     inspiredByAuthorName: composeInspiredByName,
@@ -300,18 +311,62 @@ struct FeedView: View {
                 }
                 if !open {
                     composeRecipient = nil
+                    composeRecipientProfile = nil
                     composeInitialMessage = nil
                     composeInspiredById = nil
                     composeInspiredByName = nil
                     composeAnalyticsSource = "home_thank_someone"
                 }
             }
+            .onAppear {
+                appVisits.recordReturn()
+                captureHomeView(reason: "appear")
+                refreshLocalFirstThanksSuggestions()
+            }
             .onChange(of: isSelected) { _, selected in
                 if !selected {
                     dismissSearchKeyboard()
                 } else {
+                    appVisits.recordReturn()
+                    captureHomeView(reason: "tab")
                     Task { await refreshPendingAccept(reason: "home_selected") }
                 }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active:
+                    let previousVisit = appVisits.number
+                    appVisits.recordReturn()
+                    if homeWasBackgrounded || appVisits.number != previousVisit {
+                        homeWasBackgrounded = false
+                        captureHomeView(reason: "foreground")
+                    }
+                    refreshLocalFirstThanksSuggestions()
+                case .background:
+                    homeWasBackgrounded = true
+                    appVisits.noteActivity()
+                case .inactive:
+                    appVisits.noteActivity()
+                @unknown default:
+                    break
+                }
+            }
+            .task(id: firstThanksShownTaskID) {
+                guard showsFirstThanksCard else { return }
+                await loadRemoteFirstThanksIfNeeded()
+                guard showsFirstThanksCard, !Task.isCancelled else { return }
+                let visit = appVisits.number
+                guard FirstThanksCardRule.markShownIfNeeded(visitNumber: visit, in: .standard) else { return }
+                Analytics.firstThanksCardShown(
+                    visitNumber: visit,
+                    suggestionKind: firstThanksSuggestions.kind.rawValue
+                )
+            }
+            .onChange(of: pendingToAccept.count) { _, _ in
+                refreshLocalFirstThanksSuggestions()
+            }
+            .onChange(of: personalItems.count) { _, _ in
+                refreshLocalFirstThanksSuggestions()
             }
             .onChange(of: path.count) { _, _ in
                 dismissSearchKeyboard()
@@ -512,11 +567,11 @@ struct FeedView: View {
         }
     }
 
-    /// Brand header + optional home banners; slides away on scroll-down (like the floating pill).
+    /// Home banners; slides away on scroll-down (like the floating pill).
+    /// The wordmark used to sit above this. Home now opens on search and the feed switch.
     @ViewBuilder
     private var topChrome: some View {
         VStack(spacing: 0) {
-            header
             if shouldShowCalendarBanner {
                 CalendarConnectBanner(
                     onConnect: {
@@ -593,46 +648,197 @@ struct FeedView: View {
         }
     }
 
+    private var hasSentThankYou: Bool {
+        firstThanksSentFlag || successfulSendCount > 0 || FirstThanksSent.hasSent()
+    }
+
+    /// Signed-in, never sent, visit 2+, and not dismissed on this visit.
+    private var showsFirstThanksCard: Bool {
+        FirstThanksCardRule.shouldShow(
+            isSignedIn: !isGuestMode && auth.userId != nil,
+            hasSentThankYou: hasSentThankYou,
+            visitNumber: appVisits.number,
+            dismissedOnVisit: firstThanksDismissedVisit
+        )
+    }
+
+    private var firstThanksShownTaskID: String {
+        "\(showsFirstThanksCard)-\(appVisits.number)-\(auth.userId?.uuidString ?? "")"
+    }
+
+    private var firstThanksCard: some View {
+        FirstThanksCard(
+            suggestions: firstThanksSuggestions,
+            onSelect: { openFirstThanks($0) },
+            onDismiss: dismissFirstThanksCard
+        )
+    }
+
+    private func captureHomeView(reason: String, force: Bool = false) {
+        guard isSelected else { return }
+        guard appVisits.claimHomeView(force: force) else { return }
+        Analytics.homeViewed(visitNumber: max(appVisits.number, 1), reason: reason)
+    }
+
+    private func openFirstThanks(_ suggestion: FirstThanksSuggestion) {
+        let visit = max(appVisits.number, 1)
+        switch suggestion {
+        case .person(let id, let name, let source):
+            Analytics.firstThanksCardTapped(
+                visitNumber: visit,
+                target: "person",
+                source: source.rawValue,
+                relationship: nil
+            )
+            composeRecipientProfile = firstThanksProfiles[id]
+            composeRecipient = name
+        case .relationship(let relationship):
+            Analytics.firstThanksCardTapped(
+                visitNumber: visit,
+                target: "relationship",
+                source: "relationship",
+                relationship: relationship.rawValue
+            )
+            composeRecipientProfile = nil
+            composeRecipient = relationship.title
+        }
+        composeInitialMessage = nil
+        composeInspiredById = nil
+        composeInspiredByName = nil
+        composeAnalyticsSource = "first_thanks_card"
+        dismissSearchKeyboard()
+        showCompose = true
+    }
+
+    private func dismissFirstThanksCard() {
+        let visit = max(appVisits.number, 1)
+        FirstThanksCardRule.dismiss(visitNumber: visit, in: .standard)
+        firstThanksDismissedVisit = visit
+        Analytics.firstThanksCardDismissed(visitNumber: visit)
+    }
+
+    private func refreshLocalFirstThanksSuggestions() {
+        guard !isGuestMode, !hasSentThankYou else { return }
+        let gathered = gatherFirstThanksCandidates(extraReceived: [])
+        applyFirstThanksCandidates(gathered.candidates, profiles: gathered.profiles)
+    }
+
+    private func loadRemoteFirstThanksIfNeeded() async {
+        guard !isGuestMode, let userId = auth.userId, !hasSentThankYou else { return }
+        if let count = try? await GratitudeService.authoredCount(authorId: userId), count > 0 {
+            FirstThanksSent.markSent()
+            return
+        }
+        guard !Task.isCancelled else { return }
+        refreshLocalFirstThanksSuggestions()
+        guard firstThanksSuggestions.kind != .people else { return }
+        guard let page = try? await GratitudeService.receivedBy(
+            userId: userId,
+            viewerId: userId,
+            limit: 8
+        ) else { return }
+        guard !Task.isCancelled else { return }
+        let gathered = gatherFirstThanksCandidates(extraReceived: page.items)
+        applyFirstThanksCandidates(gathered.candidates, profiles: gathered.profiles)
+    }
+
+    private func applyFirstThanksCandidates(
+        _ candidates: [FirstThanksCandidate],
+        profiles: [String: Profile]
+    ) {
+        let resolved = FirstThanksSuggestions.resolve(candidates)
+        if resolved.kind == .people || firstThanksSuggestions.kind != .people {
+            firstThanksSuggestions = resolved
+            if resolved.kind == .people {
+                firstThanksProfiles = profiles
+            }
+        }
+    }
+
+    private func gatherFirstThanksCandidates(
+        extraReceived: [Gratitude]
+    ) -> (candidates: [FirstThanksCandidate], profiles: [String: Profile]) {
+        var candidates: [FirstThanksCandidate] = []
+        var profiles: [String: Profile] = [:]
+
+        func add(
+            id: String,
+            name: String?,
+            profile: Profile?,
+            source: FirstThanksPersonSource
+        ) {
+            let trimmed = (name ?? profile?.displayName ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, trimmed != "Someone" else { return }
+            candidates.append(FirstThanksCandidate(id: id, name: trimmed, source: source))
+            if let profile {
+                profiles[id] = profile
+            }
+        }
+
+        for item in pendingToAccept + extraReceived {
+            add(
+                id: item.authorId.uuidString,
+                name: item.author?.displayName,
+                profile: item.author,
+                source: .thankedYou
+            )
+        }
+        for suggestion in CalendarThankSuggestionStore.all().prefix(5) {
+            add(
+                id: "calendar-\(suggestion.id.uuidString)",
+                name: suggestion.personName,
+                profile: nil,
+                source: .calendar
+            )
+        }
+        if let me = auth.userId {
+            for item in personalItems {
+                if item.authorId != me {
+                    add(
+                        id: item.authorId.uuidString,
+                        name: item.author?.displayName,
+                        profile: item.author,
+                        source: .recent
+                    )
+                } else if let recipient = item.recipient, recipient.id != me {
+                    add(
+                        id: recipient.id.uuidString,
+                        name: recipient.displayName,
+                        profile: recipient,
+                        source: .recent
+                    )
+                } else if item.recipientId != me, let name = item.recipientName {
+                    let id = item.recipientId?.uuidString ?? "name-\(name)"
+                    add(id: id, name: name, profile: nil, source: .recent)
+                }
+            }
+        }
+        return (candidates, profiles)
+    }
+
     @ViewBuilder
     private func scopePage(for page: Scope) -> some View {
         feedContent(for: page)
     }
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(Theme.heartGradient)
-            Text("OpenThanks")
-                .font(Theme.display(20, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            if isGuestMode {
-                Button("Sign in") {
-                    promptGuestSignIn(.browse)
-                }
-                .font(Theme.body(14, weight: .semibold))
-                .foregroundStyle(Theme.coral)
-                .accessibilityLabel("Sign in")
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 2)
-    }
-
     @ViewBuilder
     private var picker: some View {
         if isGuestMode {
-            HStack {
+            HStack(spacing: 12) {
                 Text("World Feed")
-                    .font(Theme.body(15, weight: .semibold))
+                    .font(Theme.body(17, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Spacer()
+                Spacer(minLength: 8)
+                Button("Sign in") {
+                    promptGuestSignIn(.browse)
+                }
+                .font(Theme.body(15, weight: .semibold))
+                .foregroundStyle(Theme.primary)
+                .accessibilityLabel("Sign in")
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 16)
             .padding(.bottom, 6)
         } else {
             HStack(spacing: 8) {
@@ -659,7 +865,7 @@ struct FeedView: View {
                 Spacer()
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 16)
             .padding(.bottom, 6)
             .animation(Self.scopeSwitchAnimation, value: scope)
         }
@@ -725,7 +931,7 @@ struct FeedView: View {
         if pageLoading && pageEmpty {
             VStack {
                 Spacer()
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -736,64 +942,80 @@ struct FeedView: View {
                     Text("Couldn't load Home").font(Theme.body(16, weight: .semibold))
                     Text(pageError).font(Theme.body(13)).foregroundStyle(Theme.textSecondary)
                     Button("Try again") { Task { await load(for: page) } }
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .padding(24)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if pageEmpty {
-            VStack {
-                Spacer()
-                VStack(spacing: 16) {
-                    HeartMark(size: 48)
-                    Text(page == .personal
-                         ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
-                         : (isGuestMode
-                            ? "No public thank-yous yet — sign in to send the first one."
-                            : "Nothing public yet — be the first."))
-                        .font(Theme.body(15))
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                    if page == .personal {
-                        Button {
-                            Analytics.capture("home_empty_first_send_tapped")
-                            ComposeLaunchBridge.shared.queue(analyticsSource: "home_empty_first_send")
-                        } label: {
-                            Text("Send your first appreciation")
-                                .font(Theme.body(15, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Theme.ctaGradient, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 40)
-                        .accessibilityLabel("Send your first appreciation")
-                    } else if isGuestMode {
-                        Button {
-                            promptGuestSignIn(.send)
-                        } label: {
-                            Text("Sign in to thank someone")
-                                .font(Theme.body(15, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Theme.ctaGradient, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 40)
-                        .accessibilityLabel("Sign in to thank someone")
+            ScrollView {
+                VStack(spacing: 28) {
+                    // Card sits in the feed column. The Thanksgiving icon banner
+                    // stays in top chrome, and the turkey decal stays on the
+                    // trailing side of the My Feed / World Feed picker.
+                    if page == .personal, showsFirstThanksCard {
+                        firstThanksCard
+                            .padding(.top, 8)
                     }
+                    VStack(spacing: 16) {
+                        HeartMark(size: 48)
+                        Text(page == .personal
+                             ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
+                             : (isGuestMode
+                                ? "No public thank-yous yet — sign in to send the first one."
+                                : "Nothing public yet — be the first."))
+                            .font(Theme.body(15))
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                        if page == .personal, !showsFirstThanksCard {
+                            Button {
+                                Analytics.capture("home_empty_first_send_tapped")
+                                ComposeLaunchBridge.shared.queue(analyticsSource: "home_empty_first_send")
+                            } label: {
+                                Text("Send your first appreciation")
+                                    .font(Theme.body(15, weight: .semibold))
+                                    .foregroundStyle(Theme.onPrimary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Theme.ctaGradient, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 40)
+                            .accessibilityLabel("Send your first appreciation")
+                        } else if isGuestMode {
+                            Button {
+                                promptGuestSignIn(.send)
+                            } label: {
+                                Text("Sign in to thank someone")
+                                    .font(Theme.body(15, weight: .semibold))
+                                    .foregroundStyle(Theme.onPrimary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Theme.ctaGradient, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 40)
+                            .accessibilityLabel("Sign in to thank someone")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, page == .personal && showsFirstThanksCard ? 4 : 72)
                 }
-                Spacer()
+                .padding(.horizontal, 12)
+                .padding(.bottom, 24)
+                .tabChromeBottomPadding()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 14) {
+                        if page == .personal, showsFirstThanksCard {
+                            firstThanksCard
+                                .padding(.top, 4)
+                        }
                         if page == .personal, !pendingToAccept.isEmpty {
                             pendingHeader
                                 .id("pendingThanks")
@@ -854,7 +1076,7 @@ struct FeedView: View {
 
                         if (page == .personal ? personalLoadingMore : worldLoadingMore) {
                             ProgressView()
-                                .tint(Theme.coral)
+                                .tint(Theme.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         }
@@ -1200,7 +1422,9 @@ struct FeedView: View {
             // (especially on iPad, where the page TabView can ignore a bare
             // selection flip). Keep My Feed when there are pending accepts —
             // those only render on Personal.
-            if !isGuestMode, target == .personal, result.isEmpty, pending.isEmpty, !didAutoSwitchToWorld {
+            // An empty My Feed normally opens World. Keep My Feed when the
+            // first-thanks card is the thing on that page.
+            if !isGuestMode, target == .personal, result.isEmpty, pending.isEmpty, !didAutoSwitchToWorld, !showsFirstThanksCard {
                 didAutoSwitchToWorld = true
                 applyPendingList(pending)
                 pendingSentCount = pendingSent
@@ -1542,7 +1766,7 @@ struct GratitudeCard: View {
                         if preparingShare && systemSharePayload == nil {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(Theme.coral)
+                                .tint(Theme.primary)
                         } else {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 14, weight: .semibold))
@@ -1953,7 +2177,7 @@ private struct HomeProfileSearch: View {
                     clear()
                 }
                 .font(Theme.body(15, weight: .medium))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -1964,7 +2188,7 @@ private struct HomeProfileSearch: View {
         Group {
             if searching && results.isEmpty {
                 HStack(spacing: 10) {
-                    ProgressView().tint(Theme.coral).controlSize(.small)
+                    ProgressView().tint(Theme.primary).controlSize(.small)
                     Text("Searching…")
                         .font(Theme.body(14))
                         .foregroundStyle(Theme.textSecondary)
@@ -1993,7 +2217,7 @@ private struct HomeProfileSearch: View {
                             Text("Thank \(trimmed)")
                                 .font(Theme.body(14, weight: .semibold))
                         }
-                        .foregroundStyle(Color(hex: 0x2B1209))
+                        .foregroundStyle(Theme.onPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(Theme.ctaGradient, in: Capsule())

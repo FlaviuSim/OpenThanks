@@ -142,7 +142,7 @@ struct HeartedByView: View {
             Group {
                 if !loaded && hearters.isEmpty {
                     ProgressView()
-                        .tint(Theme.coral)
+                        .tint(Theme.primary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if hearters.isEmpty {
                     VStack(spacing: 10) {
@@ -173,7 +173,7 @@ struct HeartedByView: View {
                                             } label: {
                                                 Image(systemName: "chevron.backward")
                                                     .font(.system(size: 17, weight: .semibold))
-                                                    .foregroundStyle(Theme.coral)
+                                                    .foregroundStyle(Theme.primary)
                                             }
                                             .accessibilityLabel("Back")
                                         }
@@ -242,7 +242,7 @@ struct HeartedByView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { showList = false }
                         .font(Theme.body(16, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
             }
             // Only used when a profile opened from here pushes another screen.

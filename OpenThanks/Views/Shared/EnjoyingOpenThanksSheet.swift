@@ -259,7 +259,7 @@ struct EnjoyingOpenThanksSheet: View {
             } label: {
                 Text("Or email founders@openthanks.com")
                     .font(Theme.body(13))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)

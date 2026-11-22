@@ -2,7 +2,7 @@ import Foundation
 
 /// Where an automatic calendar connect sheet is coming from.
 enum CalendarPromptSource: Equatable, Sendable {
-    /// Full-screen gate on the 3rd main-app open. Repeated every launch before the cap.
+    /// Full-screen gate on a later open after the first thank-you.
     case deferredOpen
     /// Sheet after a send, when notifications are already decided.
     case postSend
@@ -21,11 +21,14 @@ struct CalendarPromptCapState: Equatable, Sendable {
 ///
 /// The count lives in `UserDefaults` (`shownCountKey`). Before that key exists,
 /// launches from the 3rd open onward already showed the deferred gate, so those
-/// opens count as shows already spent.
+/// opens count as shows already spent — unless this version skipped those opens
+/// because the person had not sent a thank-you yet (`preSendOpensIgnoredKey`).
 enum CalendarPromptCap {
     static let maximumAutomaticShows = 2
     static let shownCountKey = "calendarPrompt.automaticShownCount.v1"
     static let lastRecordedAtKey = "calendarPrompt.automaticShownAt.v1"
+    /// Set when opens happened before the first thank-you, so they do not spend the cap.
+    static let preSendOpensIgnoredKey = "calendarPrompt.preSendOpensIgnored.v1"
     /// SwiftUI can call `onAppear` twice for one presentation.
     static let duplicateAppearWindow: TimeInterval = 2
 
@@ -35,7 +38,8 @@ enum CalendarPromptCap {
         acceptedThisSession: Bool,
         calendarConnected: Bool,
         now: Date = Date(),
-        cooldownUntil: Date? = nil
+        cooldownUntil: Date? = nil,
+        hasSentFirstThankYou: Bool = true
     ) -> Bool {
         switch source {
         case .userInitiated:
@@ -43,11 +47,37 @@ enum CalendarPromptCap {
         case .postAccept:
             return false
         case .deferredOpen, .postSend:
+            if !hasSentFirstThankYou { return false }
             if calendarConnected || acceptedThisSession { return false }
             if shownCount >= maximumAutomaticShows { return false }
             if let cooldownUntil, now < cooldownUntil { return false }
             return true
         }
+    }
+
+    /// Opens before the first thank-you did not present this prompt.
+    /// Remember that so a later send is not treated as already capped.
+    static func notePreSendOpensIgnoredIfNeeded(
+        hasSentFirstThankYou: Bool,
+        in defaults: UserDefaults
+    ) {
+        guard !hasSentFirstThankYou else { return }
+        guard storedShownCount(from: defaults) == nil else { return }
+        defaults.set(true, forKey: preSendOpensIgnoredKey)
+    }
+
+    static func preSendOpensAreIgnored(in defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: preSendOpensIgnoredKey)
+    }
+
+    static func shownCountForAutomaticPrompt(
+        stored: Int?,
+        preSendOpensIgnored: Bool,
+        mainAppOpenCount: Int
+    ) -> Int {
+        if let stored { return max(0, stored) }
+        if preSendOpensIgnored { return 0 }
+        return inferredShownCount(mainAppOpenCount: mainAppOpenCount)
     }
 
     /// Shows already consumed before `shownCountKey` existed.
@@ -64,12 +94,17 @@ enum CalendarPromptCap {
     static func recordShow(
         state: CalendarPromptCapState,
         mainAppOpenCount: Int,
-        now: Date
+        now: Date,
+        preSendOpensIgnored: Bool = false
     ) -> CalendarPromptCapState {
         if let last = state.lastRecordedAt, now.timeIntervalSince(last) < duplicateAppearWindow {
             return state
         }
-        let current = effectiveShownCount(stored: state.shownCount, mainAppOpenCount: mainAppOpenCount)
+        let current = shownCountForAutomaticPrompt(
+            stored: state.shownCount,
+            preSendOpensIgnored: preSendOpensIgnored,
+            mainAppOpenCount: mainAppOpenCount
+        )
         return CalendarPromptCapState(shownCount: current + 1, lastRecordedAt: now)
     }
 
@@ -79,8 +114,9 @@ enum CalendarPromptCap {
     }
 
     static func load(from defaults: UserDefaults, mainAppOpenCount: Int) -> Int {
-        effectiveShownCount(
+        shownCountForAutomaticPrompt(
             stored: storedShownCount(from: defaults),
+            preSendOpensIgnored: preSendOpensAreIgnored(in: defaults),
             mainAppOpenCount: mainAppOpenCount
         )
     }
@@ -94,7 +130,12 @@ enum CalendarPromptCap {
             shownCount: storedShownCount(from: defaults),
             lastRecordedAt: defaults.object(forKey: lastRecordedAtKey) as? Date
         )
-        let next = recordShow(state: state, mainAppOpenCount: mainAppOpenCount, now: now)
+        let next = recordShow(
+            state: state,
+            mainAppOpenCount: mainAppOpenCount,
+            now: now,
+            preSendOpensIgnored: preSendOpensAreIgnored(in: defaults)
+        )
         guard next != state else { return }
         if let count = next.shownCount {
             defaults.set(count, forKey: shownCountKey)

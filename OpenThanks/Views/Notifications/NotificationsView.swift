@@ -52,11 +52,11 @@ struct NotificationsView: View {
                             Task { await markAllRead() }
                         } label: {
                             if markingAll {
-                                ProgressView().controlSize(.small).tint(Theme.coral)
+                                ProgressView().controlSize(.small).tint(Theme.primary)
                             } else {
                                 Text("Mark all read")
                                     .font(Theme.body(14, weight: .semibold))
-                                    .foregroundStyle(Theme.coral)
+                                    .foregroundStyle(Theme.primary)
                             }
                         }
                         .disabled(markingAll)
@@ -107,7 +107,7 @@ struct NotificationsView: View {
     private var listChrome: some View {
         Group {
             if loading && notes.isEmpty && pendingCount == 0 {
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {

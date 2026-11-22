@@ -61,7 +61,7 @@ struct LoggingInView: View {
                 Section {
                     Text(successMessage)
                         .font(Theme.body(13))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .listRowBackground(Theme.surface)
             }
@@ -79,7 +79,7 @@ struct LoggingInView: View {
         .overlay {
             if loading {
                 ProgressView()
-                    .tint(Theme.coral)
+                    .tint(Theme.primary)
             }
         }
         .disabled(busy)
@@ -100,13 +100,13 @@ struct LoggingInView: View {
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                 if busy {
-                    ProgressView().tint(Theme.coral)
+                    ProgressView().tint(Theme.primary)
                 } else {
                     Button("I've confirmed — refresh") {
                         Task { await refreshAfterEmailChange() }
                     }
                     .font(Theme.body(15, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     Button("Cancel") { cancelEmailChange() }
                         .font(Theme.body(14))
                         .foregroundStyle(Theme.textSecondary)
@@ -122,7 +122,7 @@ struct LoggingInView: View {
                     }
                     Spacer()
                     Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 TextField("New email address", text: $emailInput)
                     .textInputAutocapitalization(.never)
@@ -134,7 +134,7 @@ struct LoggingInView: View {
                 } label: {
                     Text(busy ? "Sending…" : "Send confirmation email")
                         .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .disabled(busy || !emailChanged)
             } else {
@@ -151,7 +151,7 @@ struct LoggingInView: View {
                 } label: {
                     Text(busy ? "Sending…" : "Send confirmation email")
                         .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .disabled(
                     busy
@@ -201,10 +201,10 @@ struct LoggingInView: View {
                 } label: {
                     HStack {
                         Image(systemName: "g.circle.fill")
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                         Text(busy ? "Connecting…" : "Connect Google")
                             .font(Theme.body(15, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                         Spacer()
                     }
                 }
@@ -236,11 +236,11 @@ struct LoggingInView: View {
                         Task { await verifyPhone() }
                     }
                 if busy {
-                    ProgressView().tint(Theme.coral)
+                    ProgressView().tint(Theme.primary)
                 } else {
                     Button("Verify phone code") { Task { await verifyPhone() } }
                         .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                         .disabled(phoneCode.count < 6)
                     Button("Cancel") { cancelPhoneChange() }
                         .font(Theme.body(14))
@@ -257,7 +257,7 @@ struct LoggingInView: View {
                     }
                     Spacer()
                     Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 TextField("New phone number", text: $phoneInput)
                     .keyboardType(.phonePad)
@@ -267,7 +267,7 @@ struct LoggingInView: View {
                 } label: {
                     Text(busy ? "Sending…" : "Send verification code")
                         .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .disabled(busy || !phoneChanged)
                 Button(role: .destructive) {
@@ -289,7 +289,7 @@ struct LoggingInView: View {
                 } label: {
                     Text(busy ? "Sending…" : "Send verification code")
                         .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .disabled(
                     busy
@@ -314,7 +314,7 @@ struct LoggingInView: View {
                 ForEach(passkeys) { passkey in
                     HStack(spacing: 12) {
                         Image(systemName: "person.badge.key.fill")
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(passkey.friendlyName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
                                 ?? "Passkey")
@@ -340,10 +340,10 @@ struct LoggingInView: View {
             } label: {
                 HStack {
                     Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                     Text(busy ? "Waiting…" : "Add a passkey")
                         .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                     Spacer()
                 }
             }
@@ -572,7 +572,7 @@ private struct IdentityRow: View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -601,7 +601,7 @@ private struct IdentityRow: View {
                     }
             } else {
                 Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
             }
         }
     }

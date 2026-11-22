@@ -35,7 +35,7 @@ struct OpenThanksApp: App {
                 .environment(deepLinks)
                 .environment(userBlocks)
                 .syncAppAppearance()
-                .tint(Theme.coral)
+                .tint(Theme.primary)
                 .onOpenURL { url in
                     handleIncomingURL(url)
                 }
@@ -377,7 +377,8 @@ struct RootView: View {
                     HeartMark(size: 64)
                         .transition(.opacity)
                 } else {
-                    // Straight into the app; calendar gate on 3rd open; Siri tip on 2nd.
+                    // Straight into the app. Calendar waits until after the first thank-you.
+                    // Siri tip on the 2nd open.
                     // Notifications wait until send/receive (or after calendar connect).
                     // Start the store lookup early so Home can show an update immediately.
                     signedInHome
@@ -482,7 +483,7 @@ struct RootView: View {
 
         OpenThanksShortcuts.updateAppShortcutParameters()
 
-        // Count this process as a main-app open up front so the 3rd open can show calendar.
+        // Count this process as a main-app open. Calendar waits until a thank-you exists.
         let openCount = PermissionPromptScheduler.recordMainAppOpenIfNeeded(
             processAlreadyCounted: &countedMainAppOpenThisProcess
         )
@@ -512,6 +513,13 @@ struct RootView: View {
 
         try Task.checkCancellation()
 
+        // Opens before the first send do not show the automatic calendar prompt.
+        // Remember that so those opens don't spend the two-show cap later.
+        CalendarPromptCap.notePreSendOpensIgnoredIfNeeded(
+            hasSentFirstThankYou: FirstThanksSent.hasSent(),
+            in: .standard
+        )
+
         if !hasCompletedCalendarPrompt {
             if CalendarMeetingAggregator.hasAnyConnectedSource {
                 // Already connected — silently mark done; keep nudge on when possible.
@@ -528,11 +536,11 @@ struct RootView: View {
                 )
                 CalendarGratitudeBackgroundRefresh.schedule()
             } else if PermissionPromptScheduler.shouldShowDeferredCalendarGate {
-                // 3rd+ main-app open — full-screen calendar connect.
+                // Later open, after the first thank-you — full-screen calendar connect.
                 homeGate = .needsCalendar
                 return
             }
-            // else: first/second open — enter the app without asking.
+            // No thank-you yet, or still inside the cap's quiet period.
         }
 
         try Task.checkCancellation()

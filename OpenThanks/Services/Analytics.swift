@@ -240,14 +240,23 @@ enum Analytics {
     }
 
     static func calendarPermissionPrompted(source: String) {
-        capture("calendar_permission_prompted", ["source": source])
+        capture("calendar_permission_prompted", calendarPromptProps(source: source))
+    }
+
+    /// `post_first_send` is true once this device knows a thank-you was sent.
+    /// Automatic prompts only happen in that case; Settings can still ask before.
+    private static func calendarPromptProps(source: String) -> [String: Any] {
+        [
+            "source": source,
+            "post_first_send": FirstThanksSent.hasSent(),
+        ]
     }
 
     /// User dismissed the calendar connect UI without linking (onboarding / Home banner / settings).
     static func calendarPermissionSkipped(source: String) {
         capture(
             "calendar_permission_skipped",
-            ["source": source],
+            calendarPromptProps(source: source),
             userProperties: [
                 "calendar_linked": false,
             ],
@@ -268,6 +277,7 @@ enum Analytics {
                 "provider": provider,
                 "access_level": accessLevel,
                 "source": source,
+                "post_first_send": FirstThanksSent.hasSent(),
             ],
             userProperties: [
                 "calendar_linked": true,
@@ -280,8 +290,50 @@ enum Analytics {
     }
 
     static func calendarPermissionDenied(source: String) {
-        capture("calendar_permission_denied", ["source": source])
+        capture("calendar_permission_denied", calendarPromptProps(source: source))
         Task { await syncPermissionPersonProperties() }
+    }
+
+    // MARK: - Home first thank-you
+
+    /// Home became visible. `reason` is `appear`, `foreground`, `tab`, or `retap`.
+    static func homeViewed(visitNumber: Int, reason: String) {
+        capture(HomeScreenView.event, [
+            "visit_number": visitNumber,
+            "reason": reason,
+        ])
+    }
+
+    static func firstThanksCardShown(visitNumber: Int, suggestionKind: String) {
+        capture("first_thanks_card_shown", [
+            "visit_number": visitNumber,
+            "suggestion_kind": suggestionKind,
+        ])
+    }
+
+    /// `target` is `person` or `relationship`. `source` is `thanked_you`,
+    /// `calendar`, `recent`, or `relationship`. No names.
+    static func firstThanksCardTapped(
+        visitNumber: Int,
+        target: String,
+        source: String,
+        relationship: String?
+    ) {
+        var props: [String: Any] = [
+            "visit_number": visitNumber,
+            "target": target,
+            "suggestion_source": source,
+        ]
+        if let relationship, !relationship.isEmpty {
+            props["relationship"] = relationship
+        }
+        capture("first_thanks_card_tapped", props)
+    }
+
+    static func firstThanksCardDismissed(visitNumber: Int) {
+        capture("first_thanks_card_dismissed", [
+            "visit_number": visitNumber,
+        ])
     }
 
     static func calendarDisconnected(provider: String) {
@@ -465,6 +517,8 @@ enum Analytics {
         promptVariant: String? = nil
     ) {
         guard AppreciationSubmitTracking.claimCreated(gratitudeId) else { return }
+        // Same claim that allows this one capture. Does not send the event again.
+        FirstThanksSent.markSent()
         var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
         props["has_media"] = hasMedia
         props["message_length"] = messageLength

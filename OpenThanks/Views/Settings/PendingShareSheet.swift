@@ -75,7 +75,7 @@ struct PendingShareSheet: View {
                 if gratitude.emailDeliveryFailed {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                             .font(.system(size: 16, weight: .semibold))
                         VStack(alignment: .leading, spacing: 4) {
                             Text(

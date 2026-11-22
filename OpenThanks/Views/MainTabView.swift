@@ -69,6 +69,7 @@ struct MainTabView: View {
     @State private var didLogFirstSendTipShown = false
     /// Deferred notification / calendar sheets after send or accept.
     @State private var permissionScheduler = PermissionPromptScheduler.shared
+    @State private var appVisits = AppVisitCenter.shared
     @State private var updateChecker = AppUpdateChecker.shared
 
     private var usesSidebar: Bool { sizeClass == .regular }
@@ -311,10 +312,10 @@ struct MainTabView: View {
                                     Spacer(minLength: 8)
                                     Text("\(min(unreadCount, 99))")
                                         .font(Theme.body(12, weight: .bold))
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Theme.onPrimary)
                                         .padding(.horizontal, 7)
                                         .padding(.vertical, 2)
-                                        .background(Theme.coral, in: Capsule())
+                                        .background(Theme.primary, in: Capsule())
                                 }
                             }
                         } icon: {
@@ -324,8 +325,8 @@ struct MainTabView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(tab == .notifications ? Theme.coral : Theme.textPrimary)
-                    .listRowBackground(tab == .notifications ? Theme.coral.opacity(0.12) : Color.clear)
+                    .foregroundStyle(tab == .notifications ? Theme.primary : Theme.textPrimary)
+                    .listRowBackground(tab == .notifications ? Theme.brandTint : Color.clear)
 
                     sidebarRow(title: "Profile", systemImage: "person.fill", value: .profile)
                 }
@@ -335,7 +336,7 @@ struct MainTabView: View {
                         presentCompose(Self.tabComposeSheet())
                     } label: {
                         Label("Thank Someone", systemImage: "heart.fill")
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                     }
                 }
 
@@ -383,8 +384,8 @@ struct MainTabView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(tab == value ? Theme.coral : Theme.textPrimary)
-        .listRowBackground(tab == value ? Theme.coral.opacity(0.12) : Color.clear)
+        .foregroundStyle(tab == value ? Theme.primary : Theme.textPrimary)
+        .listRowBackground(tab == value ? Theme.brandTint : Color.clear)
     }
 
     /// Keep stacks mounted (like phone) so tab switches stay instant and image cache survives.
@@ -697,7 +698,7 @@ struct MainTabView: View {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onPrimary)
                 .frame(width: 56, height: 56)
                 .background(Theme.ctaGradient, in: Circle())
                 .shadow(color: Theme.coral.opacity(0.5), radius: 12, y: 4)
@@ -711,7 +712,7 @@ struct MainTabView: View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "arrow.down")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(FirstSendTip.title)
                     .font(Theme.body(14, weight: .semibold))
@@ -799,7 +800,7 @@ struct MainTabView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .foregroundStyle(tab == value ? Theme.coral : Theme.textTertiary)
+            .foregroundStyle(tab == value ? Theme.primary : Theme.textTertiary)
             .contentShape(Rectangle())
         }
         .accessibilityLabel(label)
@@ -813,9 +814,19 @@ struct MainTabView: View {
         homeChromeCollapsed = false
         if tab == value {
             popToRoot(value)
+            if value == .feed {
+                appVisits.recordReturn()
+                captureHomeRetap()
+            }
             return
         }
         withAnimation(.easeInOut(duration: 0.18)) { tab = value }
+    }
+
+    /// Re-tapping Home is a view, and so is the first time it appears.
+    private func captureHomeRetap() {
+        guard appVisits.claimHomeView(force: true) else { return }
+        Analytics.homeViewed(visitNumber: max(appVisits.number, 1), reason: "retap")
     }
 
     private func popToRoot(_ value: Tab) {

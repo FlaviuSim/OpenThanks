@@ -38,8 +38,8 @@ struct StreakLiveActivityWidget: Widget {
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(WidgetPalette.coral, in: Capsule())
-                            .foregroundStyle(.white)
+                            .background(WidgetPalette.primary, in: Capsule())
+                            .foregroundStyle(WidgetPalette.onPrimary)
                     }
                 }
             } compactLeading: {
@@ -124,7 +124,7 @@ private struct StreakLiveActivityLockScreenView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .activityBackgroundTint(WidgetPalette.background)
-        .activitySystemActionForegroundColor(WidgetPalette.coral)
+        .activitySystemActionForegroundColor(WidgetPalette.primary)
     }
 
     private var title: String {
