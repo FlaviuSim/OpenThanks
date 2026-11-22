@@ -39,7 +39,7 @@ struct StatsShareCardView: View {
     let content: StatsShareContent
     var avatar: UIImage? = nil
 
-    private let coral = Color(hex: 0xE07A5F)
+    private let coral = Color(hex: 0xF65601)
     private let width: CGFloat = 1080
     private let height: CGFloat = 1350
 
@@ -120,9 +120,9 @@ struct StatsShareCardView: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.10, green: 0.08, blue: 0.08),
-                    Color(red: 0.16, green: 0.11, blue: 0.10),
-                    Color(red: 0.22, green: 0.12, blue: 0.10),
+                    Color(hex: 0x1A0C06),
+                    Color(hex: 0x2A140C),
+                    Color(hex: 0x3A1C10),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -149,14 +149,14 @@ struct StatsShareCardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Get OpenThanks")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(red: 0.15, green: 0.12, blue: 0.11))
+                    .foregroundStyle(Color(hex: 0x2C0F00))
                 HStack(spacing: 8) {
                     Image(systemName: "apple.logo")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.26))
+                        .foregroundStyle(Color(hex: 0x6B5448))
                     Text("App Store · \(content.displayInviteLink)")
                         .font(.system(size: 20, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color(red: 0.35, green: 0.28, blue: 0.26))
+                        .foregroundStyle(Color(hex: 0x6B5448))
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
                 }

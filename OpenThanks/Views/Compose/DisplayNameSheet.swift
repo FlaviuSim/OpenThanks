@@ -68,7 +68,7 @@ struct DisplayNameSheet: View {
                             if saving {
                                 ProgressView()
                                     .controlSize(.small)
-                                    .tint(Color(hex: 0x2B1209))
+                                    .tint(Theme.onPrimary)
                             }
                             Text(saving ? "Saving…" : "Continue")
                         }

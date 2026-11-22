@@ -512,11 +512,11 @@ struct FeedView: View {
         }
     }
 
-    /// Brand header + optional home banners; slides away on scroll-down (like the floating pill).
+    /// Home banners; slides away on scroll-down (like the floating pill).
+    /// The wordmark used to sit above this. Home now opens on search and the feed switch.
     @ViewBuilder
     private var topChrome: some View {
         VStack(spacing: 0) {
-            header
             if shouldShowCalendarBanner {
                 CalendarConnectBanner(
                     onConnect: {
@@ -598,41 +598,23 @@ struct FeedView: View {
         feedContent(for: page)
     }
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(Theme.heartGradient)
-            Text("OpenThanks")
-                .font(Theme.display(20, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            if isGuestMode {
-                Button("Sign in") {
-                    promptGuestSignIn(.browse)
-                }
-                .font(Theme.body(14, weight: .semibold))
-                .foregroundStyle(Theme.coral)
-                .accessibilityLabel("Sign in")
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 2)
-    }
-
     @ViewBuilder
     private var picker: some View {
         if isGuestMode {
-            HStack {
+            HStack(spacing: 12) {
                 Text("World Feed")
-                    .font(Theme.body(15, weight: .semibold))
+                    .font(Theme.body(17, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Spacer()
+                Spacer(minLength: 8)
+                Button("Sign in") {
+                    promptGuestSignIn(.browse)
+                }
+                .font(Theme.body(15, weight: .semibold))
+                .foregroundStyle(Theme.primary)
+                .accessibilityLabel("Sign in")
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 16)
             .padding(.bottom, 6)
         } else {
             HStack(spacing: 8) {
@@ -659,7 +641,7 @@ struct FeedView: View {
                 Spacer()
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 16)
             .padding(.bottom, 6)
             .animation(Self.scopeSwitchAnimation, value: scope)
         }
@@ -725,7 +707,7 @@ struct FeedView: View {
         if pageLoading && pageEmpty {
             VStack {
                 Spacer()
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -736,7 +718,7 @@ struct FeedView: View {
                     Text("Couldn't load Home").font(Theme.body(16, weight: .semibold))
                     Text(pageError).font(Theme.body(13)).foregroundStyle(Theme.textSecondary)
                     Button("Try again") { Task { await load(for: page) } }
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .padding(24)
                 Spacer()
@@ -763,7 +745,7 @@ struct FeedView: View {
                         } label: {
                             Text("Send your first appreciation")
                                 .font(Theme.body(15, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.onPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Theme.ctaGradient, in: Capsule())
@@ -777,7 +759,7 @@ struct FeedView: View {
                         } label: {
                             Text("Sign in to thank someone")
                                 .font(Theme.body(15, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.onPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Theme.ctaGradient, in: Capsule())
@@ -854,7 +836,7 @@ struct FeedView: View {
 
                         if (page == .personal ? personalLoadingMore : worldLoadingMore) {
                             ProgressView()
-                                .tint(Theme.coral)
+                                .tint(Theme.primary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         }
@@ -1542,7 +1524,7 @@ struct GratitudeCard: View {
                         if preparingShare && systemSharePayload == nil {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(Theme.coral)
+                                .tint(Theme.primary)
                         } else {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 14, weight: .semibold))
@@ -1953,7 +1935,7 @@ private struct HomeProfileSearch: View {
                     clear()
                 }
                 .font(Theme.body(15, weight: .medium))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -1964,7 +1946,7 @@ private struct HomeProfileSearch: View {
         Group {
             if searching && results.isEmpty {
                 HStack(spacing: 10) {
-                    ProgressView().tint(Theme.coral).controlSize(.small)
+                    ProgressView().tint(Theme.primary).controlSize(.small)
                     Text("Searching…")
                         .font(Theme.body(14))
                         .foregroundStyle(Theme.textSecondary)
@@ -1993,7 +1975,7 @@ private struct HomeProfileSearch: View {
                             Text("Thank \(trimmed)")
                                 .font(Theme.body(14, weight: .semibold))
                         }
-                        .foregroundStyle(Color(hex: 0x2B1209))
+                        .foregroundStyle(Theme.onPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .background(Theme.ctaGradient, in: Capsule())

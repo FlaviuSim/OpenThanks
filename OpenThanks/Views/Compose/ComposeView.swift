@@ -413,7 +413,7 @@ struct ComposeView: View {
                                 Task { await send() }
                             }
                             .font(Theme.body(15, weight: .semibold))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                             .disabled(sending)
                             .accessibilityLabel("Retry sending this appreciation")
                         }
@@ -494,7 +494,7 @@ struct ComposeView: View {
                         showDisplayNameSheet = true
                     }
                     .font(Theme.body(16, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .accessibilityHint("Add your name before saving")
                 } else {
                     Button(toolbarSaveTitle) {
@@ -523,7 +523,7 @@ struct ComposeView: View {
                         )
                     }
                     .font(Theme.body(16, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .padding(.vertical, 8)
                 }
             }
@@ -705,10 +705,10 @@ struct ComposeView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "applewatch")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text("From your Watch")
+                Text("From your wrist")
                     .font(Theme.body(14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Text("Polish your note, then Continue to choose who it’s for and share the link — or Cancel and finish later from Pending.")
@@ -734,7 +734,7 @@ struct ComposeView: View {
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -866,7 +866,7 @@ struct ComposeView: View {
         return HStack(spacing: 8) {
             Image(systemName: isEmail ? "envelope.fill" : "person.crop.circle.fill")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .frame(width: 28, height: 28)
             Text(label)
                 .font(Theme.body(14, weight: .semibold))
@@ -894,7 +894,7 @@ struct ComposeView: View {
         VStack(spacing: 0) {
             if recipientSearching && recipientResults.isEmpty {
                 HStack(spacing: 10) {
-                    ProgressView().tint(Theme.coral).controlSize(.small)
+                    ProgressView().tint(Theme.primary).controlSize(.small)
                     Text("Searching…")
                         .font(Theme.body(14))
                         .foregroundStyle(Theme.textSecondary)
@@ -923,7 +923,7 @@ struct ComposeView: View {
                             Spacer(minLength: 0)
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(Theme.coral)
+                                .foregroundStyle(Theme.primary)
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 11)
@@ -976,7 +976,7 @@ struct ComposeView: View {
                 Spacer(minLength: 0)
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
@@ -1131,7 +1131,7 @@ struct ComposeView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(campaignDay.map { "\(CampaignFeed.cardTitle) · Day \($0)" } ?? CampaignFeed.cardTitle)
                         .font(Theme.body(12, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                     Text(campaignHintText)
                         .font(Theme.body(15))
                         .foregroundStyle(Theme.textPrimary)
@@ -1277,7 +1277,7 @@ struct ComposeView: View {
                             }
                         }
                         .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -1323,7 +1323,7 @@ struct ComposeView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showAddLinkSheet = false }
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -1337,7 +1337,7 @@ struct ComposeView: View {
                         }
                     }
                     .font(Theme.body(16, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .disabled(!canAttemptLink || addingLink)
                     .accessibilityLabel(addingLink ? "Adding link" : "Add")
                 }
@@ -1552,7 +1552,7 @@ struct ComposeView: View {
                     .resizable()
                     .flexiblePhotoPreview(maxHeight: 240)
             } placeholder: {
-                ProgressView().tint(Theme.coral)
+                ProgressView().tint(Theme.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 180)
                     .background(Theme.surfaceRaised)
@@ -1580,7 +1580,7 @@ struct ComposeView: View {
                         .frame(width: 40, height: 40)
                     Image(systemName: visibility == .public ? "globe" : "lock.fill")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -1606,7 +1606,7 @@ struct ComposeView: View {
                 if canEditVisibility {
                     Text("Switch")
                         .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
             }
             .padding(14)
@@ -1637,7 +1637,7 @@ struct ComposeView: View {
             HStack(spacing: 8) {
                 if sending {
                     ProgressView()
-                        .tint(Color(hex: 0x2B1209))
+                        .tint(Theme.onPrimary)
                 } else {
                     Image(systemName: sendBarIcon)
                         .font(.system(size: 14, weight: .bold))
@@ -1707,7 +1707,7 @@ struct ComposeView: View {
                 if busy {
                     ProgressView()
                         .controlSize(.mini)
-                        .tint(showFilledChrome ? Color.white : Theme.coral)
+                        .tint(showFilledChrome ? Theme.onPrimary : Theme.primary)
                 } else {
                     Image(systemName: listening ? "mic.fill" : "mic")
                         .font(.system(size: 13, weight: .bold))
@@ -1727,12 +1727,12 @@ struct ComposeView: View {
                         .lineLimit(1)
                 }
             }
-            .foregroundStyle(showFilledChrome ? Color.white : Theme.coral)
+            .foregroundStyle(showFilledChrome ? Theme.onPrimary : Theme.primary)
             .padding(.horizontal, showFilledChrome ? 12 : 10)
             .padding(.vertical, 8)
             .background {
                 Capsule()
-                    .fill(showFilledChrome ? Theme.coral : Theme.surface.opacity(0.92))
+                    .fill(showFilledChrome ? Theme.primary : Theme.surface.opacity(0.92))
                     .shadow(color: Color.black.opacity(0.08), radius: 4, y: 1)
             }
             .overlay {
@@ -1776,7 +1776,7 @@ struct ComposeView: View {
                 if isBusy {
                     ProgressView()
                         .controlSize(.mini)
-                        .tint(Color(hex: 0x2B1209))
+                        .tint(Theme.textPrimary)
                 } else {
                     Image(systemName: "sparkle")
                         .font(.system(size: 12, weight: .bold))
@@ -1785,10 +1785,10 @@ struct ComposeView: View {
                     .font(Theme.body(13, weight: .semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(Color(hex: 0x2B1209))
+            .foregroundStyle(Theme.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Theme.coralPale, in: Capsule())
+            .background(Theme.brandTint, in: Capsule())
         }
         .buttonStyle(ScalePressButtonStyle())
         .disabled(

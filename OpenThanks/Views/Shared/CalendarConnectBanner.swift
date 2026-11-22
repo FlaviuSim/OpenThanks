@@ -25,7 +25,7 @@ struct CalendarConnectBanner: View {
             VStack(spacing: 6) {
                 Button("Connect", action: onConnect)
                     .font(Theme.body(13, weight: .semibold))
-                    .foregroundStyle(Color(hex: 0x2B1209))
+                    .foregroundStyle(Theme.onPrimary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
                     .background(Theme.ctaGradient, in: Capsule())

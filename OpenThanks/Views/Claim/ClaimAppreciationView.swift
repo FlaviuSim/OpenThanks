@@ -219,7 +219,7 @@ struct PendingAppreciationReviewView: View {
         VStack(spacing: 14) {
             Image(systemName: "xmark.circle")
                 .font(.system(size: 36))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
             Text("Declined")
                 .font(Theme.display(22, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
@@ -462,13 +462,13 @@ struct ClaimAppreciationView: View {
             Group {
                 switch phase {
                 case .loading:
-                    ProgressView().tint(Theme.coral)
+                    ProgressView().tint(Theme.primary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .needsSignIn:
                     VStack(spacing: 14) {
                         Image(systemName: "person.crop.circle.badge.questionmark")
                             .font(.system(size: 36))
-                            .foregroundStyle(Theme.coral)
+                            .foregroundStyle(Theme.primary)
                         Text("Sign in to keep this thank-you")
                             .font(Theme.display(22, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
@@ -533,7 +533,7 @@ struct ClaimAppreciationView: View {
         VStack(spacing: 14) {
             Image(systemName: systemImage)
                 .font(.system(size: 36))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
             Text(title)
                 .font(Theme.display(22, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)

@@ -144,7 +144,7 @@ struct EditProfileSheet: View {
                             }
                         }
                         .disabled(saving || loadingPhoto || !canContinue)
-                        .foregroundStyle(canContinue ? Theme.coral : Theme.textTertiary)
+                        .foregroundStyle(canContinue ? Theme.primary : Theme.textTertiary)
                         .accessibilityLabel(saving ? "Saving" : "Save")
                     }
                 }
@@ -165,7 +165,7 @@ struct EditProfileSheet: View {
                                 if saving {
                                     ProgressView()
                                         .controlSize(.small)
-                                        .tint(Color(hex: 0x2B1209))
+                                        .tint(Theme.onPrimary)
                                 }
                                 Text(saving ? "Saving…" : "Continue")
                             }
@@ -248,13 +248,13 @@ struct EditProfileSheet: View {
 
             if loadingPhoto {
                 ProgressView()
-                    .tint(Theme.coral)
+                    .tint(Theme.primary)
             }
 
             PhotosPicker(selection: $photoItem, matching: .images) {
                 Text(hasAvatar ? "Change Profile Photo" : "Add Profile Photo (optional)")
                     .font(Theme.body(14, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .frame(maxWidth: .infinity)
             }
             .disabled(loadingPhoto)
@@ -328,10 +328,10 @@ struct EditProfileSheet: View {
                         Task { await searchNonprofits() }
                     } label: {
                         if searching {
-                            ProgressView().tint(Theme.coral)
+                            ProgressView().tint(Theme.primary)
                         } else {
                             Image(systemName: "magnifyingglass")
-                                .foregroundStyle(Theme.coral)
+                                .foregroundStyle(Theme.primary)
                         }
                     }
                     .disabled(nonprofitQuery.trimmingCharacters(in: .whitespaces).isEmpty)

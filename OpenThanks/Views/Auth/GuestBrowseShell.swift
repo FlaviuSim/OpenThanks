@@ -114,7 +114,7 @@ struct GuestBrowseShell: View {
             } label: {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimary)
                     .frame(width: 58, height: 58)
                     .background(Theme.ctaGradient, in: Circle())
                     .shadow(color: Theme.coral.opacity(0.35), radius: 12, y: 4)

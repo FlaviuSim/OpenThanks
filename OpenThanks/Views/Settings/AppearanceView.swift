@@ -80,7 +80,7 @@ struct AppearanceView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(selected ? Theme.coral : Theme.hairline, lineWidth: selected ? 2 : 1)
+                            .stroke(selected ? Theme.primary : Theme.hairline, lineWidth: selected ? 2 : 1)
                     )
 
                 Text(option.title)
@@ -104,7 +104,7 @@ struct AppearanceView: View {
                 .font(Theme.display(20, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
 
-            Text("A warmer look for your Home Screen — same OpenThanks heart.")
+            Text("The heart-O mark, in a few Home Screen finishes.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -143,7 +143,7 @@ struct AppearanceView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(selected ? Theme.coral : Theme.hairline, lineWidth: selected ? 2 : 1)
+                            .stroke(selected ? Theme.primary : Theme.hairline, lineWidth: selected ? 2 : 1)
                     )
                     .shadow(color: Color.black.opacity(0.18), radius: 6, y: 3)
 
@@ -165,15 +165,15 @@ struct AppearanceView: View {
     private func selectionDot(selected: Bool) -> some View {
         ZStack {
             Circle()
-                .stroke(selected ? Theme.coral : Theme.textTertiary.opacity(0.45), lineWidth: 1.5)
+                .stroke(selected ? Theme.primary : Theme.textTertiary.opacity(0.45), lineWidth: 1.5)
                 .frame(width: 20, height: 20)
             if selected {
                 Circle()
-                    .fill(Theme.coral)
+                    .fill(Theme.primary)
                     .frame(width: 20, height: 20)
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onPrimary)
             }
         }
     }
@@ -233,24 +233,24 @@ private struct ThemePreviewChip: View {
 
     private func lightPreview(width: CGFloat, height: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            Color(hex: 0xF7F5F2)
+            Color(hex: 0xFFF5EE)
             VStack(alignment: .leading, spacing: 6) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color(hex: 0xE07A5F).opacity(0.85))
+                    .fill(Color(hex: 0xF65601).opacity(0.9))
                     .frame(width: width * 0.42, height: 7)
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color.white)
                     .frame(height: height * 0.38)
                     .overlay(alignment: .bottomLeading) {
                         Capsule()
-                            .fill(Color(hex: 0xF9C3A9))
+                            .fill(Color(hex: 0xFEE4D6))
                             .frame(width: width * 0.35, height: 6)
                             .padding(8)
                     }
                 HStack(spacing: 4) {
                     ForEach(0..<3, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(Color(hex: 0xF0EDE8))
+                            .fill(Color(hex: 0xF0D0BE))
                             .frame(height: 14)
                     }
                 }
@@ -261,24 +261,24 @@ private struct ThemePreviewChip: View {
 
     private func darkPreview(width: CGFloat, height: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            Color(hex: 0x0A0A0B)
+            Color(hex: 0x1A0C06)
             VStack(alignment: .leading, spacing: 6) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color(hex: 0xE07A5F))
+                    .fill(Color(hex: 0xF65601))
                     .frame(width: width * 0.42, height: 7)
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(hex: 0x161618))
+                    .fill(Color(hex: 0x2A140C))
                     .frame(height: height * 0.38)
                     .overlay(alignment: .bottomLeading) {
                         Capsule()
-                            .fill(Color(hex: 0xE07A5F).opacity(0.7))
+                            .fill(Color(hex: 0xFF8A4A))
                             .frame(width: width * 0.35, height: 6)
                             .padding(8)
                     }
                 HStack(spacing: 4) {
                     ForEach(0..<3, id: \.self) { _ in
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(Color(hex: 0x1E1E21))
+                            .fill(Color(hex: 0x3A1C10))
                             .frame(height: 14)
                     }
                 }
@@ -332,10 +332,10 @@ enum AppIconOption: String, CaseIterable, Identifiable {
         let size = CGSize(width: 180, height: 180)
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { ctx in
-            UIColor(Color(hex: 0x1A0F0D)).setFill()
+            UIColor(Color(hex: 0xF65601)).setFill()
             ctx.fill(CGRect(origin: .zero, size: size))
             let heart = UIImage(systemName: "heart.fill")?
-                .withTintColor(UIColor(Color(hex: 0xE07A5F)), renderingMode: .alwaysOriginal)
+                .withTintColor(UIColor.white, renderingMode: .alwaysOriginal)
             heart?.draw(in: CGRect(x: 45, y: 50, width: 90, height: 80))
         }
     }

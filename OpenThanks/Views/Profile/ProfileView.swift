@@ -12,7 +12,7 @@ struct ProfileView: View {
                 if let profile = auth.currentProfile {
                     UserProfileView(profile: profile)
                 } else {
-                    ProgressView().tint(Theme.coral)
+                    ProgressView().tint(Theme.primary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
@@ -311,7 +311,7 @@ struct UserProfileView: View {
             HStack(spacing: 12) {
                 Image(systemName: "person.crop.circle.badge.plus")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Add your name")
                         .font(Theme.body(15, weight: .semibold))
@@ -381,10 +381,10 @@ struct UserProfileView: View {
                         Text("Thank \(firstName)")
                             .font(Theme.body(14, weight: .semibold))
                     }
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 9)
-                    .background(Theme.coral.opacity(0.12), in: Capsule())
+                    .background(Theme.brandTint, in: Capsule())
                     .overlay(
                         Capsule().strokeBorder(Theme.coral.opacity(0.28), lineWidth: 1)
                     )
@@ -412,9 +412,9 @@ struct UserProfileView: View {
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onPrimary)
                             .frame(width: 28, height: 28)
-                            .background(Theme.coral, in: Circle())
+                            .background(Theme.primary, in: Circle())
                             .overlay(Circle().strokeBorder(Theme.background, lineWidth: 2))
                             .offset(x: 2, y: 2)
                     }
@@ -494,7 +494,7 @@ struct UserProfileView: View {
                         .monospacedDigit()
                     Text("day streak")
                         .font(Theme.body(14, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 } else {
                     Image(systemName: "chart.bar.fill")
                         .font(.system(size: 11, weight: .semibold))
@@ -508,7 +508,7 @@ struct UserProfileView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Theme.textTertiary)
             }
-            .foregroundStyle(Theme.coral)
+            .foregroundStyle(Theme.primary)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(Theme.coral.opacity(0.12), in: Capsule())
@@ -722,7 +722,7 @@ struct UserProfileView: View {
             }
             if loadingMore {
                 ProgressView()
-                    .tint(Theme.coral)
+                    .tint(Theme.primary)
                     .padding(.vertical, 8)
             } else if hasMore, !list.isEmpty {
                 Color.clear.frame(height: 1)
@@ -861,7 +861,7 @@ struct UserProfileView: View {
                 Text("Start your own ripple")
                     .font(Theme.body(14, weight: .semibold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 11)
             .background(Theme.ctaGradient, in: Capsule())
@@ -881,7 +881,7 @@ struct UserProfileView: View {
                     GratitudeRipple(trigger: loaded, size: 44)
                     Image(systemName: "water.waves")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
+                        .foregroundStyle(Theme.primary)
                 }
                 .frame(width: 44, height: 44)
 
@@ -914,7 +914,7 @@ struct UserProfileView: View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
             Text("\(value)")
                 .font(Theme.body(13, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
@@ -934,7 +934,7 @@ struct UserProfileView: View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
             Text(title)
                 .font(Theme.body(13, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
@@ -976,7 +976,7 @@ struct UserProfileView: View {
             HStack(spacing: 10) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Keep the ripple going")
                         .font(Theme.body(14, weight: .semibold))
@@ -1003,7 +1003,7 @@ struct UserProfileView: View {
                 GratitudeRipple(trigger: loaded, size: 72)
                 Image(systemName: "water.waves")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
             }
             .frame(height: 72)
             .padding(.top, 4)
@@ -1038,7 +1038,7 @@ struct UserProfileView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.coral)
+                .foregroundStyle(Theme.primary)
                 .frame(width: 22, height: 22)
                 .background(Theme.coral.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
@@ -1117,7 +1117,7 @@ struct UserProfileView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Image(systemName: "water.waves")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.coral)
+                    .foregroundStyle(Theme.primary)
                 if let date = child.displayDate {
                     Text(date, format: .relative(presentation: .named))
                         .font(Theme.body(11))
