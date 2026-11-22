@@ -11,6 +11,7 @@ struct OpenThanksWatchApp: App {
         WindowGroup {
             WatchRootView()
                 .environment(session)
+                .tint(WatchTheme.buttonBright)
                 .onOpenURL { url in
                     if WatchDeepLink.isCompose(url) {
                         session.requestCompose(autoRecord: true)

@@ -11,14 +11,14 @@ struct SettingsView: View {
     @State private var deleteAccountError: String?
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
-    @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+    @AppStorage("appAppearance") private var appearance = AppAppearance.light.rawValue
     #if DEBUG
     @AppStorage("ot_analytics_force_enable") private var forceAnalyticsWhileTesting = false
     @State private var campaignDebug = CampaignService.shared
     #endif
 
     private var appearanceSubtitle: String {
-        (AppAppearance(rawValue: appearance) ?? .dark).title
+        (AppAppearance(rawValue: appearance) ?? .light).title
     }
 
     private var notificationsSubtitle: String {
@@ -100,7 +100,7 @@ struct SettingsView: View {
         let device = UIDevice.current
         let system = "\(device.systemName) \(device.systemVersion)"
         let model = deviceModelIdentifier
-        let appearanceTitle = (AppAppearance(rawValue: appearance) ?? .dark).title
+        let appearanceTitle = (AppAppearance(rawValue: appearance) ?? .light).title
         let locale = Locale.current.identifier
         let email = auth.currentProfile?.email?
             .trimmingCharacters(in: .whitespacesAndNewlines)
