@@ -172,6 +172,10 @@
 		E572E04E435299778F0B0B98 /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		E678F1530BB1512B50C46448 /* CalendarConnectBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1200BBA4D98DF3DBDD4530F /* CalendarConnectBanner.swift */; };
 		E92A44E68681638A822A948D /* EnjoymentPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */; };
+		A11F7A02B2C3D4E5F6071829 /* FirstThanksPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F7A01B2C3D4E5F6071829 /* FirstThanksPrompt.swift */; };
+		A11F7A04B2C3D4E5F6071829 /* FirstThanksSent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F7A03B2C3D4E5F6071829 /* FirstThanksSent.swift */; };
+		A11F7A06B2C3D4E5F6071829 /* FirstThanksCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F7A05B2C3D4E5F6071829 /* FirstThanksCard.swift */; };
+		A11F7A08B2C3D4E5F6071829 /* FirstThanksPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11F7A07B2C3D4E5F6071829 /* FirstThanksPromptTests.swift */; };
 		E9EFDB213E0080038BFA6521 /* ImageCropper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9628F5BDA34EFFD33F1EF47 /* ImageCropper.swift */; };
 		EA81503A5D6E988AB4201319 /* CalendarMeetingSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BFAE945628F7517755C044 /* CalendarMeetingSource.swift */; };
 		EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */; };
@@ -420,6 +424,10 @@
 		E6F2FFF1EE721FF698FF5BE9 /* PermissionPromptScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionPromptScheduler.swift; sourceTree = "<group>"; };
 		EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeSharePayload.swift; sourceTree = "<group>"; };
 		EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnjoymentPrompt.swift; sourceTree = "<group>"; };
+		A11F7A01B2C3D4E5F6071829 /* FirstThanksPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstThanksPrompt.swift; sourceTree = "<group>"; };
+		A11F7A03B2C3D4E5F6071829 /* FirstThanksSent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstThanksSent.swift; sourceTree = "<group>"; };
+		A11F7A05B2C3D4E5F6071829 /* FirstThanksCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstThanksCard.swift; sourceTree = "<group>"; };
+		A11F7A07B2C3D4E5F6071829 /* FirstThanksPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstThanksPromptTests.swift; sourceTree = "<group>"; };
 		ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayItForwardNudge.swift; sourceTree = "<group>"; };
 		EE35421EBB2AF9CB0F794878 /* WidgetSnapshotRefresher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotRefresher.swift; sourceTree = "<group>"; };
 		EE58C9232B92D8AAD5346A26 /* OpenThanks.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenThanks.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -468,6 +476,7 @@
 			children = (
 				93C5038208573746C9F0E519 /* AcceptPendingCard.swift */,
 				F41CEF2962FB940913427807 /* FeedView.swift */,
+				A11F7A05B2C3D4E5F6071829 /* FirstThanksCard.swift */,
 			);
 			path = Feed;
 			sourceTree = "<group>";
@@ -511,6 +520,8 @@
 				7CD14FFD16B034D1D22D2480 /* ContentReportService.swift */,
 				00F561A026BBE6DAD23D84D0 /* DeepLinkRouter.swift */,
 				EC189AE2F179F2A88040287C /* EnjoymentPrompt.swift */,
+				A11F7A01B2C3D4E5F6071829 /* FirstThanksPrompt.swift */,
+				A11F7A03B2C3D4E5F6071829 /* FirstThanksSent.swift */,
 				96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */,
 				D993EF56F36F922D78E4DF4A /* GoogleCalendarService.swift */,
 				65502CA2D2D9C67C6C1CFE42 /* GratitudeOpportunityRanker.swift */,
@@ -716,6 +727,7 @@
 				A818F29D7A06C0AF313D9B60 /* CampaignPushPermissionTests.swift */,
 				7E7556A42F95EE2513A1B11D /* CompetitionConfigTests.swift */,
 				7C907502F05D04E92FA3C019 /* ComposeDraftStoreTests.swift */,
+				A11F7A07B2C3D4E5F6071829 /* FirstThanksPromptTests.swift */,
 				F45C47E89F67B4F30A9E44AB /* EmailChangeTests.swift */,
 				515C4F13165EB2767AD27F51 /* GuestBrowseTests.swift */,
 				CB2323790E26BC7529E4040D /* HeartCountDisplayTests.swift */,
@@ -1136,6 +1148,9 @@
 				B44A3CEFF76027AF0F586362 /* EditProfileSheet.swift in Sources */,
 				8919BA37DE030A47ABF439B9 /* EnjoyingOpenThanksSheet.swift in Sources */,
 				E92A44E68681638A822A948D /* EnjoymentPrompt.swift in Sources */,
+				A11F7A02B2C3D4E5F6071829 /* FirstThanksPrompt.swift in Sources */,
+				A11F7A04B2C3D4E5F6071829 /* FirstThanksSent.swift in Sources */,
+				A11F7A06B2C3D4E5F6071829 /* FirstThanksCard.swift in Sources */,
 				F0F8EE4AF554052A82ABEE04 /* FeedView.swift in Sources */,
 				EAE349779D065F689C57F713 /* FlexiblePostImage.swift in Sources */,
 				1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */,
@@ -1205,6 +1220,7 @@
 				7C8BDE7EE5E824A6B45F6327 /* AppStoreReviewPromptTests.swift in Sources */,
 				6E2A9C4F1B8D3057A4E6C1F0 /* AppreciationSubmitTrackingTests.swift in Sources */,
 				8866625A98D8B6D0AC3B8239 /* CalendarPromptCapTests.swift in Sources */,
+				A11F7A08B2C3D4E5F6071829 /* FirstThanksPromptTests.swift in Sources */,
 				419C6EF15FCC3162C3E0D9F7 /* CampaignPromptCardTests.swift in Sources */,
 				B63683EAE6649342A6B4F3EF /* CampaignPushPermissionTests.swift in Sources */,
 				AB9F44A3F52D39F2FFA45322 /* CompetitionConfigTests.swift in Sources */,

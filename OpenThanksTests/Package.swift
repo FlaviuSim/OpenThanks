@@ -37,6 +37,10 @@ let package = Package(
             path: "Sources/CalendarPrompt"
         ),
         .target(
+            name: "FirstThanksPrompt",
+            path: "Sources/FirstThanksPrompt"
+        ),
+        .target(
             name: "StreakMath",
             path: "Sources/StreakMath"
         ),
@@ -58,7 +62,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ComposeDraftTests",
-            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "HeartCountDisplay", "AppreciationSubmit", "ComposeOpenCopy", "PendingShareInviteCopy"],
+            dependencies: ["ComposeDraft", "PasskeySignIn", "OAuthCallbackGate", "ReviewPrompt", "CampaignPush", "PostAcceptPrompt", "StreakMath", "CampaignPrompt", "CalendarPrompt", "FirstThanksPrompt", "HeartCountDisplay", "AppreciationSubmit", "ComposeOpenCopy", "PendingShareInviteCopy"],
             path: ".",
             exclude: ["Sources", ".build"],
             sources: [
@@ -71,6 +75,7 @@ let package = Package(
                 "CompetitionConfigTests.swift",
                 "CampaignPromptCardTests.swift",
                 "CalendarPromptCapTests.swift",
+                "FirstThanksPromptTests.swift",
                 "HeartCountDisplayTests.swift",
                 "AppreciationSubmitTrackingTests.swift",
                 "ComposeOpenCopyTests.swift",

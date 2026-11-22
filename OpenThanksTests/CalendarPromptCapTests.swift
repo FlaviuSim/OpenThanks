@@ -75,6 +75,59 @@ final class CalendarPromptCapTests: XCTestCase {
         ))
     }
 
+    func testAutomaticPromptWaitsUntilTheFirstThankYou() {
+        XCTAssertFalse(show(source: .deferredOpen, shownCount: 0, hasSentFirstThankYou: false))
+        XCTAssertFalse(show(source: .postSend, shownCount: 0, hasSentFirstThankYou: false))
+        XCTAssertTrue(show(source: .deferredOpen, shownCount: 0, hasSentFirstThankYou: true))
+        XCTAssertTrue(show(source: .postSend, shownCount: 1, hasSentFirstThankYou: true))
+        XCTAssertTrue(show(source: .userInitiated, shownCount: 0, hasSentFirstThankYou: false))
+        XCTAssertFalse(show(source: .postAccept, shownCount: 0, hasSentFirstThankYou: true))
+    }
+
+    func testOpensBeforeTheFirstSendDoNotSpendTheAutomaticCap() {
+        XCTAssertEqual(
+            CalendarPromptCap.shownCountForAutomaticPrompt(
+                stored: nil,
+                preSendOpensIgnored: true,
+                mainAppOpenCount: 20
+            ),
+            0
+        )
+        XCTAssertTrue(show(
+            source: .deferredOpen,
+            shownCount: 0,
+            hasSentFirstThankYou: true
+        ))
+        XCTAssertEqual(
+            CalendarPromptCap.shownCountForAutomaticPrompt(
+                stored: nil,
+                preSendOpensIgnored: false,
+                mainAppOpenCount: 20
+            ),
+            2
+        )
+        XCTAssertEqual(
+            CalendarPromptCap.shownCountForAutomaticPrompt(
+                stored: 1,
+                preSendOpensIgnored: true,
+                mainAppOpenCount: 20
+            ),
+            1
+        )
+
+        let name = "CalendarPromptCapTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        CalendarPromptCap.notePreSendOpensIgnoredIfNeeded(hasSentFirstThankYou: false, in: defaults)
+        XCTAssertEqual(CalendarPromptCap.load(from: defaults, mainAppOpenCount: 12), 0)
+        CalendarPromptCap.record(in: defaults, mainAppOpenCount: 12, now: now)
+        XCTAssertEqual(defaults.integer(forKey: CalendarPromptCap.shownCountKey), 1)
+        CalendarPromptCap.notePreSendOpensIgnoredIfNeeded(hasSentFirstThankYou: true, in: defaults)
+        XCTAssertTrue(defaults.bool(forKey: CalendarPromptCap.preSendOpensIgnoredKey))
+    }
+
     func testPeopleAlreadyPastTwoOpensDoNotGetAnotherAutomaticPrompt() {
         let name = "CalendarPromptCapTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -92,7 +145,8 @@ final class CalendarPromptCapTests: XCTestCase {
         shownCount: Int,
         acceptedThisSession: Bool = false,
         calendarConnected: Bool = false,
-        cooldownUntil: Date? = nil
+        cooldownUntil: Date? = nil,
+        hasSentFirstThankYou: Bool = true
     ) -> Bool {
         CalendarPromptCap.shouldShowAutomatic(
             source: source,
@@ -100,7 +154,8 @@ final class CalendarPromptCapTests: XCTestCase {
             acceptedThisSession: acceptedThisSession,
             calendarConnected: calendarConnected,
             now: now,
-            cooldownUntil: cooldownUntil
+            cooldownUntil: cooldownUntil,
+            hasSentFirstThankYou: hasSentFirstThankYou
         )
     }
 }
