@@ -92,7 +92,7 @@
 		7198DDBD3ACCF9655E6B25C3 /* ShareInboxParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DA8313EA35838D5A67AFCCA /* ShareInboxParser.swift */; };
 		71DF3C7EB070953B50C54EA0 /* CalendarPromptCap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BDAC6AC33F8484AD7665D9C /* CalendarPromptCap.swift */; };
 		72773CFAD5A52646C6CDE6D1 /* WatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A78907B236CBABA2233D056 /* WatchRootView.swift */; };
-		A1B2C3D4E5F60718293A4B5C /* WatchTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* WatchTheme.swift */; };
+		1D4616DFF17562F89CC39C65 /* WatchTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C8938236F5AED3A487F1A7 /* WatchTheme.swift */; };
 		755A4AB7E32CA1EF1531B727 /* AppIcon-Dawn-Preview.png in Resources */ = {isa = PBXBuildFile; fileRef = 3BE658B352B3D0555586BCD7 /* AppIcon-Dawn-Preview.png */; };
 		7744285F382417A1C7007F97 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475B3E155C6168A97BD17C48 /* NotificationService.swift */; };
 		77F86EC5E703E70BF6A3D21B /* ComposeSharePayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB741215F2E7C64644DFF959 /* ComposeSharePayload.swift */; };
@@ -328,7 +328,7 @@
 		577A7DCBD2C1FAA8BC48AD61 /* AppIcon-Ember-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember-Preview.png"; sourceTree = "<group>"; };
 		5A409B4B4AA8804F251FDAE3 /* AppIcon-Night.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night.png"; sourceTree = "<group>"; };
 		5A78907B236CBABA2233D056 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
-		B2C3D4E5F60718293A4B5C6D /* WatchTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTheme.swift; sourceTree = "<group>"; };
+		E3C8938236F5AED3A487F1A7 /* WatchTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTheme.swift; sourceTree = "<group>"; };
 		5AA066FE29E589A34FD32C5E /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		5ED8265E3321D2A5A0E4170D /* AppIcon-Ember@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x.png"; sourceTree = "<group>"; };
 		610609351AABD36808642608 /* AppearanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceView.swift; sourceTree = "<group>"; };
@@ -492,8 +492,8 @@
 				0B6169C26020D6156BA7352D /* OpenThanksWatchApp.swift */,
 				1492832F51480664FA868B1F /* WatchPhoneSession.swift */,
 				5A78907B236CBABA2233D056 /* WatchRootView.swift */,
-				B2C3D4E5F60718293A4B5C6D /* WatchTheme.swift */,
-			);
+							E3C8938236F5AED3A487F1A7 /* WatchTheme.swift */,
+);
 			path = OpenThanksWatch;
 			sourceTree = "<group>";
 		};
@@ -1247,7 +1247,7 @@
 				829E4CC2390F305B93310571 /* WatchPhoneSession.swift in Sources */,
 				B848FFB6E382CD9F3663956E /* WatchRelay.swift in Sources */,
 				72773CFAD5A52646C6CDE6D1 /* WatchRootView.swift in Sources */,
-				A1B2C3D4E5F60718293A4B5C /* WatchTheme.swift in Sources */,
+				1D4616DFF17562F89CC39C65 /* WatchTheme.swift in Sources */,
 				472E06539772B7665712C59E /* WidgetDeepLink.swift in Sources */,
 				652CB389E2FF994DB08D335E /* WidgetSnapshot.swift in Sources */,
 			);
