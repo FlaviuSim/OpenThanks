@@ -69,6 +69,7 @@ struct MainTabView: View {
     @State private var didLogFirstSendTipShown = false
     /// Deferred notification / calendar sheets after send or accept.
     @State private var permissionScheduler = PermissionPromptScheduler.shared
+    @State private var appVisits = AppVisitCenter.shared
     @State private var updateChecker = AppUpdateChecker.shared
 
     private var usesSidebar: Bool { sizeClass == .regular }
@@ -813,9 +814,19 @@ struct MainTabView: View {
         homeChromeCollapsed = false
         if tab == value {
             popToRoot(value)
+            if value == .feed {
+                appVisits.recordReturn()
+                captureHomeRetap()
+            }
             return
         }
         withAnimation(.easeInOut(duration: 0.18)) { tab = value }
+    }
+
+    /// Re-tapping Home is a view, and so is the first time it appears.
+    private func captureHomeRetap() {
+        guard appVisits.claimHomeView(force: true) else { return }
+        Analytics.homeViewed(visitNumber: max(appVisits.number, 1), reason: "retap")
     }
 
     private func popToRoot(_ value: Tab) {

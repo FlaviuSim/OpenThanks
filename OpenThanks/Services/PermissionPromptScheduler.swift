@@ -2,7 +2,7 @@ import Foundation
 import UserNotifications
 
 /// Queues deferred notification / calendar prompts after send, accept, or calendar connect.
-/// Never blocks first login — RootView only shows calendar on the 3rd main-app open.
+/// Never blocks first login — the calendar gate waits until after the first thank-you.
 @MainActor
 @Observable
 final class PermissionPromptScheduler {
@@ -74,18 +74,19 @@ final class PermissionPromptScheduler {
         }
     }
 
-    /// Full-screen calendar on 3rd+ open when still disconnected and gate not finished.
-    /// At most two automatic shows per person, and not in a session that already accepted.
+    /// Full-screen calendar on a later open after the first thank-you, while still
+    /// disconnected. At most two automatic shows, and not in a session that already accepted.
     static var shouldShowDeferredCalendarGate: Bool {
         migrateOpenCountIfNeeded()
         guard !UserDefaults.standard.bool(forKey: completedCalendarKey) else { return false }
         guard !CalendarMeetingAggregator.hasAnyConnectedSource else { return false }
-        guard defaultsOpenCount >= 3 else { return false }
+        guard FirstThanksSent.hasSent() else { return false }
         return CalendarPromptCap.shouldShowAutomatic(
             source: .deferredOpen,
             shownCount: automaticCalendarShownCount(),
             acceptedThisSession: shared.acceptedThisSession,
-            calendarConnected: false
+            calendarConnected: false,
+            hasSentFirstThankYou: true
         )
     }
 
@@ -191,12 +192,14 @@ final class PermissionPromptScheduler {
         guard !CalendarMeetingAggregator.hasAnyConnectedSource else { return false }
         let promptSource: CalendarPromptSource = source == "post_accept" ? .postAccept : .postSend
         let cooldown = UserDefaults.standard.object(forKey: Self.appreciationCalendarCooldownKey) as? TimeInterval
+        let hasSent = FirstThanksSent.hasSent()
         return CalendarPromptCap.shouldShowAutomatic(
             source: promptSource,
             shownCount: Self.automaticCalendarShownCount(),
             acceptedThisSession: acceptedThisSession,
             calendarConnected: false,
-            cooldownUntil: cooldown.map { Date(timeIntervalSince1970: $0) }
+            cooldownUntil: cooldown.map { Date(timeIntervalSince1970: $0) },
+            hasSentFirstThankYou: hasSent
         )
     }
 }
