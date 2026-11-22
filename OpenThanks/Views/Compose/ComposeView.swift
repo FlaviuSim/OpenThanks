@@ -2699,7 +2699,7 @@ struct SuccessView: View {
 
                 VStack(spacing: 20) {
                     primaryCopyButton
-                        .softNoteReveal(delay: 0.18)
+                        .softNoteReveal(delay: 0.02)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Send them the link")
@@ -2754,7 +2754,7 @@ struct SuccessView: View {
                             }
                         }
                     }
-                    .softNoteReveal(delay: 0.24)
+                    .softNoteReveal(delay: 0.05)
 
                     ShareActionRow(
                         title: "Edit Appreciation",
@@ -2763,7 +2763,7 @@ struct SuccessView: View {
                     ) {
                         onEdit()
                     }
-                    .softNoteReveal(delay: 0.3)
+                    .softNoteReveal(delay: 0.08)
                 }
                 .padding(.horizontal, 24)
 

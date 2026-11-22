@@ -219,6 +219,12 @@ struct FeedView: View {
     /// Split out of `body` so SwiftUI type-checking stays tractable.
     @ViewBuilder
     private var feedRoot: some View {
+        feedRootLifecycle(feedRootPresentation)
+    }
+
+    /// Sheets / covers / destinations — kept separate from lifecycle observers.
+    @ViewBuilder
+    private var feedRootPresentation: some View {
         feedChromeOrSplit
             .background(Theme.background)
             .task(id: "\(isGuestMode)-\(scope.rawValue)") {
@@ -285,6 +291,11 @@ struct FeedView: View {
                 )
                 .syncAppAppearance()
             }
+    }
+
+    /// onChange / onReceive / appear hooks — split so the type checker can finish.
+    private func feedRootLifecycle<Content: View>(_ content: Content) -> some View {
+        content
             .onChange(of: searchFocused) { _, focused in
                 if focused {
                     searchBarVisible = true
@@ -303,6 +314,7 @@ struct FeedView: View {
                     object: nil,
                     userInfo: ["count": count]
                 )
+                refreshLocalFirstThanksSuggestions()
             }
             .onChange(of: showCompose) { _, open in
                 if open {
@@ -333,23 +345,7 @@ struct FeedView: View {
                 }
             }
             .onChange(of: scenePhase) { _, phase in
-                switch phase {
-                case .active:
-                    let previousVisit = appVisits.number
-                    appVisits.recordReturn()
-                    if homeWasBackgrounded || appVisits.number != previousVisit {
-                        homeWasBackgrounded = false
-                        captureHomeView(reason: "foreground")
-                    }
-                    refreshLocalFirstThanksSuggestions()
-                case .background:
-                    homeWasBackgrounded = true
-                    appVisits.noteActivity()
-                case .inactive:
-                    appVisits.noteActivity()
-                @unknown default:
-                    break
-                }
+                handleScenePhaseChange(phase)
             }
             .task(id: firstThanksShownTaskID) {
                 guard showsFirstThanksCard else { return }
@@ -361,9 +357,6 @@ struct FeedView: View {
                     visitNumber: visit,
                     suggestionKind: firstThanksSuggestions.kind.rawValue
                 )
-            }
-            .onChange(of: pendingToAccept.count) { _, _ in
-                refreshLocalFirstThanksSuggestions()
             }
             .onChange(of: personalItems.count) { _, _ in
                 refreshLocalFirstThanksSuggestions()
@@ -400,6 +393,26 @@ struct FeedView: View {
                 guard let blockedId = note.object as? UUID else { return }
                 handleUserDidBlock(blockedId)
             }
+    }
+
+    private func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .active:
+            let previousVisit = appVisits.number
+            appVisits.recordReturn()
+            if homeWasBackgrounded || appVisits.number != previousVisit {
+                homeWasBackgrounded = false
+                captureHomeView(reason: "foreground")
+            }
+            refreshLocalFirstThanksSuggestions()
+        case .background:
+            homeWasBackgrounded = true
+            appVisits.noteActivity()
+        case .inactive:
+            appVisits.noteActivity()
+        @unknown default:
+            break
+        }
     }
 
     @ViewBuilder
@@ -612,7 +625,8 @@ struct FeedView: View {
                     .task(id: prompt.day) {
                         guard let id = campaign.feed?.id else { return }
                         Analytics.campaignPromptShown(campaign: id, day: prompt.day)
-                        await CampaignPushOffer.offer(moment: .openedScreen)
+                        // Don't await the push prompt — it can stall Home chrome.
+                        Task { await CampaignPushOffer.offer(moment: .openedScreen) }
                         if let userId = auth.userId {
                             await campaign.refreshProgress(authorId: userId)
                         }
@@ -929,179 +943,234 @@ struct FeedView: View {
         let pageEmpty = pageItems.isEmpty && (page == .personal ? pendingToAccept.isEmpty : true)
 
         if pageLoading && pageEmpty {
-            VStack {
-                Spacer()
-                ProgressView().tint(Theme.primary)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            feedLoadingPlaceholder
         } else if let pageError, pageEmpty {
-            VStack {
-                Spacer()
-                VStack(spacing: 8) {
-                    Text("Couldn't load Home").font(Theme.body(16, weight: .semibold))
-                    Text(pageError).font(Theme.body(13)).foregroundStyle(Theme.textSecondary)
-                    Button("Try again") { Task { await load(for: page) } }
-                        .foregroundStyle(Theme.primary)
-                }
-                .padding(24)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            feedErrorPlaceholder(message: pageError, page: page)
         } else if pageEmpty {
-            ScrollView {
-                VStack(spacing: 28) {
-                    // Card sits in the feed column. The Thanksgiving icon banner
-                    // stays in top chrome, and the turkey decal stays on the
-                    // trailing side of the My Feed / World Feed picker.
-                    if page == .personal, showsFirstThanksCard {
-                        firstThanksCard
-                            .padding(.top, 8)
-                    }
-                    VStack(spacing: 16) {
-                        HeartMark(size: 48)
-                        Text(page == .personal
-                             ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
-                             : (isGuestMode
-                                ? "No public thank-yous yet — sign in to send the first one."
-                                : "Nothing public yet — be the first."))
-                            .font(Theme.body(15))
-                            .foregroundStyle(Theme.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                        if page == .personal, !showsFirstThanksCard {
-                            Button {
-                                Analytics.capture("home_empty_first_send_tapped")
-                                ComposeLaunchBridge.shared.queue(analyticsSource: "home_empty_first_send")
-                            } label: {
-                                Text("Send your first appreciation")
-                                    .font(Theme.body(15, weight: .semibold))
-                                    .foregroundStyle(Theme.onPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Theme.ctaGradient, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 40)
-                            .accessibilityLabel("Send your first appreciation")
-                        } else if isGuestMode {
-                            Button {
-                                promptGuestSignIn(.send)
-                            } label: {
-                                Text("Sign in to thank someone")
-                                    .font(Theme.body(15, weight: .semibold))
-                                    .foregroundStyle(Theme.onPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Theme.ctaGradient, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 40)
-                            .accessibilityLabel("Sign in to thank someone")
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, page == .personal && showsFirstThanksCard ? 4 : 72)
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 24)
-                .tabChromeBottomPadding()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            emptyFeed(for: page)
         } else {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 14) {
-                        if page == .personal, showsFirstThanksCard {
-                            firstThanksCard
-                                .padding(.top, 4)
-                        }
-                        if page == .personal, !pendingToAccept.isEmpty {
-                            pendingHeader
-                                .id("pendingThanks")
-                            ForEach(pendingToAccept) { item in
-                                AcceptPendingCard(
-                                    gratitude: item,
-                                    onAccepted: { accepted in
-                                        applyAcceptedPending(accepted)
-                                        presentPayItForward(from: accepted)
-                                    },
-                                    onDeclined: { id in
-                                        resolvedPendingIds.insert(id)
-                                        pendingToAccept.removeAll { $0.id == id }
-                                        Task { await refreshWidgetSnapshot() }
-                                    },
-                                    onFailed: { gratitude in
-                                        // Genuine network failure after optimistic remove —
-                                        // allow retry with a fresh button state.
-                                        resolvedPendingIds.remove(gratitude.id)
-                                        pendingCardEpoch[gratitude.id, default: 0] += 1
-                                        if !pendingToAccept.contains(where: { $0.id == gratitude.id }) {
-                                            pendingToAccept.insert(gratitude, at: 0)
-                                        }
-                                        mutateItems(for: .personal) { $0.removeAll { $0.id == gratitude.id } }
-                                        Task { await refreshWidgetSnapshot() }
-                                    }
-                                )
-                                .id("pending-\(item.id)-\(pendingCardEpoch[item.id, default: 0])")
-                            }
-                        }
+            populatedFeed(
+                for: page,
+                pageItems: pageItems,
+                pageHearts: pageHearts,
+                pageLoading: pageLoading
+            )
+        }
+    }
 
-                        ForEach(Array(pageItems.enumerated()), id: \.element.id) { index, item in
-                            GratitudeCard(
-                                gratitude: item,
-                                isHearted: pageHearts.contains(item.id),
-                                onHeart: { toggleHeart(item, in: page) },
-                                onSelect: nil,
-                                isSelected: false,
-                                onOpenProfile: { path.append($0) },
-                                onHeartCountResolved: { count in
-                                    mutateItems(for: page) { list in
-                                        guard let idx = list.firstIndex(where: { $0.id == item.id }) else { return }
-                                        let next = max(0, count)
-                                        let hearted = pageHearts.contains(item.id)
-                                        // Don't let a raced empty hearters query undo an optimistic heart.
-                                        if hearted, next < max(1, list[idx].heartCount) { return }
-                                        guard list[idx].heartCount != next else { return }
-                                        list[idx].hearts = [CountHolder(count: next)]
-                                    }
-                                }
-                            )
-                            .onAppear {
-                                if index >= pageItems.count - 3 {
-                                    Task { await loadMore(for: page) }
-                                }
-                            }
-                        }
+    private var feedLoadingPlaceholder: some View {
+        VStack {
+            Spacer()
+            ProgressView().tint(Theme.primary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
-                        if (page == .personal ? personalLoadingMore : worldLoadingMore) {
-                            ProgressView()
-                                .tint(Theme.primary)
+    private func feedErrorPlaceholder(message: String, page: Scope) -> some View {
+        VStack {
+            Spacer()
+            VStack(spacing: 8) {
+                Text("Couldn't load Home").font(Theme.body(16, weight: .semibold))
+                Text(message).font(Theme.body(13)).foregroundStyle(Theme.textSecondary)
+                Button("Try again") { Task { await load(for: page) } }
+                    .foregroundStyle(Theme.primary)
+            }
+            .padding(24)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func emptyFeed(for page: Scope) -> some View {
+        ScrollView {
+            VStack(spacing: 28) {
+                // Card sits in the feed column. The Thanksgiving icon banner
+                // stays in top chrome, and the turkey decal stays on the
+                // trailing side of the My Feed / World Feed picker.
+                if page == .personal, showsFirstThanksCard {
+                    firstThanksCard
+                        .padding(.top, 8)
+                }
+                VStack(spacing: 16) {
+                    HeartMark(size: 48)
+                    Text(page == .personal
+                         ? "My Feed shows people you’ve thanked, who’ve thanked you, or whose posts you’ve hearted. Send your first one to get started."
+                         : (isGuestMode
+                            ? "No public thank-yous yet — sign in to send the first one."
+                            : "Nothing public yet — be the first."))
+                        .font(Theme.body(15))
+                        .foregroundStyle(Theme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                    if page == .personal, !showsFirstThanksCard {
+                        Button {
+                            Analytics.capture("home_empty_first_send_tapped")
+                            ComposeLaunchBridge.shared.queue(analyticsSource: "home_empty_first_send")
+                        } label: {
+                            Text("Send your first appreciation")
+                                .font(Theme.body(15, weight: .semibold))
+                                .foregroundStyle(Theme.onPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
+                                .background(Theme.ctaGradient, in: Capsule())
                         }
-                    }
-                    .padding(.horizontal, 12)
-                    .tabChromeBottomPadding()
-                    .opacity(pageLoading && !pageEmpty ? 0.78 : 1)
-                    .animation(.easeInOut(duration: 0.28), value: pageLoading)
-                    // UIScrollView KVO — PreferenceKey on LazyVStack often never moves on iOS 17.
-                    .background {
-                        FeedScrollOffsetReader { offset in
-                            guard page == scope else { return }
-                            handleFeedScroll(to: offset)
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 40)
+                        .accessibilityLabel("Send your first appreciation")
+                    } else if isGuestMode {
+                        Button {
+                            promptGuestSignIn(.send)
+                        } label: {
+                            Text("Sign in to thank someone")
+                                .font(Theme.body(15, weight: .semibold))
+                                .foregroundStyle(Theme.onPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Theme.ctaGradient, in: Capsule())
                         }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 40)
+                        .accessibilityLabel("Sign in to thank someone")
                     }
                 }
-                .scrollDismissesKeyboard(.immediately)
-                .refreshable { await load(for: page) }
-                .onChange(of: scrollToPendingToken) { _, _ in
-                    guard page == .personal else { return }
-                    withAnimation(.easeInOut(duration: 0.35)) {
-                        proxy.scrollTo("pendingThanks", anchor: .top)
+                .frame(maxWidth: .infinity)
+                .padding(.top, page == .personal && showsFirstThanksCard ? 4 : 72)
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 24)
+            .tabChromeBottomPadding()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func populatedFeed(
+        for page: Scope,
+        pageItems: [Gratitude],
+        pageHearts: Set<UUID>,
+        pageLoading: Bool
+    ) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 14) {
+                    if page == .personal, showsFirstThanksCard {
+                        firstThanksCard
+                            .padding(.top, 4)
+                    }
+                    if page == .personal, !pendingToAccept.isEmpty {
+                        pendingAcceptSection
+                    }
+
+                    ForEach(Array(pageItems.enumerated()), id: \.element.id) { index, item in
+                        feedCard(
+                            item,
+                            in: page,
+                            pageHearts: pageHearts,
+                            isNearEnd: index >= pageItems.count - 3
+                        )
+                    }
+
+                    if (page == .personal ? personalLoadingMore : worldLoadingMore) {
+                        ProgressView()
+                            .tint(Theme.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .tabChromeBottomPadding()
+                .opacity(pageLoading ? 0.78 : 1)
+                .animation(.easeInOut(duration: 0.28), value: pageLoading)
+                // UIScrollView KVO — PreferenceKey on LazyVStack often never moves on iOS 17.
+                .background {
+                    FeedScrollOffsetReader { offset in
+                        guard page == scope else { return }
+                        handleFeedScroll(to: offset)
                     }
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
+            .refreshable { await load(for: page) }
+            .onChange(of: scrollToPendingToken) { _, _ in
+                guard page == .personal else { return }
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    proxy.scrollTo("pendingThanks", anchor: .top)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pendingAcceptSection: some View {
+        pendingHeader
+            .id("pendingThanks")
+        ForEach(pendingToAccept) { item in
+            AcceptPendingCard(
+                gratitude: item,
+                onAccepted: { accepted in
+                    applyAcceptedPending(accepted)
+                    presentPayItForward(from: accepted)
+                },
+                onDeclined: { id in
+                    resolvedPendingIds.insert(id)
+                    pendingToAccept.removeAll { $0.id == id }
+                    Task { await refreshWidgetSnapshot() }
+                },
+                onFailed: { gratitude in
+                    // Genuine network failure after optimistic remove —
+                    // allow retry with a fresh button state.
+                    resolvedPendingIds.remove(gratitude.id)
+                    pendingCardEpoch[gratitude.id, default: 0] += 1
+                    if !pendingToAccept.contains(where: { $0.id == gratitude.id }) {
+                        pendingToAccept.insert(gratitude, at: 0)
+                    }
+                    mutateItems(for: .personal) { $0.removeAll { $0.id == gratitude.id } }
+                    Task { await refreshWidgetSnapshot() }
+                }
+            )
+            .id("pending-\(item.id)-\(pendingCardEpoch[item.id, default: 0])")
+        }
+    }
+
+    private func feedCard(
+        _ item: Gratitude,
+        in page: Scope,
+        pageHearts: Set<UUID>,
+        isNearEnd: Bool
+    ) -> some View {
+        GratitudeCard(
+            gratitude: item,
+            isHearted: pageHearts.contains(item.id),
+            onHeart: { toggleHeart(item, in: page) },
+            onSelect: nil,
+            isSelected: false,
+            onOpenProfile: { path.append($0) },
+            onHeartCountResolved: { count in
+                applyResolvedHeartCount(count, for: item.id, in: page, pageHearts: pageHearts)
+            }
+        )
+        .onAppear {
+            if isNearEnd {
+                Task { await loadMore(for: page) }
+            }
+        }
+    }
+
+    private func applyResolvedHeartCount(
+        _ count: Int,
+        for itemId: UUID,
+        in page: Scope,
+        pageHearts: Set<UUID>
+    ) {
+        mutateItems(for: page) { list in
+            guard let idx = list.firstIndex(where: { $0.id == itemId }) else { return }
+            let next = max(0, count)
+            let hearted = pageHearts.contains(itemId)
+            // Don't let a raced empty hearters query undo an optimistic heart.
+            if hearted, next < max(1, list[idx].heartCount) { return }
+            guard list[idx].heartCount != next else { return }
+            list[idx].hearts = [CountHolder(count: next)]
         }
     }
 

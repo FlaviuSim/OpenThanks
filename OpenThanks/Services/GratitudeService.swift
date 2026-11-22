@@ -647,11 +647,9 @@ enum GratitudeService {
         var payload = new
         await resolveRecipientContact(&payload)
 
-        // Explicit pay-it-forward parent wins; otherwise most recent accepted
-        // thanks this author received within 7 days (API also applies this).
-        if payload.inspiredByGratitudeId == nil {
-            payload.inspiredByGratitudeId = await recentReceivedParentId(for: payload.authorId)
-        }
+        // Leave inspired_by unset unless the client already chose a parent
+        // (pay-it-forward / ripple). The create API fills the 7-day fallback —
+        // doing that lookup here doubled Continue latency for no gain.
 
         let startedAt = Date()
         do {
@@ -1036,24 +1034,6 @@ enum GratitudeService {
         } catch {
             throw AppreciationSendFailure.wrapping(error, stage: stage, attemptNumber: 2)
         }
-    }
-
-    /// Most recent accepted appreciation this user received within 7 days.
-    private static func recentReceivedParentId(for userId: UUID) async -> UUID? {
-        let since = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-            .addingTimeInterval(-7 * 86_400)
-        struct IdRow: Decodable { let id: UUID }
-        let rows: [IdRow] = (try? await supabase.from("gratitudes")
-            .select("id")
-            .eq("recipient_id", value: userId)
-            .eq("status", value: "accepted")
-            .not("accepted_at", operator: .is, value: "null")
-            .gte("accepted_at", value: since.ISO8601Format())
-            .order("accepted_at", ascending: false)
-            .limit(1)
-            .execute()
-            .value) ?? []
-        return rows.first?.id
     }
 
     /// Contact fields for a member — used when thanking from their profile.

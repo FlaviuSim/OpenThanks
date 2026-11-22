@@ -101,7 +101,7 @@ struct GuestBrowseShell: View {
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 14)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .background(Theme.surface.opacity(0.94), in: Capsule())
                     .overlay(Capsule().strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1))
             }
             .buttonStyle(.plain)

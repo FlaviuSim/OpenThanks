@@ -55,13 +55,13 @@ struct DeliverAppreciationView: View {
 
                 VStack(spacing: 22) {
                     recipientBlock
-                        .softNoteReveal(delay: 0.12)
+                        .softNoteReveal(delay: 0.02)
 
                     shareBlock
-                        .softNoteReveal(delay: 0.2)
+                        .softNoteReveal(delay: 0.05)
 
                     visibilityBlock
-                        .softNoteReveal(delay: 0.28)
+                        .softNoteReveal(delay: 0.08)
 
                     if let error {
                         Text(error)
@@ -78,7 +78,7 @@ struct DeliverAppreciationView: View {
                     ) {
                         onEdit()
                     }
-                    .softNoteReveal(delay: 0.34)
+                    .softNoteReveal(delay: 0.1)
                 }
                 .padding(.horizontal, 24)
 
@@ -171,7 +171,7 @@ struct DeliverAppreciationView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, 4)
             }
-            .softNoteReveal(delay: 0.08)
+            .softNoteReveal()
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 28)
