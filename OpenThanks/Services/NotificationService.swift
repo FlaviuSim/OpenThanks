@@ -390,7 +390,7 @@ enum NotificationService {
         // Notifications at 8:00 PM rather than at whatever time the app next opens.
         if now >= eightPM {
             if !CalendarThankSuggestionStore.containsSuggestion(on: now),
-               let nudge = await GratitudeOpportunityRanker.pickNudge(
+               let nudge = await CalendarThankSuggestionService.resolveNudge(
                    for: now,
                    authorId: resolvedAuthorId,
                    selfEmails: selfEmails,
@@ -407,7 +407,7 @@ enum NotificationService {
         // Anything shown before 8:00 PM is the early alert. Drop it and reschedule.
         await clearUnsentCalendarNudge()
 
-        guard let nudge = await GratitudeOpportunityRanker.pickNudge(
+        guard let nudge = await CalendarThankSuggestionService.resolveNudge(
             for: now,
             authorId: resolvedAuthorId,
             selfEmails: selfEmails,
@@ -481,10 +481,15 @@ enum NotificationService {
     private static func calendarNudgeContent(for nudge: GratitudeNudge) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = "🤝 Someone to thank tonight?"
-        let meetingBit = nudge.meetingTitle.count <= 40
-            ? " about \(nudge.meetingTitle)"
-            : ""
-        content.body = "You met with \(nudge.personName)\(meetingBit) — send a quick thanks?"
+        let reason = nudge.reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !reason.isEmpty, reason.count <= 120 {
+            content.body = "Thank \(nudge.personName)? \(reason)"
+        } else {
+            let meetingBit = nudge.meetingTitle.count <= 40
+                ? " about \(nudge.meetingTitle)"
+                : ""
+            content.body = "You met with \(nudge.personName)\(meetingBit) — send a quick thanks?"
+        }
         if let campaign = CampaignFeedCache.shared.prompt(on: Date()) {
             content.subtitle = "Day \(campaign.day) · \(clippedNotification(campaign.prompt, limit: 80))"
         }

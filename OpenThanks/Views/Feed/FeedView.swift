@@ -38,6 +38,8 @@ struct FeedView: View {
     @State private var six26ClaimMessage: String?
     @State private var six26ClaimBusy = false
     @State private var showCalendarConnect = false
+    @State private var homeCalendarSuggestion: CalendarServerAPI.Suggestion?
+    @State private var homeCalendarSuggestionDismissedDay: String?
     @State private var scope: Scope = .personal
     /// Per-scope lists so My ↔ World can page without flashing the wrong feed.
     @State private var personalItems: [Gratitude] = []
@@ -540,6 +542,13 @@ struct FeedView: View {
             await campaign.refresh()
             campaignConfigCTA = await CompetitionConfigService.refresh().cta
         }
+        .task(id: isSelected) {
+            guard isSelected, !isGuestMode, CalendarServerSyncConsent.hasConsented else { return }
+            if let today = try? await CalendarServerAPI.todaySuggestion() {
+                homeCalendarSuggestion = today.suggestion
+            }
+            await AppleCalendarHistoryUploader.uploadIfNeeded()
+        }
         .onChange(of: isSelected) { _, selected in
             if selected { calendarReminder.refresh() }
         }
@@ -600,6 +609,24 @@ struct FeedView: View {
                 .padding(.bottom, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 .onAppear { calendarReminder.trackBannerShown() }
+            }
+            if let suggestion = homeCalendarSuggestion,
+               homeCalendarSuggestionDismissedDay != suggestion.for_day {
+                CalendarThankSuggestionCard(
+                    personName: suggestion.person_name,
+                    reason: suggestion.reason,
+                    onThank: {
+                        CalendarThankSuggestionService.openCompose(from: suggestion)
+                        homeCalendarSuggestion = nil
+                    },
+                    onDismiss: {
+                        homeCalendarSuggestionDismissedDay = suggestion.for_day
+                        homeCalendarSuggestion = nil
+                    }
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, shouldShowCalendarBanner ? 4 : 10)
+                .padding(.bottom, 4)
             }
             if pendingSentCount > 0 {
                 PendingAppreciationsBanner(count: pendingSentCount)

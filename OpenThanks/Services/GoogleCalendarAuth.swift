@@ -8,9 +8,11 @@ enum GoogleCalendarAuth {
     private static let accessTokenKey = "accessToken"
     private static let refreshTokenKey = "refreshToken"
     private static let expiryKey = "expiry"
+    private static let serverLinkedKey = "googleCalendar.serverLinked"
 
     static var isConnected: Bool {
-        KeychainStore.string(forKey: refreshTokenKey) != nil
+        UserDefaults.standard.bool(forKey: serverLinkedKey)
+            || KeychainStore.string(forKey: refreshTokenKey) != nil
             || KeychainStore.string(forKey: accessTokenKey) != nil
     }
 
@@ -64,7 +66,19 @@ enum GoogleCalendarAuth {
             throw GoogleCalendarError.missingCode
         }
 
-        try await exchangeCode(code, verifier: verifier)
+        if CalendarServerSyncConsent.hasConsented {
+            // Code is single-use — exchange on OpenThanks servers, keep a short-lived
+            // access token locally for today-only fallback while history backfills.
+            try await CalendarServerAPI.connectGoogle(
+                code: code,
+                codeVerifier: verifier,
+                redirectUri: AppConfig.googleCalendarRedirectURL.absoluteString
+            )
+            UserDefaults.standard.set(true, forKey: serverLinkedKey)
+        } else {
+            try await exchangeCode(code, verifier: verifier)
+            UserDefaults.standard.set(false, forKey: serverLinkedKey)
+        }
         Analytics.calendarConnected(
             provider: "google",
             accessLevel: "full",
@@ -82,8 +96,21 @@ enum GoogleCalendarAuth {
             && ns.code == ASWebAuthenticationSessionError.canceledLogin.rawValue
     }
 
+    /// Stores a short-lived access token from server OAuth (no refresh token on device).
+    static func persistServerIssuedAccessToken(_ accessToken: String, expiresAt: Date?) {
+        KeychainStore.set(accessToken, forKey: accessTokenKey)
+        let expiry = expiresAt?.timeIntervalSince1970
+            ?? Date().timeIntervalSince1970 + 3500
+        KeychainStore.set(String(expiry), forKey: expiryKey)
+        // Refresh stays on the server after re-consent — clear any stale local refresh.
+        KeychainStore.removeAll(keys: [refreshTokenKey])
+    }
+
     static func disconnect() async {
         let wasConnected = isConnected
+        if CalendarServerSyncConsent.hasConsented {
+            try? await CalendarServerAPI.disconnect(provider: "google")
+        }
         if let token = KeychainStore.string(forKey: accessTokenKey)
             ?? KeychainStore.string(forKey: refreshTokenKey) {
             var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/revoke")!)
@@ -93,6 +120,7 @@ enum GoogleCalendarAuth {
             _ = try? await URLSession.shared.data(for: request)
         }
         KeychainStore.removeAll(keys: [accessTokenKey, refreshTokenKey, expiryKey])
+        UserDefaults.standard.set(false, forKey: serverLinkedKey)
         if wasConnected {
             Analytics.calendarDisconnected(provider: "google")
         }
@@ -107,6 +135,8 @@ enum GoogleCalendarAuth {
             return token
         }
         guard let refresh = KeychainStore.string(forKey: refreshTokenKey) else {
+            // Server-sync mode: refresh token is not on device. Today-only Google
+            // fallback ends when the access token expires; server suggestions remain.
             throw GoogleCalendarError.notConnected
         }
         try await refreshAccessToken(refresh)

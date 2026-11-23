@@ -294,6 +294,31 @@ enum Analytics {
         Task { await syncPermissionPersonProperties() }
     }
 
+    static func calendarServerConnected(provider: String) {
+        capture(
+            "calendar_server_connected",
+            ["provider": provider],
+            userProperties: ["calendar_server_sync": true],
+            userPropertiesSetOnce: nil
+        )
+    }
+
+    static func calendarBackfillComplete(provider: String) {
+        capture("calendar_backfill_complete", ["provider": provider])
+    }
+
+    static func calendarAISuggested(source: String) {
+        capture("calendar_ai_suggested", ["source": source])
+    }
+
+    static func calendarAIThankOpened() {
+        capture("calendar_ai_thank_opened")
+    }
+
+    static func calendarAIThankSent() {
+        capture("calendar_ai_thank_sent")
+    }
+
     // MARK: - Home first thank-you
 
     /// Home became visible. `reason` is `appear`, `foreground`, `tab`, or `retap`.
@@ -543,6 +568,12 @@ enum Analytics {
         capture("appreciation_submitted", formProps(props, formSessionId: formSessionId))
         if campaign == "six-for-2026" {
             capture("six26_sent", formProps(props, formSessionId: formSessionId))
+        }
+        if let source,
+           source == "calendar_ai_suggestion"
+            || source == "calendar_evening_nudge"
+            || source == "notification_calendar_nudge" {
+            calendarAIThankSent()
         }
     }
 

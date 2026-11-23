@@ -64,7 +64,7 @@ struct CalendarPermissionView: View {
                         .font(Theme.display(28, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text("Connect a calendar and we’ll suggest one person to thank from today’s meetings — a weekday evening nudge at 8 so good days end feeling fuller.")
+                    Text("Connect a calendar and we’ll suggest people to thank — including from your history after you consent to sync. Weekday evening nudge at 8 so good days end feeling fuller.")
                         .font(Theme.body(16))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
@@ -96,7 +96,7 @@ struct CalendarPermissionView: View {
 
                 CalendarSourceChoice(
                     title: "Apple Calendar",
-                    subtitle: "Meetings stay on this device — you’ll get a permission prompt next",
+                    subtitle: "You’ll get a permission prompt — history sync needs a separate consent",
                     systemImage: "apple.logo",
                     isBusy: busyApple,
                     disabled: busy

@@ -362,7 +362,8 @@ enum GratitudeService {
             .from("profiles")
             .select("favorite_nonprofit_name")
             .eq("id", value: authorId)
-            .maybeSingle()
+            .limit(1)
+            .single()
             .execute()
             .value
 
@@ -375,7 +376,8 @@ enum GratitudeService {
             .select("rank, status")
             .eq("campaign_id", value: "six-for-2026")
             .eq("user_id", value: authorId)
-            .maybeSingle()
+            .limit(1)
+            .single()
             .execute()
             .value
 

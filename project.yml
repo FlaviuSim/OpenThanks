@@ -79,8 +79,8 @@ targets:
         NSMicrophoneUsageDescription: OpenThanks uses the microphone so you can speak your appreciation.
         NSSpeechRecognitionUsageDescription: OpenThanks turns your spoken appreciation into text.
         NSSiriUsageDescription: OpenThanks uses Siri to help you thank someone or start an appreciation.
-        NSCalendarsUsageDescription: OpenThanks reads today’s Apple Calendar meetings to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.
-        NSCalendarsFullAccessUsageDescription: OpenThanks reads today’s Apple Calendar meetings and attendees to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.
+        NSCalendarsUsageDescription: OpenThanks reads your Apple Calendar (titles, times, attendees, and notes) to suggest people to thank. With your consent, history may sync to OpenThanks servers only for thank-you suggestions and drafts.
+        NSCalendarsFullAccessUsageDescription: OpenThanks reads your Apple Calendar (titles, times, attendees, and notes) to suggest people to thank. With your consent, history may sync to OpenThanks servers only for thank-you suggestions and drafts.
         UIBackgroundModes:
           - fetch
         BGTaskSchedulerPermittedIdentifiers:
