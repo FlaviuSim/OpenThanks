@@ -454,10 +454,16 @@ enum Analytics {
         let key = "\(campaign)|\(day)"
         guard shownCampaignDays.insert(key).inserted else { return }
         capture("campaign_prompt_shown", ["campaign": campaign, "day": day])
+        if campaign == "six-for-2026" {
+            capture("six26_prompt_shown", ["campaign": campaign, "day": day])
+        }
     }
 
     static func campaignPromptTapped(campaign: String, day: Int) {
         capture(CampaignPromptCardModel.tapEvent, ["campaign": campaign, "day": day])
+        if campaign == "six-for-2026" {
+            capture("six26_prompt_tapped", ["campaign": campaign, "day": day])
+        }
     }
 
     // MARK: - Compose funnel (aligned with web PostHog events)
@@ -535,6 +541,9 @@ enum Analytics {
         }
         mergePromptExperiment(&props, experiment: promptExperiment, variant: promptVariant)
         capture("appreciation_submitted", formProps(props, formSessionId: formSessionId))
+        if campaign == "six-for-2026" {
+            capture("six26_sent", formProps(props, formSessionId: formSessionId))
+        }
     }
 
     /// A save of a thank-you that already existed. Not a send, so it does not

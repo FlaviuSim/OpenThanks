@@ -330,6 +330,85 @@ enum GratitudeService {
             .value
     }
 
+    struct SixFor2026Progress: Sendable {
+        var qualified: Int
+        var hasNonprofit: Bool
+        var finisherRank: Int?
+        var finisherStatus: String?
+    }
+
+    struct SixFor2026ClaimResult: Sendable {
+        var ok: Bool
+        var rank: Int?
+        var status: String?
+        var poolFull: Bool
+        var message: String?
+    }
+
+    /// Public-accepted Dec qualifications via `six_for_2026_qualifying_ids`.
+    static func sixFor2026Progress(authorId: UUID) async throws -> SixFor2026Progress {
+        let ids: [UUID] = try await supabase
+            .rpc("six_for_2026_qualifying_ids", params: ["p_user_id": authorId.uuidString])
+            .execute()
+            .value
+
+        struct NonprofitRow: Decodable {
+            let favoriteNonprofitName: String?
+            enum CodingKeys: String, CodingKey {
+                case favoriteNonprofitName = "favorite_nonprofit_name"
+            }
+        }
+        let profile: NonprofitRow? = try? await supabase
+            .from("profiles")
+            .select("favorite_nonprofit_name")
+            .eq("id", value: authorId)
+            .maybeSingle()
+            .execute()
+            .value
+
+        struct FinisherRow: Decodable {
+            let rank: Int?
+            let status: String?
+        }
+        let finisher: FinisherRow? = try? await supabase
+            .from("campaign_finishers")
+            .select("rank, status")
+            .eq("campaign_id", value: "six-for-2026")
+            .eq("user_id", value: authorId)
+            .maybeSingle()
+            .execute()
+            .value
+
+        return SixFor2026Progress(
+            qualified: ids.count,
+            hasNonprofit: !(profile?.favoriteNonprofitName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
+            finisherRank: finisher?.rank,
+            finisherStatus: finisher?.status
+        )
+    }
+
+    static func claimSixFor2026Finisher() async throws -> SixFor2026ClaimResult {
+        struct Payload: Decodable {
+            let ok: Bool?
+            let rank: Int?
+            let status: String?
+            let poolFull: Bool?
+            let message: String?
+            let error: String?
+        }
+        let payload: Payload = try await supabase
+            .rpc("claim_six_for_2026_finisher")
+            .execute()
+            .value
+        return SixFor2026ClaimResult(
+            ok: payload.ok ?? false,
+            rank: payload.rank,
+            status: payload.status,
+            poolFull: payload.poolFull ?? false,
+            message: payload.message ?? payload.error
+        )
+    }
+
     /// Accepted appreciations sent by a user, restricted to what `viewerId`
     /// may see: public posts, plus private ones the viewer is party to.
     /// Pass `before` (oldest `accepted_at` already shown) for the next page.

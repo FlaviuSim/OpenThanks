@@ -170,16 +170,24 @@ final class DeepLinkRouter {
         return first == "feed"
     }
 
-    /// `https://openthanks.com/november` opens compose for the November campaign.
+    /// `https://openthanks.com/november` or `/six-for-26` opens campaign compose.
     static func isCampaignPath(_ url: URL) -> Bool {
-        pathParts(url).first?.lowercased() == "november"
+        let first = pathParts(url).first?.lowercased()
+        return first == "november" || first == "six-for-26" || first == "december"
     }
 
     static func queueCampaign(from url: URL) {
         let campaign = queryValue(url, name: "campaign")?
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let id = (campaign?.isEmpty == false) ? campaign! : CampaignFeed.november2026ID
-        let day = queryInt(url, name: "day")
+        let path = pathParts(url).first?.lowercased()
+        let defaultID: String
+        if path == "six-for-26" || path == "december" {
+            defaultID = CampaignFeed.sixFor2026ID
+        } else {
+            defaultID = CampaignFeed.november2026ID
+        }
+        let id = (campaign?.isEmpty == false) ? campaign! : defaultID
+        let day = queryInt(url, name: "day") ?? queryInt(url, name: "prompt")
         Task { @MainActor in
             await CampaignService.shared.openCompose(
                 link: CampaignComposeLink(id: id, day: day),

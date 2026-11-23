@@ -35,6 +35,8 @@ struct FeedView: View {
     @State private var campaign = CampaignService.shared
     /// `app_config.competition.cta`. Nil until the remote row is read.
     @State private var campaignConfigCTA: String?
+    @State private var six26ClaimMessage: String?
+    @State private var six26ClaimBusy = false
     @State private var showCalendarConnect = false
     @State private var scope: Scope = .personal
     /// Per-scope lists so My ↔ World can page without flashing the wrong feed.
@@ -631,6 +633,11 @@ struct FeedView: View {
                             await campaign.refreshProgress(authorId: userId)
                         }
                     }
+                if campaign.feed?.isSixFor2026 == true {
+                    sixFor2026ClaimBanner
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 4)
+                }
             }
             if isGuestMode {
                 Text("Browsing free. Sign in when you’re ready to send or keep one.")
@@ -660,6 +667,69 @@ struct FeedView: View {
         Task {
             await CampaignPushOffer.offer(moment: .joined)
         }
+    }
+
+    @ViewBuilder
+    private var sixFor2026ClaimBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let rank = campaign.finisherRank {
+                Text("Six for '26 · You're #\(rank) of 20. We'll contact you outside the app about the $600 donation.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if campaign.canClaimSixFor2026 {
+                Text("All six public accepts are in. Claim your first-20 spot — payout is offline.")
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    guard !six26ClaimBusy else { return }
+                    six26ClaimBusy = true
+                    Task {
+                        let message = await campaign.claimSixFor2026Finisher()
+                        six26ClaimMessage = message
+                        six26ClaimBusy = false
+                    }
+                } label: {
+                    Text(six26ClaimBusy ? "Checking…" : "I've finished — claim my spot")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Theme.ctaGradient, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(six26ClaimBusy)
+            } else if (campaign.daysSent ?? 0) > 0 {
+                Text("Progress counts only after each thank-you is accepted publicly — six people, six days.")
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let six26ClaimMessage {
+                Text(six26ClaimMessage)
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if campaign.canClaimSixFor2026 == false,
+               (campaign.daysSent ?? 0) >= campaign.progressTotal,
+               !campaign.hasFavoriteNonprofit {
+                Text("Add a favorite charity on your profile before claiming.")
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Theme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Theme.hairline, lineWidth: 1)
+        )
     }
 
     private var hasSentThankYou: Bool {

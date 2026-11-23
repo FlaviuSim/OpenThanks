@@ -168,6 +168,54 @@ struct ComposeView: View {
     }
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
 
+    private var isSixFor2026Campaign: Bool {
+        campaignId == CampaignFeed.sixFor2026ID
+    }
+
+    private var campaignChromeTitle: String {
+        let base = isSixFor2026Campaign ? CampaignFeed.sixFor2026CardTitle : CampaignFeed.cardTitle
+        if let campaignDay {
+            return isSixFor2026Campaign ? "\(base) · Slot \(campaignDay)" : "\(base) · Day \(campaignDay)"
+        }
+        return base
+    }
+
+    private static let sixFor2026Chips = [
+        "had my back",
+        "made me laugh",
+        "taught me something",
+        "made a hard day easier",
+        "showed up",
+        "I never properly thanked",
+    ]
+
+    private var sixFor2026ChipTray: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tap 1–3 chips to start")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textTertiary)
+            FlexibleChipRow(chips: Self.sixFor2026Chips) { chip in
+                appendSix26Chip(chip)
+                Analytics.capture("six26_chip_selected", [
+                    "campaign": CampaignFeed.sixFor2026ID,
+                    "chip": chip,
+                ])
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func appendSix26Chip(_ chip: String) {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            message = "Thank you for how you \(chip)."
+            return
+        }
+        if trimmed.lowercased().contains(chip.lowercased()) { return }
+        let needsSpace = trimmed.last.map { ".!?".contains($0) } ?? false
+        message = trimmed + (needsSpace ? " " : ". ") + "You \(chip)."
+    }
+
     private var campaignHintText: String? {
         let trimmed = campaignHint?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let trimmed, !trimmed.isEmpty else { return nil }
@@ -1129,7 +1177,7 @@ struct ComposeView: View {
         VStack(alignment: .leading, spacing: 10) {
             if let campaignHintText {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(campaignDay.map { "\(CampaignFeed.cardTitle) · Day \($0)" } ?? CampaignFeed.cardTitle)
+                    Text(campaignChromeTitle)
                         .font(Theme.body(12, weight: .semibold))
                         .foregroundStyle(Theme.primary)
                     Text(campaignHintText)
@@ -1151,6 +1199,9 @@ struct ComposeView: View {
                         .fill(Theme.coral.opacity(0.10))
                 )
                 .accessibilityElement(children: .combine)
+                if isSixFor2026Campaign {
+                    sixFor2026ChipTray
+                }
             } else if let reassurance = openCopyPack?.reassurance,
                       !reassurance.isEmpty,
                       !(usesTwoStepFlow && !isEditing) {
@@ -2908,6 +2959,72 @@ struct SuccessView: View {
             phone: gratitude.recipientPhone
         ) {
             openURL(url)
+        }
+    }
+}
+
+/// Simple wrapping chip row for Six for '26 starters.
+private struct FlexibleChipRow: View {
+    let chips: [String]
+    var onTap: (String) -> Void
+
+    var body: some View {
+        FlexibleChipLayout(spacing: 8) {
+            ForEach(chips, id: \.self) { chip in
+                Button {
+                    onTap(chip)
+                } label: {
+                    Text(chip)
+                        .font(Theme.body(12, weight: .medium))
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Theme.surfaceRaised, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct FlexibleChipLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var height: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            height = max(height, y + rowHeight)
+        }
+        return CGSize(width: maxWidth.isFinite ? maxWidth : x, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            sub.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }
