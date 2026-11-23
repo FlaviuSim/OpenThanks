@@ -181,12 +181,10 @@ struct ComposeView: View {
     }
 
     private static let sixFor2026Chips = [
-        "had my back",
         "made me laugh",
         "taught me something",
         "made a hard day easier",
         "showed up",
-        "I never properly thanked",
     ]
 
     private var sixFor2026ChipTray: some View {
