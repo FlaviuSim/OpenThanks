@@ -196,8 +196,7 @@ enum FirstSendTip {
         NotificationCenter.default.post(name: composerOpened, object: nil)
     }
 
-    /// The tip sits on the Home tab bar. Hide it under the ripple sheet, and
-    /// hide it once this device has opened the composer or sent a note.
+    /// Retired — the Home “+ button starts a note” coachmark is no longer shown.
     static func shouldShow(
         hasSeenTip: Bool,
         isFeedTab: Bool,
@@ -208,13 +207,6 @@ enum FirstSendTip {
         hasOpenedComposer: Bool,
         hasSentAppreciation: Bool
     ) -> Bool {
-        !hasSeenTip
-            && isFeedTab
-            && !tabComposerPresented
-            && !searchActive
-            && pendingAcceptCount == 0
-            && !rippleSheetPresented
-            && !hasOpenedComposer
-            && !hasSentAppreciation
+        false
     }
 }
