@@ -241,16 +241,16 @@ final class CampaignService {
     private var activeFeedID: String = CampaignFeed.activeCampaignID()
 
     private init() {
-        activeFeedID = CampaignFeed.activeCampaignID()
-        if let disk = Self.loadDisk(id: activeFeedID) {
-            apply(disk.feed, persist: false)
-            lastRevalidatedAt = disk.savedAt
-        }
         #if DEBUG
         if let stored = UserDefaults.standard.string(forKey: Self.debugDateKey) {
             debugDateYMD = CampaignFeed.normalizeYMD(stored)
         }
         #endif
+        activeFeedID = desiredFeedID()
+        if let disk = Self.loadDisk(id: activeFeedID) {
+            apply(disk.feed, persist: false)
+            lastRevalidatedAt = disk.savedAt
+        }
     }
 
     var todayPrompt: CampaignPrompt? {
@@ -414,21 +414,35 @@ final class CampaignService {
 
     #if DEBUG
     func setDebugDate(_ date: Date) {
-        let parts = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        let zone = TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
         guard let year = parts.year, let month = parts.month, let day = parts.day else { return }
         let ymd = String(format: "%04d-%02d-%02d", year, month, day)
         debugDateYMD = CampaignFeed.normalizeYMD(ymd)
         if let debugDateYMD {
             UserDefaults.standard.set(debugDateYMD, forKey: Self.debugDateKey)
         }
+        Task { await refresh() }
     }
 
     func clearDebugDate() {
         debugDateYMD = nil
         UserDefaults.standard.removeObject(forKey: Self.debugDateKey)
+        Task { await refresh() }
     }
 
+    /// Default preview jump: first day of Six for '26 (December).
     static func debugPreviewStart() -> Date {
+        CampaignFeed.date(
+            ymd: "2026-12-01",
+            timeZone: TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current,
+            hour: 12
+        ) ?? Date()
+    }
+
+    static func debugPreviewNovemberStart() -> Date {
         CampaignFeed.date(
             ymd: "2026-11-01",
             timeZone: TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current,
@@ -437,13 +451,35 @@ final class CampaignService {
     }
     #endif
 
+    /// Feed id for the UI clock (DEBUG preview date when set).
+    private func desiredFeedID(at date: Date = Date()) -> String {
+        CampaignFeed.activeCampaignID(at: uiClockDate(at: date))
+    }
+
+    private func uiClockDate(at date: Date = Date()) -> Date {
+        #if DEBUG
+        if let debugDateYMD,
+           let override = CampaignFeed.date(
+               ymd: debugDateYMD,
+               timeZone: TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current,
+               hour: 12
+           ) {
+            return override
+        }
+        #endif
+        return date
+    }
+
     // MARK: - Refresh
 
     private func performRefresh() async {
-        let desiredID = CampaignFeed.activeCampaignID()
+        let desiredID = desiredFeedID()
         if desiredID != activeFeedID {
             activeFeedID = desiredID
             lastRevalidatedAt = nil
+            progressLoaded = false
+            daysSent = nil
+            sentDayKeys = []
             if let disk = Self.loadDisk(id: desiredID) {
                 apply(disk.feed, persist: false)
             } else {
@@ -478,10 +514,11 @@ final class CampaignService {
     }
 
     private func shouldRevalidate(_ feed: CampaignFeed?) -> Bool {
-        if CampaignFeed.activeCampaignID() != activeFeedID { return true }
+        if desiredFeedID() != activeFeedID { return true }
         guard let lastRevalidatedAt else { return true }
         if Date().timeIntervalSince(lastRevalidatedAt) > Self.freshInterval { return true }
-        if let feed, feed.ymd(for: lastRevalidatedAt) != feed.ymd(for: Date()) { return true }
+        let clock = uiClockDate()
+        if let feed, feed.ymd(for: lastRevalidatedAt) != feed.ymd(for: clock) { return true }
         return false
     }
 

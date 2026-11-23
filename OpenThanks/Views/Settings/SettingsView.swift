@@ -48,6 +48,7 @@ struct SettingsView: View {
             get: { campaignDebug.debugDateYMD != nil },
             set: { enabled in
                 if enabled {
+                    // Dec 1 → Six for '26 feed. Use Nov for 30 Days of Thanks.
                     campaignDebug.setDebugDate(CampaignService.debugPreviewStart())
                 } else {
                     campaignDebug.clearDebugDate()
@@ -56,18 +57,31 @@ struct SettingsView: View {
         )) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Preview campaign date")
-                Text("Home uses this date for 30 Days of Thanks. Release builds use today.")
+                Text("DEBUG only. Dec 1+ loads Six for ’26; Nov loads 30 Days of Thanks.")
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
             }
         }
         if campaignDebug.debugDateYMD != nil {
             DatePicker("Campaign date", selection: campaignDebugDate, displayedComponents: .date)
-            Text(campaignDebug.feed == nil
-                 ? "No prompt feed cached yet. The Home card stays hidden until openthanks.com serves it."
-                 : "Cached \(campaignDebug.feed?.prompts.count ?? 0) prompts.")
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textSecondary)
+            HStack(spacing: 12) {
+                Button("Nov 1") {
+                    campaignDebug.setDebugDate(CampaignService.debugPreviewNovemberStart())
+                }
+                .font(Theme.body(13, weight: .semibold))
+                Button("Dec 1") {
+                    campaignDebug.setDebugDate(CampaignService.debugPreviewStart())
+                }
+                .font(Theme.body(13, weight: .semibold))
+            }
+            .foregroundStyle(Theme.coral)
+            Text(
+                campaignDebug.feed == nil
+                    ? "No prompt feed cached yet. The Home card stays hidden until openthanks.com serves it."
+                    : "Active feed: \(campaignDebug.feed?.id ?? "—") · \(campaignDebug.feed?.prompts.count ?? 0) prompts."
+            )
+            .font(Theme.body(12))
+            .foregroundStyle(Theme.textSecondary)
         }
     }
     #endif
