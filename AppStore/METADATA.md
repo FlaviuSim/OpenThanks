@@ -73,9 +73,9 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 Do **not** mention age gates, 18+, adult content, unrestricted media, or Apple Watch in What’s New / promotional text.
 
 ```
-After you accept a thank-you, it’s clearer what to do next — pick who helped you this week, someone you’ve never properly thanked, or someone from today’s meetings, with a short starter already filled in. You can also remind yourself tonight.
+After you accept a thank-you, it’s clearer what to do next — pick who helped you this week, someone you’ve never properly thanked, or someone from today’s meetings, with a short starter already filled in.
 
-Don’t worry about the wording — they’ll love that you thought of them. 30 Days of Thanks continues on iPhone and iPad.
+Optional calendar thank-you suggestions (with your consent). Refreshed look. 30 Days of Thanks continues through November; Six for ’26 starts in December — thank six people who made your year.
 ```
 
 
@@ -128,7 +128,7 @@ Declare accurately (PostHog analytics + account data):
 
 **Tracking: No** (no ATT; no third-party advertising SDK).
 
-**Calendar:** used only when the user connects Apple Calendar (on-device EventKit) and/or Google Calendar (readonly API for today’s events for evening thank-you suggestions). Calendar events are not stored on OpenThanks servers; Google tokens stay in the on-device Keychain. Public disclosures: [https://openthanks.com/privacy#google-user-data](https://openthanks.com/privacy#google-user-data)
+**Calendar:** optional. Used when the user connects Apple Calendar and/or Google Calendar for thank-you suggestions. With explicit consent, OpenThanks may sync historical events (titles, attendees, times, descriptions/notes) to our servers **only** to suggest people to thank and draft starters — not for ads. Users can disconnect or delete calendar data in Settings. Public disclosures: [https://openthanks.com/privacy#google-user-data](https://openthanks.com/privacy#google-user-data) and [https://openthanks.com/privacy#ios-app](https://openthanks.com/privacy#ios-app)
 
 ## Connect checklist (age / SIWA / delete)
 
