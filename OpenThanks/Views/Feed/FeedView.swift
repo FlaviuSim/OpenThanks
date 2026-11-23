@@ -660,7 +660,7 @@ struct FeedView: View {
                             await campaign.refreshProgress(authorId: userId)
                         }
                     }
-                if campaign.feed?.isSixFor2026 == true {
+                if campaign.feed?.isSixFor2026 == true, showsSixFor2026ClaimBanner {
                     sixFor2026ClaimBanner
                         .padding(.horizontal, 16)
                         .padding(.bottom, 4)
@@ -694,6 +694,18 @@ struct FeedView: View {
         Task {
             await CampaignPushOffer.offer(moment: .joined)
         }
+    }
+
+    /// Avoid an empty outlined card under the Six for '26 prompt.
+    private var showsSixFor2026ClaimBanner: Bool {
+        if campaign.finisherRank != nil { return true }
+        if campaign.canClaimSixFor2026 { return true }
+        if (campaign.daysSent ?? 0) > 0 { return true }
+        if six26ClaimMessage != nil { return true }
+        if (campaign.daysSent ?? 0) >= campaign.progressTotal, !campaign.hasFavoriteNonprofit {
+            return true
+        }
+        return false
     }
 
     @ViewBuilder

@@ -284,6 +284,16 @@ struct ComposeView: View {
     /// Two-step write → deliver when no recipient was prefilled (`allowsEmptyRecipient`).
     private var usesTwoStepFlow: Bool { allowsEmptyRecipient }
 
+    /// Campaign opens already show the day ask above the message field.
+    private var shouldShowTwoStepWriteBanner: Bool {
+        if campaignHintText != nil { return false }
+        if let pack = openCopyPack, pack.family == .campaign { return false }
+        if let id = campaignId?.trimmingCharacters(in: .whitespacesAndNewlines), !id.isEmpty {
+            return false
+        }
+        return true
+    }
+
     private var toolbarSaveTitle: String {
         // Guests always continue into sign-in; copy matches the web form.
         if auth.userId == nil { return "Continue" }
@@ -428,7 +438,7 @@ struct ComposeView: View {
             VStack(alignment: .leading, spacing: 28) {
                 if usesTwoStepFlow && analyticsSource == "watch" {
                     watchDraftBanner
-                } else if usesTwoStepFlow && !isEditing {
+                } else if usesTwoStepFlow && !isEditing && shouldShowTwoStepWriteBanner {
                     twoStepWriteBanner
                 }
 
