@@ -70,7 +70,7 @@ enum CampaignPromptCardModel {
         let themeLine = normalizeLabel(theme).flatMap { line in
             line.caseInsensitiveCompare(ask) == .orderedSame ? nil : line
         }
-        let progress = daysSent.map { "\($0) of \(totalDays) days" }
+        let progress = daysSent.map { "\($0) of \(totalDays)" }
         return CampaignPromptCardContent(
             eyebrow: title.map { "\($0) · Day \(day)" },
             theme: themeLine,

@@ -31,7 +31,7 @@ struct ComposeView: View {
     /// PostHog `campaign` when compose was opened from a daily prompt.
     var campaignId: String? = nil
     var campaignDay: Int? = nil
-    /// Watch voice drafts can save without choosing a recipient yet.
+    /// Watch / unfinished pending: save without a recipient, then deliver screen.
     var allowsEmptyRecipient: Bool = false
     /// Open straight on the share screen (author opening their own pending note).
     var opensOnShareScreen: Bool = false
@@ -69,15 +69,14 @@ struct ComposeView: View {
         self.campaignId = campaignId
         self.campaignDay = campaignDay
         self.analyticsSource = analyticsSource
-        // Match ComposeLaunchBridge: any launch without a prefilled recipient uses
-        // write → deliver, so Home “Thank Someone” and similar CTAs never land on
-        // the classic one-screen form by accident.
+        // Blank compose stays one page; Watch / unfinished pending keep two-step.
         self.allowsEmptyRecipient = ComposeLaunchBridge.Request.resolveAllowsEmptyRecipient(
             explicit: allowsEmptyRecipient,
             recipientName: initialRecipient,
             profile: initialRecipientProfile,
             editingGratitude: editing,
-            analyticsSource: analyticsSource
+            analyticsSource: analyticsSource,
+            opensOnShareScreen: opensOnShareScreen
         )
         self.opensOnShareScreen = opensOnShareScreen
         self.useParentNavigation = useParentNavigation
@@ -168,6 +167,52 @@ struct ComposeView: View {
     }
     private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
 
+    private var isSixFor2026Campaign: Bool {
+        campaignId == CampaignFeed.sixFor2026ID
+    }
+
+    private var campaignChromeTitle: String {
+        let base = isSixFor2026Campaign ? CampaignFeed.sixFor2026CardTitle : CampaignFeed.cardTitle
+        if let campaignDay {
+            return isSixFor2026Campaign ? "\(base) · Slot \(campaignDay)" : "\(base) · Day \(campaignDay)"
+        }
+        return base
+    }
+
+    private static let sixFor2026Chips = [
+        "made me laugh",
+        "taught me something",
+        "made a hard day easier",
+        "showed up",
+    ]
+
+    private var sixFor2026ChipTray: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Tap 1–3 chips to start")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textTertiary)
+            FlexibleChipRow(chips: Self.sixFor2026Chips) { chip in
+                appendSix26Chip(chip)
+                Analytics.capture("six26_chip_selected", [
+                    "campaign": CampaignFeed.sixFor2026ID,
+                    "chip": chip,
+                ])
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func appendSix26Chip(_ chip: String) {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            message = "Thank you for how you \(chip)."
+            return
+        }
+        if trimmed.lowercased().contains(chip.lowercased()) { return }
+        let needsSpace = trimmed.last.map { ".!?".contains($0) } ?? false
+        message = trimmed + (needsSpace ? " " : ". ") + "You \(chip)."
+    }
+
     private var campaignHintText: String? {
         let trimmed = campaignHint?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let trimmed, !trimmed.isEmpty else { return nil }
@@ -233,34 +278,44 @@ struct ComposeView: View {
     /// Watch / pending row that still has nobody to notify.
     private var isFirstDelivery: Bool { editingTarget?.hasNoRecipient == true }
 
-    /// Two-step write → deliver when no recipient was prefilled (`allowsEmptyRecipient`).
+    /// Watch / unfinished pending: write → deliver. Blank compose is one page.
     private var usesTwoStepFlow: Bool { allowsEmptyRecipient }
+
+    /// Campaign opens already show the day ask above the message field.
+    private var shouldShowTwoStepWriteBanner: Bool {
+        if campaignHintText != nil { return false }
+        if let pack = openCopyPack, pack.family == .campaign { return false }
+        if let id = campaignId?.trimmingCharacters(in: .whitespacesAndNewlines), !id.isEmpty {
+            return false
+        }
+        return true
+    }
 
     private var toolbarSaveTitle: String {
         // Guests always continue into sign-in; copy matches the web form.
         if auth.userId == nil { return "Continue" }
         if usesTwoStepFlow {
-            return isEditing ? "Continue" : "Continue"
+            return "Continue"
         }
         if isEditing {
-            if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
+            if isFirstDelivery { return hasRecipient ? "Send" : "Save to Pending" }
             return "Save Changes"
         }
-        return "Save"
+        return "Send"
     }
 
     private var primarySaveTitle: String {
         if auth.userId == nil {
-            return usesTwoStepFlow ? "Continue" : "Continue to save"
+            return usesTwoStepFlow ? "Continue" : "Continue to send"
         }
         if usesTwoStepFlow {
             return "Continue"
         }
         if isEditing {
-            if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
+            if isFirstDelivery { return hasRecipient ? "Send" : "Save to Pending" }
             return "Save Changes"
         }
-        return "Save Appreciation"
+        return "Send"
     }
 
     private enum AttachedMediaKind {
@@ -380,7 +435,7 @@ struct ComposeView: View {
             VStack(alignment: .leading, spacing: 28) {
                 if usesTwoStepFlow && analyticsSource == "watch" {
                     watchDraftBanner
-                } else if usesTwoStepFlow && !isEditing {
+                } else if usesTwoStepFlow && !isEditing && shouldShowTwoStepWriteBanner {
                     twoStepWriteBanner
                 }
 
@@ -764,12 +819,21 @@ struct ComposeView: View {
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Recipient")
+            Text("To")
                 .font(Theme.body(14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
 
             VStack(alignment: .leading, spacing: 8) {
                 recipientFieldChrome
+
+                if let hint = recipientDeliveryHint {
+                    Text(hint)
+                        .font(Theme.body(13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 2)
+                        .accessibilityLabel(hint)
+                }
 
                 if linkedRecipient == nil, !guestRecipientConfirmed, showRecipientSuggestions {
                     recipientSuggestions
@@ -783,6 +847,24 @@ struct ComposeView: View {
         .task(id: recipientSearchQuery) {
             await runRecipientSearch(for: recipientSearchQuery)
         }
+    }
+
+    /// Short coaching under To so email notify vs share-link is obvious.
+    private var recipientDeliveryHint: String? {
+        if linkedRecipient != nil {
+            return "We’ll notify them in OpenThanks when we can. You can also share the link after you send."
+        }
+        if guestRecipientConfirmed {
+            let label = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+            if looksLikeEmail(label) {
+                return "We’ll try to email them. Sharing the link is the surest way."
+            }
+            return "Share the link after you send so they can open it."
+        }
+        if recipientFocused || recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Type a name or email. Emails get a notify when we can; you can always share the link."
+        }
+        return nil
     }
 
     private var recipientFieldChrome: some View {
@@ -802,7 +884,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Name or Email", text: $recipient)
+                TextField("Name or email", text: $recipient)
                     .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
                     .autocorrectionDisabled()
                     .keyboardType(recipient.contains("@") ? .emailAddress : .default)
@@ -811,6 +893,8 @@ struct ComposeView: View {
                     .padding(14)
                     .foregroundStyle(Theme.textPrimary)
                     .submitLabel(.done)
+                    .accessibilityLabel("To")
+                    .accessibilityHint("Enter a name or email address")
             }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -968,10 +1052,12 @@ struct ComposeView: View {
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                    Text("We’ll share a link after you save")
+                    Text(isEmail
+                         ? "We’ll try to email them — sharing the link works too"
+                         : "Share the link after you send")
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textTertiary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "plus.circle.fill")
@@ -984,7 +1070,9 @@ struct ComposeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
-        .accessibilityHint("Adds this person as the recipient. You can share a link after saving.")
+        .accessibilityHint(isEmail
+            ? "Adds this email. We’ll try to notify them, and you can share the link after sending."
+            : "Adds this person. You can share a link after sending.")
     }
 
     private var recipientSearchQuery: String {
@@ -1129,7 +1217,7 @@ struct ComposeView: View {
         VStack(alignment: .leading, spacing: 10) {
             if let campaignHintText {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(campaignDay.map { "\(CampaignFeed.cardTitle) · Day \($0)" } ?? CampaignFeed.cardTitle)
+                    Text(campaignChromeTitle)
                         .font(Theme.body(12, weight: .semibold))
                         .foregroundStyle(Theme.primary)
                     Text(campaignHintText)
@@ -1151,6 +1239,9 @@ struct ComposeView: View {
                         .fill(Theme.coral.opacity(0.10))
                 )
                 .accessibilityElement(children: .combine)
+                if isSixFor2026Campaign {
+                    sixFor2026ChipTray
+                }
             } else if let reassurance = openCopyPack?.reassurance,
                       !reassurance.isEmpty,
                       !(usesTwoStepFlow && !isEditing) {
@@ -1642,7 +1733,9 @@ struct ComposeView: View {
                     Image(systemName: sendBarIcon)
                         .font(.system(size: 14, weight: .bold))
                 }
-                Text(sending ? "Saving…" : (needsDisplayName ? "Add your name to send" : primarySaveTitle))
+                Text(sending
+                     ? (usesTwoStepFlow ? "Saving…" : "Sending…")
+                     : (needsDisplayName ? "Add your name to send" : primarySaveTitle))
             }
         }
         .buttonStyle(CTAButtonStyle(
@@ -1658,13 +1751,13 @@ struct ComposeView: View {
                    ? "Signs you in to save this appreciation"
                    : (usesTwoStepFlow
                       ? "Saves your note, then lets you choose a recipient"
-                      : "Saves this appreciation"))))
+                      : "Sends this appreciation, then lets you share the link"))))
     }
 
     private var sendBarIcon: String {
         if needsDisplayName { return "person.crop.circle.badge.plus" }
         if auth.userId == nil { return "lock.fill" }
-        return usesTwoStepFlow ? "arrow.right" : "heart.fill"
+        return usesTwoStepFlow ? "arrow.right" : "paperplane.fill"
     }
 
     // MARK: Message tools
@@ -1888,7 +1981,7 @@ struct ComposeView: View {
         if trimmed.isEmpty { return "Add a message to save." }
         if trimmed.count > maxLength { return "Shorten the message to \(maxLength) characters." }
         if !allowsEmptyRecipient && !hasRecipient {
-            return "Add a recipient name or email to save."
+            return "Add a name or email in To to send."
         }
         return nil
     }
@@ -2699,7 +2792,7 @@ struct SuccessView: View {
 
                 VStack(spacing: 20) {
                     primaryCopyButton
-                        .softNoteReveal(delay: 0.18)
+                        .softNoteReveal(delay: 0.02)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Send them the link")
@@ -2754,7 +2847,7 @@ struct SuccessView: View {
                             }
                         }
                     }
-                    .softNoteReveal(delay: 0.24)
+                    .softNoteReveal(delay: 0.05)
 
                     ShareActionRow(
                         title: "Edit Appreciation",
@@ -2763,7 +2856,7 @@ struct SuccessView: View {
                     ) {
                         onEdit()
                     }
-                    .softNoteReveal(delay: 0.3)
+                    .softNoteReveal(delay: 0.08)
                 }
                 .padding(.horizontal, 24)
 
@@ -2908,6 +3001,72 @@ struct SuccessView: View {
             phone: gratitude.recipientPhone
         ) {
             openURL(url)
+        }
+    }
+}
+
+/// Simple wrapping chip row for Six for '26 starters.
+private struct FlexibleChipRow: View {
+    let chips: [String]
+    var onTap: (String) -> Void
+
+    var body: some View {
+        FlexibleChipLayout(spacing: 8) {
+            ForEach(chips, id: \.self) { chip in
+                Button {
+                    onTap(chip)
+                } label: {
+                    Text(chip)
+                        .font(Theme.body(12, weight: .medium))
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Theme.surfaceRaised, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct FlexibleChipLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var height: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            height = max(height, y + rowHeight)
+        }
+        return CGSize(width: maxWidth.isFinite ? maxWidth : x, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            sub.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }

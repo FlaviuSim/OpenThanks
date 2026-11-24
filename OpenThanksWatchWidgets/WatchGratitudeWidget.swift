@@ -70,7 +70,9 @@ struct WatchComplicationView: View {
     @Environment(\.widgetFamily) private var family
     var entry: WatchGratitudeEntry
 
-    private let coral = Color(red: 246 / 255, green: 86 / 255, blue: 1 / 255)
+    /// Matches iOS / WatchTheme Jonny #05 brand.
+    private let brand = Color(red: 246 / 255, green: 86 / 255, blue: 1 / 255)
+    private let textSecondary = Color(red: 231 / 255, green: 200 / 255, blue: 182 / 255)
 
     var body: some View {
         Group {
@@ -81,7 +83,7 @@ struct WatchComplicationView: View {
                     VStack(spacing: 1) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(coral)
+                            .foregroundStyle(brand)
                         Text("Thank")
                             .font(.system(size: 10, weight: .semibold))
                     }
@@ -89,7 +91,7 @@ struct WatchComplicationView: View {
             case .accessoryCorner:
                 Image(systemName: "heart.fill")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(coral)
+                    .foregroundStyle(brand)
                     .widgetLabel {
                         Text("Thank")
                     }
@@ -99,14 +101,14 @@ struct WatchComplicationView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Label("OpenThanks", systemImage: "heart.fill")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(coral)
+                        .foregroundStyle(brand)
                     Text(rectangularHeadline)
                         .font(.system(size: 13, weight: .semibold))
                         .lineLimit(2)
                     if entry.snapshot.pendingToAccept > 0 {
                         Text(pendingLine)
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(textSecondary)
                             .lineLimit(1)
                     }
                 }

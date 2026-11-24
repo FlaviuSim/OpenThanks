@@ -138,9 +138,9 @@
 		<string>twitterauth</string>
 	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>OpenThanks reads today’s Apple Calendar meetings and attendees to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.</string>
+	<string>OpenThanks reads your Apple Calendar (titles, times, attendees, and notes) to suggest people to thank. With your consent, history may sync to OpenThanks servers only for thank-you suggestions and drafts.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>OpenThanks reads today’s Apple Calendar meetings to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.</string>
+	<string>OpenThanks reads your Apple Calendar (titles, times, attendees, and notes) to suggest people to thank. With your consent, history may sync to OpenThanks servers only for thank-you suggestions and drafts.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>OpenThanks uses the microphone so you can speak your appreciation.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

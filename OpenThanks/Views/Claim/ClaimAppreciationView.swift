@@ -108,8 +108,7 @@ struct PendingAppreciationReviewView: View {
                 inspiredByGratitudeId: gratitude.id,
                 inspiredByAuthorName: authorProfile?.fullName ?? authorProfile?.displayName,
                 analyticsSource: choice.map { "post_accept_\($0.path.rawValue)" }
-                    ?? "post_accept_pay_it_forward",
-                allowsEmptyRecipient: toField == nil
+                    ?? "post_accept_pay_it_forward"
             )
         }
         .task {

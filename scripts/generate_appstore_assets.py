@@ -19,12 +19,14 @@ STORE = ROOT / "AppStore"
 SHOTS_67 = STORE / "Screenshots/iPhone-6.7-inch"
 SHOTS_65 = STORE / "Screenshots/iPhone-6.5-inch"
 
-CORAL = (224, 122, 95)
-CORAL_LIGHT = (244, 151, 127)
-CORAL_PALE = (249, 195, 169)
-CREAM = (247, 245, 242)
-TEXT = (26, 26, 27)
-TEXT_SEC = (92, 92, 98)
+# Jonny #05 brand packet (matches Theme.swift / OpenThanks-Logo-Assets README)
+CORAL = (246, 86, 1)          # #F65601 brand
+CORAL_LIGHT = (250, 162, 115)  # #FAA273 soft
+CORAL_PALE = (254, 228, 214)   # #FEE4D6 tint
+CREAM = (255, 245, 238)        # #FFF5EE background
+TEXT = (44, 15, 0)             # #2C0F00 ink
+TEXT_SEC = (107, 84, 72)       # #6B5448 secondary
+BRAND_BUTTON = (204, 71, 1)    # #CC4701
 
 
 def load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
@@ -172,8 +174,8 @@ def mock_feed(title: str, lines: list[str]) -> Image.Image:
     screen = Image.new("RGB", (900, 1800), CREAM)
     d = ImageDraw.Draw(screen)
     d.text((40, 70), "OpenThanks", font=load_font(44, bold=True), fill=TEXT)
-    d.rounded_rectangle([560, 65, 860, 125], radius=28, fill=CORAL)
-    d.text((590, 78), "Thank someone", font=load_font(22, bold=True), fill=(43, 18, 9))
+    d.rounded_rectangle([560, 65, 860, 125], radius=28, fill=BRAND_BUTTON)
+    d.text((590, 78), "Thank someone", font=load_font(22, bold=True), fill=(255, 255, 255))
     d.rounded_rectangle([40, 160, 200, 220], radius=14, fill=(240, 237, 232))
     d.text((70, 172), "World", font=load_font(26, bold=True), fill=TEXT)
     d.text((230, 172), "Personal", font=load_font(26), fill=TEXT_SEC)
@@ -328,12 +330,18 @@ def main() -> None:
     ICON_DIR.mkdir(parents=True, exist_ok=True)
     (STORE / "Icons").mkdir(parents=True, exist_ok=True)
 
-    icon_light = make_icon((24, 15, 12))
+    # Prefer the official brand app icon when present (orange field + white mark).
+    official = ROOT / "OpenThanks/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+    if official.exists():
+        icon_light = Image.open(official).convert("RGB")
+        icon_watch = icon_light
+        print("icons: using committed AppIcon.png for iOS + Watch")
+    else:
+        icon_light = make_icon(CORAL)
+        icon_watch = make_icon(CORAL)
+
     icon_dark = make_icon((0, 0, 0))
     icon_tinted = make_icon((0, 0, 0), white=True)
-    # watchOS: light background so the circular mask is visible on a black Watch face
-    # (Guideline 4 — black icon backgrounds blend into the Watch UI).
-    icon_watch = make_icon(CREAM)
 
     icon_light.save(ICON_DIR / "AppIcon.png", "PNG")
     icon_dark.save(ICON_DIR / "AppIcon-Dark.png", "PNG")
@@ -343,7 +351,7 @@ def main() -> None:
     WATCH_ICON_DIR.mkdir(parents=True, exist_ok=True)
     icon_watch.save(WATCH_ICON_DIR / "AppIcon.png", "PNG")
     icon_watch.save(STORE / "Icons/Watch-AppIcon-1024.png", "PNG")
-    print("icons OK (opaque RGB 1024; Watch uses light cream background)")
+    print("icons OK (opaque RGB 1024; Watch uses brand orange #F65601 icon)")
 
     write_screenshots()
     print("done → see AppStore/README.md")

@@ -3,8 +3,8 @@ import UIKit
 
 enum AppAppearance: String, CaseIterable, Identifiable {
     /// Shipping default — also the `@AppStorage` fallback when unset.
-    case dark
     case light
+    case dark
     case system
 
     var id: String { rawValue }
@@ -163,10 +163,10 @@ extension Color {
 // MARK: Appearance propagation
 
 private struct SyncAppAppearanceModifier: ViewModifier {
-    @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+    @AppStorage("appAppearance") private var appearance = AppAppearance.light.rawValue
 
     private var colorScheme: ColorScheme? {
-        (AppAppearance(rawValue: appearance) ?? .dark).colorScheme
+        (AppAppearance(rawValue: appearance) ?? .light).colorScheme
     }
 
     func body(content: Content) -> some View {

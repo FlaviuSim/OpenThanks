@@ -40,9 +40,11 @@ If the project file ever fails to open on a newer Xcode, regenerate it: `brew in
    The Welcome screen offers Apple, Google, LinkedIn, email OTP, and phone OTP.
 4. **Hearts uniqueness:** the toggle assumes one heart per (user, gratitude). Add a unique index if one doesn't exist.
 
-## Google Calendar (evening thank-you nudge)
+## Google Calendar (thank-you suggestions + server history sync)
 
-Separate from Supabase “Sign in with Google”. Tokens stay in the device Keychain; events are not uploaded to OpenThanks.
+Separate from Supabase “Sign in with Google”. After the user re-consents to **server sync**, the app sends the OAuth `code` + PKCE verifier to `POST /api/calendar/google/connect` so OpenThanks stores **encrypted** refresh tokens and backfills history (titles, attendees, times, descriptions) for AI thank suggestions only.
+
+Until server-sync consent, older on-device mode may keep tokens in the device Keychain for today-only ranking.
 
 **Use an iOS OAuth client** — Google Web clients only accept `https://` redirects, not app URL schemes.
 
@@ -50,13 +52,13 @@ Separate from Supabase “Sign in with Google”. Tokens stay in the device Keyc
 2. **Credentials → Create credentials → OAuth client ID → Application type: iOS**
    - Bundle ID: `com.openthanks.gratitude`
    - Google does **not** ask you to paste a redirect URI for iOS; it uses the reversed client ID automatically.
-3. Put the Client ID in `AppConfig.googleCalendarClientID`.
+3. Put the Client ID in `AppConfig.googleCalendarClientID`, and set the same value as `GOOGLE_CALENDAR_CLIENT_ID` on the web/API host (Vercel). Optionally set `CALENDAR_DATA_ENCRYPTION_KEY` (long random string) for token/note encryption at rest.
 4. Register the **reversed client ID** as a URL scheme in `Info.plist` / `project.yml`  
    (e.g. client `123-abc.apps.googleusercontent.com` → scheme `com.googleusercontent.apps.123-abc`).  
    The app redirects to `{reversed-client-id}:/oauthredirect`.
-5. OAuth consent screen: add scope `https://www.googleapis.com/auth/calendar.readonly` (and add test users while the app is in Testing).
+5. OAuth consent screen: add scope `https://www.googleapis.com/auth/calendar.readonly` (and add test users while the app is in Testing). Align Google verification / Limited Use copy with the privacy policy (history + descriptions; suggestion-only).
 
-v1 reads the **primary** calendar only. Apple Calendar (EventKit) can be connected at the same time; the ranker merges both.
+The API reads the **primary** calendar. Apple Calendar (EventKit) uploads the same fields (including `EKEvent.notes`) via `POST /api/calendar/apple/upload`. Hourly cron `/api/cron/calendar-sync` aggregates people and writes `calendar_thank_suggestions`. The app prefers `GET /api/calendar/suggestions/today` and falls back to on-device today-only ranking while backfilling.
 
 ## Fonts
 

@@ -595,14 +595,20 @@ struct MainTabView: View {
         }
 
         composePresentIntentIsWeak = sheet.isWeakDefault
-        composePresentInFlight = true
         composePresentGeneration += 1
         let generation = composePresentGeneration
+
+        // FAB / 30 Days: present on this turn — no Task hop.
+        if !replacingOpenCover {
+            composePresentInFlight = false
+            composeSheet = sheet
+            return
+        }
+
+        // Replacing an open cover: wait for dismiss, then present again.
+        composePresentInFlight = true
         Task { @MainActor in
-            if replacingOpenCover {
-                // Let the previous cover finish dismissing before covering Home again.
-                try? await Task.sleep(for: .milliseconds(350))
-            }
+            try? await Task.sleep(for: .milliseconds(350))
             guard generation == composePresentGeneration else { return }
             if let current = composeSheet {
                 guard Self.incomingBeatsOpenCompose(current: current, incoming: sheet) else {
@@ -680,7 +686,9 @@ struct MainTabView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+        // Solid fill — `.ultraThinMaterial` triggers `glassEffect()` every chrome
+        // hide/show frame while scrolling and can freeze the Simulator UI.
+        .background(Theme.surface.opacity(0.94), in: Capsule(style: .continuous))
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(Theme.hairline.opacity(0.9), lineWidth: 0.5)

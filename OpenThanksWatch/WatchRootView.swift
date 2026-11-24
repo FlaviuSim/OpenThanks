@@ -1,11 +1,6 @@
 import SwiftUI
 import WatchKit
 
-/// Jonny #05 mark. Hearts and status stay on the bright logo orange.
-private let watchCoral = Color(red: 246 / 255, green: 86 / 255, blue: 1 / 255)
-/// Record button. Deep orange so white label text stays readable.
-private let watchButton = Color(red: 204 / 255, green: 71 / 255, blue: 1 / 255)
-
 struct WatchRootView: View {
     @Environment(WatchPhoneSession.self) private var session
 
@@ -30,13 +25,13 @@ struct WatchRootView: View {
         VStack(spacing: 12) {
             Image(systemName: "heart.fill")
                 .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(watchCoral)
+                .foregroundStyle(WatchTheme.brand)
             Text("Sign in on iPhone")
                 .font(.system(.headline, design: .rounded))
                 .multilineTextAlignment(.center)
             Text("Open OpenThanks on your iPhone, then come back to speak a thanks here.")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WatchTheme.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 8)
@@ -90,10 +85,10 @@ struct WatchRecordView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(watchCoral)
+                        .foregroundStyle(WatchTheme.brand)
                     Text("OpenThanks")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(watchCoral)
+                        .foregroundStyle(WatchTheme.brand)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("OpenThanks")
@@ -123,7 +118,7 @@ struct WatchRecordView: View {
         VStack(spacing: 14) {
             Text("Say it while it matters.")
                 .font(.system(.caption, design: .serif))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WatchTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
 
@@ -148,20 +143,20 @@ struct WatchRecordView: View {
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 18)
-        .background(watchButton, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(WatchTheme.button, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var savingContent: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(watchCoral)
+                .tint(WatchTheme.brand)
                 .scaleEffect(1.4)
             Text("Sending to iPhone…")
                 .font(.system(.headline, design: .rounded))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WatchTheme.textSecondary)
             Text("Keep the phone nearby — it’ll polish the words like dictation.")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(WatchTheme.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -172,12 +167,12 @@ struct WatchRecordView: View {
         VStack(spacing: 10) {
             Image(systemName: "iphone")
                 .font(.system(size: 36))
-                .foregroundStyle(watchCoral)
+                .foregroundStyle(WatchTheme.brand)
             Text("Sent to iPhone")
                 .font(.system(.headline, design: .rounded))
             Text("Open OpenThanks on iPhone to review punctuation and save.")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WatchTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -185,7 +180,7 @@ struct WatchRecordView: View {
                 status = .idle
             }
             .font(.caption)
-            .foregroundStyle(watchCoral)
+            .foregroundStyle(WatchTheme.brand)
             .buttonStyle(.plain)
             .padding(.top, 4)
         }
@@ -197,12 +192,12 @@ struct WatchRecordView: View {
         VStack(spacing: 10) {
             Image(systemName: "iphone")
                 .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(watchCoral)
+                .foregroundStyle(WatchTheme.brand)
             Text("Sent to iPhone")
                 .font(.system(.headline, design: .rounded))
             Text(note)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WatchTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -210,7 +205,7 @@ struct WatchRecordView: View {
                 status = .idle
             }
             .font(.caption)
-            .foregroundStyle(watchCoral)
+            .foregroundStyle(WatchTheme.brand)
             .buttonStyle(.plain)
             .padding(.top, 4)
         }
@@ -225,7 +220,7 @@ struct WatchRecordView: View {
                 .foregroundStyle(.red)
             Text(note)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(WatchTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -233,7 +228,7 @@ struct WatchRecordView: View {
                 Task { await startRecording() }
             }
             .font(.caption)
-            .foregroundStyle(watchCoral)
+            .foregroundStyle(WatchTheme.brand)
             .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
@@ -260,7 +255,7 @@ struct WatchRecordView: View {
                 }
             }
             .font(.system(size: 11))
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(WatchTheme.textTertiary)
         }
     }
 

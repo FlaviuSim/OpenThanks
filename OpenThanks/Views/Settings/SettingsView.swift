@@ -11,14 +11,14 @@ struct SettingsView: View {
     @State private var deleteAccountError: String?
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
-    @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+    @AppStorage("appAppearance") private var appearance = AppAppearance.light.rawValue
     #if DEBUG
     @AppStorage("ot_analytics_force_enable") private var forceAnalyticsWhileTesting = false
     @State private var campaignDebug = CampaignService.shared
     #endif
 
     private var appearanceSubtitle: String {
-        (AppAppearance(rawValue: appearance) ?? .dark).title
+        (AppAppearance(rawValue: appearance) ?? .light).title
     }
 
     private var notificationsSubtitle: String {
@@ -48,6 +48,7 @@ struct SettingsView: View {
             get: { campaignDebug.debugDateYMD != nil },
             set: { enabled in
                 if enabled {
+                    // Dec 1 → Six for '26 feed. Use Nov for 30 Days of Thanks.
                     campaignDebug.setDebugDate(CampaignService.debugPreviewStart())
                 } else {
                     campaignDebug.clearDebugDate()
@@ -56,18 +57,31 @@ struct SettingsView: View {
         )) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Preview campaign date")
-                Text("Home uses this date for 30 Days of Thanks. Release builds use today.")
+                Text("DEBUG only. Dec 1+ loads Six for ’26; Nov loads 30 Days of Thanks.")
                     .font(Theme.body(12))
                     .foregroundStyle(Theme.textSecondary)
             }
         }
         if campaignDebug.debugDateYMD != nil {
             DatePicker("Campaign date", selection: campaignDebugDate, displayedComponents: .date)
-            Text(campaignDebug.feed == nil
-                 ? "No prompt feed cached yet. The Home card stays hidden until openthanks.com serves it."
-                 : "Cached \(campaignDebug.feed?.prompts.count ?? 0) prompts.")
-                .font(Theme.body(12))
-                .foregroundStyle(Theme.textSecondary)
+            HStack(spacing: 12) {
+                Button("Nov 1") {
+                    campaignDebug.setDebugDate(CampaignService.debugPreviewNovemberStart())
+                }
+                .font(Theme.body(13, weight: .semibold))
+                Button("Dec 1") {
+                    campaignDebug.setDebugDate(CampaignService.debugPreviewStart())
+                }
+                .font(Theme.body(13, weight: .semibold))
+            }
+            .foregroundStyle(Theme.coral)
+            Text(
+                campaignDebug.feed == nil
+                    ? "No prompt feed cached yet. The Home card stays hidden until openthanks.com serves it."
+                    : "Active feed: \(campaignDebug.feed?.id ?? "—") · \(campaignDebug.feed?.prompts.count ?? 0) prompts."
+            )
+            .font(Theme.body(12))
+            .foregroundStyle(Theme.textSecondary)
         }
     }
     #endif
@@ -100,7 +114,7 @@ struct SettingsView: View {
         let device = UIDevice.current
         let system = "\(device.systemName) \(device.systemVersion)"
         let model = deviceModelIdentifier
-        let appearanceTitle = (AppAppearance(rawValue: appearance) ?? .dark).title
+        let appearanceTitle = (AppAppearance(rawValue: appearance) ?? .light).title
         let locale = Locale.current.identifier
         let email = auth.currentProfile?.email?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -392,7 +406,7 @@ struct PendingAppreciationsView: View {
                 .presentationDetents([.medium])
         }
         .composeCover(item: $editing) { g in
-            // No-recipient drafts use two-step write → deliver.
+            // Unfinished pending (no recipient yet) still uses deliver after write.
             ComposeView(
                 editing: g,
                 analyticsSource: "edit_pending",

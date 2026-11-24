@@ -8,6 +8,7 @@ struct StatsView: View {
 
     @State private var activity: [SentActivity] = []
     @State private var competition = CompetitionConfig.disabled
+    @State private var campaign = CampaignService.shared
     @State private var pendingSentCount = 0
     @State private var loading = true
     @State private var loadError: String?
@@ -59,9 +60,14 @@ struct StatsView: View {
         competition.enabled
     }
 
-    /// Hidden until a remote competition is enabled and inside its window.
+    private var showingSixFor2026: Bool {
+        campaign.feed?.isSixFor2026 == true
+    }
+
+    /// Six for '26 replaces the November competition panel while that feed is active.
     private var showCompetitionPanel: Bool {
-        competition.isActive()
+        if showingSixFor2026 { return true }
+        return competition.isActive()
     }
 
     private var competitionProgressTitle: String {
@@ -109,7 +115,11 @@ struct StatsView: View {
                 } else {
                     streakHero
                     if showCompetitionPanel {
-                        competitionPanel
+                        if showingSixFor2026 {
+                            sixFor2026Panel
+                        } else {
+                            competitionPanel
+                        }
                     }
                     calendarSection
                 }
@@ -444,10 +454,93 @@ struct StatsView: View {
     }
 
     private var ringProgress: CGFloat {
+        if showingSixFor2026 {
+            let total = max(campaign.progressTotal, 1)
+            return CGFloat(min(campaign.daysSent ?? 0, total)) / CGFloat(total)
+        }
         if showCompetition, competition.targetDays > 0 {
             return CGFloat(competitionProgress) / CGFloat(competition.targetDays)
         }
         return min(CGFloat(currentStreak) / 14, 1)
+    }
+
+    // MARK: - Six for '26
+
+    private var sixFor2026Panel: some View {
+        let qualified = campaign.daysSent ?? 0
+        let total = max(campaign.progressTotal, 1)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(CampaignFeed.sixFor2026CardTitle)
+                        .font(Theme.display(22, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Thank six people on six days — each accepted publicly.")
+                        .font(Theme.body(13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Text("$600")
+                    .font(Theme.display(28, weight: .semibold))
+                    .foregroundStyle(Theme.primary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 160, alignment: .trailing)
+            }
+
+            competitionMetricRow(
+                title: "Public accepts",
+                value: "\(qualified) of \(total)",
+                detail: "",
+                progress: Double(qualified),
+                total: Double(total),
+                tint: Theme.coral
+            )
+
+            Text("First 20 finishers: $600 to your favorite charity. Progress counts only after public accepts.")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 12) {
+                if let url = URL(string: "https://openthanks.com/six-for-26") {
+                    Link("Full details", destination: url)
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.primary)
+                }
+                Spacer()
+                Button {
+                    if let prompt = campaign.todayPrompt {
+                        campaign.openCompose(prompt: prompt, analyticsSource: "stats_six_for_2026")
+                    } else {
+                        ComposeLaunchBridge.shared.queue(
+                            campaignId: CampaignFeed.sixFor2026ID,
+                            analyticsSource: "stats_six_for_2026"
+                        )
+                    }
+                    dismiss()
+                } label: {
+                    Text("Share a thanks")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.onPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Theme.primary, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Theme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.hairline, lineWidth: 1)
+        )
     }
 
     // MARK: - Competition
@@ -666,10 +759,12 @@ struct StatsView: View {
             async let configTask = CompetitionConfigService.refresh(force: true)
             async let activityTask = GratitudeService.sentActivity(authorId: userId, since: since)
             async let pendingTask = GratitudeService.pendingCount(authorId: userId)
+            async let campaignTask: Void = campaign.refresh()
 
-            let (config, rows, pending) = try await (configTask, activityTask, pendingTask)
+            let (config, rows, pending, _) = try await (configTask, activityTask, pendingTask, campaignTask)
             competition = config
             pendingSentCount = pending
+            await campaign.refreshProgress(authorId: userId)
             // Rolling challenge: load enough history for a long streak.
             let lookbackDays = max(config.targetDays * 3, 370)
             let rollingSince = calendar.date(byAdding: .day, value: -lookbackDays, to: Date()) ?? since

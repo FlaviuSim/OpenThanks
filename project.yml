@@ -79,8 +79,8 @@ targets:
         NSMicrophoneUsageDescription: OpenThanks uses the microphone so you can speak your appreciation.
         NSSpeechRecognitionUsageDescription: OpenThanks turns your spoken appreciation into text.
         NSSiriUsageDescription: OpenThanks uses Siri to help you thank someone or start an appreciation.
-        NSCalendarsUsageDescription: OpenThanks reads today’s Apple Calendar meetings to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.
-        NSCalendarsFullAccessUsageDescription: OpenThanks reads today’s Apple Calendar meetings and attendees to suggest one person you might want to thank each evening. Apple Calendar events stay on your device.
+        NSCalendarsUsageDescription: OpenThanks reads your Apple Calendar (titles, times, attendees, and notes) to suggest people to thank. With your consent, history may sync to OpenThanks servers only for thank-you suggestions and drafts.
+        NSCalendarsFullAccessUsageDescription: OpenThanks reads your Apple Calendar (titles, times, attendees, and notes) to suggest people to thank. With your consent, history may sync to OpenThanks servers only for thank-you suggestions and drafts.
         UIBackgroundModes:
           - fetch
         BGTaskSchedulerPermittedIdentifiers:
@@ -148,7 +148,7 @@ targets:
         DEVELOPMENT_TEAM: XA73L5SR8P
         TARGETED_DEVICE_FAMILY: "1,2"
         MARKETING_VERSION: 1.8
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -180,7 +180,7 @@ targets:
         DEVELOPMENT_TEAM: XA73L5SR8P
         TARGETED_DEVICE_FAMILY: "1,2"
         MARKETING_VERSION: 1.8
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         CODE_SIGN_STYLE: Automatic
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -237,7 +237,7 @@ targets:
         DEVELOPMENT_TEAM: XA73L5SR8P
         TARGETED_DEVICE_FAMILY: "1,2"
         MARKETING_VERSION: 1.8
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         CODE_SIGN_STYLE: Automatic
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
         SKIP_INSTALL: YES
@@ -283,7 +283,7 @@ targets:
         DEVELOPMENT_TEAM: XA73L5SR8P
         TARGETED_DEVICE_FAMILY: "4"
         MARKETING_VERSION: 1.8
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         CODE_SIGN_STYLE: Automatic
         SDKROOT: watchos
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -329,7 +329,7 @@ targets:
         DEVELOPMENT_TEAM: XA73L5SR8P
         TARGETED_DEVICE_FAMILY: "4"
         MARKETING_VERSION: 1.8
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         CODE_SIGN_STYLE: Automatic
         SDKROOT: watchos
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
@@ -358,7 +358,7 @@ targets:
         DEVELOPMENT_TEAM: XA73L5SR8P
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: 1.8
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
 
 schemes:
   OpenThanks:

@@ -15,7 +15,7 @@ struct CampaignPrompt: Codable, Equatable, Sendable, Identifiable {
 }
 
 /// `{ id, title, start, end, timezone, cta, prompts: [{ day, date, theme, prompt, example, cta }] }`
-/// from `https://openthanks.com/campaigns/november-2026.json`.
+/// from `https://openthanks.com/campaigns/{id}.json`.
 struct CampaignFeed: Codable, Equatable, Sendable {
     var id: String
     var title: String
@@ -27,10 +27,34 @@ struct CampaignFeed: Codable, Equatable, Sendable {
     var cta: String?
 
     static let november2026ID = "november-2026"
+    static let sixFor2026ID = "six-for-2026"
     static let cardTitle = "30 Days of Thanks"
+    static let sixFor2026CardTitle = "Six for '26"
     static let fallbackTimeZoneID = "America/New_York"
-    static let jsonURL = URL(string: "https://openthanks.com/campaigns/november-2026.json")!
-    static let apiURL = URL(string: "https://openthanks.com/api/campaigns/november-2026")!
+
+    /// Active campaign for the Eastern calendar day (Nov → november; Dec+ → six-for-2026).
+    static func activeCampaignID(at date: Date = Date()) -> String {
+        let zone = TimeZone(identifier: fallbackTimeZoneID) ?? .current
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        let ymd = String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+        if ymd >= "2026-12-01" { return sixFor2026ID }
+        return november2026ID
+    }
+
+    static func jsonURL(for id: String) -> URL {
+        URL(string: "https://openthanks.com/campaigns/\(id).json")!
+    }
+
+    static func apiURL(for id: String) -> URL {
+        URL(string: "https://openthanks.com/api/campaigns/\(id)")!
+    }
+
+    static var jsonURL: URL { jsonURL(for: activeCampaignID()) }
+    static var apiURL: URL { apiURL(for: activeCampaignID()) }
+
+    var isSixFor2026: Bool { id == Self.sixFor2026ID }
 
     var timeZone: TimeZone {
         TimeZone(identifier: timezone) ?? TimeZone(identifier: Self.fallbackTimeZoneID)!
@@ -51,7 +75,9 @@ struct CampaignFeed: Codable, Equatable, Sendable {
     }
 
     /// Inclusive length of start...end in the feed timezone (November is 30).
+    /// Six for '26 progress is slot-based (6), not Dec day count (31).
     var inclusiveDayCount: Int {
+        if isSixFor2026 { return max(prompts.count, 1) }
         guard let startDate = windowStart, let endDate = windowEnd else {
             return max(prompts.count, 1)
         }
@@ -196,8 +222,13 @@ final class CampaignService {
     #endif
 
     private(set) var feed: CampaignFeed?
-    /// Distinct days the signed-in user sent during the window. Nil until loaded.
+    /// Progress count for the Home card. November: distinct send days. Six for '26: public-accepted qualifying slots.
     private(set) var daysSent: Int?
+    /// Six for '26: favorite nonprofit on profile (needed to claim).
+    private(set) var hasFavoriteNonprofit: Bool = false
+    /// Six for '26: server rank after claim, if any.
+    private(set) var finisherRank: Int?
+    private(set) var finisherStatus: String?
     #if DEBUG
     /// yyyy-MM-dd stand-in for "today". Release builds ignore this.
     private(set) var debugDateYMD: String?
@@ -207,17 +238,19 @@ final class CampaignService {
     private var progressLoaded = false
     private var lastRevalidatedAt: Date?
     private var refreshTask: Task<Void, Never>?
+    private var activeFeedID: String = CampaignFeed.activeCampaignID()
 
     private init() {
-        if let disk = Self.loadDisk() {
-            apply(disk.feed, persist: false)
-            lastRevalidatedAt = disk.savedAt
-        }
         #if DEBUG
         if let stored = UserDefaults.standard.string(forKey: Self.debugDateKey) {
             debugDateYMD = CampaignFeed.normalizeYMD(stored)
         }
         #endif
+        activeFeedID = desiredFeedID()
+        if let disk = Self.loadDisk(id: activeFeedID) {
+            apply(disk.feed, persist: false)
+            lastRevalidatedAt = disk.savedAt
+        }
     }
 
     var todayPrompt: CampaignPrompt? {
@@ -225,7 +258,12 @@ final class CampaignService {
     }
 
     var progressTotal: Int {
-        feed?.inclusiveDayCount ?? 30
+        feed?.inclusiveDayCount ?? (feed?.isSixFor2026 == true ? 6 : 30)
+    }
+
+    var canClaimSixFor2026: Bool {
+        guard feed?.isSixFor2026 == true else { return false }
+        return (daysSent ?? 0) >= progressTotal && hasFavoriteNonprofit && finisherRank == nil
     }
 
     /// Prompt for the UI clock: the debug override in DEBUG, otherwise now.
@@ -233,10 +271,26 @@ final class CampaignService {
         guard let feed else { return nil }
         #if DEBUG
         if let debugDateYMD {
+            if feed.isSixFor2026 {
+                return sixFor2026Prompt(onYMD: debugDateYMD, feed: feed)
+            }
             return feed.prompt(onYMD: debugDateYMD)
         }
         #endif
+        if feed.isSixFor2026 {
+            return sixFor2026Prompt(onYMD: feed.ymd(for: date), feed: feed)
+        }
         return feed.prompt(on: date)
+    }
+
+    /// Inside December: show next incomplete slot (1…6), not a calendar-day match.
+    private func sixFor2026Prompt(onYMD ymd: String, feed: CampaignFeed) -> CampaignPrompt? {
+        guard feed.contains(ymd: ymd) else { return nil }
+        let qualified = daysSent ?? 0
+        if qualified >= feed.prompts.count {
+            return feed.prompts.last
+        }
+        return feed.prompt(day: qualified + 1) ?? feed.prompts.first
     }
 
     /// Background refresh. Concurrent callers share one in-flight request.
@@ -255,12 +309,32 @@ final class CampaignService {
         }
     }
 
-    /// Same lightweight sent-activity query streaks already use. No feed-sized select.
+    /// November: distinct send days. Six for '26: public-accepted qualifying RPC count.
     func refreshProgress(authorId: UUID) async {
-        guard let feed, todayPrompt != nil, let start = feed.windowStart, let end = feed.windowEnd else {
+        guard let feed, let start = feed.windowStart, let end = feed.windowEnd else {
             daysSent = nil
             sentDayKeys = []
             progressLoaded = false
+            return
+        }
+        // Six for '26: show the card all December even before a "today" calendar prompt.
+        if !feed.isSixFor2026, todayPrompt == nil {
+            daysSent = nil
+            sentDayKeys = []
+            progressLoaded = false
+            return
+        }
+        if feed.isSixFor2026 {
+            do {
+                let progress = try await GratitudeService.sixFor2026Progress(authorId: authorId)
+                daysSent = progress.qualified
+                hasFavoriteNonprofit = progress.hasNonprofit
+                finisherRank = progress.finisherRank
+                finisherStatus = progress.finisherStatus
+                progressLoaded = true
+            } catch {
+                // Keep the last count when offline.
+            }
             return
         }
         do {
@@ -276,12 +350,32 @@ final class CampaignService {
     }
 
     /// Optimistic +1 when a send lands on a campaign day we had not counted yet.
+    /// Six for '26 waits for public accept — do not bump optimistically.
     func noteSent(at date: Date) {
-        guard progressLoaded, let feed else { return }
+        guard progressLoaded, let feed, !feed.isSixFor2026 else { return }
         let key = feed.ymd(for: date)
         guard feed.contains(ymd: key) else { return }
         guard sentDayKeys.insert(key).inserted else { return }
         daysSent = sentDayKeys.count
+    }
+
+    @discardableResult
+    func claimSixFor2026Finisher() async -> String {
+        do {
+            let result = try await GratitudeService.claimSixFor2026Finisher()
+            if let rank = result.rank { finisherRank = rank }
+            finisherStatus = result.status
+            var props: [String: Any] = ["campaign": CampaignFeed.sixFor2026ID]
+            if let rank = result.rank { props["rank"] = rank }
+            if let status = result.status { props["status"] = status }
+            Analytics.capture(
+                result.poolFull ? "six26_pool_full" : (result.ok ? "six26_rank_assigned" : "six26_complete_submitted"),
+                props
+            )
+            return result.message ?? (result.ok ? "Claimed." : "Could not claim yet.")
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     func openCompose(prompt: CampaignPrompt, analyticsSource: String) {
@@ -320,21 +414,35 @@ final class CampaignService {
 
     #if DEBUG
     func setDebugDate(_ date: Date) {
-        let parts = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        let zone = TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
         guard let year = parts.year, let month = parts.month, let day = parts.day else { return }
         let ymd = String(format: "%04d-%02d-%02d", year, month, day)
         debugDateYMD = CampaignFeed.normalizeYMD(ymd)
         if let debugDateYMD {
             UserDefaults.standard.set(debugDateYMD, forKey: Self.debugDateKey)
         }
+        Task { await refresh() }
     }
 
     func clearDebugDate() {
         debugDateYMD = nil
         UserDefaults.standard.removeObject(forKey: Self.debugDateKey)
+        Task { await refresh() }
     }
 
+    /// Default preview jump: first day of Six for '26 (December).
     static func debugPreviewStart() -> Date {
+        CampaignFeed.date(
+            ymd: "2026-12-01",
+            timeZone: TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current,
+            hour: 12
+        ) ?? Date()
+    }
+
+    static func debugPreviewNovemberStart() -> Date {
         CampaignFeed.date(
             ymd: "2026-11-01",
             timeZone: TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current,
@@ -343,14 +451,48 @@ final class CampaignService {
     }
     #endif
 
+    /// Feed id for the UI clock (DEBUG preview date when set).
+    private func desiredFeedID(at date: Date = Date()) -> String {
+        CampaignFeed.activeCampaignID(at: uiClockDate(at: date))
+    }
+
+    private func uiClockDate(at date: Date = Date()) -> Date {
+        #if DEBUG
+        if let debugDateYMD,
+           let override = CampaignFeed.date(
+               ymd: debugDateYMD,
+               timeZone: TimeZone(identifier: CampaignFeed.fallbackTimeZoneID) ?? .current,
+               hour: 12
+           ) {
+            return override
+        }
+        #endif
+        return date
+    }
+
     // MARK: - Refresh
 
     private func performRefresh() async {
+        let desiredID = desiredFeedID()
+        if desiredID != activeFeedID {
+            activeFeedID = desiredID
+            lastRevalidatedAt = nil
+            progressLoaded = false
+            daysSent = nil
+            sentDayKeys = []
+            if let disk = Self.loadDisk(id: desiredID) {
+                apply(disk.feed, persist: false)
+            } else {
+                feed = nil
+                CampaignFeedCache.shared.update(nil)
+            }
+        }
+
         let current = feed
         guard shouldRevalidate(current) else { return }
 
-        let cached = Self.loadDisk()
-        let urls = [CampaignFeed.jsonURL, CampaignFeed.apiURL]
+        let cached = Self.loadDisk(id: desiredID)
+        let urls = [CampaignFeed.jsonURL(for: desiredID), CampaignFeed.apiURL(for: desiredID)]
         for url in urls {
             let etag = (cached?.source == url.absoluteString) ? cached?.etag : nil
             switch await Self.fetch(url, etag: etag) {
@@ -372,9 +514,11 @@ final class CampaignService {
     }
 
     private func shouldRevalidate(_ feed: CampaignFeed?) -> Bool {
+        if desiredFeedID() != activeFeedID { return true }
         guard let lastRevalidatedAt else { return true }
         if Date().timeIntervalSince(lastRevalidatedAt) > Self.freshInterval { return true }
-        if let feed, feed.ymd(for: lastRevalidatedAt) != feed.ymd(for: Date()) { return true }
+        let clock = uiClockDate()
+        if let feed, feed.ymd(for: lastRevalidatedAt) != feed.ymd(for: clock) { return true }
         return false
     }
 
@@ -448,7 +592,7 @@ final class CampaignService {
         case failed
     }
 
-    private static func cacheFileURL() -> URL? {
+    private static func cacheFileURL(id: String = CampaignFeed.activeCampaignID()) -> URL? {
         guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }
@@ -458,11 +602,11 @@ final class CampaignService {
         } catch {
             return nil
         }
-        return directory.appendingPathComponent("november-2026.json")
+        return directory.appendingPathComponent("\(id).json")
     }
 
-    private static func loadDisk() -> DiskCache? {
-        guard let url = cacheFileURL(),
+    private static func loadDisk(id: String = CampaignFeed.activeCampaignID()) -> DiskCache? {
+        guard let url = cacheFileURL(id: id),
               let data = try? Data(contentsOf: url)
         else { return nil }
         let decoder = JSONDecoder()
@@ -471,7 +615,7 @@ final class CampaignService {
     }
 
     private static func saveDisk(_ feed: CampaignFeed, etag: String?, source: String?) {
-        guard let url = cacheFileURL() else { return }
+        guard let url = cacheFileURL(id: feed.id) else { return }
         let cache = DiskCache(etag: etag, source: source, savedAt: Date(), feed: feed)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

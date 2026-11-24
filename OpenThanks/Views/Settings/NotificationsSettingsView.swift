@@ -16,6 +16,15 @@ struct NotificationsSettingsView: View {
     @State private var calendarToggleEpoch = 0
     /// After connecting a calendar without notification auth.
     @State private var showPostCalendarNotifications = false
+    @State private var showServerSyncConsent = false
+    @State private var pendingConsentAction: PendingCalendarAction?
+    @State private var deletingCalendarData = false
+    @State private var showDeleteCalendarConfirm = false
+
+    private enum PendingCalendarAction {
+        case apple
+        case google
+    }
 
     private var fridayBinding: Binding<Bool> {
         Binding(
@@ -88,6 +97,10 @@ struct NotificationsSettingsView: View {
                 }
                 .animation(.easeOut(duration: 0.22), value: calendarNudgeEnabled)
 
+                if anyCalendarReady {
+                    serverSyncSection
+                }
+
                 if let errorMessage {
                     errorBlock(errorMessage)
                 }
@@ -104,6 +117,52 @@ struct NotificationsSettingsView: View {
         .onDisappear {
             fridayToggleTask?.cancel()
             calendarToggleTask?.cancel()
+        }
+        .alert(CalendarServerSyncConsent.disclosureTitle, isPresented: $showServerSyncConsent) {
+            Button("Agree & continue") {
+                CalendarServerSyncConsent.recordConsent()
+                let action = pendingConsentAction
+                pendingConsentAction = nil
+                Task {
+                    switch action {
+                    case .apple:
+                        await connectAppleAfterConsent()
+                        if googleReady {
+                            // Existing Google Keychain sessions need a fresh OAuth for server tokens.
+                            await connectGoogleAfterConsent()
+                        }
+                    case .google:
+                        await connectGoogleAfterConsent()
+                        if appleReady {
+                            await AppleCalendarHistoryUploader.uploadIfNeeded(force: true)
+                        }
+                    case .none:
+                        if appleReady {
+                            await AppleCalendarHistoryUploader.uploadIfNeeded(force: true)
+                        }
+                        if googleReady {
+                            await connectGoogleAfterConsent()
+                        }
+                    }
+                }
+            }
+            Button("Not now", role: .cancel) {
+                pendingConsentAction = nil
+            }
+        } message: {
+            Text(CalendarServerSyncConsent.disclosureBody)
+        }
+        .confirmationDialog(
+            "Delete calendar data from OpenThanks?",
+            isPresented: $showDeleteCalendarConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete calendar data", role: .destructive) {
+                Task { await deleteCalendarDataFromServer() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Removes synced events, notes, suggestions, and encrypted Google tokens from OpenThanks. Your calendars on this phone are not deleted.")
         }
         .sheet(isPresented: $showPostCalendarNotifications) {
             NavigationStack {
@@ -185,8 +244,10 @@ struct NotificationsSettingsView: View {
                     .foregroundStyle(Theme.textPrimary)
                 Text(
                     anyCalendarReady
-                        ? "We’ll use connected calendars to pick someone from your day. Events aren’t stored on OpenThanks servers."
-                        : "Connect Apple or Google so we know who you met today. Without a calendar, the evening nudge stays quiet."
+                        ? (CalendarServerSyncConsent.hasConsented
+                            ? "We’ll sync history (including notes) to suggest people to thank — never for ads."
+                            : "Connect is on-device until you agree to server sync below.")
+                        : "Connect Apple or Google so we can suggest someone to thank. Without a calendar, the evening nudge stays quiet."
                 )
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
@@ -195,7 +256,9 @@ struct NotificationsSettingsView: View {
 
             calendarSourceRow(
                 title: "Apple Calendar",
-                detail: "Meetings stay on this device",
+                detail: CalendarServerSyncConsent.hasConsented
+                    ? "History + notes upload in the background"
+                    : "Permission on this device; sync needs consent",
                 status: appleStatus,
                 isReady: appleReady,
                 actionTitle: appleReady ? nil : appleActionTitle,
@@ -206,7 +269,9 @@ struct NotificationsSettingsView: View {
 
             calendarSourceRow(
                 title: "Google Calendar",
-                detail: "Reads today’s meetings only",
+                detail: CalendarServerSyncConsent.hasConsented
+                    ? "Server sync with encrypted tokens"
+                    : "Readonly calendar access",
                 status: googleStatus,
                 isReady: googleReady,
                 actionTitle: googleReady ? "Disconnect" : "Connect",
@@ -399,7 +464,56 @@ struct NotificationsSettingsView: View {
         }
     }
 
+    private var serverSyncSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("OpenThanks sync")
+                .font(Theme.body(15, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+            Text(
+                CalendarServerSyncConsent.hasConsented
+                    ? "Server sync is on. History including meeting notes is used only for thank-you suggestions and drafts."
+                    : "To suggest people from your calendar history (including notes), OpenThanks needs your consent to sync to our servers."
+            )
+            .font(Theme.body(13))
+            .foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            if !CalendarServerSyncConsent.hasConsented {
+                Button("Review & enable sync") {
+                    // Prefer re-auth Google so refresh tokens move to the server.
+                    pendingConsentAction = googleReady ? .google : .apple
+                    showServerSyncConsent = true
+                }
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.coral)
+            } else {
+                Button(deletingCalendarData ? "Deleting…" : "Delete calendar data from OpenThanks") {
+                    showDeleteCalendarConfirm = true
+                }
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Color.red.opacity(0.9))
+                .disabled(deletingCalendarData)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.hairline, lineWidth: 1)
+        )
+    }
+
     private func connectApple() async {
+        if !CalendarServerSyncConsent.hasConsented {
+            pendingConsentAction = .apple
+            showServerSyncConsent = true
+            return
+        }
+        await connectAppleAfterConsent()
+    }
+
+    private func connectAppleAfterConsent() async {
         errorMessage = nil
         showOpenSystemSettings = false
         switch CalendarMeetingService.accessState {
@@ -413,6 +527,7 @@ struct NotificationsSettingsView: View {
             let granted = await CalendarMeetingService.requestAccess(analyticsSource: "settings")
             calendarAccessTick += 1
             if granted {
+                await AppleCalendarHistoryUploader.uploadIfNeeded(force: true)
                 await finishSettingsCalendarConnect()
             } else {
                 errorMessage = "Apple Calendar wasn’t allowed. You can connect Google Calendar instead."
@@ -423,6 +538,15 @@ struct NotificationsSettingsView: View {
     }
 
     private func connectGoogle() async {
+        if !CalendarServerSyncConsent.hasConsented {
+            pendingConsentAction = .google
+            showServerSyncConsent = true
+            return
+        }
+        await connectGoogleAfterConsent()
+    }
+
+    private func connectGoogleAfterConsent() async {
         googleBusy = true
         errorMessage = nil
         showOpenSystemSettings = false
@@ -435,6 +559,20 @@ struct NotificationsSettingsView: View {
             if !GoogleCalendarAuth.isUserCancellation(error) {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    private func deleteCalendarDataFromServer() async {
+        deletingCalendarData = true
+        defer { deletingCalendarData = false }
+        do {
+            try await CalendarServerAPI.disconnect()
+            CalendarServerSyncConsent.revoke()
+            UserDefaults.standard.removeObject(forKey: "appleCalendarHistoryUploader.lastDoneAt")
+            await GoogleCalendarAuth.disconnect()
+            calendarAccessTick += 1
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 

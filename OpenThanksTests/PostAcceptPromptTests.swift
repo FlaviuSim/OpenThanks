@@ -56,13 +56,9 @@ final class PostAcceptPromptTests: XCTestCase {
         )
     }
 
-    func testFirstSendTipCopy() {
-        XCTAssertEqual(FirstSendTip.title, "The + button starts a note")
-        XCTAssertEqual(FirstSendTip.detail, "Tap it when you know who it's for.")
-        let tip = "\(FirstSendTip.title)\n\(FirstSendTip.detail)"
-        XCTAssertFalse(tip.contains("Start sending your first appreciation"))
-        XCTAssertFalse(tip.contains("Tap the heart button below"))
-        XCTAssertFalse(tip.contains("The heart below"))
+    func testFirstSendTipRetired() {
+        XCTAssertFalse(show())
+        XCTAssertFalse(show(hasSeenTip: false, hasOpenedComposer: false, hasSentAppreciation: false))
     }
 
     func testMarkComposerOpenedPersists() {

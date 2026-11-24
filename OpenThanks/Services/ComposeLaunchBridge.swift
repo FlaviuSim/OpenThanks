@@ -45,7 +45,7 @@ final class ComposeLaunchBridge {
         var campaignDay: Int?
         /// PostHog compose funnel `source`.
         var analyticsSource: String
-        /// No-recipient launches use the two-step write → deliver flow.
+        /// Watch / unfinished pending: write → deliver. Blank compose stays one page.
         var allowsEmptyRecipient: Bool
         /// Watch voice / pending: edit the pending appreciation that was auto-created.
         var editingGratitude: Gratitude?
@@ -83,33 +83,32 @@ final class ComposeLaunchBridge {
             self.analyticsSource = analyticsSource
             self.editingGratitude = editingGratitude
             self.opensOnShareScreen = opensOnShareScreen
-            // Two-step whenever nothing is prefilled as a recipient (blank compose,
-            // deep link without ?for=, Watch, widgets, etc.). Prefill stays classic.
+            // Blank compose is one page (To at top). Two-step only for Watch and
+            // unfinished pending / share-screen opens.
             self.allowsEmptyRecipient = Self.resolveAllowsEmptyRecipient(
                 explicit: allowsEmptyRecipient,
-                recipientName: recipientName,
-                profile: profile,
                 editingGratitude: editingGratitude,
-                analyticsSource: analyticsSource
+                analyticsSource: analyticsSource,
+                opensOnShareScreen: opensOnShareScreen
             )
         }
 
-        /// True when compose should use write → deliver (no recipient chosen yet).
+        /// True for write → deliver (Watch / unfinished pending). Blank FAB is false.
         static func resolveAllowsEmptyRecipient(
             explicit: Bool = false,
             recipientName: String? = nil,
             profile: Profile? = nil,
             editingGratitude: Gratitude? = nil,
-            analyticsSource: String? = nil
+            analyticsSource: String? = nil,
+            opensOnShareScreen: Bool = false
         ) -> Bool {
-            if explicit { return true }
+            // Prefill args kept for call-site compatibility; blank compose no longer
+            // flips two-step just because To is empty.
+            let _ = (recipientName, profile)
             if analyticsSource == "watch" { return true }
-            let trimmed = recipientName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let hasPrefillRecipient =
-                !trimmed.isEmpty
-                || profile != nil
-                || (editingGratitude.map { !$0.hasNoRecipient } ?? false)
-            return !hasPrefillRecipient
+            if let editing = editingGratitude, editing.hasNoRecipient { return true }
+            if opensOnShareScreen, editingGratitude?.hasNoRecipient != false { return true }
+            return explicit
         }
 
         /// Blank post-login / legacy app_open compose — richer launches replace these.

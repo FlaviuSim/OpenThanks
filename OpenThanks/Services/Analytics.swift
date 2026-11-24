@@ -294,6 +294,31 @@ enum Analytics {
         Task { await syncPermissionPersonProperties() }
     }
 
+    static func calendarServerConnected(provider: String) {
+        capture(
+            "calendar_server_connected",
+            ["provider": provider],
+            userProperties: ["calendar_server_sync": true],
+            userPropertiesSetOnce: nil
+        )
+    }
+
+    static func calendarBackfillComplete(provider: String) {
+        capture("calendar_backfill_complete", ["provider": provider])
+    }
+
+    static func calendarAISuggested(source: String) {
+        capture("calendar_ai_suggested", ["source": source])
+    }
+
+    static func calendarAIThankOpened() {
+        capture("calendar_ai_thank_opened")
+    }
+
+    static func calendarAIThankSent() {
+        capture("calendar_ai_thank_sent")
+    }
+
     // MARK: - Home first thank-you
 
     /// Home became visible. `reason` is `appear`, `foreground`, `tab`, or `retap`.
@@ -454,10 +479,16 @@ enum Analytics {
         let key = "\(campaign)|\(day)"
         guard shownCampaignDays.insert(key).inserted else { return }
         capture("campaign_prompt_shown", ["campaign": campaign, "day": day])
+        if campaign == "six-for-2026" {
+            capture("six26_prompt_shown", ["campaign": campaign, "day": day])
+        }
     }
 
     static func campaignPromptTapped(campaign: String, day: Int) {
         capture(CampaignPromptCardModel.tapEvent, ["campaign": campaign, "day": day])
+        if campaign == "six-for-2026" {
+            capture("six26_prompt_tapped", ["campaign": campaign, "day": day])
+        }
     }
 
     // MARK: - Compose funnel (aligned with web PostHog events)
@@ -535,6 +566,15 @@ enum Analytics {
         }
         mergePromptExperiment(&props, experiment: promptExperiment, variant: promptVariant)
         capture("appreciation_submitted", formProps(props, formSessionId: formSessionId))
+        if campaign == "six-for-2026" {
+            capture("six26_sent", formProps(props, formSessionId: formSessionId))
+        }
+        if let source,
+           source == "calendar_ai_suggestion"
+            || source == "calendar_evening_nudge"
+            || source == "notification_calendar_nudge" {
+            calendarAIThankSent()
+        }
     }
 
     /// A save of a thank-you that already existed. Not a send, so it does not

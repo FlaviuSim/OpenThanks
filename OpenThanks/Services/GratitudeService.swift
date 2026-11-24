@@ -131,9 +131,10 @@ enum GratitudeService {
     /// Do not filter on `accepted_as_private` — visibility is the source of truth.
     /// Pass `before` (oldest `accepted_at` already shown) to load the next page.
     static func worldFeed(limit: Int = listPageSize, before: Date? = nil) async throws -> GratitudePage {
+        // Match web: public + legacy null visibility (not private).
         var query = supabase.from("gratitudes")
             .select(feedSelect)
-            .eq("visibility", value: "public")
+            .or(visibilityOrFilter(viewerId: nil))
             .eq("status", value: "accepted")
         if let before {
             query = query.lt("accepted_at", value: before.ISO8601Format())
@@ -328,6 +329,87 @@ enum GratitudeService {
             .limit(limit)
             .execute()
             .value
+    }
+
+    struct SixFor2026Progress: Sendable {
+        var qualified: Int
+        var hasNonprofit: Bool
+        var finisherRank: Int?
+        var finisherStatus: String?
+    }
+
+    struct SixFor2026ClaimResult: Sendable {
+        var ok: Bool
+        var rank: Int?
+        var status: String?
+        var poolFull: Bool
+        var message: String?
+    }
+
+    /// Public-accepted Dec qualifications via `six_for_2026_qualifying_ids`.
+    static func sixFor2026Progress(authorId: UUID) async throws -> SixFor2026Progress {
+        let ids: [UUID] = try await supabase
+            .rpc("six_for_2026_qualifying_ids", params: ["p_user_id": authorId.uuidString])
+            .execute()
+            .value
+
+        struct NonprofitRow: Decodable {
+            let favoriteNonprofitName: String?
+            enum CodingKeys: String, CodingKey {
+                case favoriteNonprofitName = "favorite_nonprofit_name"
+            }
+        }
+        let profile: NonprofitRow? = try? await supabase
+            .from("profiles")
+            .select("favorite_nonprofit_name")
+            .eq("id", value: authorId)
+            .limit(1)
+            .single()
+            .execute()
+            .value
+
+        struct FinisherRow: Decodable {
+            let rank: Int?
+            let status: String?
+        }
+        let finisher: FinisherRow? = try? await supabase
+            .from("campaign_finishers")
+            .select("rank, status")
+            .eq("campaign_id", value: "six-for-2026")
+            .eq("user_id", value: authorId)
+            .limit(1)
+            .single()
+            .execute()
+            .value
+
+        return SixFor2026Progress(
+            qualified: ids.count,
+            hasNonprofit: !(profile?.favoriteNonprofitName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
+            finisherRank: finisher?.rank,
+            finisherStatus: finisher?.status
+        )
+    }
+
+    static func claimSixFor2026Finisher() async throws -> SixFor2026ClaimResult {
+        struct Payload: Decodable {
+            let ok: Bool?
+            let rank: Int?
+            let status: String?
+            let poolFull: Bool?
+            let message: String?
+            let error: String?
+        }
+        let payload: Payload = try await supabase
+            .rpc("claim_six_for_2026_finisher")
+            .execute()
+            .value
+        return SixFor2026ClaimResult(
+            ok: payload.ok ?? false,
+            rank: payload.rank,
+            status: payload.status,
+            poolFull: payload.poolFull ?? false,
+            message: payload.message ?? payload.error
+        )
     }
 
     /// Accepted appreciations sent by a user, restricted to what `viewerId`
@@ -647,11 +729,9 @@ enum GratitudeService {
         var payload = new
         await resolveRecipientContact(&payload)
 
-        // Explicit pay-it-forward parent wins; otherwise most recent accepted
-        // thanks this author received within 7 days (API also applies this).
-        if payload.inspiredByGratitudeId == nil {
-            payload.inspiredByGratitudeId = await recentReceivedParentId(for: payload.authorId)
-        }
+        // Leave inspired_by unset unless the client already chose a parent
+        // (pay-it-forward / ripple). The create API fills the 7-day fallback —
+        // doing that lookup here doubled Continue latency for no gain.
 
         let startedAt = Date()
         do {
@@ -1036,24 +1116,6 @@ enum GratitudeService {
         } catch {
             throw AppreciationSendFailure.wrapping(error, stage: stage, attemptNumber: 2)
         }
-    }
-
-    /// Most recent accepted appreciation this user received within 7 days.
-    private static func recentReceivedParentId(for userId: UUID) async -> UUID? {
-        let since = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-            .addingTimeInterval(-7 * 86_400)
-        struct IdRow: Decodable { let id: UUID }
-        let rows: [IdRow] = (try? await supabase.from("gratitudes")
-            .select("id")
-            .eq("recipient_id", value: userId)
-            .eq("status", value: "accepted")
-            .not("accepted_at", operator: .is, value: "null")
-            .gte("accepted_at", value: since.ISO8601Format())
-            .order("accepted_at", ascending: false)
-            .limit(1)
-            .execute()
-            .value) ?? []
-        return rows.first?.id
     }
 
     /// Contact fields for a member — used when thanking from their profile.

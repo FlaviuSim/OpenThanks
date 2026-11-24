@@ -3,12 +3,12 @@ import UIKit
 
 /// Dedicated Appearance settings: Light / Dark / Auto theme + alternate app icons.
 struct AppearanceView: View {
-    @AppStorage("appAppearance") private var appearance = AppAppearance.dark.rawValue
+    @AppStorage("appAppearance") private var appearance = AppAppearance.light.rawValue
     @AppStorage("appIconName") private var storedIconName = AppIconOption.default.storageValue
     @State private var iconError: String?
 
     private var selectedAppearance: AppAppearance {
-        AppAppearance(rawValue: appearance) ?? .dark
+        AppAppearance(rawValue: appearance) ?? .light
     }
 
     private var selectedIcon: AppIconOption {

@@ -39,7 +39,9 @@ struct SoftNoteRevealModifier: ViewModifier {
             .scaleEffect(revealed ? 1 : 0.97, anchor: .top)
             .offset(y: revealed ? 0 : 10)
             .onAppear {
-                withAnimation(Motion.note.delay(delay)) {
+                // Keep the soft settle, but short enough that post-Continue screens
+                // feel immediate instead of waiting on a long staggered fade.
+                withAnimation(.easeOut(duration: 0.22).delay(delay)) {
                     revealed = true
                 }
             }
