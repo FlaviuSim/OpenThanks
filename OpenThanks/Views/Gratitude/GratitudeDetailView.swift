@@ -37,9 +37,39 @@ struct GratitudeDetailView: View {
     @State private var didCaptureAppreciationView = false
     /// Fallback when no guest-browse host injected `requestGuestSignIn`.
     @State private var showGuestSignIn = false
+    @State private var showThankBackCompose = false
 
     private var shareVoice: AppreciationShareVoice {
         AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
+    }
+
+    /// Recipient viewing an accepted note they received — offer a thank-back reply.
+    private var canThankAuthorBack: Bool {
+        guard let userId = auth.userId else { return false }
+        guard gratitude.recipientId == userId else { return false }
+        guard gratitude.authorId != userId else { return false }
+        if let status = gratitude.status, status != .accepted { return false }
+        let name = gratitude.author?.fullName
+            ?? gratitude.author?.displayName
+            ?? gratitude.author?.username
+        return !(name?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+    }
+
+    private var thankBackChipTitle: String {
+        PayItForwardPromptCopy.thankBackChipTitle(
+            fromName: gratitude.author?.fullName
+                ?? gratitude.author?.displayName
+                ?? gratitude.author?.username
+        )
+    }
+
+    private var thankBackDraft: String {
+        PayItForwardPromptCopy.thankBackMessage(
+            fromName: gratitude.author?.fullName
+                ?? gratitude.author?.displayName
+                ?? gratitude.author?.username,
+            acceptedMessage: gratitude.message
+        )
     }
 
     private var canBlockAuthor: Bool {
@@ -79,6 +109,10 @@ struct GratitudeDetailView: View {
             VStack(spacing: 16) {
                 postCard
                     .softNoteReveal()
+                if canThankAuthorBack {
+                    thankBackCard
+                        .softNoteReveal(delay: 0.05)
+                }
                 shareStrip
                     .softNoteReveal(delay: 0.08)
             }
@@ -92,6 +126,19 @@ struct GratitudeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $heartedProfile) { route in
             UserProfileView(profile: route.profile)
+        }
+        .composeCover(isPresented: $showThankBackCompose) {
+            ComposeView(
+                initialRecipient: gratitude.author?.email
+                    ?? gratitude.author?.fullName
+                    ?? gratitude.author?.displayName,
+                initialRecipientProfile: gratitude.author,
+                initialMessage: thankBackDraft,
+                inspiredByGratitudeId: gratitude.id,
+                inspiredByAuthorName: gratitude.author?.fullName
+                    ?? gratitude.author?.displayName,
+                analyticsSource: "detail_thank_back"
+            )
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -266,6 +313,7 @@ struct GratitudeDetailView: View {
                 HeartedByView(
                     gratitudeId: gratitude.id,
                     heartCount: shownHeartCount,
+                    viewerHasHearted: isHearted,
                     onOpenProfile: onOpenProfile ?? { heartedProfile = HeartedProfileRoute(profile: $0) },
                     onCountResolved: { count in
                         raiseHeartCount(to: count)
@@ -303,6 +351,55 @@ struct GratitudeDetailView: View {
         }
         .padding(18)
         .card()
+    }
+
+    // MARK: Thank back
+
+    private var thankBackCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("They thought of you")
+                .font(Theme.body(13, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+
+            Button {
+                openThankBackCompose()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.uturn.left")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(thankBackChipTitle)
+                        .font(Theme.body(16, weight: .semibold))
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .opacity(0.85)
+                }
+                .foregroundStyle(Theme.onPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(Theme.ctaGradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(thankBackChipTitle)
+            .accessibilityHint("Opens a drafted thank-you note to them")
+
+            Text("We’ll start a short reply you can edit before sending.")
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .card()
+    }
+
+    private func openThankBackCompose() {
+        guard canThankAuthorBack else { return }
+        FirstSendTip.markComposerOpened()
+        Analytics.capture("detail_thank_back_tapped", [
+            "gratitude_id": gratitude.id.uuidString,
+            "author_id": gratitude.authorId.uuidString,
+        ])
+        showThankBackCompose = true
     }
 
     // MARK: Share

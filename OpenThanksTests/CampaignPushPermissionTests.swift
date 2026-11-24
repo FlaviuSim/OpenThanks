@@ -36,10 +36,14 @@ final class CampaignPushPermissionTests: XCTestCase {
         }
     }
 
-    func testContextLineIsTheDailyPromptAndDoesNotMentionWatch() {
+    func testContextLineIsReceiveAppreciationAndDoesNotMentionWatch() {
         XCTAssertEqual(
             CampaignPushPermission.contextLine,
-            "Get your daily 30 Days of Thanks prompt."
+            "Get Notified When you Receive an Appreciation"
+        )
+        XCTAssertEqual(
+            CampaignPushPermission.contextDetail,
+            "We promise not to bother you unnecessarily."
         )
         let copy = [
             CampaignPushPermission.contextLine,

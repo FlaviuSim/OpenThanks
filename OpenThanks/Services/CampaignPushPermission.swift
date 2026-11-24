@@ -20,8 +20,8 @@ enum CampaignPushMoment: Equatable {
 
 enum CampaignPushPermission {
     /// Shown on the existing notification pre-prompt. Do not mention other devices.
-    static let contextLine = "Get your daily 30 Days of Thanks prompt."
-    static let contextDetail = "Allow notifications and the day's prompt can reach you."
+    static let contextLine = "Get Notified When you Receive an Appreciation"
+    static let contextDetail = "We promise not to bother you unnecessarily."
     /// PostHog `source` on the existing push permission events.
     static let analyticsSource = "campaign"
 

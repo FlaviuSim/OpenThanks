@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Data for the shareable Stats pride poster.
+/// Data for the shareable Stats card.
 struct StatsShareContent {
     let streak: Int
     let bestStreak: Int
@@ -13,14 +13,14 @@ struct StatsShareContent {
 
     var displayInviteLink: String { "openthanks.com/app" }
 
-    /// Proud caption for the system share sheet (includes short App invite).
+    /// Humble caption for the system share sheet (includes short App invite).
     var shareCaption: String {
         let body: String
         if streak > 0 {
             let unit = streak == 1 ? "day" : "days"
-            body = "I'm on a \(streak)-\(unit) gratitude streak on OpenThanks — living a more grateful life."
+            body = "I've been saying thank you for \(streak) \(unit) on OpenThanks — trying to notice the good a little more."
         } else {
-            body = "Starting my gratitude journey on OpenThanks — living a more grateful life."
+            body = "Starting to say thank you more often with OpenThanks — one note at a time."
         }
         return """
         \(body)
@@ -30,11 +30,11 @@ struct StatsShareContent {
     }
 
     var linkMetadataTitle: String {
-        streak > 0 ? "My \(streak)-day OpenThanks streak" : "My OpenThanks gratitude journey"
+        streak > 0 ? "\(streak) days of thank-yous on OpenThanks" : "Saying thank you on OpenThanks"
     }
 }
 
-/// Portrait pride card (1080×1350) for Stories / Messages / IG.
+/// Portrait share card (1080×1350) for Stories / Messages / IG.
 struct StatsShareCardView: View {
     let content: StatsShareContent
     var avatar: UIImage? = nil
@@ -98,7 +98,7 @@ struct StatsShareCardView: View {
                             .font(.system(size: 26, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.7))
                     }
-                    Text("Living a more grateful life")
+                    Text("Trying to notice the good")
                         .font(.system(size: 30, weight: .regular, design: .serif))
                         .italic()
                         .foregroundStyle(.white.opacity(0.78))

@@ -3,7 +3,10 @@ import SwiftUI
 /// Gentle post-accept prompt to continue a gratitude ripple — with concrete paths.
 struct PayItForwardNudgeCard: View {
     var fromName: String?
-    /// Message they just accepted — drives the echo-gift chip.
+    /// Prefills To when thanking the sender back.
+    var senderProfile: Profile? = nil
+    var senderEmail: String? = nil
+    /// Message they just accepted — drives the echo-gift chip + thank-back draft.
     var acceptedMessage: String? = nil
     var onChoose: (PostAcceptChoice) -> Void
     var onDismiss: (() -> Void)? = nil
@@ -22,6 +25,11 @@ struct PayItForwardNudgeCard: View {
 
     private var echoTheme: GratitudeEchoTheme {
         GratitudeEchoTheme.detect(from: acceptedMessage)
+    }
+
+    private var canThankBack: Bool {
+        let name = fromName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !name.isEmpty && name.lowercased() != "someone"
     }
 
     var body: some View {
@@ -52,17 +60,21 @@ struct PayItForwardNudgeCard: View {
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text(PayItForwardPromptCopy.reassurance)
-                .font(Theme.body(13))
-                .foregroundStyle(Theme.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-
             Text(PayItForwardPromptCopy.choosePrompt)
                 .font(Theme.body(13, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .padding(.top, 2)
 
             VStack(spacing: 8) {
+                if canThankBack {
+                    pathChip(
+                        title: PayItForwardPromptCopy.thankBackChipTitle(fromName: fromName),
+                        systemImage: "arrow.uturn.left"
+                    ) {
+                        choose(thankBackChoice())
+                    }
+                }
+
                 ForEach(PayItForwardPromptCopy.questionPaths(echoTheme: echoTheme)) { path in
                     pathChip(
                         title: PayItForwardPromptCopy.chipTitle(for: path, echoTheme: echoTheme),
@@ -196,6 +208,21 @@ struct PayItForwardNudgeCard: View {
         onChoose(choice)
     }
 
+    private func thankBackChoice() -> PostAcceptChoice {
+        let email = senderEmail
+            ?? senderProfile?.email
+        let name = fromName
+            ?? senderProfile?.fullName
+            ?? senderProfile?.displayName
+        return PayItForwardPromptCopy.choice(
+            path: .thankBack,
+            echoTheme: echoTheme,
+            recipientName: name,
+            recipientEmail: email,
+            acceptedMessage: acceptedMessage
+        )
+    }
+
     private func scheduleRemindTonight() async {
         guard !remindBusy, !remindScheduled else { return }
         remindBusy = true
@@ -289,6 +316,8 @@ private struct FlowFaceChips: View {
 /// Sheet wrapper used right after accepting from the Home feed.
 struct PayItForwardSheet: View {
     var fromName: String?
+    var senderProfile: Profile? = nil
+    var senderEmail: String? = nil
     var acceptedMessage: String? = nil
     var parentGratitudeId: UUID?
     var analyticsSurface: String
@@ -308,6 +337,8 @@ struct PayItForwardSheet: View {
             ScrollView {
                 PayItForwardNudgeCard(
                     fromName: fromName,
+                    senderProfile: senderProfile,
+                    senderEmail: senderEmail,
                     acceptedMessage: acceptedMessage,
                     onChoose: { choice in
                         // Tell the host this was a tap before `dismiss()` flips the

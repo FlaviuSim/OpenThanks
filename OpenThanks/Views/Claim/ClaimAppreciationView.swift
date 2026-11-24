@@ -46,6 +46,8 @@ struct PendingAppreciationReviewView: View {
                         PayItForwardNudgeCard(
                             fromName: authorProfile?.fullName
                                 ?? authorProfile?.displayName,
+                            senderProfile: authorProfile,
+                            senderEmail: authorProfile?.email,
                             acceptedMessage: gratitude.message,
                             onChoose: { choice in
                                 Analytics.payItForwardTapped(
@@ -104,6 +106,7 @@ struct PendingAppreciationReviewView: View {
             }()
             ComposeView(
                 initialRecipient: toField,
+                initialRecipientProfile: choice?.path == .thankBack ? authorProfile : nil,
                 initialMessage: choice?.message,
                 inspiredByGratitudeId: gratitude.id,
                 inspiredByAuthorName: authorProfile?.fullName ?? authorProfile?.displayName,

@@ -7,8 +7,8 @@ enum ComposeOpenCopy {
     static let variantStorageKey = "composeOpenCopy.variant.v1"
     static let installIdKey = "composeOpenCopy.installId.v1"
 
-    static let reassurance =
-        "Don’t worry about the wording. They’ll love that you thought of them."
+    /// Formerly shown under the message field; compose no longer displays it.
+    static let reassurance: String? = nil
 
     enum Family: String, CaseIterable, Equatable {
         case blank
@@ -133,7 +133,7 @@ enum ComposeOpenCopy {
                 variant: variant,
                 bannerTitle: "Who made today a little better?",
                 bannerBody: "A short note is enough — name optional for now.",
-                reassurance: reassurance,
+                reassurance: nil,
                 placeholder: placeholder,
                 softStarter: nil
             )
@@ -144,7 +144,7 @@ enum ComposeOpenCopy {
                 variant: variant,
                 bannerTitle: "Who made today a little better?",
                 bannerBody: "A short note is enough — name optional for now.",
-                reassurance: reassurance,
+                reassurance: nil,
                 placeholder: placeholder,
                 softStarter: "Thank you for — "
             )
@@ -172,7 +172,7 @@ enum ComposeOpenCopy {
                 variant: variant,
                 bannerTitle: nil,
                 bannerBody: nil,
-                reassurance: reassurance,
+                reassurance: nil,
                 placeholder: placeholder,
                 softStarter: nil
             )
@@ -183,7 +183,7 @@ enum ComposeOpenCopy {
                 variant: variant,
                 bannerTitle: nil,
                 bannerBody: nil,
-                reassurance: reassurance,
+                reassurance: nil,
                 placeholder: placeholder,
                 softStarter: "Thank you for — "
             )

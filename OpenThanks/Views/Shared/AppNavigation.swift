@@ -180,6 +180,8 @@ struct GratitudeLoaderView: View {
                             PayItForwardNudgeCard(
                                 fromName: gratitude.author?.fullName
                                     ?? gratitude.author?.displayName,
+                                senderProfile: gratitude.author,
+                                senderEmail: gratitude.author?.email,
                                 acceptedMessage: gratitude.message,
                                 onChoose: { choice in
                                     Analytics.payItForwardTapped(
@@ -250,6 +252,7 @@ struct GratitudeLoaderView: View {
             }()
             ComposeView(
                 initialRecipient: toField,
+                initialRecipientProfile: choice?.path == .thankBack ? gratitude?.author : nil,
                 initialMessage: choice?.message,
                 inspiredByGratitudeId: gratitude?.id,
                 inspiredByAuthorName: gratitude?.author?.fullName

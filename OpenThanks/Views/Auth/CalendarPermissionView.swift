@@ -3,10 +3,10 @@ import UIKit
 
 /// Calendar connect UI — deferred full-screen gate, Home-banner sheet, or post-appreciation sheet.
 ///
-/// App Store 5.1.1(iv): a custom rationale before Calendar access must proceed
-/// to the system permission request. Do not offer “Not now” / dismiss that
-/// skips EventKit. After the system dialog (allow or deny), leave this screen
-/// so the user’s choice is respected.
+/// App Store 5.1.1(iv): Apple/Google rows still open the system permission /
+/// OAuth flow. “Not now” / Close dismiss the sheet without connecting — they
+/// must not be the only action. After allow/deny, leave this screen so the
+/// user’s choice is respected.
 ///
 /// After a successful connect, if notifications aren’t authorized yet, show a
 /// branded follow-up so evening thank-you nudges can actually fire.
@@ -123,8 +123,7 @@ struct CalendarPermissionView: View {
                     .padding(.top, 4)
                     .softNoteReveal(delay: 0.28)
 
-                // Only after the system Calendar prompt was shown (or access was
-                // already decided). Never a way to skip the permission request.
+                // After a prior Calendar denial, send people to Settings first.
                 if showPostDenialActions {
                     Button {
                         openSystemSettings()
@@ -136,18 +135,21 @@ struct CalendarPermissionView: View {
                             .padding(.vertical, 14)
                     }
                     .disabled(busy)
-
-                    Button {
-                        finishWithoutCalendar()
-                    } label: {
-                        Text("Continue without calendar")
-                            .font(Theme.body(16, weight: .semibold))
-                            .foregroundStyle(Theme.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }
-                    .disabled(busy)
                 }
+
+                // Always offer a way out — Apple/Google remain the path into the
+                // system permission. Sheets with swipe disabled were trapping users.
+                Button {
+                    finishWithoutCalendar()
+                } label: {
+                    Text(showPostDenialActions ? "Continue without calendar" : "Not now")
+                        .font(Theme.body(16, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .disabled(busy)
+                .softNoteReveal(delay: 0.32)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 36)
@@ -208,6 +210,8 @@ struct CalendarPermissionView: View {
             await finishAfterConnect()
         } catch {
             if GoogleCalendarAuth.isUserCancellation(error) {
+                // OAuth cancel used to leave this screen with no way out.
+                finishWithoutCalendar()
                 return
             }
             errorMessage = error.localizedDescription

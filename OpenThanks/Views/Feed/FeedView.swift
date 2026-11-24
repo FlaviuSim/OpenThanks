@@ -83,6 +83,7 @@ struct FeedView: View {
     @State private var homeWasBackgrounded = false
     /// After accepting, gently invite the recipient to thank someone else.
     @State private var payItForwardFromName: String?
+    @State private var payItForwardSenderProfile: Profile?
     @State private var payItForwardParentId: UUID?
     @State private var payItForwardAcceptedMessage: String?
     @State private var payItForwardPresentedIds: Set<UUID> = []
@@ -204,6 +205,7 @@ struct FeedView: View {
         let didThank = payItForwardDidThank
         payItForwardDidThank = false
         payItForwardFromName = nil
+        payItForwardSenderProfile = nil
         payItForwardAcceptedMessage = nil
         // Mark the composer before the sheet flag drops so the tip does not
         // appear in the gap between "Send a note" and the cover.
@@ -265,6 +267,8 @@ struct FeedView: View {
             .sheet(isPresented: showPayItForward) {
                 PayItForwardSheet(
                     fromName: payItForwardFromName,
+                    senderProfile: payItForwardSenderProfile,
+                    senderEmail: payItForwardSenderProfile?.email,
                     acceptedMessage: payItForwardAcceptedMessage,
                     parentGratitudeId: payItForwardParentId,
                     analyticsSurface: "feed",
@@ -378,6 +382,7 @@ struct FeedView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .dismissTransientSheets)) { _ in
                 payItForwardFromName = nil
+                payItForwardSenderProfile = nil
                 payItForwardParentId = nil
                 payItForwardAcceptedMessage = nil
                 postRippleSheetPresented(false)
@@ -563,8 +568,6 @@ struct FeedView: View {
         .sheet(isPresented: $showCalendarConnect, onDismiss: {
             calendarReminder.refresh()
         }) {
-            // 5.1.1(iv): no Close / swipe-dismiss that skips the Calendar
-            // permission request after this custom rationale.
             NavigationStack {
                 CalendarPermissionView(
                     onFinished: {
@@ -575,10 +578,20 @@ struct FeedView: View {
                     marksLaunchGateCompleteOnSkip: true,
                     countsTowardAutomaticCap: false
                 )
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Close") {
+                            calendarReminder.snooze()
+                            showCalendarConnect = false
+                            calendarReminder.refresh()
+                        }
+                        .font(Theme.body(16, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                    }
+                }
             }
             .syncAppAppearance()
             .presentationDetents([.large])
-            .interactiveDismissDisabled()
         }
         .onChange(of: scope) { _, next in
             // Picker taps and feed drags already end search. Dismissing here too
@@ -1452,6 +1465,7 @@ struct FeedView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             payItForwardParentId = gratitude.id
             payItForwardFromName = name ?? "someone"
+            payItForwardSenderProfile = gratitude.author
             payItForwardAcceptedMessage = gratitude.message
             postRippleSheetPresented(true)
         }
@@ -1480,6 +1494,7 @@ struct FeedView: View {
             toField = nil
         }
         composeRecipient = toField
+        composeRecipientProfile = choice.path == .thankBack ? payItForwardSenderProfile : nil
         composeInitialMessage = choice.message
         composeInspiredById = payItForwardParentId
         composeInspiredByName = payItForwardFromName
@@ -1964,6 +1979,7 @@ struct GratitudeCard: View {
                 HeartedByView(
                     gratitudeId: gratitude.id,
                     heartCount: shownHeartCount,
+                    viewerHasHearted: isHearted,
                     onOpenProfile: onOpenProfile,
                     onCountResolved: { count in
                         // Ignore stale under-counts while our heart is still on

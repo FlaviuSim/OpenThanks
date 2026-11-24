@@ -5,6 +5,8 @@ import SwiftUI
 struct HeartedByView: View {
     let gratitudeId: UUID
     var heartCount: Int
+    /// When false, never keep the viewer’s name in the optimistic list (unheart).
+    var viewerHasHearted: Bool = false
     /// Opens the profile on the host navigation stack (same as Home search).
     var onOpenProfile: ((Profile) -> Void)? = nil
     /// Fired when the live hearters query returns a count (so the heart badge can catch up).
@@ -25,6 +27,10 @@ struct HeartedByView: View {
     private var displayCount: Int {
         if heartCount == 0 { return 0 }
         return max(heartCount, resolvedCount)
+    }
+
+    private var viewerId: UUID? {
+        auth.currentProfile?.id ?? auth.userId
     }
 
     var body: some View {
@@ -65,7 +71,14 @@ struct HeartedByView: View {
                 resolvedCount = max(resolvedCount, newCount)
             }
         }
-        .task(id: "\(gratitudeId.uuidString)-\(heartCount)") {
+        .onChange(of: viewerHasHearted) { _, hearted in
+            if !hearted {
+                removeViewerFromHearters()
+            } else {
+                insertOptimisticViewerIfNeeded()
+            }
+        }
+        .task(id: "\(gratitudeId.uuidString)-\(heartCount)-\(viewerHasHearted)") {
             await load()
         }
         .sheet(isPresented: $showList) {
@@ -78,18 +91,27 @@ struct HeartedByView: View {
         if newCount == 0 {
             resolvedCount = 0
             hearters = []
+            loaded = false
             return
         }
-        guard newCount < resolvedCount else { return }
-        resolvedCount = newCount
+        // Viewer was inserted at index 0 — `prefix` kept their name and skipped reload.
+        removeViewerFromHearters()
         if hearters.count > newCount {
             hearters = Array(hearters.prefix(newCount))
         }
+        resolvedCount = newCount
+        // Force a fresh hearters query so the remaining name isn’t stale “me”.
+        loaded = false
+    }
+
+    private func removeViewerFromHearters() {
+        guard let meId = viewerId else { return }
+        hearters.removeAll { $0.id == meId }
     }
 
     /// Prefers `auth.currentProfile` so a just-hearted note shows a name before the query catches up.
     private func insertOptimisticViewerIfNeeded() {
-        guard let me = auth.currentProfile else { return }
+        guard viewerHasHearted, let me = auth.currentProfile else { return }
         if hearters.contains(where: { $0.id == me.id }) { return }
         hearters.insert(me, at: 0)
     }
@@ -264,7 +286,10 @@ struct HeartedByView: View {
 
     private func load(force: Bool = false) async {
         if !force, loaded, heartCount == resolvedCount, !hearters.isEmpty || heartCount == 0 {
-            return
+            // Still refresh when we unhearted but “me” is the only cached name left.
+            if viewerHasHearted || !hearters.contains(where: { $0.id == viewerId }) {
+                return
+            }
         }
         do {
             var result = try await GratitudeService.hearters(for: gratitudeId)
@@ -273,7 +298,7 @@ struct HeartedByView: View {
             // Optimistic heart often beats the write — a stale empty list used to
             // wipe the name until pull-to-refresh. Retry once, then keep the floor.
             if result.count < heartCount {
-                if heartCount > 0 { insertOptimisticViewerIfNeeded() }
+                if viewerHasHearted, heartCount > 0 { insertOptimisticViewerIfNeeded() }
                 try? await Task.sleep(for: .milliseconds(450))
                 guard !Task.isCancelled else { return }
                 let retry = try await GratitudeService.hearters(for: gratitudeId)
@@ -283,8 +308,14 @@ struct HeartedByView: View {
             }
 
             if result.count < heartCount {
-                // Still lagging — keep optimistic avatars / parent count.
-                if heartCount > 0 { insertOptimisticViewerIfNeeded() }
+                // Still lagging — keep optimistic avatars / parent count only if we hearted.
+                if viewerHasHearted, heartCount > 0 { insertOptimisticViewerIfNeeded() }
+                if !viewerHasHearted {
+                    removeViewerFromHearters()
+                    if !result.hearters.isEmpty {
+                        hearters = result.hearters
+                    }
+                }
                 resolvedCount = max(resolvedCount, heartCount, result.count)
                 loaded = true
                 // Never publish a lower count back to the parent (that undid the heart).
@@ -293,6 +324,9 @@ struct HeartedByView: View {
             }
 
             hearters = result.hearters
+            if !viewerHasHearted {
+                removeViewerFromHearters()
+            }
             resolvedCount = result.count
             loaded = true
             onCountResolved?(result.count)
