@@ -2,6 +2,7 @@ import Foundation
 
 /// Paths on the post-accept chooser (who to thank next).
 enum PostAcceptPath: String, CaseIterable, Identifiable, Sendable {
+    case thankBack
     case helpedThisWeek
     case neverThanked
     case echoGift
@@ -14,6 +15,7 @@ enum PostAcceptPath: String, CaseIterable, Identifiable, Sendable {
     /// Chip / row label.
     var chipTitle: String {
         switch self {
+        case .thankBack: return "Thank them back"
         case .helpedThisWeek: return "Someone who helped me this week"
         case .neverThanked: return "Someone I’ve never properly thanked"
         case .echoGift: return "Someone like that for me"
@@ -123,9 +125,16 @@ enum PayItForwardPromptCopy {
     static func starter(
         for path: PostAcceptPath,
         echoTheme: GratitudeEchoTheme = .general,
-        personName: String? = nil
+        personName: String? = nil,
+        acceptedMessage: String? = nil
     ) -> String {
         switch path {
+        case .thankBack:
+            return thankBackMessage(
+                fromName: personName,
+                acceptedMessage: acceptedMessage,
+                echoTheme: echoTheme
+            )
         case .helpedThisWeek:
             return "Thank you for helping me this week — "
         case .neverThanked:
@@ -143,16 +152,52 @@ enum PayItForwardPromptCopy {
         }
     }
 
+    /// Warm reply to the note they just received — ready to edit, not braggy.
+    static func thankBackMessage(
+        fromName: String?,
+        acceptedMessage: String? = nil,
+        echoTheme: GratitudeEchoTheme? = nil
+    ) -> String {
+        let first = firstName(from: fromName)
+        let theme = echoTheme ?? GratitudeEchoTheme.detect(from: acceptedMessage)
+        switch theme {
+        case .jumpingIn:
+            return "Thank you for this, \(first) — your note meant a lot. I’m grateful you jump in for people the way you do."
+        case .listening:
+            return "Thank you for this, \(first) — it meant a lot to feel heard. I’m grateful for you too."
+        case .believing:
+            return "Thank you for this, \(first) — your words landed. I’m grateful you believe in people the way you do."
+        case .teaching:
+            return "Thank you for this, \(first) — your note meant a lot. I’m grateful for what I’ve learned from you too."
+        case .showingUp:
+            return "Thank you for this, \(first) — it meant a lot. I’m grateful you show up the way you do."
+        case .general:
+            return "Thank you for this note, \(first) — it meant a lot. I’m grateful for you too."
+        }
+    }
+
+    static func thankBackChipTitle(fromName: String?) -> String {
+        let first = firstName(from: fromName)
+        if first == "someone" { return "Thank them back" }
+        return "Thank \(first) back"
+    }
+
     static func choice(
         path: PostAcceptPath,
         echoTheme: GratitudeEchoTheme = .general,
         recipientName: String? = nil,
         recipientEmail: String? = nil,
         meetingTitle: String? = nil,
-        messageOverride: String? = nil
+        messageOverride: String? = nil,
+        acceptedMessage: String? = nil
     ) -> PostAcceptChoice {
         let message = messageOverride
-            ?? starter(for: path, echoTheme: echoTheme, personName: recipientName)
+            ?? starter(
+                for: path,
+                echoTheme: echoTheme,
+                personName: recipientName,
+                acceptedMessage: acceptedMessage
+            )
         return PostAcceptChoice(
             path: path,
             recipientName: recipientName,

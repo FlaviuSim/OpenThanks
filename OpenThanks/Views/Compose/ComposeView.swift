@@ -785,7 +785,6 @@ struct ComposeView: View {
         let title = openCopyPack?.bannerTitle ?? "Write your appreciation"
         let body = openCopyPack?.bannerBody
             ?? "Add your message and an optional photo. Next you’ll choose who to send it to."
-        let reassurance = openCopyPack?.reassurance
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: "square.and.pencil")
                 .font(.system(size: 16, weight: .semibold))
@@ -799,13 +798,6 @@ struct ComposeView: View {
                     .font(Theme.body(13))
                     .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if let reassurance, !reassurance.isEmpty {
-                    Text(reassurance)
-                        .font(Theme.body(12))
-                        .foregroundStyle(Theme.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 2)
-                }
             }
             Spacer(minLength: 0)
         }
@@ -851,18 +843,20 @@ struct ComposeView: View {
 
     /// Short coaching under To so email notify vs share-link is obvious.
     private var recipientDeliveryHint: String? {
+        let shareAlso =
+            "We try to notify by email, but we recommend sharing the link directly with the recipient too."
         if linkedRecipient != nil {
-            return "We’ll notify them in OpenThanks when we can. You can also share the link after you send."
+            return shareAlso
         }
         if guestRecipientConfirmed {
             let label = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
             if looksLikeEmail(label) {
-                return "We’ll try to email them. Sharing the link is the surest way."
+                return shareAlso
             }
-            return "Share the link after you send so they can open it."
+            return "Share the link after you send so they can accept it."
         }
         if recipientFocused || recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Type a name or email. Emails get a notify when we can; you can always share the link."
+            return shareAlso
         }
         return nil
     }
@@ -1053,8 +1047,8 @@ struct ComposeView: View {
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
                     Text(isEmail
-                         ? "We’ll try to email them — sharing the link works too"
-                         : "Share the link after you send")
+                         ? "We try to notify by email — sharing the link is recommended too"
+                         : "Share the link after you send so they can accept it")
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textTertiary)
                         .lineLimit(2)
@@ -1071,8 +1065,8 @@ struct ComposeView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(title)
         .accessibilityHint(isEmail
-            ? "Adds this email. We’ll try to notify them, and you can share the link after sending."
-            : "Adds this person. You can share a link after sending.")
+            ? "Adds this email. We try to notify by email, but sharing the link is recommended too."
+            : "Adds this person. Share the link after you send so they can accept it.")
     }
 
     private var recipientSearchQuery: String {
@@ -1224,13 +1218,6 @@ struct ComposeView: View {
                         .font(Theme.body(15))
                         .foregroundStyle(Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
-                    if let reassurance = openCopyPack?.reassurance, !reassurance.isEmpty {
-                        Text(reassurance)
-                            .font(Theme.body(12))
-                            .foregroundStyle(Theme.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 2)
-                    }
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1242,15 +1229,6 @@ struct ComposeView: View {
                 if isSixFor2026Campaign {
                     sixFor2026ChipTray
                 }
-            } else if let reassurance = openCopyPack?.reassurance,
-                      !reassurance.isEmpty,
-                      !(usesTwoStepFlow && !isEditing) {
-                // Classic one-screen form: show reassurance without the two-step banner.
-                Text(reassurance)
-                    .font(Theme.body(12))
-                    .foregroundStyle(Theme.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 2)
             }
             messageField
         }
@@ -1305,17 +1283,21 @@ struct ComposeView: View {
                             .font(Theme.body(16))
                             .foregroundStyle(Theme.textTertiary)
                             // Match MessageEditor.textInsets so caret/glyphs line up.
+                            // Extra trailing room for mic + photo in the lower-right.
                             .padding(.top, 12)
                             .padding(.leading, 12)
-                            .padding(.trailing, 72)
+                            .padding(.trailing, 108)
                             .allowsHitTesting(false)
                             .accessibilityLabel(messagePlaceholderText)
                     }
 
-                    voiceOverlayButton
-                        .padding(.trailing, 10)
-                        .padding(.bottom, 10)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    HStack(spacing: 8) {
+                        voiceOverlayButton
+                        photoAttachButton
+                    }
+                    .padding(.trailing, 10)
+                    .padding(.bottom, 10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
                 if dictation.isStarting {
@@ -1352,7 +1334,7 @@ struct ComposeView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     // Stay in the form (not the keyboard accessory) so accessory
                     // Done remains visible. Tap Done, then these if the keyboard covered them.
-                    emojiShortcuts
+                    appreciationToolbar
 
                     if aiAvailable {
                         aiChips
@@ -1493,95 +1475,64 @@ struct ComposeView: View {
         }
     }
 
+    /// Preview + replace/remove only — empty state uses the compact photo button in the appreciation toolbar.
+    @ViewBuilder
     private var photoSection: some View {
-        field(label: nil, hint: nil) {
-            if hasAttachedMedia {
-                ZStack(alignment: .topTrailing) {
-                    mediaPreviewBody
+        if hasAttachedMedia || photoError != nil {
+            field(label: nil, hint: nil) {
+                if hasAttachedMedia {
+                    ZStack(alignment: .topTrailing) {
+                        mediaPreviewBody
 
-                    HStack(spacing: 8) {
-                        if !showingVideo {
-                            Button {
-                                openCropEditor()
-                            } label: {
-                                Label("Adjust", systemImage: "crop")
+                        HStack(spacing: 8) {
+                            if !showingVideo {
+                                Button {
+                                    openCropEditor()
+                                } label: {
+                                    Label("Adjust", systemImage: "crop")
+                                        .font(Theme.body(12, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 7)
+                                        .background(.black.opacity(0.55), in: Capsule())
+                                }
+                                .disabled(loadingPhoto || sending)
+                                .accessibilityLabel("Adjust photo crop")
+                            }
+
+                            Button(action: openPhotosPicker) {
+                                Label("Replace", systemImage: "arrow.triangle.2.circlepath")
                                     .font(Theme.body(12, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 7)
                                     .background(.black.opacity(0.55), in: Capsule())
                             }
+                            .buttonStyle(.plain)
                             .disabled(loadingPhoto || sending)
-                            .accessibilityLabel("Adjust photo crop")
-                        }
 
-                        Button(action: openPhotosPicker) {
-                            Label("Replace", systemImage: "arrow.triangle.2.circlepath")
-                                .font(Theme.body(12, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 7)
-                                .background(.black.opacity(0.55), in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(loadingPhoto || sending)
-
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) { clearPhoto() }
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 30, height: 30)
-                                .background(.black.opacity(0.55), in: Circle())
-                        }
-                        .disabled(loadingPhoto || sending)
-                        .accessibilityLabel("Remove media")
-                    }
-                    .padding(12)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            } else {
-                Button(action: openPhotosPicker) {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            if loadingPhoto {
-                                Circle()
-                                    .fill(Theme.coral)
-                                    .frame(width: 46, height: 46)
-                                ProgressView().tint(.white)
-                            } else {
-                                ActionGlyph(systemImage: "photo.on.rectangle.angled")
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) { clearPhoto() }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 30, height: 30)
+                                    .background(.black.opacity(0.55), in: Circle())
                             }
+                            .disabled(loadingPhoto || sending)
+                            .accessibilityLabel("Remove media")
                         }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(loadingPhoto ? "Preparing…" : "Add a photo or video (optional)")
-                                .font(Theme.body(15, weight: .semibold))
-                                .foregroundStyle(Theme.textPrimary)
-                            if loadingPhoto {
-                                Text("Hang tight")
-                                    .font(Theme.body(13))
-                                    .foregroundStyle(Theme.textSecondary)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Theme.textTertiary)
+                        .padding(12)
                     }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
-                .buttonStyle(.plain)
-                .disabled(loadingPhoto || sending)
-            }
 
-            if let photoError {
-                Text(photoError)
-                    .font(Theme.body(12))
-                    .foregroundStyle(.red)
+                if let photoError {
+                    Text(photoError)
+                        .font(Theme.body(12))
+                        .foregroundStyle(.red)
+                }
             }
         }
     }
@@ -1762,7 +1713,7 @@ struct ComposeView: View {
 
     // MARK: Message tools
 
-    private var emojiShortcuts: some View {
+    private var appreciationToolbar: some View {
         HStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -1780,13 +1731,41 @@ struct ComposeView: View {
                     }
                 }
             }
+            .disabled(sending || polishing != nil || dictation.isListening || dictation.isTransitioning)
 
             Text("\(message.count)/\(maxLength)")
                 .font(Theme.body(12).monospacedDigit())
                 .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
                 .accessibilityLabel("\(message.count) of \(maxLength) characters")
         }
-        .disabled(sending || polishing != nil || dictation.isListening || dictation.isTransitioning)
+    }
+
+    /// Compact Photos button — recognizable SF Symbol, high-contrast chrome.
+    private var photoAttachButton: some View {
+        Button(action: openPhotosPicker) {
+            ZStack {
+                if loadingPhoto {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Theme.primary)
+                } else {
+                    Image(systemName: hasAttachedMedia ? "photo.fill" : "photo")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Theme.primary)
+                        .symbolRenderingMode(.hierarchical)
+                }
+            }
+            .frame(width: 36, height: 36)
+            .background(Theme.coralPale.opacity(0.65), in: Circle())
+            .overlay {
+                Circle()
+                    .strokeBorder(Theme.primary.opacity(0.28), lineWidth: 1)
+            }
+        }
+        .buttonStyle(ScalePressButtonStyle())
+        .disabled(loadingPhoto || sending || polishing != nil || dictation.isListening || dictation.isTransitioning)
+        .accessibilityLabel(hasAttachedMedia ? "Change photo or video" : "Add photo or video")
+        .accessibilityHint("Opens your photo library")
     }
 
     private var voiceOverlayButton: some View {

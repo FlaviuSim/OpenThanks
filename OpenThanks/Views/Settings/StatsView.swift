@@ -172,10 +172,6 @@ struct StatsView: View {
         let keep = streakKeep
 
         return VStack(alignment: .leading, spacing: 18) {
-            Text("OpenThanks")
-                .font(Theme.body(13, weight: .semibold))
-                .foregroundStyle(Theme.primary)
-
             HStack(alignment: .center, spacing: 18) {
                 ZStack {
                     Circle()

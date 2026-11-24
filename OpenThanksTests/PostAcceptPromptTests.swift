@@ -34,6 +34,16 @@ final class PostAcceptPromptTests: XCTestCase {
         XCTAssertTrue(echo.contains("jumping in"))
         let cal = PayItForwardPromptCopy.starter(for: .calendarPerson, personName: "Jordan Lee")
         XCTAssertTrue(cal.contains("Jordan"))
+        let thankBack = PayItForwardPromptCopy.thankBackMessage(
+            fromName: "Ada Lovelace",
+            acceptedMessage: "You really listened when I needed it."
+        )
+        XCTAssertTrue(thankBack.contains("Ada"))
+        XCTAssertTrue(thankBack.contains("grateful") || thankBack.contains("meant a lot"))
+        XCTAssertEqual(
+            PayItForwardPromptCopy.thankBackChipTitle(fromName: "Ada Lovelace"),
+            "Thank Ada back"
+        )
     }
 
     func testEchoThemeDetection() {

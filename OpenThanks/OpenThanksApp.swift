@@ -326,7 +326,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 struct RootView: View {
     enum HomeGate {
-        case checking, needsCalendar, needsSiriTip, ready
+        case checking, needsCalendar, ready
     }
 
     @Environment(AuthService.self) private var auth
@@ -338,15 +338,13 @@ struct RootView: View {
     @AppStorage("hasCompletedCalendarPrompt") private var hasCompletedCalendarPrompt = false
     /// Legacy flag — trust beat now lives on the one-page pre-login onboarding.
     @AppStorage("hasSeenTrustIntro") private var hasSeenTrustIntro = false
-    /// One-time tip so people discover App Shortcuts / Siri phrases.
+    /// Legacy — “Say thanks your way” tip removed from install; keep flag true so old installs stay quiet.
     @AppStorage("hasCompletedSiriPrompt") private var hasCompletedSiriPrompt = false
-    /// True after the first session that reached the main app — Siri tip waits until the next launch.
+    /// True after the first session that reached the main app.
     @AppStorage("hasEnteredMainAppOnce") private var hasEnteredMainAppOnce = false
     @AppStorage("fridayGratitudeReminderEnabled") private var fridayReminderEnabled = true
     @AppStorage("calendarGratitudeNudgeEnabled") private var calendarNudgeEnabled = true
     @State private var homeGate: HomeGate = .checking
-    /// Keeps the deferred Siri tip from appearing again during the same process.
-    @State private var deferredSiriThisProcess = false
     /// One open-count increment per process when reaching `.ready`.
     @State private var countedMainAppOpenThisProcess = false
 
@@ -378,7 +376,6 @@ struct RootView: View {
                         .transition(.opacity)
                 } else {
                     // Straight into the app. Calendar waits until after the first thank-you.
-                    // Siri tip on the 2nd open.
                     // Notifications wait until send/receive (or after calendar connect).
                     // Start the store lookup early so Home can show an update immediately.
                     signedInHome
@@ -412,28 +409,16 @@ struct RootView: View {
                 marksLaunchGateCompleteOnSkip: true,
                 countsTowardAutomaticCap: true
             )
-        case .needsSiriTip:
-            SiriIntroView {
-                hasCompletedSiriPrompt = true
-                homeGate = .ready
-            }
         case .ready:
             MainTabView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    /// Siri tip waits until the second app open to avoid first-session overload.
-    private var shouldShowSiriTipNow: Bool {
-        !hasCompletedSiriPrompt
-            && PermissionPromptScheduler.mainAppOpenCount >= 2
-            && !deferredSiriThisProcess
-    }
-
     private func gateAfterCalendarOrReady() -> HomeGate {
         // Pre-login onboarding now carries the trust beat.
         if !hasSeenTrustIntro { hasSeenTrustIntro = true }
-        if shouldShowSiriTipNow { return .needsSiriTip }
+        if !hasCompletedSiriPrompt { hasCompletedSiriPrompt = true }
         return .ready
     }
 
@@ -443,9 +428,6 @@ struct RootView: View {
         }
         if homeGate == .checking {
             return .checking
-        }
-        if shouldShowSiriTipNow {
-            return .needsSiriTip
         }
         return .ready
     }
@@ -493,6 +475,8 @@ struct RootView: View {
 
         // Returning users who never saw the new one-pager still skip TrustIntro.
         if !hasSeenTrustIntro { hasSeenTrustIntro = true }
+        // “Say thanks your way” tip removed — mark complete so it never gates Home.
+        if !hasCompletedSiriPrompt { hasCompletedSiriPrompt = true }
 
         try Task.checkCancellation()
 
