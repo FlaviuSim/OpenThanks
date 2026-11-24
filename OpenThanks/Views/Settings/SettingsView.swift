@@ -406,7 +406,7 @@ struct PendingAppreciationsView: View {
                 .presentationDetents([.medium])
         }
         .composeCover(item: $editing) { g in
-            // No-recipient drafts use two-step write → deliver.
+            // Unfinished pending (no recipient yet) still uses deliver after write.
             ComposeView(
                 editing: g,
                 analyticsSource: "edit_pending",

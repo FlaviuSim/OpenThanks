@@ -52,10 +52,15 @@ struct FeedView: View {
     @State private var worldError: String?
     @State private var personalLoadedOnce = false
     @State private var worldLoadedOnce = false
+    /// Used so tab / foreground soft-refresh only hits the network when stale.
+    @State private var personalLastLoadedAt: Date?
+    @State private var worldLastLoadedAt: Date?
     @State private var personalHasMore = false
     @State private var worldHasMore = false
     @State private var personalLoadingMore = false
     @State private var worldLoadingMore = false
+    /// Avoid hammering the feed when flipping Home ↔ another tab quickly.
+    private static let feedStaleAfter: TimeInterval = 45
     @State private var pendingToAccept: [Gratitude] = []
     /// Ids the user already accepted/declined this session — keeps pull-to-refresh
     /// from resurrecting a card when a stale pending query races the accept write.
@@ -238,7 +243,7 @@ struct FeedView: View {
                     return
                 }
                 let loadedOnce = scope == .personal ? personalLoadedOnce : worldLoadedOnce
-                if !loadedOnce {
+                if !loadedOnce || isFeedStale(scope) {
                     await load(for: scope)
                 }
             }
@@ -254,10 +259,7 @@ struct FeedView: View {
                     initialMessage: composeInitialMessage,
                     inspiredByGratitudeId: composeInspiredById,
                     inspiredByAuthorName: composeInspiredByName,
-                    analyticsSource: composeAnalyticsSource,
-                    // Blank Thank Someone / pay-it-forward → two-step deliver screen.
-                    allowsEmptyRecipient: composeRecipient == nil
-                        || composeRecipient?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true
+                    analyticsSource: composeAnalyticsSource
                 )
             }
             .sheet(isPresented: showPayItForward) {
@@ -345,7 +347,7 @@ struct FeedView: View {
                 } else {
                     appVisits.recordReturn()
                     captureHomeView(reason: "tab")
-                    Task { await refreshPendingAccept(reason: "home_selected") }
+                    Task { await softRefreshIfStale(reason: "home_selected") }
                 }
             }
             .onChange(of: scenePhase) { _, phase in
@@ -404,11 +406,17 @@ struct FeedView: View {
         case .active:
             let previousVisit = appVisits.number
             appVisits.recordReturn()
-            if homeWasBackgrounded || appVisits.number != previousVisit {
+            let returning = homeWasBackgrounded || appVisits.number != previousVisit
+            if returning {
                 homeWasBackgrounded = false
                 captureHomeView(reason: "foreground")
             }
             refreshLocalFirstThanksSuggestions()
+            // Home stays mounted across tabs/background — reload when stale so
+            // pull-to-refresh isn't the only way to see new posts.
+            if returning, isSelected {
+                Task { await softRefreshIfStale(reason: "foreground") }
+            }
         case .background:
             homeWasBackgrounded = true
             appVisits.noteActivity()
@@ -545,7 +553,7 @@ struct FeedView: View {
         .task(id: isSelected) {
             guard isSelected, !isGuestMode, CalendarServerSyncConsent.hasConsented else { return }
             if let today = try? await CalendarServerAPI.todaySuggestion() {
-                homeCalendarSuggestion = today.suggestion
+                homeCalendarSuggestion = CalendarSuggestionSuppressStore.visibleSuggestion(today.suggestion)
             }
             await AppleCalendarHistoryUploader.uploadIfNeeded()
         }
@@ -611,7 +619,7 @@ struct FeedView: View {
                 .onAppear { calendarReminder.trackBannerShown() }
             }
             if let suggestion = homeCalendarSuggestion,
-               homeCalendarSuggestionDismissedDay != suggestion.for_day {
+               CalendarSuggestionSuppressStore.visibleSuggestion(suggestion) != nil {
                 CalendarThankSuggestionCard(
                     personName: suggestion.person_name,
                     reason: suggestion.reason,
@@ -620,6 +628,7 @@ struct FeedView: View {
                         homeCalendarSuggestion = nil
                     },
                     onDismiss: {
+                        CalendarThankSuggestionService.dismiss(suggestion)
                         homeCalendarSuggestionDismissedDay = suggestion.for_day
                         homeCalendarSuggestion = nil
                     }
@@ -1530,6 +1539,36 @@ struct FeedView: View {
         ])
     }
 
+    private func lastLoadedAt(for target: Scope) -> Date? {
+        target == .personal ? personalLastLoadedAt : worldLastLoadedAt
+    }
+
+    private func markLoaded(for target: Scope, at date: Date = Date()) {
+        if target == .personal {
+            personalLastLoadedAt = date
+            personalLoadedOnce = true
+        } else {
+            worldLastLoadedAt = date
+            worldLoadedOnce = true
+        }
+    }
+
+    private func isFeedStale(_ target: Scope) -> Bool {
+        guard let last = lastLoadedAt(for: target) else { return true }
+        return Date().timeIntervalSince(last) >= Self.feedStaleAfter
+    }
+
+    /// Tab / foreground: reload the visible feed when stale; otherwise just pending cards.
+    private func softRefreshIfStale(reason: String) async {
+        let target = scope
+        let loadedOnce = target == .personal ? personalLoadedOnce : worldLoadedOnce
+        if loadedOnce, isFeedStale(target) {
+            await load(for: target)
+            return
+        }
+        await refreshPendingAccept(reason: reason)
+    }
+
     private func prefetchOpposite(of current: Scope) async {
         let other: Scope = current == .personal ? .world : .personal
         let alreadyLoaded = other == .personal ? personalLoadedOnce : worldLoadedOnce
@@ -1573,6 +1612,7 @@ struct FeedView: View {
             }
 
             let result = userBlocks.filterGratitudes(pageResult.items)
+            // Soft-fail pending so a cancel/error there never blocks applying the feed.
             let pending: [Gratitude]
             let pendingSent: Int
             if let userId {
@@ -1582,16 +1622,6 @@ struct FeedView: View {
             } else {
                 pending = []
                 pendingSent = 0
-            }
-
-            guard generation == currentLoadGeneration(for: target) else { return }
-
-            // Attach recipient + pending notification as soon as we see them —
-            // don't wait until accept/decline (which used to create the notice).
-            if let userId {
-                for item in pending where !resolvedPendingIds.contains(item.id) {
-                    await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
-                }
             }
 
             guard generation == currentLoadGeneration(for: target) else { return }
@@ -1609,7 +1639,7 @@ struct FeedView: View {
                 setItems([], for: .personal)
                 setHearts([], for: .personal)
                 personalHasMore = false
-                personalLoadedOnce = true
+                markLoaded(for: .personal)
                 setLoading(false, for: .personal)
                 await refreshWidgetSnapshot()
                 suppressNextScopeHaptic = true
@@ -1623,6 +1653,29 @@ struct FeedView: View {
                 return
             }
 
+            // Apply posts + pending immediately. Hearts / recipient-link follow-up
+            // must not gate the visible feed — refreshable cancellation used to
+            // leave users on a stale list after a successful fetch.
+            withAnimation(.easeInOut(duration: 0.28)) {
+                setItems(result, for: target)
+                if target == .personal {
+                    personalHasMore = pageResult.hasMore
+                } else {
+                    worldHasMore = pageResult.hasMore
+                }
+                applyPendingList(pending)
+                pendingSentCount = pendingSent
+            }
+            markLoaded(for: target)
+
+            if let userId {
+                for item in pending where !resolvedPendingIds.contains(item.id) {
+                    await GratitudeService.ensurePendingRecipientLinked(item, userId: userId)
+                }
+            }
+
+            guard generation == currentLoadGeneration(for: target) else { return }
+
             let heartIds: Set<UUID>
             if let userId {
                 heartIds = (try? await GratitudeService.myHearts(
@@ -1635,19 +1688,7 @@ struct FeedView: View {
 
             guard generation == currentLoadGeneration(for: target) else { return }
 
-            withAnimation(.easeInOut(duration: 0.28)) {
-                setItems(result, for: target)
-                setHearts(heartIds, for: target)
-                if target == .personal {
-                    personalHasMore = pageResult.hasMore
-                    personalLoadedOnce = true
-                } else {
-                    worldHasMore = pageResult.hasMore
-                    worldLoadedOnce = true
-                }
-                applyPendingList(pending)
-                pendingSentCount = pendingSent
-            }
+            setHearts(heartIds, for: target)
             await refreshWidgetSnapshot()
         } catch {
             if !error.isCancellation {
@@ -1674,6 +1715,8 @@ struct FeedView: View {
         guard hasMore, !loadingMore, !isLoading(for: target) else { return }
         let current = items(for: target)
         guard let before = current.last?.acceptedAt ?? current.last?.createdAt else { return }
+        // Ignore this page if a full refresh bumps the generation mid-flight.
+        let generation = currentLoadGeneration(for: target)
 
         if target == .personal { personalLoadingMore = true } else { worldLoadingMore = true }
         defer {
@@ -1687,8 +1730,9 @@ struct FeedView: View {
             } else {
                 pageResult = try await GratitudeService.worldFeed(before: before)
             }
+            guard generation == currentLoadGeneration(for: target) else { return }
             let fresh = userBlocks.filterGratitudes(pageResult.items)
-            var existing = Set(current.map(\.id))
+            var existing = Set(items(for: target).map(\.id))
             let appended = fresh.filter { existing.insert($0.id).inserted }
             guard !appended.isEmpty || !pageResult.hasMore else {
                 // Cursor didn't advance — stop to avoid a tight loop.
@@ -1704,6 +1748,7 @@ struct FeedView: View {
             } else {
                 newHearts = []
             }
+            guard generation == currentLoadGeneration(for: target) else { return }
             mutateItems(for: target) { $0.append(contentsOf: appended) }
             mutateHearts(for: target) { $0.formUnion(newHearts) }
             if target == .personal {

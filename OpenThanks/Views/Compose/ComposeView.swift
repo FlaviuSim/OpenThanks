@@ -31,7 +31,7 @@ struct ComposeView: View {
     /// PostHog `campaign` when compose was opened from a daily prompt.
     var campaignId: String? = nil
     var campaignDay: Int? = nil
-    /// Watch voice drafts can save without choosing a recipient yet.
+    /// Watch / unfinished pending: save without a recipient, then deliver screen.
     var allowsEmptyRecipient: Bool = false
     /// Open straight on the share screen (author opening their own pending note).
     var opensOnShareScreen: Bool = false
@@ -69,15 +69,14 @@ struct ComposeView: View {
         self.campaignId = campaignId
         self.campaignDay = campaignDay
         self.analyticsSource = analyticsSource
-        // Match ComposeLaunchBridge: any launch without a prefilled recipient uses
-        // write → deliver, so Home “Thank Someone” and similar CTAs never land on
-        // the classic one-screen form by accident.
+        // Blank compose stays one page; Watch / unfinished pending keep two-step.
         self.allowsEmptyRecipient = ComposeLaunchBridge.Request.resolveAllowsEmptyRecipient(
             explicit: allowsEmptyRecipient,
             recipientName: initialRecipient,
             profile: initialRecipientProfile,
             editingGratitude: editing,
-            analyticsSource: analyticsSource
+            analyticsSource: analyticsSource,
+            opensOnShareScreen: opensOnShareScreen
         )
         self.opensOnShareScreen = opensOnShareScreen
         self.useParentNavigation = useParentNavigation
@@ -279,7 +278,7 @@ struct ComposeView: View {
     /// Watch / pending row that still has nobody to notify.
     private var isFirstDelivery: Bool { editingTarget?.hasNoRecipient == true }
 
-    /// Two-step write → deliver when no recipient was prefilled (`allowsEmptyRecipient`).
+    /// Watch / unfinished pending: write → deliver. Blank compose is one page.
     private var usesTwoStepFlow: Bool { allowsEmptyRecipient }
 
     /// Campaign opens already show the day ask above the message field.
@@ -296,27 +295,27 @@ struct ComposeView: View {
         // Guests always continue into sign-in; copy matches the web form.
         if auth.userId == nil { return "Continue" }
         if usesTwoStepFlow {
-            return isEditing ? "Continue" : "Continue"
+            return "Continue"
         }
         if isEditing {
-            if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
+            if isFirstDelivery { return hasRecipient ? "Send" : "Save to Pending" }
             return "Save Changes"
         }
-        return "Save"
+        return "Send"
     }
 
     private var primarySaveTitle: String {
         if auth.userId == nil {
-            return usesTwoStepFlow ? "Continue" : "Continue to save"
+            return usesTwoStepFlow ? "Continue" : "Continue to send"
         }
         if usesTwoStepFlow {
             return "Continue"
         }
         if isEditing {
-            if isFirstDelivery { return hasRecipient ? "Save" : "Save to Pending" }
+            if isFirstDelivery { return hasRecipient ? "Send" : "Save to Pending" }
             return "Save Changes"
         }
-        return "Save Appreciation"
+        return "Send"
     }
 
     private enum AttachedMediaKind {
@@ -820,12 +819,21 @@ struct ComposeView: View {
 
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Recipient")
+            Text("To")
                 .font(Theme.body(14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
 
             VStack(alignment: .leading, spacing: 8) {
                 recipientFieldChrome
+
+                if let hint = recipientDeliveryHint {
+                    Text(hint)
+                        .font(Theme.body(13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 2)
+                        .accessibilityLabel(hint)
+                }
 
                 if linkedRecipient == nil, !guestRecipientConfirmed, showRecipientSuggestions {
                     recipientSuggestions
@@ -839,6 +847,24 @@ struct ComposeView: View {
         .task(id: recipientSearchQuery) {
             await runRecipientSearch(for: recipientSearchQuery)
         }
+    }
+
+    /// Short coaching under To so email notify vs share-link is obvious.
+    private var recipientDeliveryHint: String? {
+        if linkedRecipient != nil {
+            return "We’ll notify them in OpenThanks when we can. You can also share the link after you send."
+        }
+        if guestRecipientConfirmed {
+            let label = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+            if looksLikeEmail(label) {
+                return "We’ll try to email them. Sharing the link is the surest way."
+            }
+            return "Share the link after you send so they can open it."
+        }
+        if recipientFocused || recipient.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Type a name or email. Emails get a notify when we can; you can always share the link."
+        }
+        return nil
     }
 
     private var recipientFieldChrome: some View {
@@ -858,7 +884,7 @@ struct ComposeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             } else {
-                TextField("Name or Email", text: $recipient)
+                TextField("Name or email", text: $recipient)
                     .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
                     .autocorrectionDisabled()
                     .keyboardType(recipient.contains("@") ? .emailAddress : .default)
@@ -867,6 +893,8 @@ struct ComposeView: View {
                     .padding(14)
                     .foregroundStyle(Theme.textPrimary)
                     .submitLabel(.done)
+                    .accessibilityLabel("To")
+                    .accessibilityHint("Enter a name or email address")
             }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -1024,10 +1052,12 @@ struct ComposeView: View {
                         .font(Theme.body(15, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                    Text("We’ll share a link after you save")
+                    Text(isEmail
+                         ? "We’ll try to email them — sharing the link works too"
+                         : "Share the link after you send")
                         .font(Theme.body(12))
                         .foregroundStyle(Theme.textTertiary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "plus.circle.fill")
@@ -1040,7 +1070,9 @@ struct ComposeView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
-        .accessibilityHint("Adds this person as the recipient. You can share a link after saving.")
+        .accessibilityHint(isEmail
+            ? "Adds this email. We’ll try to notify them, and you can share the link after sending."
+            : "Adds this person. You can share a link after sending.")
     }
 
     private var recipientSearchQuery: String {
@@ -1701,7 +1733,9 @@ struct ComposeView: View {
                     Image(systemName: sendBarIcon)
                         .font(.system(size: 14, weight: .bold))
                 }
-                Text(sending ? "Saving…" : (needsDisplayName ? "Add your name to send" : primarySaveTitle))
+                Text(sending
+                     ? (usesTwoStepFlow ? "Saving…" : "Sending…")
+                     : (needsDisplayName ? "Add your name to send" : primarySaveTitle))
             }
         }
         .buttonStyle(CTAButtonStyle(
@@ -1717,13 +1751,13 @@ struct ComposeView: View {
                    ? "Signs you in to save this appreciation"
                    : (usesTwoStepFlow
                       ? "Saves your note, then lets you choose a recipient"
-                      : "Saves this appreciation"))))
+                      : "Sends this appreciation, then lets you share the link"))))
     }
 
     private var sendBarIcon: String {
         if needsDisplayName { return "person.crop.circle.badge.plus" }
         if auth.userId == nil { return "lock.fill" }
-        return usesTwoStepFlow ? "arrow.right" : "heart.fill"
+        return usesTwoStepFlow ? "arrow.right" : "paperplane.fill"
     }
 
     // MARK: Message tools
@@ -1947,7 +1981,7 @@ struct ComposeView: View {
         if trimmed.isEmpty { return "Add a message to save." }
         if trimmed.count > maxLength { return "Shorten the message to \(maxLength) characters." }
         if !allowsEmptyRecipient && !hasRecipient {
-            return "Add a recipient name or email to save."
+            return "Add a name or email in To to send."
         }
         return nil
     }

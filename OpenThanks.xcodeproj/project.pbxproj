@@ -19,6 +19,7 @@
 		0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */; };
 		0E0B7260631600BF275998F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200E9036D46AAE66F6F99936 /* Assets.xcassets */; };
 		0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */; };
+		A1C4E7D92B8F41A0B3E55C01 /* CalendarSuggestionSuppressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C4E7D92B8F41A0B3E55C02 /* CalendarSuggestionSuppressStore.swift */; };
 		0F54C29D44313DCFE8A3D5AA /* ThankSomeoneControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E8479B2CFAA40A2312F23E /* ThankSomeoneControl.swift */; };
 		0FC46E3DEB9FB0264DE4545B /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D87DB1FBDF467DB01585D /* SiriIntroView.swift */; };
@@ -311,6 +312,7 @@
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
 		2D117211852B1668A6DD43B0 /* PostAcceptPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostAcceptPrompt.swift; sourceTree = "<group>"; };
 		2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarThankSuggestionStore.swift; sourceTree = "<group>"; };
+		A1C4E7D92B8F41A0B3E55C02 /* CalendarSuggestionSuppressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSuggestionSuppressStore.swift; sourceTree = "<group>"; };
 		2D8AB9EDF3214B68425763D3 /* UnsentDraftReminderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsentDraftReminderStore.swift; sourceTree = "<group>"; };
 		306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionConfigService.swift; sourceTree = "<group>"; };
 		316D5B8B505ED7C2CF3E6BD2 /* AppStoreReviewPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreReviewPromptTests.swift; sourceTree = "<group>"; };
@@ -528,6 +530,7 @@
 				6BDAC6AC33F8484AD7665D9C /* CalendarPromptCap.swift */,
 				AA10F1DE849ED7657701CD5D /* CalendarServerAPI.swift */,
 				86FCD0BB977A7994F6709BA8 /* CalendarServerSyncConsent.swift */,
+				A1C4E7D92B8F41A0B3E55C02 /* CalendarSuggestionSuppressStore.swift */,
 				B8BF819F461B76C2457AFE37 /* CalendarThankSuggestionService.swift */,
 				2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */,
 				19B8E23F00E3C27AF5CE139B /* CampaignPromptCardModel.swift */,
@@ -1153,6 +1156,7 @@
 				71DF3C7EB070953B50C54EA0 /* CalendarPromptCap.swift in Sources */,
 				0C6CA0E8E25AD8051362CF9D /* CalendarServerAPI.swift in Sources */,
 				3C4A83E300A36B8414680E65 /* CalendarServerSyncConsent.swift in Sources */,
+				A1C4E7D92B8F41A0B3E55C01 /* CalendarSuggestionSuppressStore.swift in Sources */,
 				CD5052F0C54FC52C7BF169FD /* CalendarThankSuggestionCard.swift in Sources */,
 				F6BAF7FBEBFAA325D2E8B75C /* CalendarThankSuggestionService.swift in Sources */,
 				0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */,

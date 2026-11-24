@@ -201,9 +201,7 @@ struct UserProfileView: View {
                 : nil
             ComposeView(
                 initialRecipientProfile: prefilledProfile,
-                analyticsSource: composeAnalyticsSource,
-                // Own-profile / Start your own ripple has no recipient yet.
-                allowsEmptyRecipient: prefilledProfile == nil
+                analyticsSource: composeAnalyticsSource
             )
         }
     }

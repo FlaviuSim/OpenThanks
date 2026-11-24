@@ -11,7 +11,7 @@ enum CalendarThankSuggestionService {
     ) async -> GratitudeNudge? {
         if CalendarServerSyncConsent.hasConsented {
             if let server = try? await CalendarServerAPI.todaySuggestion(),
-               let suggestion = server.suggestion {
+               let suggestion = CalendarSuggestionSuppressStore.visibleSuggestion(server.suggestion) {
                 Analytics.calendarAISuggested(source: suggestion.source ?? "server")
                 return CalendarServerAPI.asNudge(suggestion, day: day)
             }
@@ -35,7 +35,20 @@ enum CalendarThankSuggestionService {
             message: suggestion.draft,
             analyticsSource: "calendar_ai_suggestion"
         )
+        CalendarSuggestionSuppressStore.suppress(suggestion)
         Task { await CalendarServerAPI.consumeSuggestion(id: suggestion.id) }
         Analytics.calendarAIThankOpened()
+    }
+
+    /// Home X — hide for today / cooldown and mark consumed so reloads don't resurrect them.
+    @MainActor
+    static func dismiss(_ suggestion: CalendarServerAPI.Suggestion) {
+        CalendarSuggestionSuppressStore.suppress(suggestion)
+        CalendarThankSuggestionStore.remove(on: Date())
+        Task { await CalendarServerAPI.consumeSuggestion(id: suggestion.id) }
+        Analytics.capture("calendar_ai_suggestion_dismissed", [
+            "for_day": suggestion.for_day,
+            "source": suggestion.source ?? "server",
+        ])
     }
 }

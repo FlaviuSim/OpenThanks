@@ -131,9 +131,10 @@ enum GratitudeService {
     /// Do not filter on `accepted_as_private` — visibility is the source of truth.
     /// Pass `before` (oldest `accepted_at` already shown) to load the next page.
     static func worldFeed(limit: Int = listPageSize, before: Date? = nil) async throws -> GratitudePage {
+        // Match web: public + legacy null visibility (not private).
         var query = supabase.from("gratitudes")
             .select(feedSelect)
-            .eq("visibility", value: "public")
+            .or(visibilityOrFilter(viewerId: nil))
             .eq("status", value: "accepted")
         if let before {
             query = query.lt("accepted_at", value: before.ISO8601Format())
