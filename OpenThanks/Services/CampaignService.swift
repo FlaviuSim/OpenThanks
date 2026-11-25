@@ -229,6 +229,10 @@ final class CampaignService {
     /// Six for '26: server rank after claim, if any.
     private(set) var finisherRank: Int?
     private(set) var finisherStatus: String?
+    /// Six for '26: public-accepted thank-yous that already count (order = slot 1…n).
+    private(set) var sixFor2026Counted: [GratitudeService.SixFor2026SlotEntry] = []
+    /// Six for '26: pending public sends that would count once accepted.
+    private(set) var sixFor2026Pending: [GratitudeService.SixFor2026SlotEntry] = []
     #if DEBUG
     /// yyyy-MM-dd stand-in for "today". Release builds ignore this.
     private(set) var debugDateYMD: String?
@@ -314,6 +318,8 @@ final class CampaignService {
         guard let feed, let start = feed.windowStart, let end = feed.windowEnd else {
             daysSent = nil
             sentDayKeys = []
+            sixFor2026Counted = []
+            sixFor2026Pending = []
             progressLoaded = false
             return
         }
@@ -321,6 +327,8 @@ final class CampaignService {
         if !feed.isSixFor2026, todayPrompt == nil {
             daysSent = nil
             sentDayKeys = []
+            sixFor2026Counted = []
+            sixFor2026Pending = []
             progressLoaded = false
             return
         }
@@ -331,12 +339,16 @@ final class CampaignService {
                 hasFavoriteNonprofit = progress.hasNonprofit
                 finisherRank = progress.finisherRank
                 finisherStatus = progress.finisherStatus
+                sixFor2026Counted = progress.counted
+                sixFor2026Pending = progress.pending
                 progressLoaded = true
             } catch {
                 // Keep the last count when offline.
             }
             return
         }
+        sixFor2026Counted = []
+        sixFor2026Pending = []
         do {
             let rows = try await GratitudeService.sentActivity(authorId: authorId, since: start, limit: 400)
             let dates = rows.compactMap(\.createdAt)

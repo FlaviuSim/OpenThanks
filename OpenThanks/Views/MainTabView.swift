@@ -352,8 +352,11 @@ struct MainTabView: View {
                 }
             }
             .listStyle(.sidebar)
-            .navigationTitle("OpenThanks")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    BrandWordmark(height: 28)
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         presentCompose(Self.tabComposeSheet())

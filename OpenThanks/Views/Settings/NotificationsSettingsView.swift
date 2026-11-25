@@ -20,10 +20,26 @@ struct NotificationsSettingsView: View {
     @State private var pendingConsentAction: PendingCalendarAction?
     @State private var deletingCalendarData = false
     @State private var showDeleteCalendarConfirm = false
+    /// Founder / DEBUG: sync depth + who the evening nudge would pull.
+    @State private var calendarTroubleshootBusy = false
+    @State private var calendarTroubleshootStatus: CalendarServerAPI.StatusResponse?
+    @State private var calendarTroubleshootNudge: GratitudeNudge?
+    @State private var calendarTroubleshootNote: String?
 
     private enum PendingCalendarAction {
         case apple
         case google
+    }
+
+    /// Visible in DEBUG builds and for internal accounts (e.g. flsimihaian@gmail.com).
+    private var showCalendarTroubleshoot: Bool {
+        #if DEBUG
+        return true
+        #else
+        let email = (auth.currentProfile?.email ?? "").lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return Analytics.internalEmails.contains(email)
+        #endif
     }
 
     private var fridayBinding: Binding<Bool> {
@@ -101,6 +117,10 @@ struct NotificationsSettingsView: View {
                     serverSyncSection
                 }
 
+                if showCalendarTroubleshoot {
+                    calendarTroubleshootSection
+                }
+
                 if let errorMessage {
                     errorBlock(errorMessage)
                 }
@@ -113,7 +133,12 @@ struct NotificationsSettingsView: View {
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.large)
         .syncAppAppearance()
-        .onAppear { calendarAccessTick += 1 }
+        .onAppear {
+            calendarAccessTick += 1
+            if showCalendarTroubleshoot {
+                Task { await refreshCalendarTroubleshoot(sendTest: false, repair: false) }
+            }
+        }
         .onDisappear {
             fridayToggleTask?.cancel()
             calendarToggleTask?.cancel()
@@ -502,6 +527,216 @@ struct NotificationsSettingsView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Theme.hairline, lineWidth: 1)
         )
+    }
+
+    private var calendarTroubleshootSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Calendar troubleshoot")
+                .font(Theme.body(15, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+            Text("Internal only. Shows sync depth, top people from history, and who tonight’s nudge would pull — then can fire a test notification in ~3s.")
+                .font(Theme.body(13))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let status = calendarTroubleshootStatus {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Synced events: \(status.eventCount) · people: \(status.peopleCount)")
+                    Text(calendarHistoryDepthLine(status))
+                    ForEach(status.connections, id: \.provider) { conn in
+                        Text(
+                            "\(conn.provider): \(conn.backfill_status)"
+                                + (conn.last_synced_at.map { " · last \($0)" } ?? "")
+                                + (conn.last_error.map { " · err \($0)" } ?? "")
+                        )
+                    }
+                }
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+                .textSelection(.enabled)
+
+                if let people = status.peopleSample, !people.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Top people by meetings")
+                            .font(Theme.body(13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        ForEach(people.prefix(8)) { person in
+                            let name = trimmedNonEmpty(person.display_name)
+                                ?? trimmedNonEmpty(person.email)
+                                ?? "(unnamed)"
+                            let first = shortISODate(person.first_seen_at)
+                            let last = shortISODate(person.last_seen_at)
+                            Text(
+                                "· \(name) — \(person.meeting_count ?? 0) mtgs"
+                                    + (first.map { " · from \($0)" } ?? "")
+                                    + (last.map { " → \($0)" } ?? "")
+                            )
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    .textSelection(.enabled)
+                }
+            } else if calendarTroubleshootBusy {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            if let nudge = calendarTroubleshootNudge {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Tonight’s candidate")
+                        .font(Theme.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("\(nudge.personName)" + (nudge.email.map { " · \($0)" } ?? ""))
+                    Text("Meeting: \(nudge.meetingTitle)")
+                    if !nudge.reason.isEmpty {
+                        Text("Reason: \(nudge.reason)")
+                    }
+                    if let draft = nudge.messageDraft, !draft.isEmpty {
+                        Text("Draft: \(draft)")
+                            .lineLimit(4)
+                    }
+                }
+                .font(Theme.body(12))
+                .foregroundStyle(Theme.textSecondary)
+                .textSelection(.enabled)
+            }
+
+            if let calendarTroubleshootNote {
+                Text(calendarTroubleshootNote)
+                    .font(Theme.body(12, weight: .medium))
+                    .foregroundStyle(Theme.coral)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    Task { await refreshCalendarTroubleshoot(sendTest: false, repair: true) }
+                } label: {
+                    Text(calendarTroubleshootBusy ? "Repairing…" : "Repair & refresh")
+                        .font(Theme.body(14, weight: .semibold))
+                }
+                .disabled(calendarTroubleshootBusy)
+
+                Button {
+                    Task { await refreshCalendarTroubleshoot(sendTest: true, repair: false) }
+                } label: {
+                    Text("Send test notification")
+                        .font(Theme.body(14, weight: .semibold))
+                }
+                .disabled(calendarTroubleshootBusy)
+            }
+            .foregroundStyle(Theme.coral)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Theme.coral.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    private func calendarHistoryDepthLine(_ status: CalendarServerAPI.StatusResponse) -> String {
+        let earliest = shortISODate(status.earliestEventAt)
+        let latest = shortISODate(status.latestEventAt)
+        switch (earliest, latest) {
+        case let (e?, l?):
+            return "History range: \(e) → \(l)"
+        case (nil, nil) where status.eventCount == 0:
+            return "History range: no synced events yet (backfill still running or not connected)."
+        default:
+            return "History range: unavailable (redeploy status API for earliest/latest)."
+        }
+    }
+
+    private func trimmedNonEmpty(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+
+    private func shortISODate(_ raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let isoFrac = ISO8601DateFormatter()
+        isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        let date = isoFrac.date(from: raw) ?? iso.date(from: raw)
+        guard let date else {
+            return String(raw.prefix(10))
+        }
+        let out = DateFormatter()
+        out.locale = Locale(identifier: "en_US_POSIX")
+        out.dateFormat = "yyyy-MM-dd"
+        return out.string(from: date)
+    }
+
+    private func refreshCalendarTroubleshoot(sendTest: Bool, repair: Bool) async {
+        calendarTroubleshootBusy = true
+        calendarTroubleshootNote = nil
+        defer { calendarTroubleshootBusy = false }
+
+        if CalendarServerSyncConsent.hasConsented, CalendarMeetingService.hasFullAccess {
+            await AppleCalendarHistoryUploader.uploadIfNeeded(force: true)
+        }
+
+        var repairNote: String?
+        if repair, CalendarServerSyncConsent.hasConsented {
+            do {
+                let result = try await CalendarServerAPI.repair()
+                let people = result.people ?? 0
+                let synced = result.googleSynced ?? 0
+                let reset = result.googleReset ?? 0
+                repairNote = "Repair: reset \(reset), synced \(synced), people \(people)"
+                    + (result.suggested == true ? ", suggestion ready" : "")
+                if let errors = result.errors, !errors.isEmpty {
+                    repairNote! += " · \(errors.prefix(2).joined(separator: "; "))"
+                }
+            } catch {
+                repairNote = "Repair failed: \(error.localizedDescription)"
+            }
+        }
+
+        do {
+            calendarTroubleshootStatus = try await CalendarServerAPI.status()
+        } catch {
+            calendarTroubleshootStatus = nil
+            calendarTroubleshootNote = repairNote
+                ?? "Status failed: \(error.localizedDescription)"
+            if repairNote != nil {
+                calendarTroubleshootNote = "\(repairNote!) · Status failed: \(error.localizedDescription)"
+            }
+        }
+
+        let nudge = await CalendarThankSuggestionService.resolveNudge(
+            for: Date(),
+            authorId: auth.userId,
+            selfEmails: selfEmails,
+            now: Date()
+        )
+        calendarTroubleshootNudge = nudge
+
+        guard sendTest else {
+            if let repairNote {
+                calendarTroubleshootNote = repairNote
+                    + (nudge == nil ? " · No candidate yet (backfill may need another cron pass)." : "")
+            } else if nudge == nil, calendarTroubleshootNote == nil {
+                calendarTroubleshootNote = "No candidate resolved yet."
+            }
+            return
+        }
+
+        let result = await NotificationService.scheduleTestCalendarNudge(
+            authorId: auth.userId,
+            selfEmails: selfEmails
+        )
+        if let sent = result.nudge {
+            calendarTroubleshootNudge = sent
+            calendarTroubleshootNote = "Test notification queued — lock the phone or wait ~3s."
+        } else {
+            calendarTroubleshootNote = result.error ?? "Couldn't schedule the test notification."
+        }
     }
 
     private func connectApple() async {

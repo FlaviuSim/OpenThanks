@@ -347,6 +347,8 @@ struct RootView: View {
     @State private var homeGate: HomeGate = .checking
     /// One open-count increment per process when reaching `.ready`.
     @State private var countedMainAppOpenThisProcess = false
+    /// Skippable first-run promise over guest browse (not shown for claim deep links).
+    @State private var showSignedOutFirstRunIntro = false
 
     var body: some View {
         ZStack {
@@ -356,20 +358,23 @@ struct RootView: View {
                 HeartMark(size: 64)
                     .transition(.opacity)
             case .signedOut:
-                // One-page promise → guest Home (World feed + search). Sign-in
-                // is a sheet at send / heart / claim — never a hard wall.
-                Group {
-                    if hasSeenOnboarding {
-                        GuestBrowseShell()
-                    } else {
+                // Guest Home immediately. Sign-in is a sheet at send / heart /
+                // accept — never a hard wall. First-run promise is skippable and
+                // is suppressed when a claim/deep link is already waiting.
+                GuestBrowseShell()
+                    .fullScreenCover(isPresented: $showSignedOutFirstRunIntro) {
                         OnboardingView {
                             hasSeenOnboarding = true
-                            // Trust copy is on the one-pager — don't show TrustIntro later.
                             hasSeenTrustIntro = true
+                            showSignedOutFirstRunIntro = false
                         }
+                        .interactiveDismissDisabled(false)
                     }
-                }
-                .transition(.opacity)
+                    .onAppear { reconcileSignedOutFirstRun() }
+                    .onChange(of: deepLinks.destination?.id) { _, _ in
+                        reconcileSignedOutFirstRun()
+                    }
+                    .transition(.opacity)
             case .signedIn:
                 if !auth.hasResolvedProfile {
                     HeartMark(size: 64)
@@ -436,6 +441,19 @@ struct RootView: View {
     /// Do **not** include AppStorage flags or open-count here — `resolveHomeGate`
     /// mutates those, which would cancel this `.task` mid-flight and leave the
     /// heart splash stuck on `.checking` (common after logout → Sign in with Apple).
+    /// Claim / profile / gratitude links skip the intro so accept isn’t buried.
+    private func reconcileSignedOutFirstRun() {
+        if deepLinks.destination != nil {
+            if !hasSeenOnboarding {
+                hasSeenOnboarding = true
+                hasSeenTrustIntro = true
+            }
+            showSignedOutFirstRunIntro = false
+            return
+        }
+        showSignedOutFirstRunIntro = !hasSeenOnboarding
+    }
+
     private var homeGateTaskID: String {
         let user = auth.userId?.uuidString ?? "out"
         return "\(user)-\(auth.hasResolvedProfile)"

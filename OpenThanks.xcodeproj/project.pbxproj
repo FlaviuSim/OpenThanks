@@ -43,6 +43,7 @@
 		31897C807764FCE92C72B088 /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB6414A3C798499A155142DF /* WatchConnectivity.framework */; };
 		32E8C5CE7850CACDFFB2B22D /* AppreciationSubmitTrackingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0C65AEF19FF11C2AF06D77 /* AppreciationSubmitTrackingTests.swift */; };
 		35C9A108E6BBFF63834E092D /* CampaignPromptCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7064C3FED4B65BB21C9D75 /* CampaignPromptCard.swift */; };
+		F1044D91002B4EDBB7806EE8 /* SixFor2026SlotTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEFD282FD0A4256B0E12180 /* SixFor2026SlotTrackerView.swift */; };
 		3857BA9E93809E31825460B2 /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		3941394E94699B39AF29657B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */; };
 		3AD34DD6B9F207035D2FB879 /* LinkifiedText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23112A6E99B11377C47229C1 /* LinkifiedText.swift */; };
@@ -287,6 +288,7 @@
 		097424F66444F25FE6651FE0 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		0B6169C26020D6156BA7352D /* OpenThanksWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksWatchApp.swift; sourceTree = "<group>"; };
 		0C7064C3FED4B65BB21C9D75 /* CampaignPromptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignPromptCard.swift; sourceTree = "<group>"; };
+		8FEFD282FD0A4256B0E12180 /* SixFor2026SlotTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SixFor2026SlotTrackerView.swift; sourceTree = "<group>"; };
 		0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeService.swift; sourceTree = "<group>"; };
 		10DB2CB8FB90F9FB20873687 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -705,6 +707,7 @@
 				E1200BBA4D98DF3DBDD4530F /* CalendarConnectBanner.swift */,
 				142CBE087DF41FA18F3D7D20 /* CalendarThankSuggestionCard.swift */,
 				0C7064C3FED4B65BB21C9D75 /* CampaignPromptCard.swift */,
+				8FEFD282FD0A4256B0E12180 /* SixFor2026SlotTrackerView.swift */,
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
 				FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
@@ -1161,6 +1164,7 @@
 				F6BAF7FBEBFAA325D2E8B75C /* CalendarThankSuggestionService.swift in Sources */,
 				0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */,
 				35C9A108E6BBFF63834E092D /* CampaignPromptCard.swift in Sources */,
+				F1044D91002B4EDBB7806EE8 /* SixFor2026SlotTrackerView.swift in Sources */,
 				90343B02F1B207F3E5682FE9 /* CampaignPromptCardModel.swift in Sources */,
 				B204B08BE7FDCD15946839D6 /* CampaignPushPermission.swift in Sources */,
 				D82CB0FCB88A88CA6DDEFAA6 /* CampaignService.swift in Sources */,

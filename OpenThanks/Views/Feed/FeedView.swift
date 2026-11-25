@@ -30,6 +30,7 @@ struct FeedView: View {
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.requestGuestSignIn) private var requestGuestSignIn
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
@@ -612,11 +613,23 @@ struct FeedView: View {
         }
     }
 
+    /// Jonny #05 stacked wordmark — iPad Home detail column only.
+    private var ipadBrandHeader: some View {
+        BrandWordmark(height: 40)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+    }
+
     /// Home banners; slides away on scroll-down (like the floating pill).
-    /// The wordmark used to sit above this. Home now opens on search and the feed switch.
+    /// iPad keeps the brand wordmark above search; phone opens on search + feed switch.
     @ViewBuilder
     private var topChrome: some View {
         VStack(spacing: 0) {
+            if sizeClass == .regular {
+                ipadBrandHeader
+            }
             if shouldShowCalendarBanner {
                 CalendarConnectBanner(
                     onConnect: {
@@ -667,7 +680,11 @@ struct FeedView: View {
                    feedCTA: campaign.feed?.cta,
                    configCTA: campaignConfigCTA,
                    daysSent: campaign.daysSent,
-                   totalDays: campaign.progressTotal
+                   totalDays: campaign.progressTotal,
+                   dayNoun: campaign.feed?.isSixFor2026 == true ? "Slot" : "Day",
+                   pendingCount: campaign.feed?.isSixFor2026 == true
+                       ? max(campaign.sixFor2026Pending.count, 0)
+                       : nil
                ) {
                 CampaignPromptCard(content: content, onSend: { thankFromCampaign(prompt) })
                     .padding(.horizontal, 16)
@@ -1822,17 +1839,20 @@ struct FeedView: View {
         let storedCount = items(for: page).first(where: { $0.id == item.id })?.heartCount
             ?? item.heartCount
         let previousCount = max(storedCount, wasHearted ? 1 : 0)
+        let nextCount = max(0, previousCount + delta)
         mutateItems(for: page) { list in
             if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                list[idx].hearts = [CountHolder(count: max(0, previousCount + delta))]
+                list[idx].hearts = [CountHolder(count: nextCount)]
             }
         }
         // Keep the other scope's card in sync only when the same post is cached there.
+        // Use the same absolute nextCount — delta on a stale other-scope embed is
+        // what turned a re-heart into 3 when World still held 2.
         let other: Scope = page == .personal ? .world : .personal
         if items(for: other).contains(where: { $0.id == item.id }) {
             mutateItems(for: other) { list in
                 if let idx = list.firstIndex(where: { $0.id == item.id }) {
-                    list[idx].hearts = [CountHolder(count: max(0, list[idx].heartCount + delta))]
+                    list[idx].hearts = [CountHolder(count: nextCount)]
                 }
             }
             mutateHearts(for: other) { set in

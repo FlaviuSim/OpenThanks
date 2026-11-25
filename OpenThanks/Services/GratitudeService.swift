@@ -331,11 +331,30 @@ enum GratitudeService {
             .value
     }
 
+    /// One thank-you that fills (or could fill) a Six for '26 slot.
+    struct SixFor2026SlotEntry: Identifiable, Sendable, Equatable, Hashable {
+        enum Kind: String, Sendable {
+            case counted
+            case pending
+        }
+
+        let id: UUID
+        let kind: Kind
+        let recipientLabel: String
+        /// Calendar day in America/New_York (yyyy-MM-dd).
+        let dayYMD: String
+        let createdAt: Date?
+    }
+
     struct SixFor2026Progress: Sendable {
         var qualified: Int
         var hasNonprofit: Bool
         var finisherRank: Int?
         var finisherStatus: String?
+        /// Public-accepted slots that already count (max 6), in qualification order.
+        var counted: [SixFor2026SlotEntry]
+        /// Pending public sends that would count once accepted (unique day + person vs counted).
+        var pending: [SixFor2026SlotEntry]
     }
 
     struct SixFor2026ClaimResult: Sendable {
@@ -346,7 +365,8 @@ enum GratitudeService {
         var message: String?
     }
 
-    /// Public-accepted Dec qualifications via `six_for_2026_qualifying_ids`.
+    /// Public-accepted Dec qualifications via `six_for_2026_qualifying_ids`,
+    /// plus pending public sends that would still claim an open slot.
     static func sixFor2026Progress(authorId: UUID) async throws -> SixFor2026Progress {
         let ids: [UUID] = try await supabase
             .rpc("six_for_2026_qualifying_ids", params: ["p_user_id": authorId.uuidString])
@@ -382,12 +402,173 @@ enum GratitudeService {
             .execute()
             .value
 
+        let slots = try await sixFor2026SlotEntries(authorId: authorId, qualifyingIds: ids)
+
         return SixFor2026Progress(
             qualified: ids.count,
             hasNonprofit: !(profile?.favoriteNonprofitName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
             finisherRank: finisher?.rank,
-            finisherStatus: finisher?.status
+            finisherStatus: finisher?.status,
+            counted: slots.counted,
+            pending: slots.pending
         )
+    }
+
+    /// Hydrates qualifying IDs and finds pending public Dec sends that would still count.
+    private static func sixFor2026SlotEntries(
+        authorId: UUID,
+        qualifyingIds: [UUID]
+    ) async throws -> (counted: [SixFor2026SlotEntry], pending: [SixFor2026SlotEntry]) {
+        struct RecipientEmbed: Decodable {
+            let fullName: String?
+            let username: String?
+            enum CodingKeys: String, CodingKey {
+                case fullName = "full_name"
+                case username
+            }
+        }
+        struct Row: Decodable {
+            let id: UUID
+            let createdAt: Date?
+            let status: String?
+            let visibility: String?
+            let acceptedAsPrivate: Bool?
+            let recipientId: UUID?
+            let recipientEmail: String?
+            let recipientPhone: String?
+            let recipientName: String?
+            let recipient: RecipientEmbed?
+            enum CodingKeys: String, CodingKey {
+                case id
+                case createdAt = "created_at"
+                case status, visibility
+                case acceptedAsPrivate = "accepted_as_private"
+                case recipientId = "recipient_id"
+                case recipientEmail = "recipient_email"
+                case recipientPhone = "recipient_phone"
+                case recipientName = "recipient_name"
+                case recipient
+            }
+        }
+
+        // Match SQL window: Dec 1 00:00 ET → Jan 1 00:00 ET (as UTC bounds).
+        var et = Calendar(identifier: .gregorian)
+        et.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        var startParts = DateComponents()
+        startParts.year = 2026
+        startParts.month = 12
+        startParts.day = 1
+        startParts.hour = 0
+        startParts.minute = 0
+        startParts.second = 0
+        var endParts = DateComponents()
+        endParts.year = 2027
+        endParts.month = 1
+        endParts.day = 1
+        endParts.hour = 0
+        endParts.minute = 0
+        endParts.second = 0
+        guard let windowStart = et.date(from: startParts),
+              let windowEnd = et.date(from: endParts)
+        else {
+            return ([], [])
+        }
+
+        let rows: [Row] = try await supabase
+            .from("gratitudes")
+            .select(
+                """
+                id, created_at, status, visibility, accepted_as_private,
+                recipient_id, recipient_email, recipient_phone, recipient_name,
+                recipient:profiles!recipient_id(full_name, username)
+                """
+            )
+            .eq("author_id", value: authorId)
+            .gte("created_at", value: windowStart.ISO8601Format())
+            .lt("created_at", value: windowEnd.ISO8601Format())
+            .in("status", values: ["accepted", "pending"])
+            .order("created_at", ascending: true)
+            .limit(200)
+            .execute()
+            .value
+
+        let byId = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
+        let dayFormatter = DateFormatter()
+        dayFormatter.calendar = et
+        dayFormatter.timeZone = et.timeZone
+        dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dayFormatter.dateFormat = "yyyy-MM-dd"
+
+        func recipientKey(_ row: Row) -> String? {
+            if let id = row.recipientId { return id.uuidString.lowercased() }
+            let email = row.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let email, !email.isEmpty { return email }
+            let phone = row.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let phone, !phone.isEmpty { return phone }
+            let name = row.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let name, !name.isEmpty { return name }
+            let profileName = row.recipient?.fullName?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let profileName, !profileName.isEmpty { return profileName }
+            return nil
+        }
+
+        func label(_ row: Row) -> String {
+            if let name = row.recipient?.fullName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                return name
+            }
+            if let name = row.recipientName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                return name
+            }
+            if let email = row.recipientEmail?.trimmingCharacters(in: .whitespacesAndNewlines), !email.isEmpty {
+                return email
+            }
+            if let phone = row.recipientPhone?.trimmingCharacters(in: .whitespacesAndNewlines), !phone.isEmpty {
+                return phone
+            }
+            if let username = row.recipient?.username?.trimmingCharacters(in: .whitespacesAndNewlines), !username.isEmpty {
+                return "@\(username)"
+            }
+            return "Someone"
+        }
+
+        func entry(from row: Row, kind: SixFor2026SlotEntry.Kind) -> SixFor2026SlotEntry? {
+            guard let created = row.createdAt else { return nil }
+            return SixFor2026SlotEntry(
+                id: row.id,
+                kind: kind,
+                recipientLabel: label(row),
+                dayYMD: dayFormatter.string(from: created),
+                createdAt: created
+            )
+        }
+
+        var counted: [SixFor2026SlotEntry] = []
+        counted.reserveCapacity(qualifyingIds.count)
+        for id in qualifyingIds {
+            guard let row = byId[id], let item = entry(from: row, kind: .counted) else { continue }
+            counted.append(item)
+        }
+
+        var usedDays = Set(counted.map(\.dayYMD))
+        var usedKeys = Set(qualifyingIds.compactMap { byId[$0] }.compactMap(recipientKey))
+        var pending: [SixFor2026SlotEntry] = []
+        let openSlots = max(0, 6 - counted.count)
+
+        for row in rows {
+            guard pending.count < openSlots else { break }
+            guard (row.status ?? "").lowercased() == "pending" else { continue }
+            guard (row.visibility ?? "public").lowercased() == "public" else { continue }
+            guard row.acceptedAsPrivate != true else { continue }
+            guard let key = recipientKey(row) else { continue }
+            guard let item = entry(from: row, kind: .pending) else { continue }
+            if usedDays.contains(item.dayYMD) { continue }
+            if usedKeys.contains(key) { continue }
+            usedDays.insert(item.dayYMD)
+            usedKeys.insert(key)
+            pending.append(item)
+        }
+
+        return (counted, pending)
     }
 
     static func claimSixFor2026Finisher() async throws -> SixFor2026ClaimResult {
@@ -485,6 +666,123 @@ enum GratitudeService {
             .eq("claim_token", value: claimToken)
             .single()
             .execute().value
+    }
+
+    /// Public claim teaser for signed-out guests (no Supabase session required).
+    struct ClaimPreview: Decodable, Sendable {
+        let id: UUID
+        let authorId: UUID
+        let status: String
+        let visibility: String?
+        let message: String
+        let mediaUrl: String?
+        let mediaType: String?
+        let previewOnly: Bool?
+        let createdAt: Date?
+        let slug: String?
+        let recipientName: String?
+        let author: AuthorPreview?
+
+        struct AuthorPreview: Decodable, Sendable {
+            let fullName: String?
+            let avatarUrl: String?
+            let username: String?
+            enum CodingKeys: String, CodingKey {
+                case fullName = "full_name"
+                case avatarUrl = "avatar_url"
+                case username
+            }
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case authorId = "author_id"
+            case status, visibility, message, slug
+            case mediaUrl = "media_url"
+            case mediaType = "media_type"
+            case previewOnly = "preview_only"
+            case createdAt = "created_at"
+            case recipientName = "recipient_name"
+            case author
+        }
+
+        /// Enough shape to render the claim review card before sign-in.
+        func asGuestGratitude(claimToken: UUID) -> Gratitude {
+            let authorProfile: Profile? = {
+                guard let author else { return nil }
+                return Profile(
+                    id: authorId,
+                    fullName: author.fullName,
+                    headline: nil,
+                    avatarUrl: author.avatarUrl,
+                    email: nil,
+                    username: author.username ?? "",
+                    phone: nil,
+                    favoriteNonprofitEin: nil,
+                    favoriteNonprofitName: nil,
+                    favoriteNonprofitWebsite: nil,
+                    favoriteNonprofitHeadline: nil
+                )
+            }()
+            return Gratitude(
+                id: id,
+                authorId: authorId,
+                recipientId: nil,
+                message: message,
+                mediaUrl: mediaUrl,
+                mediaType: mediaType,
+                createdAt: createdAt,
+                acceptedAt: nil,
+                status: GratitudeStatus(rawValue: status) ?? .pending,
+                visibility: visibility.flatMap(GratitudeVisibility.init(rawValue:)) ?? .public,
+                acceptedAsPrivate: nil,
+                recipientEmail: nil,
+                recipientPhone: nil,
+                recipientName: recipientName,
+                slug: slug,
+                claimToken: claimToken,
+                inspiredByGratitudeId: nil,
+                recipientEmailStatus: nil,
+                recipientEmailError: nil,
+                author: authorProfile,
+                recipient: nil,
+                hearts: nil,
+                inspiredByParent: nil
+            )
+        }
+    }
+
+    static func claimPreview(token: UUID) async throws -> ClaimPreview {
+        let url = AppConfig.webAppURL
+            .appending(path: "api/claim")
+            .appending(path: token.uuidString.lowercased())
+        var request = URLRequest(url: url)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 20
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw URLError(.resourceUnavailable)
+        }
+        let decoder = JSONDecoder()
+        // created_at may be ISO8601 with or without fractional seconds.
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            let frac = ISO8601DateFormatter()
+            frac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = frac.date(from: raw) { return date }
+            let plain = ISO8601DateFormatter()
+            plain.formatOptions = [.withInternetDateTime]
+            if let date = plain.date(from: raw) { return date }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid date: \(raw)"
+            )
+        }
+        return try decoder.decode(ClaimPreview.self, from: data)
     }
 
     /// Associates the signed-in user as recipient when they open a claim link
@@ -1305,7 +1603,11 @@ enum GratitudeService {
     /// People who hearted an appreciation, most recent first.
     /// `hearts.user_id` points at auth.users, so profiles are fetched in a
     /// second query (same approach as the web `/api/hearts` endpoint).
-    static func hearters(for gratitudeId: UUID, limit: Int = 50) async throws -> (count: Int, hearters: [Profile]) {
+    /// `userIds` is the full ordered list (for stale-unheart count correction).
+    static func hearters(
+        for gratitudeId: UUID,
+        limit: Int = 50
+    ) async throws -> (count: Int, hearters: [Profile], userIds: [UUID]) {
         struct HeartRow: Decodable {
             let userId: UUID
             enum CodingKeys: String, CodingKey { case userId = "user_id" }
@@ -1317,10 +1619,11 @@ enum GratitudeService {
             .order("created_at", ascending: false)
             .execute().value
 
-        let count = rows.count
-        guard count > 0 else { return (0, []) }
+        let userIds = rows.map(\.userId)
+        let count = userIds.count
+        guard count > 0 else { return (0, [], []) }
 
-        let previewIds = Array(rows.prefix(limit).map(\.userId))
+        let previewIds = Array(userIds.prefix(limit))
         let profiles: [Profile] = try await supabase.from("profiles")
             .select("id, username, full_name, avatar_url, headline")
             .in("id", values: previewIds.map(\.uuidString))
@@ -1328,7 +1631,7 @@ enum GratitudeService {
 
         let byId = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
         let ordered = previewIds.compactMap { byId[$0] }
-        return (count, ordered)
+        return (count, ordered, userIds)
     }
 
     static func heart(gratitudeId: UUID, userId: UUID, authorId: UUID) async throws {

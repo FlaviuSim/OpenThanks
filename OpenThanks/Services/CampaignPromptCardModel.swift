@@ -63,16 +63,29 @@ enum CampaignPromptCardModel {
         feedCTA: String?,
         configCTA: String?,
         daysSent: Int?,
-        totalDays: Int
+        totalDays: Int,
+        dayNoun: String = "Day",
+        pendingCount: Int? = nil
     ) -> CampaignPromptCardContent? {
         guard let ask = normalizeLabel(prompt) else { return nil }
         let title = normalizeLabel(feedTitle)
         let themeLine = normalizeLabel(theme).flatMap { line in
             line.caseInsensitiveCompare(ask) == .orderedSame ? nil : line
         }
-        let progress = daysSent.map { "\($0) of \(totalDays)" }
+        let progress: String? = daysSent.map { counted in
+            // Six for '26 passes pendingCount (even 0) so we can say "counted".
+            if let pendingCount {
+                var line = "\(counted) of \(totalDays) counted"
+                if pendingCount > 0 {
+                    line += " · \(pendingCount) pending"
+                }
+                return line
+            }
+            return "\(counted) of \(totalDays)"
+        }
+        let noun = normalizeLabel(dayNoun) ?? "Day"
         return CampaignPromptCardContent(
-            eyebrow: title.map { "\($0) · Day \(day)" },
+            eyebrow: title.map { "\($0) · \(noun) \(day)" },
             theme: themeLine,
             ask: ask,
             buttonTitle: buttonTitle(promptCTA: promptCTA, feedCTA: feedCTA, configCTA: configCTA),

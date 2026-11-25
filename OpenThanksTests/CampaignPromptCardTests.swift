@@ -29,7 +29,7 @@ final class CampaignPromptCardTests: XCTestCase {
         XCTAssertEqual(card?.ask, ask)
         XCTAssertEqual(card?.theme, "A mentor")
         XCTAssertEqual(card?.eyebrow, "30 Days of Thanks: Who Shaped You? · Day 5")
-        XCTAssertEqual(card?.progress, "2 of 30 days")
+        XCTAssertEqual(card?.progress, "2 of 30")
         XCTAssertNil(card?.buttonTitle)
         let visible = [
             card?.eyebrow,

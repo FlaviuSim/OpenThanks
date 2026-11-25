@@ -15,6 +15,26 @@ enum CalendarServerAPI {
         let eventCount: Int
         let peopleCount: Int
         let serverSyncEnabled: Bool
+        /// Oldest synced event (ISO). Nil until the enriched status API is live / no events.
+        let earliestEventAt: String?
+        /// Newest synced event (ISO).
+        let latestEventAt: String?
+        /// Top people by meeting_count for troubleshoot UI.
+        let peopleSample: [PersonSample]?
+
+        struct PersonSample: Decodable, Sendable, Identifiable {
+            var id: String {
+                [email, display_name, first_seen_at, last_seen_at]
+                    .compactMap { $0 }
+                    .joined(separator: "|")
+            }
+            let display_name: String?
+            let email: String?
+            let meeting_count: Int?
+            let one_on_one_count: Int?
+            let first_seen_at: String?
+            let last_seen_at: String?
+        }
     }
 
     struct Suggestion: Decodable, Sendable, Identifiable {
@@ -144,6 +164,31 @@ enum CalendarServerAPI {
             throw CalendarServerError.api("Failed to load calendar status")
         }
         return try JSONDecoder().decode(StatusResponse.self, from: data)
+    }
+
+    /// Clears a stuck Google sync token / failed backfill and runs one sync + people pass.
+    @discardableResult
+    static func repair() async throws -> RepairResponse {
+        var request = try await authorizedRequest(path: "api/calendar/repair", method: "POST")
+        request.httpBody = Data("{}".utf8)
+        // Repair can run Google pages + aggregate — allow a longer wait.
+        request.timeoutInterval = 55
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let message = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
+                ?? "Failed to repair calendar sync"
+            throw CalendarServerError.api(message)
+        }
+        return try JSONDecoder().decode(RepairResponse.self, from: data)
+    }
+
+    struct RepairResponse: Decodable, Sendable {
+        let ok: Bool?
+        let googleReset: Int?
+        let googleSynced: Int?
+        let people: Int?
+        let suggested: Bool?
+        let errors: [String]?
     }
 
     static func todaySuggestion() async throws -> TodayResponse {
