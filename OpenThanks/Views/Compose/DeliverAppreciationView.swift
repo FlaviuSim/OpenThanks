@@ -155,7 +155,7 @@ struct DeliverAppreciationView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(hasDeliverableRecipient
-                     ? "We may have emailed or notified them — many people still miss those. Sharing the link yourself usually works better."
+                     ? "We emailed them — many people still miss those. Sharing the link yourself ensures they know it's not spam."
                      : "Add who it’s for, or share the link now — you can finish later from Pending.")
                     .font(Theme.body(15))
                     .foregroundStyle(Theme.textSecondary)
@@ -231,7 +231,7 @@ struct DeliverAppreciationView: View {
                 HStack(spacing: 8) {
                     Image(systemName: copied ? "checkmark" : "link")
                         .font(.system(size: 15, weight: .bold))
-                    Text(copied ? "Link Copied!" : "Copy Link")
+                    Text(copied ? "Link Copied!" : "Copy Your Appreciation Link")
                 }
             }
             .buttonStyle(CTAButtonStyle())

@@ -525,18 +525,10 @@ struct RootView: View {
         if !hasCompletedCalendarPrompt {
             if CalendarMeetingAggregator.hasAnyConnectedSource {
                 // Already connected — silently mark done; keep nudge on when possible.
+                // Do not await nudge refresh here — that path hits server / EventKit / on-device
+                // AI and left returning users stuck on the heart splash after App Store updates.
                 hasCompletedCalendarPrompt = true
                 calendarNudgeEnabled = true
-                var emails = Set<String>()
-                if let email = auth.currentProfile?.email?.lowercased() {
-                    emails.insert(email)
-                }
-                await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
-                    true,
-                    authorId: auth.userId,
-                    selfEmails: emails
-                )
-                CalendarGratitudeBackgroundRefresh.schedule()
             } else if PermissionPromptScheduler.shouldShowDeferredCalendarGate {
                 // Later open, after the first thank-you — full-screen calendar connect.
                 homeGate = .needsCalendar
@@ -546,26 +538,32 @@ struct RootView: View {
         }
 
         try Task.checkCancellation()
-
-        if fridayReminderEnabled, hasCompletedNotificationPrompt {
-            await NotificationService.refreshFridayReminderIfEnabled(true)
-        }
-
-        if calendarNudgeEnabled, hasCompletedCalendarPrompt {
-            var emails = Set<String>()
-            if let email = auth.currentProfile?.email?.lowercased() {
-                emails.insert(email)
-            }
-            await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
-                true,
-                authorId: auth.userId,
-                selfEmails: emails
-            )
-            CalendarGratitudeBackgroundRefresh.schedule()
-        }
-
-        try Task.checkCancellation()
+        // Open Home first. Friday + calendar nudges are best-effort and must not
+        // gate the heart splash (URLSession / EventKit can hang for a long time).
         homeGate = gateAfterCalendarOrReady()
+
+        let refreshFriday = fridayReminderEnabled && hasCompletedNotificationPrompt
+        let refreshCalendar = calendarNudgeEnabled && hasCompletedCalendarPrompt
+        guard refreshFriday || refreshCalendar else { return }
+
+        let authorId = auth.userId
+        var emails = Set<String>()
+        if let email = auth.currentProfile?.email?.lowercased() {
+            emails.insert(email)
+        }
+        Task {
+            if refreshFriday {
+                await NotificationService.refreshFridayReminderIfEnabled(true)
+            }
+            if refreshCalendar {
+                await NotificationService.refreshCalendarGratitudeNudgeIfEnabled(
+                    true,
+                    authorId: authorId,
+                    selfEmails: emails
+                )
+                CalendarGratitudeBackgroundRefresh.schedule()
+            }
+        }
     }
 
     private var isSignedIn: Bool {

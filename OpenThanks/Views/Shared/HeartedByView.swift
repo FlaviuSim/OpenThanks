@@ -81,7 +81,10 @@ struct HeartedByView: View {
                 insertOptimisticViewerIfNeeded()
             }
         }
-        .task(id: "\(gratitudeId.uuidString)-\(heartCount)-\(viewerHasHearted)") {
+        // Key only on the post — heartCount / viewerHasHearted updates go through
+        // onChange. Including them in the id cancelled loads mid-flight and could
+        // thrash every visible card when onCountResolved wrote back to the parent.
+        .task(id: gratitudeId) {
             await load()
         }
         .sheet(isPresented: $showList) {
@@ -314,10 +317,13 @@ struct HeartedByView: View {
                 // Still lagging — keep optimistic avatars / parent count only if we hearted.
                 if viewerHasHearted, heartCount > 0 {
                     insertOptimisticViewerIfNeeded()
-                    resolvedCount = max(resolvedCount, heartCount, result.count)
+                    let floor = max(heartCount, result.count)
+                    resolvedCount = max(resolvedCount, floor)
                     loaded = true
                     // Never publish a lower count back to the parent (that undid the heart).
-                    onCountResolved?(max(heartCount, result.count))
+                    if floor != heartCount {
+                        onCountResolved?(floor)
+                    }
                     return
                 }
                 // Unheart race: don't re-inflate the parent with a stale-high total.
@@ -355,6 +361,9 @@ struct HeartedByView: View {
 
         resolvedCount = published
         loaded = true
-        onCountResolved?(published)
+        // Skip no-op writebacks that used to bump parent state and re-enter load.
+        if published != heartCount {
+            onCountResolved?(published)
+        }
     }
 }

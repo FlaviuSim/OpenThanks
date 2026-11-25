@@ -402,26 +402,76 @@ final class CampaignService {
         )
     }
 
-    /// Deep link / universal link. The form opens immediately from the cached feed.
-    /// Waiting on the network before queueing dropped the launch on cold start
-    /// (the cover never appeared, so `appreciation_form_started` never fired).
-    /// Campaign props are attached only when a prompt is already resolved.
+    /// Deep link / universal link (e.g. App Store event → `/six-for-26`).
+    /// Resolves the **linked** campaign feed even when Home still shows November,
+    /// so pre-December event taps get Six for '26 chrome instead of a blank form.
     func openCompose(link: CampaignComposeLink, analyticsSource: String) async {
-        let match = feed == nil ? nil : resolvedPrompt(for: link)
+        let match = await resolvePromptForDeepLink(link)
         let hint = match?.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Queue compose before the push offer so cold-start links feel immediate.
         ComposeLaunchBridge.shared.queue(
             campaignHint: (hint?.isEmpty == false) ? hint : nil,
-            campaignId: match == nil ? nil : link.id,
-            campaignDay: match?.day,
+            campaignId: link.id,
+            campaignDay: match?.day ?? link.day,
             analyticsSource: analyticsSource
         )
         Task {
             await CampaignPushOffer.offer(moment: .joined)
         }
+    }
+
+    /// Memory → disk → network for `link.id`, without replacing an active November Home feed.
+    private func resolvePromptForDeepLink(_ link: CampaignComposeLink) async -> CampaignPrompt? {
+        if let match = resolvedPrompt(for: link) {
+            return match
+        }
+        if let disk = Self.loadDisk(id: link.id),
+           let clean = Self.sanitized(disk.feed),
+           let match = prompt(from: clean, link: link) {
+            return match
+        }
+        if let remote = await fetchFeedOnce(id: link.id) {
+            if link.id == desiredFeedID() {
+                apply(remote, persist: false)
+            }
+            return prompt(from: remote, link: link)
+        }
         if feed == nil {
             await refresh()
+            return resolvedPrompt(for: link)
         }
+        return nil
+    }
+
+    private func prompt(from feed: CampaignFeed, link: CampaignComposeLink) -> CampaignPrompt? {
+        guard feed.id == link.id else { return nil }
+        if let day = link.day {
+            return feed.prompt(day: day)
+        }
+        if feed.isSixFor2026 {
+            // Event landing with no day → first slot (works before Dec 1 too).
+            return feed.prompt(day: 1) ?? feed.prompts.first
+        }
+        return feed.prompt(on: uiClockDate()) ?? feed.prompts.first
+    }
+
+    /// One-shot fetch for a campaign id; caches to disk. Does not mutate `self.feed`.
+    private func fetchFeedOnce(id: String) async -> CampaignFeed? {
+        let cached = Self.loadDisk(id: id)
+        let urls = [CampaignFeed.jsonURL(for: id), CampaignFeed.apiURL(for: id)]
+        for url in urls {
+            let etag = (cached?.source == url.absoluteString) ? cached?.etag : nil
+            switch await Self.fetch(url, etag: etag) {
+            case .notModified:
+                return cached.flatMap { Self.sanitized($0.feed) }
+            case .updated(let decoded, let etag):
+                guard let clean = Self.sanitized(decoded) else { continue }
+                Self.saveDisk(clean, etag: etag, source: url.absoluteString)
+                return clean
+            case .failed:
+                continue
+            }
+        }
+        return cached.flatMap { Self.sanitized($0.feed) }
     }
 
     #if DEBUG

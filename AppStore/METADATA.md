@@ -68,14 +68,14 @@ gratitude,thank you,appreciation,kindness,social,nonprofit,thanks,notes,friends
 
 
 
-## What’s New (1.8)
+## What’s New (1.9)
 
 Do **not** mention age gates, 18+, adult content, unrestricted media, or Apple Watch in What’s New / promotional text.
 
 ```
-After you accept a thank-you, it’s clearer what to do next — pick who helped you this week, someone you’ve never properly thanked, or someone from today’s meetings, with a short starter already filled in.
+Browse thank-yous without an account — sign in when you send or keep one. Warmer look on iPhone and iPad, smoother send and share, and a more reliable launch.
 
-Optional calendar thank-you suggestions (with your consent). Refreshed look. 30 Days of Thanks continues through November; Six for ’26 starts in December — thank six people who made your year.
+Six for ’26 starts in December — thank six people who made your year. Open the event from the App Store or openthanks.com/six-for-26.
 ```
 
 

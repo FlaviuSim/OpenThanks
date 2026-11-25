@@ -19,7 +19,6 @@
 		0D80918BB18839234016FE8F /* GratitudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */; };
 		0E0B7260631600BF275998F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200E9036D46AAE66F6F99936 /* Assets.xcassets */; };
 		0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */; };
-		A1C4E7D92B8F41A0B3E55C01 /* CalendarSuggestionSuppressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C4E7D92B8F41A0B3E55C02 /* CalendarSuggestionSuppressStore.swift */; };
 		0F54C29D44313DCFE8A3D5AA /* ThankSomeoneControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E8479B2CFAA40A2312F23E /* ThankSomeoneControl.swift */; };
 		0FC46E3DEB9FB0264DE4545B /* ControlCenterHandoff.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC96651F156B3C87112D9D4B /* ControlCenterHandoff.swift */; };
 		108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D87DB1FBDF467DB01585D /* SiriIntroView.swift */; };
@@ -28,6 +27,7 @@
 		12F593A4E12C4F62B8F5305E /* DisplayNameSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52B5D6606D0E8E470963C67 /* DisplayNameSheet.swift */; };
 		13A9A1131E403CDA97FEF7E4 /* AppreciationAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDF0B8419C73344E25E0B52C /* AppreciationAI.swift */; };
 		19BCDD4D9F51778CCF379DE9 /* AppIcon-Night@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = FBC593DA46378D66511E5B0E /* AppIcon-Night@3x.png */; };
+		1A18D61B81C493DD5663168B /* CalendarSuggestionSuppressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 989E2FBCFDF490945CB59569 /* CalendarSuggestionSuppressStore.swift */; };
 		1BC40D0E42CCA5E4EAF0484F /* FirstThanksPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C23B0A07E756083B98CD10 /* FirstThanksPromptTests.swift */; };
 		1D3B2018661A84696DE90289 /* FridayPrompts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91AB9270E35DB47F45DDF796 /* FridayPrompts.swift */; };
 		21977B9A924DA0B6F4BDA725 /* StatsShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA02D07C225359BD53E5EEBB /* StatsShareCardView.swift */; };
@@ -43,7 +43,6 @@
 		31897C807764FCE92C72B088 /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BB6414A3C798499A155142DF /* WatchConnectivity.framework */; };
 		32E8C5CE7850CACDFFB2B22D /* AppreciationSubmitTrackingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0C65AEF19FF11C2AF06D77 /* AppreciationSubmitTrackingTests.swift */; };
 		35C9A108E6BBFF63834E092D /* CampaignPromptCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7064C3FED4B65BB21C9D75 /* CampaignPromptCard.swift */; };
-		F1044D91002B4EDBB7806EE8 /* SixFor2026SlotTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEFD282FD0A4256B0E12180 /* SixFor2026SlotTrackerView.swift */; };
 		3857BA9E93809E31825460B2 /* AppGroup+Files.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1823259846FB88F14AC6A4 /* AppGroup+Files.swift */; };
 		3941394E94699B39AF29657B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC66F6DEC8D77591C146DA7 /* ProfileView.swift */; };
 		3AD34DD6B9F207035D2FB879 /* LinkifiedText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23112A6E99B11377C47229C1 /* LinkifiedText.swift */; };
@@ -71,6 +70,7 @@
 		51AD9FD3314DFF645DF01D96 /* ThankSomeoneControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3E8479B2CFAA40A2312F23E /* ThankSomeoneControl.swift */; };
 		51BEC8131C0FFD6895461EDC /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E97DFE1D9EF71326B319E4 /* AppGroup.swift */; };
 		53B90B7614144585C861C067 /* OAuthCallbackGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C8F8EDF422921FBD3566DE8 /* OAuthCallbackGate.swift */; };
+		54979CE095286656A878DDB9 /* SixFor2026SlotTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB8D30CC35E32BFF4DAAD06 /* SixFor2026SlotTrackerView.swift */; };
 		56506689AF631BE7CC80CA89 /* OpenThanksApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F9A37795D03FC5F062DB43 /* OpenThanksApp.swift */; };
 		58290C188F87ED5F4B42025C /* ComposeOpenCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E93077F3D58F7FA0C60E944 /* ComposeOpenCopyTests.swift */; };
 		5ADB076512216B0035D899CE /* MessageEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 446585D437E05A38AD0D2F0E /* MessageEditor.swift */; };
@@ -288,7 +288,6 @@
 		097424F66444F25FE6651FE0 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		0B6169C26020D6156BA7352D /* OpenThanksWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenThanksWatchApp.swift; sourceTree = "<group>"; };
 		0C7064C3FED4B65BB21C9D75 /* CampaignPromptCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignPromptCard.swift; sourceTree = "<group>"; };
-		8FEFD282FD0A4256B0E12180 /* SixFor2026SlotTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SixFor2026SlotTrackerView.swift; sourceTree = "<group>"; };
 		0DCB2AE995D2A0DA927AC5FA /* GratitudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GratitudeService.swift; sourceTree = "<group>"; };
 		10DB2CB8FB90F9FB20873687 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		11E21EFE1EC73EEF0397C394 /* OpenThanksShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OpenThanksShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -314,7 +313,6 @@
 		2CA55F2B2B64597B8DDCCBDB /* HeartedByView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartedByView.swift; sourceTree = "<group>"; };
 		2D117211852B1668A6DD43B0 /* PostAcceptPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostAcceptPrompt.swift; sourceTree = "<group>"; };
 		2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarThankSuggestionStore.swift; sourceTree = "<group>"; };
-		A1C4E7D92B8F41A0B3E55C02 /* CalendarSuggestionSuppressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSuggestionSuppressStore.swift; sourceTree = "<group>"; };
 		2D8AB9EDF3214B68425763D3 /* UnsentDraftReminderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsentDraftReminderStore.swift; sourceTree = "<group>"; };
 		306DB6F56AD7545C06377F68 /* CompetitionConfigService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionConfigService.swift; sourceTree = "<group>"; };
 		316D5B8B505ED7C2CF3E6BD2 /* AppStoreReviewPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreReviewPromptTests.swift; sourceTree = "<group>"; };
@@ -343,6 +341,7 @@
 		5A409B4B4AA8804F251FDAE3 /* AppIcon-Night.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Night.png"; sourceTree = "<group>"; };
 		5A78907B236CBABA2233D056 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
 		5AA066FE29E589A34FD32C5E /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		5BB8D30CC35E32BFF4DAAD06 /* SixFor2026SlotTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SixFor2026SlotTrackerView.swift; sourceTree = "<group>"; };
 		5ED8265E3321D2A5A0E4170D /* AppIcon-Ember@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Ember@2x.png"; sourceTree = "<group>"; };
 		610609351AABD36808642608 /* AppearanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceView.swift; sourceTree = "<group>"; };
 		6112F7F423BB9A34FC8DF1BE /* StreakLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakLiveActivityController.swift; sourceTree = "<group>"; };
@@ -389,6 +388,7 @@
 		96BE48F32BF8C307F7B06E34 /* GoogleCalendarAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarAuth.swift; sourceTree = "<group>"; };
 		96F3FD90C322331B012FD48F /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
 		98564619904D3EFBA8214A72 /* AppIcon-Default-Preview.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Default-Preview.png"; sourceTree = "<group>"; };
+		989E2FBCFDF490945CB59569 /* CalendarSuggestionSuppressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSuggestionSuppressStore.swift; sourceTree = "<group>"; };
 		9B5053D28C64C35B1B67733F /* NotificationsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSettingsView.swift; sourceTree = "<group>"; };
 		9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlexiblePostImage.swift; sourceTree = "<group>"; };
 		9E451C434563DD8702080E34 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
@@ -532,7 +532,7 @@
 				6BDAC6AC33F8484AD7665D9C /* CalendarPromptCap.swift */,
 				AA10F1DE849ED7657701CD5D /* CalendarServerAPI.swift */,
 				86FCD0BB977A7994F6709BA8 /* CalendarServerSyncConsent.swift */,
-				A1C4E7D92B8F41A0B3E55C02 /* CalendarSuggestionSuppressStore.swift */,
+				989E2FBCFDF490945CB59569 /* CalendarSuggestionSuppressStore.swift */,
 				B8BF819F461B76C2457AFE37 /* CalendarThankSuggestionService.swift */,
 				2D41879142E94CABEDE716C0 /* CalendarThankSuggestionStore.swift */,
 				19B8E23F00E3C27AF5CE139B /* CampaignPromptCardModel.swift */,
@@ -707,7 +707,6 @@
 				E1200BBA4D98DF3DBDD4530F /* CalendarConnectBanner.swift */,
 				142CBE087DF41FA18F3D7D20 /* CalendarThankSuggestionCard.swift */,
 				0C7064C3FED4B65BB21C9D75 /* CampaignPromptCard.swift */,
-				8FEFD282FD0A4256B0E12180 /* SixFor2026SlotTrackerView.swift */,
 				BC01642D5FB1EED4111326D0 /* DeepLinkHost.swift */,
 				FE264FA309122871CC3FFB18 /* EnjoyingOpenThanksSheet.swift */,
 				9CD34FF448658DFA768C1A14 /* FlexiblePostImage.swift */,
@@ -717,6 +716,7 @@
 				ED22C171C1B4EF745F0B6F78 /* PayItForwardNudge.swift */,
 				27F0BE629D251F856F14F577 /* PostMediaViews.swift */,
 				88A5D66D50A0761C6FAB1E37 /* ReportContentSheet.swift */,
+				5BB8D30CC35E32BFF4DAAD06 /* SixFor2026SlotTrackerView.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -1159,12 +1159,11 @@
 				71DF3C7EB070953B50C54EA0 /* CalendarPromptCap.swift in Sources */,
 				0C6CA0E8E25AD8051362CF9D /* CalendarServerAPI.swift in Sources */,
 				3C4A83E300A36B8414680E65 /* CalendarServerSyncConsent.swift in Sources */,
-				A1C4E7D92B8F41A0B3E55C01 /* CalendarSuggestionSuppressStore.swift in Sources */,
+				1A18D61B81C493DD5663168B /* CalendarSuggestionSuppressStore.swift in Sources */,
 				CD5052F0C54FC52C7BF169FD /* CalendarThankSuggestionCard.swift in Sources */,
 				F6BAF7FBEBFAA325D2E8B75C /* CalendarThankSuggestionService.swift in Sources */,
 				0E93F359E447BD3F925D6CF6 /* CalendarThankSuggestionStore.swift in Sources */,
 				35C9A108E6BBFF63834E092D /* CampaignPromptCard.swift in Sources */,
-				F1044D91002B4EDBB7806EE8 /* SixFor2026SlotTrackerView.swift in Sources */,
 				90343B02F1B207F3E5682FE9 /* CampaignPromptCardModel.swift in Sources */,
 				B204B08BE7FDCD15946839D6 /* CampaignPushPermission.swift in Sources */,
 				D82CB0FCB88A88CA6DDEFAA6 /* CampaignService.swift in Sources */,
@@ -1227,6 +1226,7 @@
 				08B31A59202DA1F3D19399E8 /* ReportContentSheet.swift in Sources */,
 				985D66E76E069167F1534690 /* SettingsView.swift in Sources */,
 				108089C6E63B5176E807640C /* SiriIntroView.swift in Sources */,
+				54979CE095286656A878DDB9 /* SixFor2026SlotTrackerView.swift in Sources */,
 				21977B9A924DA0B6F4BDA725 /* StatsShareCardView.swift in Sources */,
 				69B4F6E0C080880220BFF632 /* StatsView.swift in Sources */,
 				60EDE6F10A714F46F0AAA4C6 /* StreakLiveActivityAttributes.swift in Sources */,
@@ -1362,14 +1362,14 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1446,13 +1446,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatch/OpenThanksWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1466,12 +1466,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatchWidgets/OpenThanksWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch.widgets;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1486,13 +1486,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatch/OpenThanksWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatch/Info.plist;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.openthanks.gratitude;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = YES;
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch;
 				SDKROOT = watchos;
 				SKIP_INSTALL = NO;
@@ -1506,12 +1506,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1524,13 +1524,13 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1544,12 +1544,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWatchWidgets/OpenThanksWatchWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWatchWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.watch.widgets;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1562,13 +1562,13 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = OpenThanksShare/OpenThanksShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksShare/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = OpenThanks;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.share;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1584,14 +1584,14 @@
 				CODE_SIGN_ENTITLEMENTS = OpenThanks/OpenThanks.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				INFOPLIST_FILE = OpenThanks/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1604,12 +1604,12 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = OpenThanksWidget/OpenThanksWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = OpenThanksWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.widget;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -1622,7 +1622,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = OpenThanksTests/.build/out/Products/Debug/ComposeDraftTests.xctest/Contents/Info.plist;
@@ -1631,7 +1631,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1644,7 +1644,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = XA73L5SR8P;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = OpenThanksTests/.build/out/Products/Debug/ComposeDraftTests.xctest/Contents/Info.plist;
@@ -1653,7 +1653,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.openthanks.gratitude.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
