@@ -335,9 +335,20 @@ struct MainTabView: View {
                     Button {
                         presentCompose(Self.tabComposeSheet())
                     } label: {
-                        Label("Thank Someone", systemImage: "heart.fill")
-                            .foregroundStyle(Theme.primary)
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.fill")
+                            Text("Thank Someone")
+                                .font(Theme.body(16, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.onPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Theme.brand, in: Capsule())
                     }
+                    .buttonStyle(.plain)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                    .accessibilityLabel("Thank Someone")
                 }
 
                 Section {
@@ -355,15 +366,7 @@ struct MainTabView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    BrandWordmark(height: 28)
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        presentCompose(Self.tabComposeSheet())
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                    }
-                    .accessibilityLabel("Thank Someone")
+                    BrandLockup()
                 }
             }
         } detail: {
