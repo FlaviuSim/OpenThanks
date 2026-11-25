@@ -2730,13 +2730,13 @@ struct SuccessView: View {
 
     private var headline: String {
         hasDeliverableRecipient
-            ? "Your appreciation has been created!"
+            ? "Your appreciation has been sent!"
             : "Saved to Pending"
     }
 
     private var subtitle: String {
         if hasDeliverableRecipient {
-            return "We may have emailed or notified them — many people still miss those. Sharing the link yourself usually works better."
+            return "We emailed them — many people still miss those. Sharing the link yourself ensures they know it's not spam."
         }
         if gratitude.hasNoRecipient {
             return "Add who it’s for with Edit, then share the link — or Done and finish later from Pending Appreciations."
@@ -2905,7 +2905,7 @@ struct SuccessView: View {
             HStack(spacing: 8) {
                 Image(systemName: copied ? "checkmark" : "link")
                     .font(.system(size: 15, weight: .bold))
-                Text(copied ? "Link Copied!" : "Copy Link")
+                Text(copied ? "Link Copied!" : "Copy Your Appreciation Link")
             }
         }
         .buttonStyle(CTAButtonStyle())

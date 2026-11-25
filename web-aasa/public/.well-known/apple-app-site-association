@@ -8,37 +8,156 @@
           "53CL59ATX8.com.openthanks.app"
         ],
         "components": [
-          { "/": "/claim/*" },
-          { "/": "/for/*" },
-          { "/": "/gratitude/*" },
-          { "/": "/pending", "comment": "Author reminder View & Resend" },
-          { "/": "/pending/*" },
-          { "/": "/sent", "comment": "Legacy author reminder links" },
-          { "/": "/sent/*" },
-          { "/": "/notifications", "comment": "Sunday hearts digest + in-app notifications" },
-          { "/": "/notifications/*" },
-          { "/": "/feed", "comment": "Open Home feed in app" },
-          { "/": "/feed/*" },
-          { "/": "/november", "comment": "30 Days of Thanks campaign" },
-          { "/": "/november/*" },
-          { "/": "/profile/*", "comment": "Profile by id" },
-          { "/": "/privacy", "exclude": true },
-          { "/": "/terms", "exclude": true },
-          { "/": "/support", "exclude": true },
-          { "/": "/support/*", "exclude": true },
-          { "/": "/auth/*", "exclude": true },
-          { "/": "/api/*", "exclude": true },
-          { "/": "/donate", "exclude": true },
-          { "/": "/donate/*", "exclude": true },
-          { "/": "/claim-appreciation", "exclude": true },
-          { "/": "/unsubscribe", "exclude": true },
-          { "/": "/unsubscribe/*", "exclude": true },
-          { "/": "/competition", "exclude": true },
-          { "/": "/competition/*", "exclude": true },
-          { "/": "/campaigns", "exclude": true, "comment": "Campaign prompt JSON stays in the browser" },
-          { "/": "/campaigns/*", "exclude": true },
-          { "/": "/", "exclude": true, "comment": "Marketing homepage stays in Safari; Smart App Banner + CTAs" },
-          { "/": "/*", "comment": "Profile usernames" }
+          {
+            "/": "/claim/*"
+          },
+          {
+            "/": "/for/*"
+          },
+          {
+            "/": "/gratitude/*"
+          },
+          {
+            "/": "/pending",
+            "comment": "Author reminder View & Resend"
+          },
+          {
+            "/": "/pending/*"
+          },
+          {
+            "/": "/sent",
+            "comment": "Legacy author reminder links"
+          },
+          {
+            "/": "/sent/*"
+          },
+          {
+            "/": "/notifications",
+            "comment": "Sunday hearts digest + in-app notifications"
+          },
+          {
+            "/": "/notifications/*"
+          },
+          {
+            "/": "/feed",
+            "comment": "Open Home feed in app"
+          },
+          {
+            "/": "/feed/*"
+          },
+          {
+            "/": "/november",
+            "comment": "30 Days of Thanks campaign"
+          },
+          {
+            "/": "/november/*"
+          },
+          {
+            "/": "/six-for-26",
+            "comment": "Six for '26 campaign / App Store event"
+          },
+          {
+            "/": "/six-for-26/*"
+          },
+          {
+            "/": "/december",
+            "comment": "Alias \u2192 Six for '26"
+          },
+          {
+            "/": "/december/*"
+          },
+          {
+            "/": "/profile/*",
+            "comment": "Profile by id"
+          },
+          {
+            "/": "/privacy",
+            "exclude": true
+          },
+          {
+            "/": "/terms",
+            "exclude": true
+          },
+          {
+            "/": "/support",
+            "exclude": true
+          },
+          {
+            "/": "/support/*",
+            "exclude": true
+          },
+          {
+            "/": "/auth/*",
+            "exclude": true
+          },
+          {
+            "/": "/api/*",
+            "exclude": true
+          },
+          {
+            "/": "/donate",
+            "exclude": true
+          },
+          {
+            "/": "/donate/*",
+            "exclude": true
+          },
+          {
+            "/": "/claim-appreciation",
+            "exclude": true
+          },
+          {
+            "/": "/unsubscribe",
+            "exclude": true
+          },
+          {
+            "/": "/unsubscribe/*",
+            "exclude": true
+          },
+          {
+            "/": "/competition",
+            "exclude": true
+          },
+          {
+            "/": "/competition/*",
+            "exclude": true
+          },
+          {
+            "/": "/campaigns",
+            "exclude": true,
+            "comment": "Campaign prompt JSON stays in the browser"
+          },
+          {
+            "/": "/campaigns/*",
+            "exclude": true
+          },
+          {
+            "/": "/",
+            "exclude": true,
+            "comment": "Marketing homepage stays in Safari; Smart App Banner + CTAs"
+          },
+          {
+            "/": "/app",
+            "exclude": true,
+            "comment": "iOS download landing stays in Safari"
+          },
+          {
+            "/": "/app/",
+            "exclude": true
+          },
+          {
+            "/": "/ios",
+            "exclude": true,
+            "comment": "Redirects to the App Store"
+          },
+          {
+            "/": "/ios/",
+            "exclude": true
+          },
+          {
+            "/": "/*",
+            "comment": "Profile usernames"
+          }
         ]
       }
     ]
