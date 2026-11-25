@@ -30,7 +30,6 @@ struct FeedView: View {
     @Environment(UserBlockService.self) private var userBlocks
     @Environment(\.requestGuestSignIn) private var requestGuestSignIn
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.horizontalSizeClass) private var sizeClass
     @AppStorage("hasSeenFirstSendTip") private var hasSeenFirstSendTip = false
     @State private var calendarReminder = CalendarConnectReminder.shared
     @State private var campaign = CampaignService.shared
@@ -613,23 +612,11 @@ struct FeedView: View {
         }
     }
 
-    /// Jonny #05 stacked wordmark — iPad Home detail column only.
-    private var ipadBrandHeader: some View {
-        BrandWordmark(height: 40)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-            .padding(.bottom, 2)
-    }
-
     /// Home banners; slides away on scroll-down (like the floating pill).
-    /// iPad keeps the brand wordmark above search; phone opens on search + feed switch.
+    /// Brand lockup lives in the iPad sidebar; Home opens on search + feed switch.
     @ViewBuilder
     private var topChrome: some View {
         VStack(spacing: 0) {
-            if sizeClass == .regular {
-                ipadBrandHeader
-            }
             if shouldShowCalendarBanner {
                 CalendarConnectBanner(
                     onConnect: {

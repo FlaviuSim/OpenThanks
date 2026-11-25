@@ -432,6 +432,29 @@ struct BrandMark: View {
     }
 }
 
+/// iPad sidebar lockup: orange rounded mark + stacked OPEN THANKS wordmark.
+struct BrandLockup: View {
+    var markSize: CGFloat = 36
+    var wordmarkHeight: CGFloat = 32
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: markSize * 0.22, style: .continuous)
+                    .fill(Theme.brand)
+                    .frame(width: markSize, height: markSize)
+                Image("BrandMarkInverse")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: markSize * 0.64, height: markSize * 0.64)
+            }
+            BrandWordmark(height: wordmarkHeight)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("OpenThanks")
+    }
+}
+
 /// Solid brand badge for action rows — white glyph on coral for contrast.
 struct ActionGlyph: View {
     let systemImage: String
