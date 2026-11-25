@@ -46,7 +46,17 @@ struct OnboardingView: View {
             .contentShape(Rectangle())
             .accessibilityLabel("See what’s shared")
 
-            Text("No account needed to look around.")
+            Button("Browse without signing in") {
+                WarmHaptics.selection()
+                Analytics.capture("prelogin_onboarding_skipped")
+                onFinish()
+            }
+            .font(Theme.body(15, weight: .medium))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.top, 12)
+            .accessibilityLabel("Browse without signing in")
+
+            Text("No account needed to look around. Sign in later to send or accept.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)

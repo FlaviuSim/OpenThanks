@@ -64,7 +64,7 @@ struct CalendarPermissionView: View {
                         .font(Theme.display(28, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .multilineTextAlignment(.center)
-                    Text("Connect a calendar and we’ll suggest people to thank — including from your history after you consent to sync. Weekday evening nudge at 8 so good days end feeling fuller.")
+                    Text("Connect a calendar and we’ll suggest people to thank.")
                         .font(Theme.body(16))
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
@@ -115,13 +115,6 @@ struct CalendarPermissionView: View {
                     Task { await connectGoogle() }
                 }
                 .softNoteReveal(delay: 0.22)
-
-                Text("You can connect the other one anytime in Settings.")
-                    .font(Theme.body(13))
-                    .foregroundStyle(Theme.textTertiary)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 4)
-                    .softNoteReveal(delay: 0.28)
 
                 // After a prior Calendar denial, send people to Settings first.
                 if showPostDenialActions {

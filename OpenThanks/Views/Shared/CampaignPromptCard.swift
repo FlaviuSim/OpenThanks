@@ -24,6 +24,14 @@ struct CampaignPromptCard: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    if let progress = content.progress {
+                        Text(progress)
+                            .font(Theme.body(11))
+                            .foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1)
+                            .padding(.top, 2)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

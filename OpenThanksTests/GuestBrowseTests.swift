@@ -2,16 +2,26 @@ import XCTest
 @testable import OpenThanks
 
 final class GuestBrowseTests: XCTestCase {
-    func testRootUsesGuestShellAfterOnboarding() throws {
+    func testRootUsesGuestShellWithoutLoginWall() throws {
         let source = try readSource("OpenThanks/OpenThanksApp.swift")
         XCTAssertTrue(source.contains("GuestBrowseShell()"))
+        XCTAssertTrue(source.contains("reconcileSignedOutFirstRun"))
+        XCTAssertTrue(source.contains("showSignedOutFirstRunIntro"))
         XCTAssertFalse(source.contains("if hasSeenOnboarding {\n                        WelcomeView()"))
+    }
+
+    func testClaimAllowsGuestPreviewBeforeSignIn() throws {
+        let source = try readSource("OpenThanks/Views/Claim/ClaimAppreciationView.swift")
+        XCTAssertTrue(source.contains("guestPreview"))
+        XCTAssertTrue(source.contains("GuestClaimPreviewView"))
+        XCTAssertTrue(source.contains("claimPreview"))
     }
 
     func testOnboardingCtaInvitesExplore() throws {
         let source = try readSource("OpenThanks/Views/Auth/OnboardingView.swift")
         XCTAssertTrue(source.contains("See what’s shared"))
-        XCTAssertTrue(source.contains("No account needed to look around."))
+        XCTAssertTrue(source.contains("Browse without signing in"))
+        XCTAssertTrue(source.contains("No account needed to look around"))
     }
 
     func testFeedSupportsGuestWorldBrowse() throws {

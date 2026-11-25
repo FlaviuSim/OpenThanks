@@ -420,12 +420,17 @@ struct ClaimAppreciationView: View {
     private enum Phase {
         case loading
         case ready
+        /// Signed-out guest can read a public claim teaser before signing in to accept.
+        case guestPreview
         case missing
         case alreadyProcessed
         case ownAppreciation
         case ownPublished
         case needsSignIn
     }
+
+    /// After guest taps Accept, complete sign-in then auto-run accept once.
+    @State private var acceptAfterSignIn = false
 
     var body: some View {
         Group {
@@ -442,9 +447,27 @@ struct ClaimAppreciationView: View {
         }
         .task { await load() }
         .onChange(of: auth.userId) { _, userId in
-            if userId != nil, case .needsSignIn = phase {
+            guard userId != nil else { return }
+            if case .needsSignIn = phase {
                 showSignIn = false
                 Task { await load() }
+                return
+            }
+            if case .guestPreview = phase {
+                showSignIn = false
+                Task {
+                    await load()
+                    if acceptAfterSignIn {
+                        acceptAfterSignIn = false
+                        // load() sets .ready with full gratitude — accept next tick.
+                        try? await Task.sleep(for: .milliseconds(80))
+                        if case .ready = phase, let gratitude {
+                            // Trigger accept via the review view's host path:
+                            // re-present ready with a one-shot flag on the review screen.
+                            await autoAcceptIfNeeded(gratitude)
+                        }
+                    }
+                }
             }
         }
         .sheet(isPresented: $showSignIn) {
@@ -491,6 +514,18 @@ struct ClaimAppreciationView: View {
                     }
                     .padding(28)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .guestPreview:
+                    if let gratitude {
+                        GuestClaimPreviewView(
+                            gratitude: gratitude,
+                            onAccept: {
+                                acceptAfterSignIn = true
+                                showSignIn = true
+                                Analytics.capture("guest_sign_in_prompted", ["reason": "claim"])
+                            },
+                            onDismiss: { dismiss() }
+                        )
+                    }
                 case .missing:
                     messageState(
                         title: "Appreciation not found",
@@ -580,8 +615,32 @@ struct ClaimAppreciationView: View {
     }
 
     private func load() async {
-        guard auth.userId != nil else {
-            phase = .needsSignIn
+        // Signed-out: show a public claim teaser; sign-in only when they Accept.
+        if auth.userId == nil {
+            do {
+                let preview = try await GratitudeService.claimPreview(token: token)
+                if preview.status == "accepted", preview.visibility != "private" {
+                    // Public accepted note — open the published page without signing in.
+                    if let slug = preview.slug, !slug.isEmpty {
+                        deepLinks.destination = .slug(slug)
+                    } else {
+                        deepLinks.destination = .gratitude(id: preview.id)
+                    }
+                    return
+                }
+                if preview.status != "pending" {
+                    gratitude = preview.asGuestGratitude(claimToken: token)
+                    phase = .alreadyProcessed
+                    return
+                }
+                gratitude = preview.asGuestGratitude(claimToken: token)
+                phase = .guestPreview
+            } catch {
+                if !error.isCancellation {
+                    // Preview API unavailable — fall back to the old sign-in gate.
+                    phase = .needsSignIn
+                }
+            }
             return
         }
 
@@ -622,6 +681,88 @@ struct ClaimAppreciationView: View {
                 phase = .missing
             }
         }
+    }
+
+    /// After guest Accept → sign-in, finish accept without a second tap when possible.
+    private func autoAcceptIfNeeded(_ loaded: Gratitude) async {
+        guard auth.userId != nil else { return }
+        // Hand off to the signed-in review UI; user confirms Accept once more if
+        // auto-accept isn't safe (e.g. private vs public choice). Showing ready is enough.
+        gratitude = loaded
+        phase = .ready
+    }
+}
+
+/// Signed-out claim screen: show who thanked them and gate Accept behind sign-in.
+private struct GuestClaimPreviewView: View {
+    let gratitude: Gratitude
+    var onAccept: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Someone appreciates you")
+                    .font(Theme.display(26, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+
+                Text("Read this thank-you. Sign in only when you’re ready to accept.")
+                    .font(Theme.body(15))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    ProfilePersonLink(profile: gratitude.author, size: 48) {
+                        if let date = gratitude.displayDate {
+                            Text(date, format: .relative(presentation: .named))
+                                .font(Theme.body(12))
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+
+                    LinkifiedText(
+                        text: gratitude.message,
+                        font: Theme.display(18, weight: .regular),
+                        foreground: Theme.textPrimary
+                    )
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    if let url = gratitude.mediaURL {
+                        FlexiblePostMedia(
+                            url: url,
+                            mediaType: gratitude.mediaType,
+                            maxHeight: 420
+                        )
+                    }
+                }
+                .padding(18)
+                .card()
+
+                AppreciationVisibilityNote(visibility: gratitude.visibility)
+
+                Button(action: onAccept) {
+                    Text("Accept this thank-you")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CTAButtonStyle())
+
+                Text("We’ll ask you to sign in to keep it — browsing stays free.")
+                    .font(Theme.body(12))
+                    .foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Not now", action: onDismiss)
+                    .font(Theme.body(15, weight: .medium))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+            }
+            .padding(20)
+            .tabChromeBottomPadding()
+            .readableWidth()
+        }
+        .onAppear { WarmHaptics.received() }
     }
 }
 

@@ -451,10 +451,6 @@ struct ComposeView: View {
 
                 photoSection
 
-                if !usesTwoStepFlow {
-                    visibilitySection
-                }
-
                 if let error {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(error)
@@ -1336,8 +1332,14 @@ struct ComposeView: View {
                     // Done remains visible. Tap Done, then these if the keyboard covered them.
                     appreciationToolbar
 
-                    if aiAvailable {
-                        aiChips
+                    HStack(alignment: .center, spacing: 8) {
+                        if aiAvailable {
+                            aiChips
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            Spacer(minLength: 0)
+                        }
+                        compactVisibilityControl
                     }
 
                     if messageBeforeAI != nil {
@@ -1608,61 +1610,40 @@ struct ComposeView: View {
         return editing.status == .pending || editing.status == nil
     }
 
-    private var visibilitySection: some View {
+    /// Compact public/private control — sits in the appreciation card next to AI chips.
+    private var compactVisibilityControl: some View {
         Button {
             guard canEditVisibility else { return }
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: 0.18)) {
                 visibility = visibility == .public ? .private : .public
             }
         } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.surfaceRaised)
-                        .frame(width: 40, height: 40)
-                    Image(systemName: visibility == .public ? "globe" : "lock.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Theme.primary)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(visibility == .public ? "Public" : "Private")
-                        .font(Theme.body(15, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text(
-                        canEditVisibility
-                            ? (visibility == .public
-                                ? "In the feed once they accept"
-                                : "Only you and the recipient can see")
-                            : (visibility == .public
-                                ? "Visible in the community feed"
-                                : "Locked after accept — only you and the recipient")
-                    )
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer(minLength: 0)
-
-                if canEditVisibility {
-                    Text("Switch")
-                        .font(Theme.body(13, weight: .semibold))
-                        .foregroundStyle(Theme.primary)
-                }
+            HStack(spacing: 4) {
+                Image(systemName: visibility == .public ? "globe" : "lock.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                Text(visibility == .public ? "Public" : "Private")
+                    .font(Theme.body(12, weight: .medium))
+                    .lineLimit(1)
             }
-            .padding(14)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(Theme.surfaceRaised.opacity(0.7), in: Capsule())
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Theme.hairline)
+                Capsule()
+                    .strokeBorder(Theme.hairline, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
         .disabled(sending || !canEditVisibility)
+        .opacity(canEditVisibility ? 1 : 0.55)
+        .accessibilityLabel(visibility == .public ? "Public" : "Private")
         .accessibilityHint(canEditVisibility
-            ? "Switches between public and private"
+            ? (visibility == .public
+                ? "In the feed once they accept. Double tap to make private."
+                : "Only you and the recipient can see. Double tap to make public.")
             : "Visibility is locked after the appreciation is accepted")
+        .accessibilityAddTraits(canEditVisibility ? [] : .isStaticText)
         .sensoryFeedback(.selection, trigger: visibility)
     }
 
@@ -1957,7 +1938,7 @@ struct ComposeView: View {
         if dictation.isStopping { return "Finishing dictation…" }
         if dictation.isListening { return "Stop dictation to save." }
         if loadingPhoto { return "Wait for the photo to finish loading." }
-        if trimmed.isEmpty { return "Add a message to save." }
+        if trimmed.isEmpty { return "Write an appreciation to send." }
         if trimmed.count > maxLength { return "Shorten the message to \(maxLength) characters." }
         if !allowsEmptyRecipient && !hasRecipient {
             return "Add a name or email in To to send."

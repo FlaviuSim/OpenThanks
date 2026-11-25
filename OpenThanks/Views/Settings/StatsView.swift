@@ -494,6 +494,12 @@ struct StatsView: View {
                 tint: Theme.coral
             )
 
+            SixFor2026SlotTrackerView(
+                counted: campaign.sixFor2026Counted,
+                pending: campaign.sixFor2026Pending,
+                total: total
+            )
+
             Text("First 20 finishers: $600 to your favorite charity. Progress counts only after public accepts.")
                 .font(Theme.body(12))
                 .foregroundStyle(Theme.textSecondary)

@@ -519,6 +519,44 @@ enum NotificationService {
         return String(trimmed[..<end]).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
     }
 
+    /// Fires a one-shot test notification in a few seconds with tonight’s resolved candidate.
+    /// Used by the founder / DEBUG troubleshoot panel — does not change the 8pm schedule.
+    /// - Returns: the nudge on success, or a user-facing error string.
+    static func scheduleTestCalendarNudge(
+        authorId: UUID?,
+        selfEmails: Set<String> = [],
+        delaySeconds: TimeInterval = 3
+    ) async -> (nudge: GratitudeNudge?, error: String?) {
+        guard await isAuthorized() else {
+            return (nil, "Notifications are off for OpenThanks.")
+        }
+        let resolvedAuthorId = await resolveAuthorId(authorId)
+        guard let nudge = await CalendarThankSuggestionService.resolveNudge(
+            for: Date(),
+            authorId: resolvedAuthorId,
+            selfEmails: selfEmails,
+            now: Date()
+        ) else {
+            return (nil, "No calendar candidate right now (empty history, still backfilling, or no strong match).")
+        }
+
+        let content = calendarNudgeContent(for: nudge)
+        content.title = "🧪 Test · \(content.title)"
+        let delay = max(delaySeconds, 1)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "\(calendarNudgeId)-test",
+            content: content,
+            trigger: trigger
+        )
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            return (nudge, nil)
+        } catch {
+            return (nil, error.localizedDescription)
+        }
+    }
+
     /// Enables the evening nudge: notification permission + any calendar source, then schedule.
     /// Returns nil on success. Preference can stay on even when there’s no candidate tonight.
     /// - Parameter requestAppleIfNeeded: When true and no source is connected, prompts EventKit.

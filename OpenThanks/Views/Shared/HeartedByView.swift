@@ -22,10 +22,13 @@ struct HeartedByView: View {
     @State private var hostedOpenProfile: ((Profile) -> Void)?
     @State private var sheetDetent: PresentationDetent = .medium
 
-    /// Parent `heartCount` wins when it drops (optimistic unheart). `resolvedCount`
-    /// may only raise a stale-low embed — never keep a removed heart on screen.
+    /// Parent `heartCount` wins when it drops (optimistic unheart). While the
+    /// viewer still has a heart, `resolvedCount` may raise a stale-low embed.
+    /// After unheart, parent count is authoritative so a stale server total that
+    /// still includes us can’t keep the badge high (and turn the next heart into +2).
     private var displayCount: Int {
         if heartCount == 0 { return 0 }
+        if !viewerHasHearted { return heartCount }
         return max(heartCount, resolvedCount)
     }
 
@@ -309,31 +312,49 @@ struct HeartedByView: View {
 
             if result.count < heartCount {
                 // Still lagging — keep optimistic avatars / parent count only if we hearted.
-                if viewerHasHearted, heartCount > 0 { insertOptimisticViewerIfNeeded() }
-                if !viewerHasHearted {
-                    removeViewerFromHearters()
-                    if !result.hearters.isEmpty {
-                        hearters = result.hearters
-                    }
+                if viewerHasHearted, heartCount > 0 {
+                    insertOptimisticViewerIfNeeded()
+                    resolvedCount = max(resolvedCount, heartCount, result.count)
+                    loaded = true
+                    // Never publish a lower count back to the parent (that undid the heart).
+                    onCountResolved?(max(heartCount, result.count))
+                    return
                 }
-                resolvedCount = max(resolvedCount, heartCount, result.count)
-                loaded = true
-                // Never publish a lower count back to the parent (that undid the heart).
-                onCountResolved?(max(heartCount, result.count))
+                // Unheart race: don't re-inflate the parent with a stale-high total.
+                applyHeartersResult(result)
                 return
             }
 
-            hearters = result.hearters
-            if !viewerHasHearted {
-                removeViewerFromHearters()
-            }
-            resolvedCount = result.count
-            loaded = true
-            onCountResolved?(result.count)
+            applyHeartersResult(result)
         } catch {
             if !error.isCancellation {
                 loaded = true
             }
         }
+    }
+
+    /// Applies a hearters payload. When we are not hearted, a stale server total
+    /// can still include us — strip that before updating UI / parent count so
+    /// unheart → re-heart stays N then N+1 (not N then N+2).
+    private func applyHeartersResult(
+        _ result: (count: Int, hearters: [Profile], userIds: [UUID])
+    ) {
+        let viewerStillListed = viewerId.map { result.userIds.contains($0) } ?? false
+
+        hearters = result.hearters
+        if !viewerHasHearted {
+            removeViewerFromHearters()
+        }
+
+        let published: Int
+        if !viewerHasHearted, viewerStillListed {
+            published = max(0, result.count - 1)
+        } else {
+            published = result.count
+        }
+
+        resolvedCount = published
+        loaded = true
+        onCountResolved?(published)
     }
 }
