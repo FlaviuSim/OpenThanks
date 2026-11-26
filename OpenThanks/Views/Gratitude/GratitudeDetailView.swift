@@ -542,7 +542,9 @@ struct GratitudeDetailView: View {
             channel: channel,
             voice: shareVoice.rawValue,
             hasCard: shareCardImage != nil,
-            hasPhoto: shareContent.sharePhotoURL != nil
+            hasPhoto: shareContent.sharePhotoURL != nil,
+            surface: "detail",
+            buttonLabel: channel
         )
     }
 

@@ -120,6 +120,13 @@ struct ComposeView: View {
     @State private var messageBeforeAI: String?
     /// Queued chip insert for `MessageEditor` (places caret after the emoji).
     @State private var pendingMessageInsert: MessageEditor.PendingInsert?
+    /// After AI rewrite, park the caret at the end of the new text.
+    @State private var pendingCaretAtEnd = false
+    /// Last caret / highlight for toolbar Add link — reference type so caret
+    /// moves don’t rebuild the whole compose form on every keystroke.
+    @State private var messageSelectionStore = MessageSelectionStore()
+    /// Which compose CTA started the in-flight save: `toolbar` (nav) or `footer`.
+    @State private var saveButtonUsed: String?
     @StateObject private var dictation = AppreciationDictation()
     @State private var didPrefill = false
     @State private var didTrackFormStart = false
@@ -145,7 +152,8 @@ struct ComposeView: View {
     @State private var recipientSearchFinished = false
     /// User confirmed a free-text name/email as a non-member recipient chip.
     @State private var guestRecipientConfirmed = false
-    @FocusState private var messageFocused: Bool
+    /// Bridged into MessageEditor’s UITextView (not a SwiftUI TextField FocusState).
+    @State private var messageFocused = false
     @FocusState private var recipientFocused: Bool
     @State private var showAddLinkSheet = false
     @State private var linkLabelDraft = ""
@@ -165,7 +173,8 @@ struct ComposeView: View {
     private var needsDisplayName: Bool {
         auth.currentProfile?.needsDisplayName == true
     }
-    private let quickEmojis = ["🙏", "❤️", "🫶", "🥰", "🤗", "✨"]
+    /// Quick tray — gratitude + playful; scrollable so we can offer more than fit on screen.
+    private let quickEmojis = ["🙏", "❤️", "✨", "🥰", "🦄", "🚀", "🤩", "🤪", "💛", "🌟", "🙌", "🫶"]
 
     private var isSixFor2026Campaign: Bool {
         campaignId == CampaignFeed.sixFor2026ID
@@ -206,11 +215,13 @@ struct ComposeView: View {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             message = "Thank you for how you \(chip)."
+            pendingCaretAtEnd = true
             return
         }
         if trimmed.lowercased().contains(chip.lowercased()) { return }
         let needsSpace = trimmed.last.map { ".!?".contains($0) } ?? false
         message = trimmed + (needsSpace ? " " : ". ") + "You \(chip)."
+        pendingCaretAtEnd = true
     }
 
     private var campaignHintText: String? {
@@ -388,6 +399,9 @@ struct ComposeView: View {
                     preferredEmail: auth.currentProfile?.email,
                     preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
                     offerEnjoymentPrompt: offerEnjoymentPrompt,
+                    analyticsSource: analyticsSource,
+                    saveButton: saveButtonUsed,
+                    formSessionId: formSessionId,
                     onEdit: { beginEditing(self.created ?? created) },
                     onDone: { finishPostSaveFlow() },
                     onUpdated: { updated in onSaved?(updated) }
@@ -399,6 +413,9 @@ struct ComposeView: View {
                     preferredEmail: auth.currentProfile?.email,
                     preferredName: auth.currentProfile?.fullName ?? auth.currentProfile?.displayName,
                     offerEnjoymentPrompt: offerEnjoymentPrompt,
+                    analyticsSource: analyticsSource,
+                    saveButton: saveButtonUsed,
+                    formSessionId: formSessionId,
                     onEdit: { beginEditing(created) },
                     onDone: { finishPostSaveFlow() }
                 )
@@ -431,72 +448,89 @@ struct ComposeView: View {
     }
 
     private var form: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                if usesTwoStepFlow && analyticsSource == "watch" {
-                    watchDraftBanner
-                } else if usesTwoStepFlow && !isEditing && shouldShowTwoStepWriteBanner {
-                    twoStepWriteBanner
-                }
-
-                if isEditing {
-                    intro
-                }
-
-                if !usesTwoStepFlow {
-                    recipientSection
-                }
-
-                messageSection
-
-                photoSection
-
-                if let error {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(error)
-                            .font(Theme.body(13))
-                            .foregroundStyle(.red)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if sendFailed {
-                            Button("Retry") {
-                                messageFocused = false
-                                recipientFocused = false
-                                Task { await send() }
-                            }
-                            .font(Theme.body(15, weight: .semibold))
-                            .foregroundStyle(Theme.primary)
-                            .disabled(sending)
-                            .accessibilityLabel("Retry sending this appreciation")
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    if usesTwoStepFlow && analyticsSource == "watch" {
+                        watchDraftBanner
+                    } else if usesTwoStepFlow && !isEditing && shouldShowTwoStepWriteBanner {
+                        twoStepWriteBanner
                     }
-                    .padding(.horizontal, 4)
-                }
 
-                // CTA lives in scroll content so it isn’t pinned above the keyboard
-                // (which left a large empty band mid-screen while editing).
-                if let saveBlockedReason, !sending {
-                    Text(saveBlockedReason)
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if isEditing {
+                        intro
+                    }
+
+                    if !usesTwoStepFlow {
+                        recipientSection
+                    }
+
+                    messageSection
+
+                    photoSection
+
+                    if let error {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(error)
+                                .font(Theme.body(13))
+                                .foregroundStyle(.red)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if sendFailed {
+                                Button("Retry") {
+                                    trackComposeButton("retry", detail: "error_banner")
+                                    messageFocused = false
+                                    recipientFocused = false
+                                    saveButtonUsed = "retry"
+                                    Task { await send() }
+                                }
+                                .font(Theme.body(15, weight: .semibold))
+                                .foregroundStyle(Theme.primary)
+                                .disabled(sending)
+                                .accessibilityLabel("Retry sending this appreciation")
+                            }
+                        }
                         .padding(.horizontal, 4)
+                    }
+
+                    // CTA lives in scroll content so it isn’t pinned above the keyboard
+                    // (which left a large empty band mid-screen while editing).
+                    if message.count > maxLength, !sending {
+                        Text("\(message.count)/\(maxLength)")
+                            .font(Theme.body(13).monospacedDigit())
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 4)
+                            .accessibilityLabel("\(message.count) of \(maxLength) characters — over the limit")
+                    }
+                    if let saveBlockedReason, !sending {
+                        Text(saveBlockedReason)
+                            .font(Theme.body(13))
+                            .foregroundStyle(Theme.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 4)
+                    }
+                    sendBar
+                    if auth.userId == nil, !sending {
+                        Text("You’ll sign in to save it — your draft is kept.")
+                            .font(Theme.body(12))
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 4)
+                    }
                 }
-                sendBar
-                if auth.userId == nil, !sending {
-                    Text("You’ll sign in to save it — your draft is kept.")
-                        .font(Theme.body(12))
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 4)
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                // Extra room so “Your Appreciation” can sit under the nav bar while typing.
+                .padding(.bottom, 120)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 28)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: messageFocused) { _, focused in
+                guard focused else { return }
+                scrollMessageSectionToTop(using: proxy)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .scrollDismissesKeyboard(.interactively)
         .photosPicker(
             isPresented: $showPhotosPicker,
             selection: $photoItem,
@@ -530,9 +564,12 @@ struct ComposeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Cancel", action: cancelCompose)
-                    .font(Theme.body(16, weight: .medium))
-                    .foregroundStyle(Theme.textPrimary)
+                Button("Cancel") {
+                    trackComposeButton("cancel")
+                    cancelCompose()
+                }
+                .font(Theme.body(16, weight: .medium))
+                .foregroundStyle(Theme.textPrimary)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if sending {
@@ -540,6 +577,7 @@ struct ComposeView: View {
                         .controlSize(.small)
                 } else if needsDisplayName {
                     Button("Add name") {
+                        trackComposeButton("add_name", detail: "toolbar")
                         messageFocused = false
                         recipientFocused = false
                         showDisplayNameSheet = true
@@ -549,8 +587,10 @@ struct ComposeView: View {
                     .accessibilityHint("Add your name before saving")
                 } else {
                     Button(toolbarSaveTitle) {
+                        trackComposeButton(toolbarSaveTitleAnalyticsLabel, detail: "toolbar")
                         messageFocused = false
                         recipientFocused = false
+                        saveButtonUsed = "toolbar"
                         Task { await send() }
                     }
                     .font(Theme.body(16, weight: .semibold))
@@ -806,32 +846,26 @@ struct ComposeView: View {
     }
 
     private var recipientSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("To")
-                .font(Theme.body(14, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
+        VStack(alignment: .leading, spacing: 8) {
+            recipientFieldChrome
 
-            VStack(alignment: .leading, spacing: 8) {
-                recipientFieldChrome
-
-                if let hint = recipientDeliveryHint {
-                    Text(hint)
-                        .font(Theme.body(13))
-                        .foregroundStyle(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 2)
-                        .accessibilityLabel(hint)
-                }
-
-                if linkedRecipient == nil, !guestRecipientConfirmed, showRecipientSuggestions {
-                    recipientSuggestions
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
+            if let hint = recipientDeliveryHint {
+                Text(hint)
+                    .font(Theme.body(13))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 2)
+                    .accessibilityLabel(hint)
             }
-            .animation(.easeInOut(duration: 0.18), value: showRecipientSuggestions)
-            .animation(.easeInOut(duration: 0.18), value: linkedRecipient?.id)
-            .animation(.easeInOut(duration: 0.18), value: guestRecipientConfirmed)
+
+            if linkedRecipient == nil, !guestRecipientConfirmed, showRecipientSuggestions {
+                recipientSuggestions
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
+        .animation(.easeInOut(duration: 0.18), value: showRecipientSuggestions)
+        .animation(.easeInOut(duration: 0.18), value: linkedRecipient?.id)
+        .animation(.easeInOut(duration: 0.18), value: guestRecipientConfirmed)
         .task(id: recipientSearchQuery) {
             await runRecipientSearch(for: recipientSearchQuery)
         }
@@ -858,21 +892,18 @@ struct ComposeView: View {
     }
 
     private var recipientFieldChrome: some View {
-        Group {
+        HStack(alignment: .center, spacing: 10) {
+            Text("To")
+                .font(Theme.body(14, weight: .semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .accessibilityHidden(true)
+
             if let linked = linkedRecipient {
-                HStack(spacing: 10) {
-                    linkedRecipientChip(linked)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                linkedRecipientChip(linked)
+                Spacer(minLength: 0)
             } else if guestRecipientConfirmed {
-                HStack(spacing: 10) {
-                    guestRecipientChip
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                guestRecipientChip
+                Spacer(minLength: 0)
             } else {
                 TextField("Name or email", text: $recipient)
                     .textInputAutocapitalization(recipient.contains("@") ? .never : .words)
@@ -880,13 +911,14 @@ struct ComposeView: View {
                     .keyboardType(recipient.contains("@") ? .emailAddress : .default)
                     .textContentType(recipient.contains("@") ? .emailAddress : .name)
                     .focused($recipientFocused)
-                    .padding(14)
                     .foregroundStyle(Theme.textPrimary)
                     .submitLabel(.done)
                     .accessibilityLabel("To")
                     .accessibilityHint("Enter a name or email address")
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, linkedRecipient != nil || guestRecipientConfirmed ? 10 : 14)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -1112,7 +1144,7 @@ struct ComposeView: View {
         return profile.displayName
     }
 
-    private func selectLinkedRecipient(_ profile: Profile) {
+    private func selectLinkedRecipient(_ profile: Profile, focusMessage: Bool = true) {
         didClearRecipient = false
         guestRecipientConfirmed = false
         linkedRecipient = profile
@@ -1127,6 +1159,9 @@ struct ComposeView: View {
             linkedRecipientEmail = nil
         }
         Task { await loadLinkedRecipientContact(profileId: profile.id) }
+        if focusMessage {
+            moveCursorToAppreciationAfterRecipientPick()
+        }
     }
 
     private func confirmGuestRecipient() {
@@ -1143,6 +1178,18 @@ struct ComposeView: View {
             "recipient_kind": looksLikeEmail(trimmed) ? "email" : "name",
             "form_session_id": formSessionId,
         ])
+        moveCursorToAppreciationAfterRecipientPick()
+    }
+
+    /// After To is filled from a suggestion / confirm, jump into the message field.
+    private func moveCursorToAppreciationAfterRecipientPick() {
+        // Let the recipient field resign before UITextView becomes first responder.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                pendingCaretAtEnd = true
+            }
+            focusMessageEditor()
+        }
     }
 
     private func clearGuestRecipient(focusField: Bool) {
@@ -1227,6 +1274,7 @@ struct ComposeView: View {
                 }
             }
             messageField
+                .id(Self.messageSectionScrollID)
         }
     }
 
@@ -1236,10 +1284,15 @@ struct ComposeView: View {
                 ZStack(alignment: .topLeading) {
                     MessageEditor(
                         text: $message,
+                        isFocused: $messageFocused,
                         minHeight: 160,
                         isEditable: !(loadingPhoto || sending || polishing != nil || dictation.isListening || dictation.isStopping),
                         onAddLink: { label, range in
+                            trackComposeButton("link", detail: "keyboard_accessory")
                             beginAddLink(label: label, range: range)
+                        },
+                        onSelectionChange: { range in
+                            messageSelectionStore.update(range)
                         },
                         showAI: aiAvailable,
                         aiBusy: polishing != nil,
@@ -1259,7 +1312,6 @@ struct ComposeView: View {
                         quickEmojis: quickEmojis,
                         onInsertEmoji: { insertEmoji($0) },
                         onFocusChange: { focused in
-                            messageFocused = focused
                             if focused { recipientFocused = false }
                         },
                         pendingInsert: pendingMessageInsert,
@@ -1267,9 +1319,10 @@ struct ComposeView: View {
                             if pendingMessageInsert?.id == id {
                                 pendingMessageInsert = nil
                             }
-                            if message.count > maxLength {
-                                message = String(message.prefix(maxLength))
-                            }
+                        },
+                        pendingCaretAtEnd: pendingCaretAtEnd,
+                        onPendingCaretAtEndConsumed: {
+                            pendingCaretAtEnd = false
                         }
                     )
                     .frame(minHeight: 160)
@@ -1279,21 +1332,21 @@ struct ComposeView: View {
                             .font(Theme.body(16))
                             .foregroundStyle(Theme.textTertiary)
                             // Match MessageEditor.textInsets so caret/glyphs line up.
-                            // Extra trailing room for mic + photo in the lower-right.
                             .padding(.top, 12)
                             .padding(.leading, 12)
-                            .padding(.trailing, 108)
+                            .padding(.trailing, 12)
                             .allowsHitTesting(false)
                             .accessibilityLabel(messagePlaceholderText)
                     }
-
-                    HStack(spacing: 8) {
-                        voiceOverlayButton
-                        photoAttachButton
+                }
+                // Only while unfocused — a permanent overlay / extra tap recognizer
+                // steals caret placement once the UITextView is first responder.
+                .background {
+                    if !messageFocused {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { focusMessageEditor() }
                     }
-                    .padding(.trailing, 10)
-                    .padding(.bottom, 10)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 }
 
                 if dictation.isStarting {
@@ -1344,6 +1397,7 @@ struct ComposeView: View {
 
                     if messageBeforeAI != nil {
                         Button("Undo") {
+                            trackComposeButton("undo_ai")
                             if let previous = messageBeforeAI {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     message = previous
@@ -1614,6 +1668,8 @@ struct ComposeView: View {
     private var compactVisibilityControl: some View {
         Button {
             guard canEditVisibility else { return }
+            let next = visibility == .public ? "private" : "public"
+            trackComposeButton("visibility", detail: next)
             withAnimation(.easeInOut(duration: 0.18)) {
                 visibility = visibility == .public ? .private : .public
             }
@@ -1649,11 +1705,16 @@ struct ComposeView: View {
 
     private var sendBar: some View {
         Button {
+            trackComposeButton(
+                needsDisplayName ? "add_name" : footerSaveTitleAnalyticsLabel,
+                detail: "footer"
+            )
             messageFocused = false
             recipientFocused = false
             if needsDisplayName {
                 showDisplayNameSheet = true
             } else {
+                saveButtonUsed = "footer"
                 Task { await send() }
             }
         } label: {
@@ -1696,34 +1757,81 @@ struct ComposeView: View {
 
     private var appreciationToolbar: some View {
         HStack(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(quickEmojis, id: \.self) { emoji in
-                        Button {
-                            insertEmoji(emoji)
-                        } label: {
-                            Text(emoji)
-                                .font(.system(size: 22))
-                                .frame(width: 40, height: 40)
-                                .background(Theme.coralPale.opacity(0.5), in: Circle())
-                        }
-                        .buttonStyle(ScalePressButtonStyle())
-                        .accessibilityLabel("Insert \(emoji)")
-                    }
-                }
-            }
-            .disabled(sending || polishing != nil || dictation.isListening || dictation.isTransitioning)
+            QuickEmojiSlideButton(
+                emojis: quickEmojis,
+                disabled: sending || polishing != nil || dictation.isListening || dictation.isTransitioning,
+                onOpen: { trackComposeButton("emoji_tray") },
+                onPick: insertEmoji
+            )
 
-            Text("\(message.count)/\(maxLength)")
-                .font(Theme.body(12).monospacedDigit())
-                .foregroundStyle(message.count > maxLength ? .red : Theme.textTertiary)
-                .accessibilityLabel("\(message.count) of \(maxLength) characters")
+            Spacer(minLength: 8)
+
+            voiceOverlayButton
+            linkAttachButton
+            photoAttachButton
+        }
+    }
+
+    /// Compact link shortcut — same chrome as photo; opens the Add link sheet.
+    /// Uses the current text selection (same as the keyboard accessory Add link).
+    private var linkAttachButton: some View {
+        Button {
+            trackComposeButton("link", detail: "toolbar")
+            beginAddLinkFromCurrentSelection()
+        } label: {
+            Image(systemName: "link")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.primary)
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 36, height: 36)
+                .background(Theme.coralPale.opacity(0.65), in: Circle())
+                .overlay {
+                    Circle()
+                        .strokeBorder(Theme.primary.opacity(0.28), lineWidth: 1)
+                }
+        }
+        .buttonStyle(ScalePressButtonStyle())
+        .disabled(sending || polishing != nil || dictation.isListening || dictation.isTransitioning)
+        .accessibilityLabel("Add link")
+        .accessibilityHint("Inserts a link into your appreciation. Select text first to use it as the link label.")
+    }
+
+    private func beginAddLinkFromCurrentSelection() {
+        let ns = message as NSString
+        let maxLoc = ns.length
+        let selection = messageSelectionStore.range
+        let location = min(max(selection.location, 0), maxLoc)
+        let length = min(max(selection.length, 0), maxLoc - location)
+        let range = NSRange(location: location, length: length)
+        let label = length > 0 ? ns.substring(with: range) : ""
+        beginAddLink(label: label, range: range)
+    }
+
+    /// One-tap focus for the UIKit message editor (ScrollView otherwise dismisses first).
+    private func focusMessageEditor() {
+        recipientFocused = false
+        messageFocused = true
+    }
+
+    private static let messageSectionScrollID = "composeMessageSection"
+
+    /// Pins “Your Appreciation” under the nav bar when the message field focuses.
+    private func scrollMessageSectionToTop(using proxy: ScrollViewProxy) {
+        // Wait for keyboard inset — scrolling twice fought the keyboard animation.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            guard messageFocused else { return }
+            withAnimation(.easeInOut(duration: 0.25)) {
+                proxy.scrollTo(Self.messageSectionScrollID, anchor: .top)
+            }
         }
     }
 
     /// Compact Photos button — recognizable SF Symbol, high-contrast chrome.
     private var photoAttachButton: some View {
-        Button(action: openPhotosPicker) {
+        Button {
+            trackComposeButton("photo")
+            openPhotosPicker()
+        } label: {
             ZStack {
                 if loadingPhoto {
                     ProgressView()
@@ -1875,6 +1983,7 @@ struct ComposeView: View {
         dictation.errorMessage = nil
         messageFocused = true
         let starting = !dictation.isListening
+        trackComposeButton(starting ? "voice_start" : "voice_stop")
         await dictation.toggle(baseText: message)
         if starting, dictation.isListening {
             trackFormStartIfNeeded()
@@ -1946,7 +2055,37 @@ struct ComposeView: View {
         return nil
     }
 
+    private var toolbarSaveTitleAnalyticsLabel: String {
+        switch toolbarSaveTitle {
+        case "Continue": "save_continue"
+        case "Send": "save_send"
+        case "Save Changes": "save_changes"
+        case "Save to Pending": "save_to_pending"
+        default: "save"
+        }
+    }
+
+    private var footerSaveTitleAnalyticsLabel: String {
+        switch primarySaveTitle {
+        case "Continue", "Continue to send": "save_continue"
+        case "Send": "save_send"
+        case "Save Changes": "save_changes"
+        case "Save to Pending": "save_to_pending"
+        default: "save"
+        }
+    }
+
+    private func trackComposeButton(_ button: String, detail: String? = nil) {
+        Analytics.appreciationComposeButtonTapped(
+            button: button,
+            source: analyticsSource,
+            formSessionId: formSessionId,
+            detail: detail
+        )
+    }
+
     private func insertEmoji(_ emoji: String) {
+        trackComposeButton("emoji", detail: emoji)
         guard polishing == nil, !dictation.isListening, !dictation.isTransitioning, !sending else { return }
         messageFocused = true
         // Insert at the caret via MessageEditor so the cursor lands after the emoji.
@@ -1955,6 +2094,7 @@ struct ComposeView: View {
 
     private func runAI(_ style: AppreciationAI.Style) async {
         guard polishing == nil else { return }
+        trackComposeButton("ai", detail: style.rawValue)
         polishing = style
         error = nil
         sendFailed = false
@@ -1966,14 +2106,14 @@ struct ComposeView: View {
             let next = String(rewritten.prefix(maxLength))
             guard next != original else {
                 self.error = "Couldn't find a different wording. Try adding a bit more detail, then tap again."
+                pendingCaretAtEnd = true
                 messageFocused = true
                 return
             }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                messageBeforeAI = original
-                message = next
-            }
+            messageBeforeAI = original
+            message = next
             Analytics.appreciationAIRewrite(tone: style.rawValue, formSessionId: formSessionId)
+            pendingCaretAtEnd = true
             messageFocused = true
         } catch {
             self.error = error.localizedDescription
@@ -2136,7 +2276,7 @@ struct ComposeView: View {
 
     private func prefillIfNeeded() {
         guard !didPrefill else {
-            autofocusMessageIfNeeded()
+            autofocusComposerIfNeeded()
             return
         }
         didPrefill = true
@@ -2151,6 +2291,7 @@ struct ComposeView: View {
            let initialMessage,
            !initialMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             message = String(initialMessage.prefix(maxLength))
+            pendingCaretAtEnd = true
         }
         if editingTarget == nil,
            let fileName = initialImageFileName,
@@ -2167,6 +2308,9 @@ struct ComposeView: View {
                 recipient = draft.recipient
             }
             message = String(draft.message.prefix(maxLength))
+            if !draft.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                pendingCaretAtEnd = true
+            }
             Analytics.captureDraftEvent(
                 "draft_restored",
                 hasRecipient: !usesTwoStepFlow
@@ -2174,7 +2318,7 @@ struct ComposeView: View {
             )
         }
         applySoftStarterIfNeeded()
-        autofocusMessageIfNeeded()
+        autofocusComposerIfNeeded()
     }
 
     /// Soft-start variant only — never overwrite a restored draft or explicit prefill.
@@ -2184,6 +2328,7 @@ struct ComposeView: View {
               !starter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         guard message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         message = String(starter.prefix(maxLength))
+        pendingCaretAtEnd = true
     }
 
     /// Heart-tab and other blank sends. November, Watch, and explicit prefills stay put.
@@ -2202,15 +2347,26 @@ struct ComposeView: View {
 
     /// Auto-opening compose after login shouldn't steal the first Cancel tap
     /// to the keyboard.
-    private var shouldAutofocusMessage: Bool {
+    private var shouldAutofocusComposer: Bool {
         analyticsSource != "app_open" && analyticsSource != "post_login"
     }
 
-    private func autofocusMessageIfNeeded() {
-        guard shouldAutofocusMessage else { return }
+    /// Empty To → focus recipient; To already filled (or two-step write) → message.
+    private func autofocusComposerIfNeeded() {
+        guard shouldAutofocusComposer else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            guard shouldAutofocusMessage else { return }
-            messageFocused = true
+            guard shouldAutofocusComposer else { return }
+            if usesTwoStepFlow || hasRecipient {
+                recipientFocused = false
+                // Prefills (thank-back, drafts, soft-start) should edit from the end.
+                if !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    pendingCaretAtEnd = true
+                }
+                messageFocused = true
+            } else {
+                messageFocused = false
+                recipientFocused = true
+            }
         }
     }
 
@@ -2262,12 +2418,16 @@ struct ComposeView: View {
         polishing = nil
         error = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            pendingCaretAtEnd = true
             messageFocused = true
         }
     }
 
     private func applyEditing(_ editing: Gratitude) {
         message = editing.message
+        if !editing.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            pendingCaretAtEnd = true
+        }
         visibility = editing.visibility ?? .public
         existingMediaUrl = editing.mediaUrl
         existingMediaType = editing.mediaType
@@ -2480,7 +2640,8 @@ struct ComposeView: View {
                     gratitudeId: updated.id,
                     senderId: updated.authorId,
                     source: analyticsSource,
-                    formSessionId: formSessionId
+                    formSessionId: formSessionId,
+                    saveButton: saveButtonUsed
                 )
                 onSaved?(updated)
                 deliverIfFirstRecipient(previous: editing, updated: updated, authorId: userId)
@@ -2552,7 +2713,8 @@ struct ComposeView: View {
                     campaignDay: campaignDay,
                     formSessionId: formSessionId,
                     promptExperiment: prompt.experiment,
-                    promptVariant: prompt.variant
+                    promptVariant: prompt.variant,
+                    saveButton: saveButtonUsed
                 )
                 if let parentId = inspiredByGratitudeId {
                     Analytics.capture("ripple_created", [
@@ -2601,7 +2763,7 @@ struct ComposeView: View {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 if !handle.isEmpty,
                    let profile = try? await GratitudeService.profile(username: handle) {
-                    selectLinkedRecipient(profile)
+                    selectLinkedRecipient(profile, focusMessage: false)
                 }
             }
             if linkedRecipient == nil {
@@ -2610,7 +2772,7 @@ struct ComposeView: View {
                     email: parsed.email,
                     phone: parsed.phone
                 ), let profile = try? await GratitudeService.profile(id: match) {
-                    selectLinkedRecipient(profile)
+                    selectLinkedRecipient(profile, focusMessage: false)
                 }
             }
         }
@@ -2686,6 +2848,16 @@ struct ComposeView: View {
     }
 }
 
+/// Holds the message-field selection without invalidating SwiftUI on every caret move.
+private final class MessageSelectionStore {
+    private(set) var range = NSRange(location: 0, length: 0)
+
+    func update(_ next: NSRange) {
+        guard next.location != range.location || next.length != range.length else { return }
+        range = next
+    }
+}
+
 // Subtle press feedback for chips / emoji buttons.
 private struct ScalePressButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -2696,12 +2868,119 @@ private struct ScalePressButtonStyle: ButtonStyle {
     }
 }
 
+/// Single face button → tap opens a scrollable emoji popover (tap outside dismisses).
+private struct QuickEmojiSlideButton: View {
+    let emojis: [String]
+    var disabled: Bool = false
+    var onOpen: (() -> Void)? = nil
+    let onPick: (String) -> Void
+
+    @State private var expanded = false
+
+    private let cell: CGFloat = 44
+    private let trayPadding: CGFloat = 8
+    /// Show ~5.5 cells so the rest scrolls.
+    private let visibleCells: CGFloat = 5.5
+
+    /// Popovers reject negative / non-finite frames (common with keyboard + ScrollView).
+    private var trayHeight: CGFloat { max(cell + 12, 1) }
+
+    private var trayWidth: CGFloat {
+        let count = CGFloat(max(emojis.count, 1))
+        let raw = min(count * cell, visibleCells * cell) + trayPadding * 2
+        guard raw.isFinite, raw > 0 else { return cell + trayPadding * 2 }
+        return raw
+    }
+
+    var body: some View {
+        Button {
+            guard !disabled else { return }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onOpen?()
+            expanded = true
+        } label: {
+            faceButton
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.45 : 1)
+        .frame(width: 36, height: 36)
+        // Avoid `.rect(.bounds)` — zero bounds during keyboard animation → invalid frames.
+        .popover(isPresented: $expanded, arrowEdge: .top) {
+            tray
+                .presentationCompactAdaptation(.popover)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Insert emoji")
+        .accessibilityHint(expanded ? "Choose an emoji from the tray" : "Shows emoji choices")
+        .accessibilityAddTraits(expanded ? .isSelected : [])
+        .accessibilityActions {
+            ForEach(emojis, id: \.self) { emoji in
+                Button("Insert \(emoji)") {
+                    guard !disabled else { return }
+                    pick(emoji)
+                }
+            }
+        }
+    }
+
+    private var faceButton: some View {
+        Image(systemName: "face.smiling")
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Theme.primary)
+            .symbolRenderingMode(.hierarchical)
+            .frame(width: 36, height: 36)
+            .background(Theme.coralPale.opacity(0.65), in: Circle())
+            .overlay {
+                Circle()
+                    .strokeBorder(
+                        Theme.primary.opacity(expanded ? 0.55 : 0.28),
+                        lineWidth: expanded ? 1.5 : 1
+                    )
+            }
+    }
+
+    private var tray: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(emojis, id: \.self) { emoji in
+                    Button {
+                        pick(emoji)
+                    } label: {
+                        Text(emoji)
+                            .font(.system(size: 26))
+                            .frame(width: cell, height: cell)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(ScalePressButtonStyle())
+                    .accessibilityLabel("Insert \(emoji)")
+                }
+            }
+            .padding(.horizontal, trayPadding)
+            .padding(.vertical, 6)
+        }
+        // Fixed finite size — `.frame(width: .infinity)` inside popovers triggers the warning.
+        .frame(width: trayWidth, height: trayHeight)
+        .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private func pick(_ emoji: String) {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        expanded = false
+        onPick(emoji)
+    }
+}
+
 struct SuccessView: View {
     let gratitude: Gratitude
     var preferredEmail: String? = nil
     var preferredName: String? = nil
     /// Create-path only; false when Success is shown again after an in-flow Edit.
     var offerEnjoymentPrompt: Bool = false
+    var analyticsSource: String? = nil
+    /// Compose CTA that opened this screen (`toolbar` / `footer`).
+    var saveButton: String? = nil
+    var formSessionId: String? = nil
     var onEdit: () -> Void
     var onDone: () -> Void
 
@@ -2710,6 +2989,9 @@ struct SuccessView: View {
     @State private var copied = false
     @State private var showEnjoymentPrompt = false
     @State private var systemSharePayload: SystemSharePayload?
+    /// Queued until the system share sheet dismisses (SwiftUI allows one sheet).
+    @State private var pendingEnjoymentPrompt = false
+    @State private var didTrackShareScreenView = false
 
     private var shareURL: URL {
         gratitude.claimURL ?? gratitude.webURL
@@ -2769,7 +3051,7 @@ struct SuccessView: View {
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
                                     ?? "Opens Messages with the link"
                             ) {
-                                trackShare(channel: "text")
+                                trackShareTap(button: "text_message", channel: "text")
                                 openSMS()
                             }
 
@@ -2779,7 +3061,7 @@ struct SuccessView: View {
                                 subtitle: gratitude.recipientPhone.map { "To \($0)" }
                                     ?? "Opens Whatsapp with the link"
                             ) {
-                                trackShare(channel: "whatsapp")
+                                trackShareTap(button: "whatsapp", channel: "whatsapp")
                                 openWhatsApp()
                             }
 
@@ -2788,7 +3070,7 @@ struct SuccessView: View {
                                 systemImage: "envelope.fill",
                                 subtitle: "Opens Email client with the link"
                             ) {
-                                trackShare(channel: "email")
+                                trackShareTap(button: "email", channel: "email")
                                 openMail()
                             }
 
@@ -2797,8 +3079,9 @@ struct SuccessView: View {
                                 systemImage: "square.and.arrow.up",
                                 subtitle: "Messages, Mail, and more"
                             ) {
-                                systemSharePayload = SystemSharePayload(
-                                    items: SocialShare.pendingSystemShareItems(
+                                trackShareButton("system_share")
+                                presentSystemShare(
+                                    SocialShare.pendingSystemShareItems(
                                         caption: gratitude.pendingShareInviteCaption,
                                         url: shareURL,
                                         title: gratitude.pendingShareEmailSubject
@@ -2814,13 +3097,17 @@ struct SuccessView: View {
                         systemImage: "square.and.pencil",
                         subtitle: "Change the message or details before they accept"
                     ) {
+                        trackShareButton("edit")
                         onEdit()
                     }
                     .softNoteReveal(delay: 0.08)
                 }
                 .padding(.horizontal, 24)
 
-                Button(action: onDone) {
+                Button {
+                    trackShareButton("done")
+                    onDone()
+                } label: {
                     Text("Done")
                         .font(Theme.body(16, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
@@ -2838,9 +3125,12 @@ struct SuccessView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(item: $systemSharePayload) { payload in
+        .sheet(item: $systemSharePayload, onDismiss: {
+            presentPendingEnjoymentIfNeeded()
+        }) { payload in
             ActivityShareView(items: payload.items) { activityType in
-                trackShare(channel: SocialShare.analyticsChannel(for: activityType))
+                let channel = SocialShare.analyticsChannel(for: activityType)
+                trackShareCompleted(channel: channel, button: "system_share")
             }
         }
         .sheet(isPresented: $showEnjoymentPrompt) {
@@ -2851,10 +3141,14 @@ struct SuccessView: View {
             )
             .syncAppAppearance()
         }
+        .onAppear {
+            trackShareScreenViewIfNeeded()
+        }
         .onChange(of: offerEnjoymentPrompt) { _, offer in
             guard !offer, showEnjoymentPrompt else { return }
             EnjoymentPrompt.ignoreNextSheetDismiss = true
             showEnjoymentPrompt = false
+            pendingEnjoymentPrompt = false
         }
         .task(id: "\(gratitude.id.uuidString)-\(offerEnjoymentPrompt)") {
             guard offerEnjoymentPrompt else { return }
@@ -2863,8 +3157,33 @@ struct SuccessView: View {
             guard !Task.isCancelled else { return }
             // Re-check after delay in case eligibility changed.
             guard offerEnjoymentPrompt, EnjoymentPrompt.shouldPresent(for: gratitude) else { return }
-            showEnjoymentPrompt = true
+            requestEnjoymentPrompt()
         }
+    }
+
+    private func requestEnjoymentPrompt() {
+        // SwiftUI only allows one sheet — wait out an open system share sheet.
+        if systemSharePayload != nil {
+            pendingEnjoymentPrompt = true
+            return
+        }
+        showEnjoymentPrompt = true
+    }
+
+    private func presentPendingEnjoymentIfNeeded() {
+        guard pendingEnjoymentPrompt else { return }
+        pendingEnjoymentPrompt = false
+        guard offerEnjoymentPrompt, EnjoymentPrompt.shouldPresent(for: gratitude) else { return }
+        showEnjoymentPrompt = true
+    }
+
+    private func presentSystemShare(_ items: [Any]) {
+        if showEnjoymentPrompt {
+            EnjoymentPrompt.ignoreNextSheetDismiss = true
+            showEnjoymentPrompt = false
+            pendingEnjoymentPrompt = offerEnjoymentPrompt
+        }
+        systemSharePayload = SystemSharePayload(items: items)
     }
 
     private var hero: some View {
@@ -2895,7 +3214,7 @@ struct SuccessView: View {
     private var primaryCopyButton: some View {
         Button {
             UIPasteboard.general.string = shareURL.absoluteString
-            trackShare(channel: "copy_link")
+            trackShareTap(button: "copy_link", channel: "copy_link")
             withAnimation(.easeInOut(duration: 0.2)) { copied = true }
             Task {
                 try? await Task.sleep(for: .seconds(2))
@@ -2913,7 +3232,36 @@ struct SuccessView: View {
         .accessibilityHint("Copies the link to accept so you can paste it anywhere")
     }
 
-    private func trackShare(channel: String) {
+    private func trackShareScreenViewIfNeeded() {
+        guard !didTrackShareScreenView else { return }
+        didTrackShareScreenView = true
+        Analytics.appreciationShareScreenViewed(
+            appreciationId: gratitude.id,
+            surface: "success",
+            source: analyticsSource,
+            saveButton: saveButton,
+            formSessionId: formSessionId
+        )
+    }
+
+    private func trackShareButton(_ button: String, channel: String? = nil) {
+        Analytics.appreciationShareScreenViewed(
+            appreciationId: gratitude.id,
+            surface: "success",
+            source: analyticsSource,
+            saveButton: saveButton,
+            formSessionId: formSessionId,
+            button: button,
+            channel: channel
+        )
+    }
+
+    private func trackShareTap(button: String, channel: String) {
+        trackShareButton(button, channel: channel)
+        trackShareCompleted(channel: channel, button: button)
+    }
+
+    private func trackShareCompleted(channel: String, button: String) {
         let voice = AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
         let content = AppreciationShareContent(gratitude: gratitude, voice: voice)
         Analytics.appreciationShared(
@@ -2921,7 +3269,9 @@ struct SuccessView: View {
             channel: channel,
             voice: voice.rawValue,
             hasCard: false,
-            hasPhoto: content.sharePhotoURL != nil
+            hasPhoto: content.sharePhotoURL != nil,
+            surface: "success",
+            buttonLabel: button
         )
     }
 
@@ -2994,39 +3344,51 @@ private struct FlexibleChipLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let maxWidth = proposal.width ?? .infinity
+        let proposed = proposal.width ?? .infinity
+        // Zero / negative proposals happen briefly during keyboard + popover layout.
+        let maxWidth = (proposed.isFinite && proposed > 0) ? proposed : .infinity
         var x: CGFloat = 0
         var y: CGFloat = 0
         var rowHeight: CGFloat = 0
         var height: CGFloat = 0
         for sub in subviews {
             let size = sub.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > maxWidth {
+            let w = size.width.isFinite ? max(size.width, 0) : 0
+            let h = size.height.isFinite ? max(size.height, 0) : 0
+            if x > 0, maxWidth.isFinite, x + w > maxWidth {
                 x = 0
                 y += rowHeight + spacing
                 rowHeight = 0
             }
-            rowHeight = max(rowHeight, size.height)
-            x += size.width + spacing
+            rowHeight = max(rowHeight, h)
+            x += w + spacing
             height = max(height, y + rowHeight)
         }
-        return CGSize(width: maxWidth.isFinite ? maxWidth : x, height: height)
+        let width = maxWidth.isFinite ? maxWidth : max(x - spacing, 0)
+        return CGSize(width: max(width, 0), height: max(height, 0))
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard bounds.width.isFinite, bounds.height.isFinite,
+              bounds.width >= 0, bounds.height >= 0 else { return }
         var x = bounds.minX
         var y = bounds.minY
         var rowHeight: CGFloat = 0
         for sub in subviews {
             let size = sub.sizeThatFits(.unspecified)
-            if x > bounds.minX, x + size.width > bounds.maxX {
+            let w = size.width.isFinite ? max(size.width, 0) : 0
+            let h = size.height.isFinite ? max(size.height, 0) : 0
+            if x > bounds.minX, x + w > bounds.maxX {
                 x = bounds.minX
                 y += rowHeight + spacing
                 rowHeight = 0
             }
-            sub.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
+            sub.place(
+                at: CGPoint(x: x, y: y),
+                proposal: ProposedViewSize(width: w, height: h)
+            )
+            x += w + spacing
+            rowHeight = max(rowHeight, h)
         }
     }
 }

@@ -139,6 +139,8 @@ enum CalendarServerAPI {
 
     static func uploadAppleEvents(_ events: [UploadEventPayload], done: Bool) async throws {
         var request = try await authorizedRequest(path: "api/calendar/apple/upload", method: "POST")
+        // Chunk uploads must not hang Settings “Repairing…” forever.
+        request.timeoutInterval = 30
         struct Body: Encodable {
             let events: [UploadEventPayload]
             let done: Bool

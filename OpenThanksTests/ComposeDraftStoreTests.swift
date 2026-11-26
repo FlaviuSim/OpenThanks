@@ -78,6 +78,8 @@ final class ComposeDraftStoreTests: XCTestCase {
 
     func testHeartNovemberAndPrefillDoNotStealTheDraft() {
         XCTAssertTrue(ComposeDraftStore.ownsDraft(.init(analyticsSource: "tab_compose")))
+        XCTAssertTrue(ComposeDraftStore.ownsDraft(.init(analyticsSource: "fab_thank_someone")))
+        XCTAssertTrue(ComposeDraftStore.ownsDraft(.init(analyticsSource: "sidebar_thank_someone")))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(analyticsSource: "campaign_universal_link")))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(analyticsSource: "campaign_deeplink")))
         XCTAssertFalse(ComposeDraftStore.ownsDraft(.init(

@@ -16,7 +16,7 @@ struct MainTabView: View {
         /// Empty `app_open` / `post_login` — notification and calendar launches replace these.
         /// The heart button is not weak: a fixed `"blank"` id plus the weak early-return
         /// left `composeSheet` set when the cover never appeared, and every later tap
-        /// was ignored so `tab_compose` never fired.
+        /// was ignored so FAB / sidebar compose never fired.
         var isWeakDefault: Bool {
             switch self {
             case .launch(let request): request.isWeakDefault
@@ -24,9 +24,14 @@ struct MainTabView: View {
         }
     }
 
-    /// FAB / sidebar “Thank Someone”. A new id every tap so the item cover presents again.
-    private static func tabComposeSheet() -> ComposeSheet {
-        .launch(ComposeLaunchBridge.Request(analyticsSource: "tab_compose"))
+    /// Phone FAB. A new id every tap so the item cover presents again.
+    private static func fabComposeSheet() -> ComposeSheet {
+        .launch(ComposeLaunchBridge.Request(analyticsSource: "fab_thank_someone"))
+    }
+
+    /// iPad sidebar “Thank Someone” capsule.
+    private static func sidebarComposeSheet() -> ComposeSheet {
+        .launch(ComposeLaunchBridge.Request(analyticsSource: "sidebar_thank_someone"))
     }
 
     @State private var tab: Tab = .feed
@@ -333,7 +338,7 @@ struct MainTabView: View {
 
                 Section {
                     Button {
-                        presentCompose(Self.tabComposeSheet())
+                        presentCompose(Self.sidebarComposeSheet())
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "heart.fill")
@@ -708,7 +713,7 @@ struct MainTabView: View {
                 Analytics.capture("first_send_tip_tapped", ["via": "compose_fab"])
                 hasSeenFirstSendTip = true
             }
-            presentCompose(Self.tabComposeSheet())
+            presentCompose(Self.fabComposeSheet())
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 24, weight: .bold))

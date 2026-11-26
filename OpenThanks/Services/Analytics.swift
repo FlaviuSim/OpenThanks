@@ -499,9 +499,90 @@ enum Analytics {
         promptExperiment: String? = nil,
         promptVariant: String? = nil
     ) {
-        var props: [String: Any] = ["source": source]
+        // `source` / `entry_button` = which control opened compose (FAB, sidebar, nudge, …).
+        var props: [String: Any] = [
+            "source": source,
+            "entry_button": source,
+        ]
         mergePromptExperiment(&props, experiment: promptExperiment, variant: promptVariant)
         capture("appreciation_form_started", formProps(props, formSessionId: formSessionId))
+    }
+
+    /// Compose chrome taps (emoji tray, mic, link, photo, AI, visibility, save, …).
+    /// `button` is a stable label; optional `detail` is emoji glyph / AI style / placement.
+    static func appreciationComposeButtonTapped(
+        button: String,
+        source: String? = nil,
+        formSessionId: String? = nil,
+        detail: String? = nil
+    ) {
+        var props: [String: Any] = [
+            "button": button,
+            "button_label": button,
+            "surface": "compose",
+        ]
+        if let source { props["source"] = source }
+        if let detail, !detail.isEmpty { props["detail"] = detail }
+        capture("appreciation_compose_button_tapped", formProps(props, formSessionId: formSessionId))
+    }
+
+    /// One share-screen event for PostHog.
+    /// - Appear: omit `button` (`interaction` = `view`).
+    /// - Control tap: set `button` / `button_label` (`interaction` = `tap`).
+    /// `saveButton` is the compose CTA that opened this screen (`toolbar` / `footer`).
+    static func appreciationShareScreenViewed(
+        appreciationId: UUID,
+        surface: String,
+        source: String? = nil,
+        saveButton: String? = nil,
+        formSessionId: String? = nil,
+        button: String? = nil,
+        channel: String? = nil
+    ) {
+        var props: [String: Any] = [
+            "appreciation_id": appreciationId.uuidString.lowercased(),
+            "surface": surface,
+            "interaction": button == nil ? "view" : "tap",
+        ]
+        if let source {
+            props["source"] = source
+            props["entry_button"] = source
+        }
+        if let saveButton, !saveButton.isEmpty {
+            props["save_button"] = saveButton
+        }
+        if let button, !button.isEmpty {
+            props["button"] = button
+            props["button_label"] = button
+        }
+        if let channel, !channel.isEmpty {
+            props["channel"] = channel
+        }
+        capture(
+            "appreciation_share_screen_viewed",
+            formProps(props, formSessionId: formSessionId)
+        )
+    }
+
+    /// Share-screen control tap — same event as the view, with `button` set.
+    static func appreciationShareButtonTapped(
+        button: String,
+        surface: String,
+        appreciationId: UUID,
+        channel: String? = nil,
+        source: String? = nil,
+        saveButton: String? = nil,
+        formSessionId: String? = nil
+    ) {
+        appreciationShareScreenViewed(
+            appreciationId: appreciationId,
+            surface: surface,
+            source: source,
+            saveButton: saveButton,
+            formSessionId: formSessionId,
+            button: button,
+            channel: channel
+        )
     }
 
     static func appreciationAIRewrite(tone: String = "warmer", formSessionId: String? = nil) {
@@ -545,7 +626,8 @@ enum Analytics {
         campaignDay: Int? = nil,
         formSessionId: String? = nil,
         promptExperiment: String? = nil,
-        promptVariant: String? = nil
+        promptVariant: String? = nil,
+        saveButton: String? = nil
     ) {
         guard AppreciationSubmitTracking.claimCreated(gratitudeId) else { return }
         // Same claim that allows this one capture. Does not send the event again.
@@ -557,7 +639,13 @@ enum Analytics {
         props["to_member"] = toMember
         props["recipient_type"] = recipientType
         props["visibility"] = visibility
-        if let source { props["source"] = source }
+        if let source {
+            props["source"] = source
+            props["entry_button"] = source
+        }
+        if let saveButton, !saveButton.isEmpty {
+            props["save_button"] = saveButton
+        }
         if let campaign, !campaign.isEmpty {
             props["campaign"] = campaign
             if let campaignDay {
@@ -584,10 +672,17 @@ enum Analytics {
         gratitudeId: UUID,
         senderId: UUID,
         source: String?,
-        formSessionId: String? = nil
+        formSessionId: String? = nil,
+        saveButton: String? = nil
     ) {
         var props = appreciationIdentity(gratitudeId: gratitudeId, senderId: senderId)
-        if let source { props["source"] = source }
+        if let source {
+            props["source"] = source
+            props["entry_button"] = source
+        }
+        if let saveButton, !saveButton.isEmpty {
+            props["save_button"] = saveButton
+        }
         capture("appreciation_edited", formProps(props, formSessionId: formSessionId))
     }
 
@@ -784,21 +879,33 @@ enum Analytics {
     }
 
     /// External share actually completed (not merely opened, and not a cancelled sheet).
+    /// `surface` is where the control lived (`success`, `deliver`, `pending`, `detail`, …).
+    /// `buttonLabel` mirrors the visible control when it differs from `channel`.
     static func appreciationShared(
         appreciationId: UUID,
         channel: String,
         voice: String,
         hasCard: Bool,
-        hasPhoto: Bool
+        hasPhoto: Bool,
+        surface: String? = nil,
+        buttonLabel: String? = nil
     ) {
-        capture("appreciation_shared", [
+        var props: [String: Any] = [
             "appreciation_id": appreciationId.uuidString.lowercased(),
             "channel": channel,
             "voice": voice,
             "platform": "ios",
             "has_card": hasCard,
             "has_photo": hasPhoto,
-        ])
+        ]
+        if let surface, !surface.isEmpty {
+            props["surface"] = surface
+        }
+        if let buttonLabel, !buttonLabel.isEmpty {
+            props["button"] = buttonLabel
+            props["button_label"] = buttonLabel
+        }
+        capture("appreciation_shared", props)
     }
 
     /// Stats pride card shared via the system sheet (completed only).
@@ -865,7 +972,10 @@ enum Analytics {
             "prior_error_count": max(0, priorErrorCount),
             "autopresented": autopresented,
         ]
-        if let source { props["source"] = source }
+        if let source {
+            props["source"] = source
+            props["entry_button"] = source
+        }
         mergePromptExperiment(&props, experiment: promptExperiment, variant: promptVariant)
         capture("appreciation_form_abandoned", formProps(props, formSessionId: formSessionId))
     }

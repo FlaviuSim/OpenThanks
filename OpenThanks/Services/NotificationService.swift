@@ -685,6 +685,13 @@ enum NotificationService {
         #else
         let environment = "production"
         #endif
+        // Prefer RPC so a token previously tied to another account on this device
+        // can be reclaimed (plain upsert hits RLS UPDATE USING without the claim policy).
+        struct RPCParams: Encodable {
+            let p_token: String
+            let p_platform: String
+            let p_environment: String
+        }
         let row = DevicePushToken(
             userId: userId,
             token: token,
@@ -692,11 +699,36 @@ enum NotificationService {
             environment: environment
         )
         do {
+            try await supabase.rpc(
+                "upsert_device_push_token",
+                params: RPCParams(
+                    p_token: token,
+                    p_platform: "ios",
+                    p_environment: environment
+                )
+            ).execute()
+            Analytics.pushTokenRegistered()
+            return
+        } catch {
+            // Fall through — migration may not be applied yet.
+        }
+
+        do {
+            // Drop our prior rows for this token (RLS allows own deletes), then upsert.
+            try? await supabase.from("device_push_tokens")
+                .delete()
+                .eq("token", value: token)
+                .eq("user_id", value: userId.uuidString.lowercased())
+                .execute()
             try await supabase.from("device_push_tokens")
                 .upsert(row, onConflict: "token", returning: .minimal)
                 .execute()
+            Analytics.pushTokenRegistered()
         } catch {
-            print("Couldn't save push token: \(error.localizedDescription)")
+            print(
+                "Couldn't save push token: \(error.localizedDescription). "
+                    + "Apply supabase/migrations/20261126_upsert_device_push_token.sql on Supabase."
+            )
         }
     }
 }
