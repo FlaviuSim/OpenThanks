@@ -25,6 +25,7 @@ struct NotificationsSettingsView: View {
     @State private var calendarTroubleshootStatus: CalendarServerAPI.StatusResponse?
     @State private var calendarTroubleshootNudge: GratitudeNudge?
     @State private var calendarTroubleshootNote: String?
+    @State private var calendarTroubleshootTask: Task<Void, Never>?
 
     private enum PendingCalendarAction {
         case apple
@@ -136,10 +137,13 @@ struct NotificationsSettingsView: View {
         .onAppear {
             calendarAccessTick += 1
             if showCalendarTroubleshoot {
-                Task { await refreshCalendarTroubleshoot(sendTest: false, repair: false) }
+                startCalendarTroubleshoot(sendTest: false, repair: false)
             }
         }
         .onDisappear {
+            calendarTroubleshootTask?.cancel()
+            calendarTroubleshootTask = nil
+            calendarTroubleshootBusy = false
             fridayToggleTask?.cancel()
             calendarToggleTask?.cancel()
         }
@@ -611,7 +615,7 @@ struct NotificationsSettingsView: View {
 
             HStack(spacing: 10) {
                 Button {
-                    Task { await refreshCalendarTroubleshoot(sendTest: false, repair: true) }
+                    startCalendarTroubleshoot(sendTest: false, repair: true)
                 } label: {
                     Text(calendarTroubleshootBusy ? "Repairing…" : "Repair & refresh")
                         .font(Theme.body(14, weight: .semibold))
@@ -619,7 +623,7 @@ struct NotificationsSettingsView: View {
                 .disabled(calendarTroubleshootBusy)
 
                 Button {
-                    Task { await refreshCalendarTroubleshoot(sendTest: true, repair: false) }
+                    startCalendarTroubleshoot(sendTest: true, repair: false)
                 } label: {
                     Text("Send test notification")
                         .font(Theme.body(14, weight: .semibold))
@@ -672,19 +676,28 @@ struct NotificationsSettingsView: View {
         return out.string(from: date)
     }
 
+    private func startCalendarTroubleshoot(sendTest: Bool, repair: Bool) {
+        calendarTroubleshootTask?.cancel()
+        calendarTroubleshootTask = Task { @MainActor in
+            await refreshCalendarTroubleshoot(sendTest: sendTest, repair: repair)
+        }
+    }
+
     private func refreshCalendarTroubleshoot(sendTest: Bool, repair: Bool) async {
         calendarTroubleshootBusy = true
         calendarTroubleshootNote = nil
-        defer { calendarTroubleshootBusy = false }
-
-        if CalendarServerSyncConsent.hasConsented, CalendarMeetingService.hasFullAccess {
-            await AppleCalendarHistoryUploader.uploadIfNeeded(force: true)
+        defer {
+            calendarTroubleshootBusy = false
         }
 
         var repairNote: String?
+
+        // Server repair first — never wait on a 10-year Apple upload before this returns.
         if repair, CalendarServerSyncConsent.hasConsented {
+            calendarTroubleshootNote = "Repairing server sync…"
             do {
                 let result = try await CalendarServerAPI.repair()
+                try Task.checkCancellation()
                 let people = result.people ?? 0
                 let synced = result.googleSynced ?? 0
                 let reset = result.googleReset ?? 0
@@ -693,29 +706,60 @@ struct NotificationsSettingsView: View {
                 if let errors = result.errors, !errors.isEmpty {
                     repairNote! += " · \(errors.prefix(2).joined(separator: "; "))"
                 }
+                calendarTroubleshootNote = repairNote
+            } catch is CancellationError {
+                return
             } catch {
                 repairNote = "Repair failed: \(error.localizedDescription)"
+                calendarTroubleshootNote = repairNote
             }
         }
 
         do {
             calendarTroubleshootStatus = try await CalendarServerAPI.status()
+        } catch is CancellationError {
+            return
         } catch {
             calendarTroubleshootStatus = nil
-            calendarTroubleshootNote = repairNote
+            calendarTroubleshootNote = repairNote.map { "\($0) · Status failed: \(error.localizedDescription)" }
                 ?? "Status failed: \(error.localizedDescription)"
-            if repairNote != nil {
-                calendarTroubleshootNote = "\(repairNote!) · Status failed: \(error.localizedDescription)"
-            }
         }
 
+        try? Task.checkCancellation()
         let nudge = await CalendarThankSuggestionService.resolveNudge(
             for: Date(),
             authorId: auth.userId,
             selfEmails: selfEmails,
             now: Date()
         )
+        guard !Task.isCancelled else { return }
         calendarTroubleshootNudge = nudge
+
+        // Apple history must not pin the button on “Repairing…”.
+        // Open/refresh: soft upload in the background. Repair: time-boxed force upload.
+        if CalendarServerSyncConsent.hasConsented, CalendarMeetingService.hasFullAccess {
+            if repair {
+                calendarTroubleshootNote = (repairNote.map { "\($0) · " } ?? "")
+                    + "Uploading Apple history…"
+                let finished = await withTimeout(seconds: 75) {
+                    await AppleCalendarHistoryUploader.uploadIfNeeded(force: true)
+                }
+                guard !Task.isCancelled else { return }
+                if !finished {
+                    Task.detached(priority: .utility) {
+                        await AppleCalendarHistoryUploader.uploadIfNeeded(force: true)
+                    }
+                    repairNote = (repairNote ?? "Repair done")
+                        + " · Apple upload continuing in background"
+                } else if let status = try? await CalendarServerAPI.status() {
+                    calendarTroubleshootStatus = status
+                }
+            } else {
+                Task.detached(priority: .utility) {
+                    await AppleCalendarHistoryUploader.uploadIfNeeded(force: false)
+                }
+            }
+        }
 
         guard sendTest else {
             if let repairNote {
@@ -731,11 +775,29 @@ struct NotificationsSettingsView: View {
             authorId: auth.userId,
             selfEmails: selfEmails
         )
+        guard !Task.isCancelled else { return }
         if let sent = result.nudge {
             calendarTroubleshootNudge = sent
             calendarTroubleshootNote = "Test notification queued — lock the phone or wait ~3s."
         } else {
             calendarTroubleshootNote = result.error ?? "Couldn't schedule the test notification."
+        }
+    }
+
+    /// Returns `true` when `operation` finished before the timeout.
+    private func withTimeout(seconds: TimeInterval, operation: @escaping @Sendable () async -> Void) async -> Bool {
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                await operation()
+                return true
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(max(seconds, 1) * 1_000_000_000))
+                return false
+            }
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
         }
     }
 

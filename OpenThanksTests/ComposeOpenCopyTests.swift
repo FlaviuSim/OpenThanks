@@ -62,6 +62,14 @@ final class ComposeOpenCopyTests: XCTestCase {
             .blank
         )
         XCTAssertEqual(
+            ComposeOpenCopy.family(source: "fab_thank_someone", hasCampaign: false, isEditing: false),
+            .blank
+        )
+        XCTAssertEqual(
+            ComposeOpenCopy.family(source: "sidebar_thank_someone", hasCampaign: false, isEditing: false),
+            .blank
+        )
+        XCTAssertEqual(
             ComposeOpenCopy.family(source: "home_empty_first_send", hasCampaign: false, isEditing: false),
             .blank
         )

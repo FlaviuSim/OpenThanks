@@ -151,8 +151,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        // Analytics fires after a successful `device_push_tokens` write.
         Task { @MainActor in auth?.devicePushToken = token }
-        Analytics.pushTokenRegistered()
     }
 
     func application(

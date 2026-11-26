@@ -228,7 +228,9 @@ struct PendingShareSheet: View {
             channel: channel,
             voice: voice.rawValue,
             hasCard: false,
-            hasPhoto: content.sharePhotoURL != nil
+            hasPhoto: content.sharePhotoURL != nil,
+            surface: "pending",
+            buttonLabel: channel
         )
     }
 

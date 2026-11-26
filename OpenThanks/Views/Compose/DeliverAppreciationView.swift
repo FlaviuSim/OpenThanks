@@ -7,6 +7,10 @@ struct DeliverAppreciationView: View {
     var preferredEmail: String? = nil
     var preferredName: String? = nil
     var offerEnjoymentPrompt: Bool = false
+    var analyticsSource: String? = nil
+    /// Compose CTA that opened this screen (`toolbar` / `footer`).
+    var saveButton: String? = nil
+    var formSessionId: String? = nil
     var onEdit: () -> Void
     var onDone: () -> Void
     var onUpdated: ((Gratitude) -> Void)? = nil
@@ -29,7 +33,10 @@ struct DeliverAppreciationView: View {
     @State private var copied = false
     @State private var showEnjoymentPrompt = false
     @State private var systemSharePayload: SystemSharePayload?
+    /// Queued until the system share sheet dismisses (SwiftUI allows one sheet).
+    @State private var pendingEnjoymentPrompt = false
     @State private var didPrefillRecipient = false
+    @State private var didTrackShareScreenView = false
 
     @FocusState private var recipientFocused: Bool
 
@@ -76,6 +83,7 @@ struct DeliverAppreciationView: View {
                         systemImage: "square.and.pencil",
                         subtitle: "Change the message or photo"
                     ) {
+                        trackShareButton("edit")
                         onEdit()
                     }
                     .softNoteReveal(delay: 0.1)
@@ -83,6 +91,7 @@ struct DeliverAppreciationView: View {
                 .padding(.horizontal, 24)
 
                 Button {
+                    trackShareButton("done")
                     finishAndDismiss()
                 } label: {
                     Text("Done")
@@ -104,9 +113,14 @@ struct DeliverAppreciationView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(item: $systemSharePayload) { payload in
+        .sheet(item: $systemSharePayload, onDismiss: {
+            presentPendingEnjoymentIfNeeded()
+        }) { payload in
             ActivityShareView(items: payload.items) { activityType in
-                noteShared(channel: SocialShare.analyticsChannel(for: activityType))
+                noteShared(
+                    channel: SocialShare.analyticsChannel(for: activityType),
+                    button: "system_share"
+                )
             }
         }
         .sheet(isPresented: $showEnjoymentPrompt) {
@@ -119,11 +133,13 @@ struct DeliverAppreciationView: View {
         }
         .onAppear {
             prefillIfNeeded()
+            trackShareScreenViewIfNeeded()
         }
         .onChange(of: offerEnjoymentPrompt) { _, offer in
             guard !offer, showEnjoymentPrompt else { return }
             EnjoymentPrompt.ignoreNextSheetDismiss = true
             showEnjoymentPrompt = false
+            pendingEnjoymentPrompt = false
         }
         .task(id: "\(gratitude.id.uuidString)-\(offerEnjoymentPrompt)") {
             guard offerEnjoymentPrompt else { return }
@@ -131,7 +147,7 @@ struct DeliverAppreciationView: View {
             try? await Task.sleep(for: .milliseconds(1200))
             guard !Task.isCancelled else { return }
             guard offerEnjoymentPrompt, EnjoymentPrompt.shouldPresent(for: gratitude) else { return }
-            showEnjoymentPrompt = true
+            requestEnjoymentPrompt()
         }
         .task(id: recipientSearchQuery) {
             await runRecipientSearch(for: recipientSearchQuery)
@@ -221,7 +237,7 @@ struct DeliverAppreciationView: View {
 
             Button {
                 UIPasteboard.general.string = shareURL.absoluteString
-                noteShared(channel: "copy_link")
+                trackShareTap(button: "copy_link", channel: "copy_link")
                 withAnimation(.easeInOut(duration: 0.2)) { copied = true }
                 Task {
                     try? await Task.sleep(for: .seconds(2))
@@ -245,7 +261,7 @@ struct DeliverAppreciationView: View {
                     subtitle: gratitude.recipientPhone.map { "To \($0)" }
                         ?? "Opens Messages with the link"
                 ) {
-                    noteShared(channel: "text")
+                    trackShareTap(button: "text_message", channel: "text")
                     openSMS()
                 }
 
@@ -255,7 +271,7 @@ struct DeliverAppreciationView: View {
                     subtitle: gratitude.recipientPhone.map { "To \($0)" }
                         ?? "Opens WhatsApp with the link"
                 ) {
-                    noteShared(channel: "whatsapp")
+                    trackShareTap(button: "whatsapp", channel: "whatsapp")
                     openWhatsApp()
                 }
 
@@ -264,7 +280,7 @@ struct DeliverAppreciationView: View {
                     systemImage: "envelope.fill",
                     subtitle: "Opens Email with the link"
                 ) {
-                    noteShared(channel: "email")
+                    trackShareTap(button: "email", channel: "email")
                     openMail()
                 }
 
@@ -273,8 +289,9 @@ struct DeliverAppreciationView: View {
                     systemImage: "square.and.arrow.up",
                     subtitle: "Messages, Mail, and more"
                 ) {
-                    systemSharePayload = SystemSharePayload(
-                        items: SocialShare.pendingSystemShareItems(
+                    trackShareButton("system_share")
+                    presentSystemShare(
+                        SocialShare.pendingSystemShareItems(
                             caption: gratitude.pendingShareInviteCaption,
                             url: shareURL,
                             title: gratitude.pendingShareEmailSubject
@@ -590,7 +607,60 @@ struct DeliverAppreciationView: View {
         }
     }
 
-    private func noteShared(channel: String) {
+    private func requestEnjoymentPrompt() {
+        if systemSharePayload != nil {
+            pendingEnjoymentPrompt = true
+            return
+        }
+        showEnjoymentPrompt = true
+    }
+
+    private func presentPendingEnjoymentIfNeeded() {
+        guard pendingEnjoymentPrompt else { return }
+        pendingEnjoymentPrompt = false
+        guard offerEnjoymentPrompt, EnjoymentPrompt.shouldPresent(for: gratitude) else { return }
+        showEnjoymentPrompt = true
+    }
+
+    private func presentSystemShare(_ items: [Any]) {
+        if showEnjoymentPrompt {
+            EnjoymentPrompt.ignoreNextSheetDismiss = true
+            showEnjoymentPrompt = false
+            pendingEnjoymentPrompt = offerEnjoymentPrompt
+        }
+        systemSharePayload = SystemSharePayload(items: items)
+    }
+
+    private func trackShareScreenViewIfNeeded() {
+        guard !didTrackShareScreenView else { return }
+        didTrackShareScreenView = true
+        Analytics.appreciationShareScreenViewed(
+            appreciationId: gratitude.id,
+            surface: "deliver",
+            source: analyticsSource,
+            saveButton: saveButton,
+            formSessionId: formSessionId
+        )
+    }
+
+    private func trackShareButton(_ button: String, channel: String? = nil) {
+        Analytics.appreciationShareScreenViewed(
+            appreciationId: gratitude.id,
+            surface: "deliver",
+            source: analyticsSource,
+            saveButton: saveButton,
+            formSessionId: formSessionId,
+            button: button,
+            channel: channel
+        )
+    }
+
+    private func trackShareTap(button: String, channel: String) {
+        trackShareButton(button, channel: channel)
+        noteShared(channel: channel, button: button)
+    }
+
+    private func noteShared(channel: String, button: String? = nil) {
         UnsentDraftReminderStore.markShared(id: gratitude.id)
         let voice = AppreciationShareVoice.resolve(gratitude: gratitude, userId: auth.userId)
         let content = AppreciationShareContent(gratitude: gratitude, voice: voice)
@@ -599,7 +669,9 @@ struct DeliverAppreciationView: View {
             channel: channel,
             voice: voice.rawValue,
             hasCard: false,
-            hasPhoto: content.sharePhotoURL != nil
+            hasPhoto: content.sharePhotoURL != nil,
+            surface: "deliver",
+            buttonLabel: button ?? channel
         )
     }
 

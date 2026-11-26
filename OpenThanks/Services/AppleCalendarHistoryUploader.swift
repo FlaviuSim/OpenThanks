@@ -2,6 +2,7 @@ import EventKit
 import Foundation
 
 /// Chunked historical EventKit upload including `EKEvent.notes`.
+/// EventKit enumeration runs off the main actor so Settings “Repair” can’t freeze on it.
 enum AppleCalendarHistoryUploader {
     private static let lookbackYears = 10
     private static let chunkDays = 90
@@ -22,6 +23,19 @@ enum AppleCalendarHistoryUploader {
             return
         }
 
+        // Keep EventKit + chunking off the main actor — a 10y scan can take minutes.
+        // Detached work is cancelled when the caller (troubleshoot timeout) cancels.
+        let work = Task.detached(priority: .utility) {
+            await Self.uploadHistory()
+        }
+        await withTaskCancellationHandler {
+            await work.value
+        } onCancel: {
+            work.cancel()
+        }
+    }
+
+    private static func uploadHistory() async {
         let store = EKEventStore()
         let cal = Calendar.current
         let end = Date()
@@ -42,7 +56,8 @@ enum AppleCalendarHistoryUploader {
         isoPlain.formatOptions = [.withInternetDateTime]
 
         func iso(_ date: Date) -> String {
-            isoFrac.string(from: date).isEmpty ? isoPlain.string(from: date) : isoFrac.string(from: date)
+            let fractional = isoFrac.string(from: date)
+            return fractional.isEmpty ? isoPlain.string(from: date) : fractional
         }
 
         func flush(done: Bool) async throws {
@@ -54,6 +69,7 @@ enum AppleCalendarHistoryUploader {
 
         do {
             while cursor < end {
+                try Task.checkCancellation()
                 guard let windowEnd = cal.date(byAdding: .day, value: chunkDays, to: cursor) else { break }
                 let rangeEnd = min(windowEnd, end)
                 let predicate = store.predicateForEvents(
@@ -106,6 +122,8 @@ enum AppleCalendarHistoryUploader {
             try await flush(done: true)
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastUploadKey)
             Analytics.calendarServerConnected(provider: "apple")
+        } catch is CancellationError {
+            // Troubleshoot left the screen / timed out — leave lastCompletedAt unset.
         } catch {
             // Leave lastCompletedAt unset so we retry; surface via connection last_error on server.
             print("[calendar] Apple history upload failed: \(error.localizedDescription)")

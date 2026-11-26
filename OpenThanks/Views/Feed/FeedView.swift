@@ -2053,7 +2053,9 @@ struct GratitudeCard: View {
                     voice: voice.rawValue,
                     // Feed share is link + caption (no 1080×1920 poster) for snappy UX.
                     hasCard: false,
-                    hasPhoto: content.sharePhotoURL != nil
+                    hasPhoto: content.sharePhotoURL != nil,
+                    surface: "feed",
+                    buttonLabel: "system_share"
                 )
             }
         }
